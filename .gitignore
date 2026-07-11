@@ -1,0 +1,16 @@
+# Secrets
+.env
+.env.*
+!.env.example       
+
+*.pem
+*.key
+credentials.json
+
+# Build
+dist/
+build/
+coverage/
+
+# Logs
+*.log
