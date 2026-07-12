@@ -9,7 +9,7 @@
 | --------------- | -------------- | ---------------------------------------------------- |
 | Amenah Sabri    | 22209031       | @TODO                                                |
 | Jesse Darkovski | 21707695       | [@theintonerzero](https://github.com/theintonerzero) |
-| Tony To         | 22817115       | @TODO                                                |
+| Tony To         | 22817115       | [@L1quidDroid](https://github.com/L1quidDroid) |                                                |
 
 ## Getting started
 
