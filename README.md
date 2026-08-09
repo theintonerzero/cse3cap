@@ -26,7 +26,7 @@ after the subject closes and after they graduate.
 - [Getting started](#getting-started)
 - [Team](#team)
 - [Client](#client)
-- [Documentation and links](#documentation-and-links)
+<!-- Documentation and links section will be added later -->
 
 ---
 
