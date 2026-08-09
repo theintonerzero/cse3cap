@@ -1,15 +1,183 @@
-# Capstone Project
+# Alumable Reflection Diary
 
 ![Subject](https://img.shields.io/badge/subject-CSE3CAP-blue)
 ![University](https://img.shields.io/badge/university-La%20Trobe-red)
+![Team](https://img.shields.io/badge/team-404%20Not%20Found-6f4fa1)
+![Semester](https://img.shields.io/badge/semester-S2%202026-lightgrey)
 
-## Team
+A lifelong, student-owned learning record built into [Alumable](https://alumable.com).
 
-| Name            | Student Number | GitHub                                               |
-| --------------- | -------------- | ---------------------------------------------------- |
-| Amenah Sabri    | 22209031       | @TODO                                                |
-| Jesse Darkovski | 21707695       | [@theintonerzero](https://github.com/theintonerzero) |
-| Tony To         | 22817115       | [@L1quidDroid](https://github.com/L1quidDroid) |                                                |
+Students log structured reflections against the gigs they work, self-score themselves
+against a competency rubric, and get counter-scored by a supervisor or employer. Both
+sets of scores are plotted on a radar chart, and the whole record stays with the student
+after the subject closes and after they graduate.
+
+---
+
+## Table of contents
+
+- [The problem](#the-problem)
+- [The solution](#the-solution)
+- [Objectives](#objectives)
+- [Scope](#scope)
+- [Tech stack](#tech-stack)
+- [Data model](#data-model)
+- [Repository structure](#repository-structure)
+- [Getting started](#getting-started)
+- [Team](#team)
+- [Client](#client)
+- [Documentation and links](#documentation-and-links)
+
+---
+
+## The problem
+
+Every semester students undertake real gigs that are guided and assessed by supervisors.
+They reflect on what they learned, supervisors give feedback, then the subject ends and
+all of it disappears.
+
+- Reflections are gone the moment the grade is submitted.
+- Skills gained on the job are never mapped to a recognised framework.
+- Feedback from supervisors and employers is informal, undocumented and easy to forget.
+- Students graduate with a transcript, but no lasting record of what they actually became
+  capable of.
+
+## The solution
+
+A Reflection Diary module inside Alumable where:
+
+1. A student opens a diary entry against a gig or sprint and writes a structured reflection,
+   attaching evidence such as notes, files or links.
+2. The student self-scores against each competency in the active framework.
+3. A supervisor, assessor or employer submits an independent counter-score on the same
+   competencies.
+4. Both score sets render on a radar chart, so the gap between self-perception and outside
+   assessment is visible at a glance.
+5. The record is exportable and persists beyond the subject and beyond graduation.
+
+### Design principles
+
+| Principle     | What it means                                                                                            |
+| ------------- | -------------------------------------------------------------------------------------------------------- |
+| **Permanent** | Every reflection and score stays with the student for life, not locked inside a subject that closes.       |
+| **Credible**  | Verified by the people who actually supervised the work.                                                   |
+| **Useful**    | Built around recognised skill frameworks, so the record means something to a future employer.               |
+| **Flexible**  | Works with SFIA 9 today and any other rubric Alumable or its university partners need tomorrow.             |
+
+## Objectives
+
+- Build a Reflection Diary module where students log structured, ideally evidence-based
+  reflections on gigs and projects as they do the work.
+- Support self-assessment scoring against a competency rubric, with counter-scoring by an
+  assessor, supervisor or employer.
+- Visualise progress over time as a radar chart of self vs assessor scores across competencies.
+- Make competency frameworks interchangeable (SFIA 9, La Trobe's six-competency rubric,
+  or anything else) rather than hard-coded.
+- Ensure the diary is a persistent, student-owned record that survives subject completion
+  and graduation.
+
+## Scope
+
+**Must have**
+
+- Structured reflection entries per sprint and per gig, with supporting evidence.
+- Self-assessment scoring against a competency rubric, with assessor/supervisor counter-scoring.
+- Radar-chart visualisation of self vs assessor scores across competencies.
+- A persistent, student-owned, exportable record that outlives the subject.
+
+**Nice to have**
+
+- Employer feedback and ratings integrated into the diary.
+- Interchangeable competency frameworks (SFIA 9 plus custom rubrics).
+- Reflection prompts and reminders to drive regular use.
+
+**Optional**
+
+- Longitudinal analytics across semesters.
+- AI-assisted reflection prompts.
+
+## Tech stack
+
+| Layer          | Choice                                                       |
+| -------------- | ------------------------------------------------------------ |
+| API components | PHP / Laravel, for anything integrating with Alumable's APIs |
+| Microservices  | Node.js or Python, for independent services                  |
+| Database       | MySQL                                                        |
+| Hosting        | AWS                                                          |
+| Design         | Figma                                                        |
+| Tracking       | Jira                                                         |
+
+This stack was set by the client so the Reflection Diary integrates cleanly with their live
+platform. Production and staging portals cannot be shared, so development happens against a
+sandboxed environment with dummy student, educator and employer data.
+
+## Data model
+
+The schema is grouped into four areas. Once you know which group a table belongs to, the
+design mostly explains itself.
+
+**Integration** — `users`, `gigs`, `sprints`, `gig_participants`
+
+Alumable owns identity and gigs, we do not, and we have no direct database access. These are
+small local mirrors, each carrying an `external_ref` holding Alumable's id for the same thing.
+That single column per table is the only coupling, which is what keeps the adapter small.
+
+Role lives on `gig_participants` rather than `users`, because the same person can be a student
+on one gig and an assessor on another. It is also where role-based access control checks
+resolve. `sprints` is a table rather than an integer on `reflections` because sprints have
+dates, which lets the UI say things like "due in 3 days" or "not open yet".
+
+**Framework engine** — `frameworks`, `competencies`, `levels`, `framework_assignments`
+
+The rubric is data, not code. Competency names, scales and level descriptions should not
+appear anywhere in application logic. `levels` hangs off `competencies` rather than
+`frameworks`, because SFIA skills are each valid over only part of the seven levels — one
+skill might run 3 to 5 and another 2 to 7, so the valid range has to live in the data.
+`framework_assignments` records which rubric applies to which gig, as a table rather than a
+column, so we also capture who assigned it and when.
+
+**Record** — `reflections`, `reflection_entries`, `scores`, `evidence`, `events`, `exports`
+
+`reflections` is the container: one per student per sprint, or per gig for gig-level
+reflections. It belongs to the student rather than the gig, and the foreign keys to `users`
+and `gigs` use `RESTRICT` so a mistaken gig delete fails loudly instead of erasing the
+reflections written for it.
+
+`reflection_entries` is the hub — one row per reflection per competency, holding the narrative
+text. Evidence, scores and AI suggestions attach here rather than to the reflection, because
+the assessment unit is the competency, not the sprint.
+
+`scores` are rows, not columns. There is no `self_score`/`assessor_score` pair; each row is one
+scorer's opinion tagged with `scorer_role`, recording who scored and when. The radar chart is
+just a query grouped by role, and adding a new scorer type later needs no migration. One score
+per person per role per entry, so re-scoring overwrites rather than stacking.
+
+`framework_version` on `reflections` looks redundant next to `framework_id`, but the id points
+at a row that can change, while the copied string snapshots exactly what the student was scored
+against. `events` powers the history sheet, and `exports` logs downloads as the audit trail for
+the exportable-record requirement.
+
+**AI (optional scope)** — `ai_suggestions`, `entry_embeddings`, `level_embeddings`
+
+The AI writes to `ai_suggestions` and nothing else. There is no path from a model into `scores` a human accepting a suggestion is what creates a score. Reflections are graded work, so we
+need to be able to prove an AI cannot author an assessment. `evidence_quote` on a suggestion
+must be a literal substring of what the student wrote, which gives them a reason for the
+suggestion and acts as a cheap hallucination check. Embeddings are split into two tables because
+the foreign keys point at different things, and both store `model_name` so we know which rows
+went stale if the embedding model is swapped.
+
+Full ERD: [`docs/erd.png`](docs/erd.png) · commentary: [`docs/erd-explained.md`](docs/erd-explained.md)
+
+## Repository structure
+
+```
+.
+├── docs/          # Brief, ERD, design notes, meeting records
+├── src/           # Application code
+└── README.md
+```
+
+> To be expanded as the Laravel app and microservices land.
 
 ## Getting started
 
@@ -17,3 +185,33 @@
 git clone https://github.com/theintonerzero/cse3cap.git
 cd cse3cap
 ```
+
+Setup instructions for the Laravel app, microservices and local database will be added here
+once the initial scaffold is committed.
+
+## Team
+
+**404 Not Found** — CSE3CAP, Semester 2, 2026
+
+| Name             | Student Number | Role                | GitHub                                               |
+| ---------------- | -------------- | ------------------- | ---------------------------------------------------- |
+| Tony To          | 22817115       | Cybersecurity Lead  | [@L1quidDroid](https://github.com/L1quidDroid)       |
+| Amenah Sabri     | 22209031       | Frontend Engineer   | @TODO                                                |
+| Jesse Darkovski  | 21707695       | Data & AI Lead      | [@theintonerzero](https://github.com/theintonerzero) |
+| Patrick Anley    | 19517303       | Full Stack Engineer | @TODO                                                |
+| Andrew Johansson | 21703763       | Cybersecurity Analyst | @TODO                                              |
+
+## Client
+
+**Alumable** a Melbourne edtech platform connecting university students with employers
+through paid gigs and projects, with a gamified portfolio that tracks skills mapped to
+frameworks such as SFIA 9.
+
+Project owner: David Yip, Founder & CEO. Contact details are held by the team and are not
+published here.
+
+Engagement includes at least three touchpoints: a week-2 meet and greet, a mid-semester design
+checkpoint, and final handover. Intellectual property in the delivered solution is assigned to
+Alumable.
+
+University, Semester 2 2026.*
