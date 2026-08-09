@@ -196,9 +196,9 @@ once the initial scaffold is committed.
 | Name             | Student Number | Role                | GitHub                                               |
 | ---------------- | -------------- | ------------------- | ---------------------------------------------------- |
 | Tony To          | 22817115       | Cybersecurity Lead  | [@L1quidDroid](https://github.com/L1quidDroid)       |
-| Amenah Sabri     | 22209031       | Frontend Engineer   | @TODO                                                |
+| Amenah Sabri     | 22209031       | Frontend Engineer   | [@amn-4](https://github.com/amn-4)                   |
 | Jesse Darkovski  | 21707695       | Data & AI Lead      | [@theintonerzero](https://github.com/theintonerzero) |
-| Patrick Anley    | 19517303       | Full Stack Engineer | @TODO                                                |
+| Patrick Anley    | 19517303       | Full Stack Engineer | [@RickLTCS ](https://github.com/RickLTCS)            |
 | Andrew Johansson | 21703763       | Cybersecurity Analyst | @TODO                                              |
 
 ## Client
