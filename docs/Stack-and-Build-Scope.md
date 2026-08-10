@@ -1,0 +1,212 @@
+# Reflection Diary — Stack and Build Scope
+
+**CSE3CAP / Alumable · Semester 2 2026**
+What we are building, what it runs on, and what has to exist for it to be done. Companion
+to the API specification (v2) and the ERD.
+
+---
+
+## 1. What this is
+
+An MVP, not a prototype. Complete and compelling, running on real data, designed to plug
+into Alumable's platform later. Twelve screens across three roles, backed by a JSON API
+and a MySQL database that is already designed and reviewed.
+
+Scope in one line: a student writes reflections per sprint, scores themselves against a
+swappable rubric, a supervisor or assessor counter-scores, both appear on a radar chart,
+and the student keeps and exports the record.
+
+---
+
+## 2. The stack
+
+| Layer | Technology | Why |
+|---|---|---|
+| Database | MySQL 8.4, hosted on a shared VPS | Set by the client; matches their live platform. One shared instance means no local setup for anyone |
+| Backend | PHP 8.3 / Laravel 11 | Set by the client; Sanctum, policies, queues, Faker all built in |
+| API style | REST, OpenAPI 3 contract | Screens map cleanly to resources; contract enables parallel build |
+| Frontend | React 18 + Vite + TypeScript | Recharts radar; types generated from the contract catch drift at compile time |
+| Charts | recharts | First-class React radar component |
+| Routing | React Router | Standard, nothing exotic needed |
+| Styling | CSS variables + CSS modules | Design tokens already exist as variables; no Tailwind config to maintain |
+| Auth | Sanctum bearer tokens, three seeded | Real token handling, no login screen in MVP |
+| Storage | Server filesystem via Laravel's filesystem abstraction | Swapping to S3 later is config, not code |
+| Export | Queued jobs; JSON native, PDF via dompdf | The `exports` row is the job record |
+
+**Not using, deliberately:** Next.js (no need for SSR or API routes when Laravel is the
+backend), Tailwind (tokens are already CSS variables), axios (one typed fetch wrapper is
+enough), pagination libraries (result sets are small), any vector database or AI service
+(cut from scope).
+
+### Database access
+
+MySQL runs on the VPS rather than locally, so nobody needs Docker or a local MySQL
+install. Everyone connects to the same instance with credentials from `.env`. Two
+consequences worth knowing:
+
+- The schema is applied once, centrally, rather than each person running the DDL.
+  Migrations are run against the shared database by whoever owns the change.
+- Seed data is shared, so anything one person changes, everyone sees. Treat the seeded
+  users, gigs and frameworks as fixed reference data and create new rows for
+  experimentation rather than editing the existing ones.
+
+---
+
+## 3. Repository layout
+
+```
+/db
+  01-schema.sql          the reviewed DDL
+  02-seed.sql            demo data: frameworks, users, gigs, reflections, scores
+/api                     Laravel 11
+/web                     React + Vite + TS
+/docs
+  openapi.yaml           the API contract, source of truth
+  PROJECT-CONTEXT.md     briefing for coding agents
+  adr/                   architecture decision records
+  erd.png
+.claude/settings.json    shared plugins + marketplaces for the team
+.mcp.json                Context7, MySQL MCP
+README.md                setup, connection details, the three tokens
+```
+
+---
+
+## 4. What has to be built
+
+### 4.1 Environment and data
+
+- [ ] MySQL 8.4 provisioned on the VPS, credentials distributed, `.env.example` committed
+- [ ] `01-schema.sql` applied and verified
+- [ ] `02-seed.sql` — two frameworks (La Trobe six-competency, SFIA 9), six users covering
+      every role, two gigs with sprints, reflections at every status, scores with a shaped
+      distribution (hidden ability profile per student, self-scores slightly optimistic,
+      assessor scores closer to truth), hand-written narratives rather than lorem
+- [ ] Three seeded tokens documented in the README
+- [ ] Views verified: `v_radar`, `v_calibration_gap`, `v_coverage_gaps`, `v_framework_scale`
+
+### 4.2 Backend
+
+**Foundation**
+- [ ] Laravel 11 scaffold, Sanctum installed, CORS for the Vite dev origin
+- [ ] DDL ported to migrations (CHECKs and generated columns via `DB::statement`)
+- [ ] Base model: `HasUuids`, `$keyType = 'string'`, `$incrementing = false`
+- [ ] Exception renderer producing the single error envelope
+- [ ] `roleFor(User, Gig)` helper + policies for every row of the permission matrix
+
+**Endpoints** (full detail in API spec v2)
+- [ ] `GET /auth/me`
+- [ ] `GET /gigs`, `GET /gigs/{id}`
+- [ ] `GET /frameworks`, `GET /frameworks/{id}`
+- [ ] `POST /frameworks` (deep copy), `PATCH /frameworks/{id}`, `PATCH /competencies/{id}`,
+      `PATCH /levels/{id}` — all behind the `FRAMEWORK_IN_USE` guard
+- [ ] `POST /framework-assignments`
+- [ ] `GET/POST /reflections`, `GET /reflections/{id}`, `POST .../submit`, `DELETE`
+- [ ] `PATCH /entries/{id}`, `POST /entries/{id}/evidence`, `DELETE /evidence/{id}`
+- [ ] `PUT /entries/{id}/scores/self`, `POST /entries/{id}/scores`
+- [ ] `GET /review-queue`
+- [ ] `GET /me/radar`, `/me/progress`, `/me/calibration`, `/me/coverage`
+- [ ] `POST /exports`, `GET /exports/{id}`, `GET /exports`, `GET /exports/{id}/download`
+- [ ] `GET /reflections/{id}/events`
+
+**Business rules, one implementation each**
+- [ ] Submit gate (narrative, self-score, evidence-if-required)
+- [ ] Comment required when a counter-score is lower than the self score
+- [ ] Level belongs to the entry's competency (service layer; the database cannot express it)
+- [ ] Framework immutable once referenced by any reflection
+- [ ] Eager entry creation, one per competency, on reflection create
+- [ ] Auto-flip to `assessed` when every entry has a counter-score
+
+### 4.3 Frontend
+
+**Foundation, in this order**
+- [ ] Vite + TS scaffold, ESLint, Prettier
+- [ ] `tokens.css` — colour, spacing, radius as CSS variables; light and dark via
+      `data-theme`. No raw hex anywhere else in the codebase
+- [ ] Core components: Card, Button, Chip, Badge, TextArea (debounced), ProgressBar,
+      BottomSheet, RadarPanel (axes and domain from props), Skeleton, ErrorNotice
+- [ ] Typed API client — one fetch wrapper, types generated from `openapi.yaml` via
+      openapi-typescript, error envelope unwrapped centrally
+- [ ] App shell: router, token context, role-aware nav from `/auth/me`
+
+**Screens** — twelve, each with loaded / loading / empty / error states
+
+*Student*
+- [ ] Diary home — scope chips (all gigs / per gig), sprint chips inside a gig, radar with
+      a caption that changes with scope, entry list with status badges, export link
+- [ ] Gig detail — header, sprint list with dates, diary card linking in scoped to that gig
+- [ ] Entry stepper — one component, N states from the framework payload: competency name,
+      tappable level descriptors, narrative with debounced autosave, evidence row,
+      "Competency 3 of 6" progress, Back/Next, Submit on last with gate errors mapped to
+      the offending entries
+- [ ] Submitted confirmation — assessor notified, next sprint date, back to diary
+- [ ] Export sheet — PDF/JSON selector, includes summary, request → poll → download
+- [ ] History sheet — event timeline
+
+*Assessor*
+- [ ] Review queue — worklist with per-reflection progress
+- [ ] Assessor stepper — the entry stepper in assessor mode: student's narrative and
+      evidence read-only, their self-score shown, level picker, comment box that becomes
+      required when scoring lower
+
+*Educator (supervisor role)*
+- [ ] Select framework — available templates vs saved copies, Edit and Assign actions,
+      Edit hidden when `in_use`
+- [ ] Edit framework — based-on selector, name, competencies with their level descriptors,
+      save as a new copy
+
+### 4.4 Security and infrastructure
+
+- [ ] Sanctum configuration and token handling
+- [ ] Policies covering every permission-matrix row, resolved from `gig_participants`
+- [ ] Evidence upload: type and size validation against framework policy, storage wiring
+- [ ] Export pipeline: queued jobs, JSON then PDF, download authorisation
+- [ ] VPS access control, `.env.example`, nothing secret committed
+- [ ] Security review on every PR touching scoring, submit, or framework mutation
+- [ ] Retention and erasure note for the report (the `RESTRICT` constraints make deletion
+      deliberate rather than cascading)
+
+### 4.5 Cross-cutting
+
+- [ ] CI: Pint, ESLint, Prettier, both builds — set up before the first feature PR
+- [ ] `openapi.yaml` written from API spec v2, mock server running (`prism mock`)
+- [ ] `.claude/settings.json` with shared plugins; `PROJECT-CONTEXT.md` in `/docs`
+- [ ] ADRs for every decision in §2 of this document
+
+---
+
+## 5. Out of scope
+
+Recorded so nobody builds them by accident.
+
+- **AI features** — cut. No suggestion tables, no embeddings, nothing writes scores but a
+  human.
+- **Framework creation from scratch** — copy-then-edit only, from a seeded base.
+- **Adding or removing competencies, changing level counts** — renaming competencies and
+  rewording descriptors only.
+- **Editing a framework that is in use** — permanently read-only once referenced.
+- **Re-scoring** — an assessor cannot revise a submitted score; a repeat is a 409.
+- **Login screen** — three seeded tokens; auth exists server-side.
+- **Pagination, notifications table, multi-tenancy, real-time updates.**
+
+---
+
+## 6. Definition of done
+
+The MVP is done when all of the following are true.
+
+1. A fresh clone connects to the shared database and runs against real seed data.
+2. A student token can create a reflection, write every entry, self-score, and submit,
+   with the gate rejecting an incomplete submission.
+3. An assessor token can see the review queue, counter-score, and is forced to comment
+   when scoring lower than the student did.
+4. The radar renders self and assessor polygons from real database rows, with axes and
+   scale read from the active framework.
+5. Switching a gig to SFIA 9 changes the axes, the scale, and every level descriptor with
+   no code change.
+6. A supervisor can copy a framework, rename a competency, reword a descriptor, and assign
+   the copy to a gig — and cannot edit a framework already in use.
+7. A student can export their record and download the file.
+8. Every screen has a loading, empty, and error state.
+9. CI passes on `main`.
+10. The report, the ADRs, and the individual compendiums are written.

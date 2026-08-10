@@ -1,0 +1,27 @@
+# OpenAPI 3.1 contract for the Reflection Diary API.
+#
+# This file is the machine source of truth: the frontend mock server
+# (prism mock docs/openapi.yaml) and the generated TypeScript types both
+# come from here, and the backend implements it.
+#
+# Write it from docs/API-Specification.md, which is the human-readable
+# version. If the two disagree, this file wins and the markdown is stale.
+#
+# Update this in the same commit as any endpoint change.
+
+openapi: 3.1.0
+info:
+  title: Reflection Diary API
+  version: 0.1.0
+  description: >
+    Competency reflection and scoring for Alumable. See
+    docs/API-Specification.md for the annotated contract and
+    docs/PROJECT-CONTEXT.md for background.
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Local development
+
+# TODO: components.securitySchemes (bearer)
+# TODO: components.schemas (Error envelope, User, Gig, Framework, Reflection, Entry, Score, Export)
+# TODO: paths — see API-Specification.md sections 2 through 10
+paths: {}
