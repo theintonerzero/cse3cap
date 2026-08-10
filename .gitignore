@@ -1,16 +1,29 @@
-# Secrets
+# Environment
 .env
-.env.*
-!.env.example       
+.env.*.local
 
-*.pem
-*.key
-credentials.json
+# Dependencies
+/vendor
+/node_modules
 
-# Build
-dist/
-build/
-coverage/
+# Build output
+/api/public/build
+/web/dist
+/web/node_modules
 
-# Logs
-*.log
+# Laravel
+/api/storage/*.key
+/api/storage/framework/cache/*
+/api/storage/framework/sessions/*
+/api/storage/framework/views/*
+/api/storage/logs/*
+/api/bootstrap/cache/*
+
+# Claude Code local overrides (settings.json is committed, .local is not)
+.claude/settings.local.json
+
+# Editors and OS
+.DS_Store
+.idea
+.vscode
+*.swp
