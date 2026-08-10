@@ -31,46 +31,46 @@ seeded data and is designed to integrate with Alumable's platform later.
 
 Use these words exactly as defined. Several are easy to conflate.
 
-**Gig** — a paid piece of work a student does through the platform. Divided into sprints.
+**Gig.** A paid piece of work a student does through the platform. Divided into sprints.
 
-**Sprint** — a dated period within a gig. Has `opens_on` and `due_on`. A reflection is
+**Sprint.** A dated period within a gig. Has `opens_on` and `due_on`. A reflection is
 normally written per sprint.
 
-**Framework** — a competency rubric, for example La Trobe's six-competency rubric or
+**Framework.** A competency rubric, for example La Trobe's six-competency rubric or
 SFIA 9. Stored as data, never as code. Versioned.
 
-**Competency** — one skill inside a framework, for example Collaboration, or SFIA's
+**Competency.** One skill inside a framework, for example Collaboration, or SFIA's
 `PROG`. Belongs to exactly one framework.
 
-**Level** — one scoring band of one competency, with a text descriptor. Belongs to a
+**Level.** One scoring band of one competency, with a text descriptor. Belongs to a
 competency, not to a framework. This matters, see §5.
 
-**Reflection** — the container for one student's work in one context (a sprint, or a gig).
+**Reflection.** The container for one student's work in one context (a sprint, or a gig).
 Has a status: `draft`, `submitted`, `assessed`.
 
-**Reflection entry** — one row per reflection per competency. Holds the narrative text.
+**Reflection entry.** One row per reflection per competency. Holds the narrative text.
 Evidence and scores hang off entries, not off reflections. This is the hub of the schema.
 
-**Score** — one person's rating of one entry. Rows, not columns. Tagged with
+**Score.** One person's rating of one entry. Rows, not columns. Tagged with
 `scorer_role`: `self`, `assessor`, `supervisor`, `employer`.
 
-**Counter-score** — a score with a role other than `self`. The second opinion.
+**Counter-score.** A score with a role other than `self`. The second opinion.
 
-**Evidence** — a file or link attached to an entry to support what the narrative claims.
+**Evidence.** A file or link attached to an entry to support what the narrative claims.
 
-**Radar** — the self-versus-assessor chart. Axes are the framework's competencies, so the
+**Radar.** The self-versus-assessor chart. Axes are the framework's competencies, so the
 number of axes and the scale both vary by framework.
 
 ## 3. Stack
 
 | Layer | Technology |
 |---|---|
-| Database | MySQL 8.4, in Docker for local development |
+| Database | MySQL 8.4, hosted on a shared VPS |
 | Backend | PHP 8.3 / Laravel 11, JSON API |
 | Frontend | React 18 + Vite + TypeScript |
 | Charts | recharts |
 | Auth | Laravel Sanctum bearer tokens |
-| Storage | Local Docker volume via Laravel's filesystem abstraction |
+| Storage | Server filesystem via Laravel's filesystem abstraction |
 | Contract | OpenAPI 3, `docs/openapi.yaml` |
 
 The stack was set by the client to match their live platform. Do not propose replacing it.
@@ -78,14 +78,16 @@ The stack was set by the client to match their live platform. Do not propose rep
 Repository layout:
 
 ```
-/db/init/01-schema.sql     the DDL, runs automatically on first container boot
-/db/init/02-seed.sql       demo data
+/db/01-schema.sql          the DDL, applied centrally to the shared instance
+/db/02-seed.sql            demo data
 /api                       Laravel
 /web                       React
 /docs/openapi.yaml         the API contract
 /docs/adr/                 architecture decision records
-docker-compose.yml
 ```
+
+MySQL runs on the shared VPS rather than locally, so there is no local database and no
+containers. See ADR #14.
 
 ## 4. Architecture
 
@@ -141,7 +143,7 @@ via `v_framework_scale`.
 is an event with an actor: who chose the rubric and when.
 
 ### Zone 3: the record
-`reflections`, `reflection_entries`, `scores`, `evidence`, `events`, `exports`
+`reflections`, `reflection_entries`, `scores`, `evidence`
 
 `reflections.user_id` and `reflections.gig_id` use `ON DELETE RESTRICT`, not `CASCADE`.
 Deleting a gig fails loudly rather than quietly wiping the reflections written about it.
@@ -167,11 +169,13 @@ radar is one query grouped by `scorer_role`.
 `scores.level_id` is a foreign key to `levels`, not an integer. A score therefore cannot
 reference a level that does not exist. See §7 for the check the database cannot do.
 
+### Zone 4: audit trail
+`events`, `exports`
+
 `events` is an append-only log with a `metadata` JSON column, so one table serves every
 event type. Notifications are derived from it; there is deliberately no notifications
 table.
 
-### Zone 4 is `events` and `exports` together
 `exports` is the audit trail proving the exportable-record requirement works, and doubles
 as the job record for async export generation.
 
@@ -310,7 +314,7 @@ author it; the same rule applies to the people building it.
 
 ## 12. Where to look
 
-`db/init/01-schema.sql` for the schema, including comments explaining each unusual choice.
+`db/01-schema.sql` for the schema, including comments explaining each unusual choice.
 `docs/openapi.yaml` for the contract. `docs/adr/` for why any given decision was made.
 `docs/erd.png` for the diagram, whose legend lists the constraints that crow's foot
 notation cannot show.

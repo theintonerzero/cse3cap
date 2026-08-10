@@ -125,7 +125,7 @@ connects later through the `external_ref` columns described below.
 The schema is grouped into three areas plus an audit trail. Once you know which group a
 table belongs to, the design mostly explains itself.
 
-**Integration** — `users`, `gigs`, `sprints`, `gig_participants`
+**Integration:** `users`, `gigs`, `sprints`, `gig_participants`
 
 Alumable owns identity and gigs, we do not, and we have no direct database access. These are
 small local mirrors, each carrying an `external_ref` holding Alumable's id for the same thing.
@@ -136,11 +136,11 @@ on one gig and an assessor on another. It is also where role-based access contro
 resolve. `sprints` is a table rather than an integer on `reflections` because sprints have
 dates, which lets the UI say things like "due in 3 days" or "not open yet".
 
-**Framework engine** — `frameworks`, `competencies`, `levels`, `framework_assignments`
+**Framework engine:** `frameworks`, `competencies`, `levels`, `framework_assignments`
 
 The rubric is data, not code. Competency names, scales and level descriptions should not
 appear anywhere in application logic. `levels` hangs off `competencies` rather than
-`frameworks`, because SFIA skills are each valid over only part of the seven levels — one
+`frameworks`, because SFIA skills are each valid over only part of the seven levels. One
 skill might run 3 to 5 and another 2 to 7, so the valid range has to live in the data.
 `framework_assignments` records which rubric applies to which gig, as a table rather than a
 column, so we also capture who assigned it and when.
@@ -149,16 +149,16 @@ A framework referenced by any reflection is permanently read-only. Editing is co
 because mutating a framework in place would silently change what past students were scored
 against.
 
-**Record** — `reflections`, `reflection_entries`, `scores`, `evidence`
+**Record:** `reflections`, `reflection_entries`, `scores`, `evidence`
 
 `reflections` is the container: one per student per sprint, or per gig for gig-level
 reflections. It belongs to the student rather than the gig, and the foreign keys to `users`
 and `gigs` use `RESTRICT` so a mistaken gig delete fails loudly instead of erasing the
 reflections written for it.
 
-`reflection_entries` is the hub — one row per reflection per competency, holding the narrative
-text. Evidence and scores attach here rather than to the reflection, because the assessment
-unit is the competency, not the sprint.
+`reflection_entries` is the hub. One row per reflection per competency, and it holds the
+narrative text. Evidence and scores attach here rather than to the reflection, because the
+assessment unit is the competency, not the sprint.
 
 `scores` are rows, not columns. There is no `self_score`/`assessor_score` pair; each row is one
 scorer's opinion tagged with `scorer_role`, recording who scored and when. The radar chart is
@@ -170,7 +170,7 @@ assessor cannot revise a counter-score once given.
 at a row that can change, while the copied string snapshots exactly what the student was scored
 against.
 
-**Audit** — `events`, `exports`
+**Audit:** `events`, `exports`
 
 `events` is an append-only log that powers the history sheet, with a JSON metadata column so
 one table serves every event type. Notifications are derived from it rather than stored.
@@ -263,7 +263,7 @@ an endpoint, update the contract in the same PR.
 **Decisions get an ADR.** Anything that changes the schema, the contract, or a choice
 already recorded gets a new record in [`docs/adr/`](docs/adr/). Supersede, never rewrite.
 
-**Naming is snake_case everywhere** — database, JSON, frontend types. There is no mapping
+**Naming is snake_case everywhere:** database, JSON, frontend types. There is no mapping
 layer between them.
 
 Branching, commits, PRs and review are in [CONTRIBUTING.md](CONTRIBUTING.md).
@@ -311,7 +311,7 @@ and the reasoning behind the unusual decisions.
 
 ## Team
 
-**404 Not Found** — CSE3CAP, Semester 2, 2026
+**404 Not Found**, CSE3CAP, Semester 2, 2026
 
 | Name             | Student Number | Role                  | GitHub                                               |
 | ---------------- | -------------- | --------------------- | ---------------------------------------------------- |

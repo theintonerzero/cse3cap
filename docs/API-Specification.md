@@ -1,4 +1,4 @@
-# Reflection Diary — API Specification v2
+# Reflection Diary: API specification v2
 
 Base path `/api/v1`. JSON in and out. This is the human-readable contract; `docs/openapi.yaml`
 is generated from it and is the machine source of truth for the mock server and both
@@ -120,7 +120,7 @@ The full rubric, nested. Drives the entry stepper, the radar axes, and the edito
 ```
 `scale` is computed from the level rows (`v_framework_scale`).
 
-### POST /frameworks  — create a copy (supervisor only)
+### POST /frameworks: create a copy (supervisor only)
 ```json
 { "based_on_framework_id": "…", "name": "Alumable Sprint 1 Gig template" }
 ```
@@ -133,20 +133,20 @@ reflections reference, because doing so would silently change what past students
 scored against. The version snapshot on every reflection depends on frameworks being
 immutable once used.
 
-### PATCH /frameworks/{framework_id}  — supervisor, own copy, not in use
+### PATCH /frameworks/{framework_id}: supervisor, own copy, not in use
 Rename or adjust policy: any of `name`, `comment_required`, `evidence_required`,
 `accepted_file_types`, `max_file_bytes`.
 If any reflection references the framework → **409 FRAMEWORK_IN_USE**.
 If `created_by` isn't the caller (seeded bases included) → 403.
 
-### PATCH /competencies/{competency_id}  — same guards
-`{ "name": "…", "short_label": "…" }` — rename only in MVP scope. Adding/removing
-competencies and changing level counts is out of scope (see plan §Out of scope).
+### PATCH /competencies/{competency_id}: same guards
+`{ "name": "…", "short_label": "…" }`. Rename only in MVP scope. Adding or removing
+competencies and changing level counts is out of scope (see Stack-and-Build-Scope §5).
 
-### PATCH /levels/{level_id}  — same guards
-`{ "descriptor": "…" }` — reword a level descriptor.
+### PATCH /levels/{level_id}: same guards
+`{ "descriptor": "…" }`. Reword a level descriptor.
 
-### POST /framework-assignments  — supervisor or employer
+### POST /framework-assignments: supervisor or employer
 `{ "framework_id": "…", "gig_id": "…" }` → 201. 409 `DUPLICATE` if already assigned.
 Assigning is what eventually flips a framework's `in_use` (the first reflection created
 under it does).
@@ -174,7 +174,7 @@ Server behaviour:
 Returns 201 with full detail.
 
 ### GET /reflections/{reflection_id}
-Full detail — the screen payload for student and assessor views:
+Full detail, the screen payload for student and assessor views:
 ```json
 {
   "id": "…", "status": "draft", "gig_id": "…", "sprint_id": "…",
@@ -208,29 +208,30 @@ Draft only, owner only. Submitted and assessed records cannot be deleted through
 ## 6. Entries & evidence
 
 ### PATCH /entries/{entry_id}
-`{ "narrative": "…" }` — owner, draft only. The autosave endpoint; frontend debounces.
+`{ "narrative": "…" }`. Owner, draft only. The autosave endpoint; frontend debounces.
 
 ### POST /entries/{entry_id}/evidence
 Link: JSON `{ "kind": "link", "label": "…", "uri": "…" }`.
-File: multipart (`file`, `label`) → stored to the local volume via the filesystem
+File: multipart (`file`, `label`) → stored to the server filesystem via the filesystem
 abstraction; kind file/image from MIME. Validated against the framework's
 `accepted_file_types` (400 `FILE_TYPE_NOT_ACCEPTED`) and `max_file_bytes`
 (400 `FILE_TOO_LARGE`). Draft only. Returns 201.
 
-### DELETE /evidence/{evidence_id} — owner, draft only, 204.
+### DELETE /evidence/{evidence_id}
+Owner, draft only, 204.
 
 ---
 
 ## 7. Scoring
 
 ### PUT /entries/{entry_id}/scores/self
-`{ "level_id": "…" }` — student, own draft. **PUT = upsert**: changing your mind before
+`{ "level_id": "…" }`. Student, own draft. **PUT = upsert**: changing your mind before
 submit replaces the score. Server check: level belongs to the entry's competency
-(400 `LEVEL_NOT_IN_COMPETENCY`) — this check lives here and in the endpoint below,
+(400 `LEVEL_NOT_IN_COMPETENCY`). This check lives here and in the endpoint below,
 nowhere else.
 
 ### POST /entries/{entry_id}/scores
-`{ "level_id": "…", "comment": "…" }` — assessor/supervisor/employer on the gig.
+`{ "level_id": "…", "comment": "…" }`. Assessor/supervisor/employer on the gig.
 1. Reflection must be `submitted` (409 `NOT_SUBMITTED`)
 2. Level-in-competency check as above
 3. **Counter-score below the student's self score → comment mandatory**
@@ -271,11 +272,11 @@ are null. Backed by `v_radar`.
 
 ### GET /me/calibration?gig_id=
 From `v_calibration_gap`: `[{ "competency_code": "…", "self_level": 3,
-"assessor_level": 2, "gap": 1 }]` — positive gap = student rated themselves higher.
+"assessor_level": 2, "gap": 1 }]`. A positive gap means the student rated themselves higher.
 
 ### GET /me/coverage?framework_id={required}
-From `v_coverage_gaps`: `[{ "competency_code": "…", "name": "…" }]` — never-evidenced
-competencies.
+From `v_coverage_gaps`: `[{ "competency_code": "…", "name": "…" }]`. Competencies that have
+never been evidenced.
 
 ---
 
@@ -292,7 +293,11 @@ record. JSON ships first; PDF follows (see plan risks).
    "requested_at": "…", "completed_at": "…", "download_uri": "…" }`
 Frontend polls after the 202.
 
-### GET /exports — history. · GET /exports/{export_id}/download — the file, owner only.
+### GET /exports
+Export history.
+
+### GET /exports/{export_id}/download
+The file itself, owner only.
 
 ---
 
@@ -309,11 +314,11 @@ Notifications are derived (review queue + status changes), never stored.
 
 | | student | assessor | supervisor (= educator) | employer |
 |---|---|---|---|---|
-| create/edit/submit/delete own reflection, self-score, evidence | ✓ | — | — | — |
+| create/edit/submit/delete own reflection, self-score, evidence | ✓ | - | - | - |
 | view a reflection | own | on their gigs | on their gigs | on their gigs |
-| counter-score, review queue | — | ✓ | ✓ | ✓ |
-| create / edit frameworks (own copies, not in use) | — | — | ✓ | — |
-| assign framework to gig | — | — | ✓ | ✓ |
+| counter-score, review queue | - | ✓ | ✓ | ✓ |
+| create / edit frameworks (own copies, not in use) | - | - | ✓ | - |
+| assign framework to gig | - | - | ✓ | ✓ |
 | analytics + export | own record | own record | own record | own record |
 
 ## 12. Status lifecycle
