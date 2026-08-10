@@ -1,0 +1,28 @@
+-- =====================================================================
+-- Reflection Diary — seed data
+-- Run after 01-schema.sql. Applied centrally to the shared VPS database.
+--
+-- Contents:
+--   * two frameworks: La Trobe six-competency (1-4) and SFIA 9 (1-7)
+--     -- seeded by 01-schema.sql, not repeated here
+--   * six users covering every role, with the three documented tokens
+--   * two gigs with sprints, and gig_participants linking them
+--   * reflections at every status: draft, submitted, assessed
+--   * scores with a shaped distribution rather than random values:
+--     each student has a hidden ability profile per competency,
+--     self-scores drift slightly optimistic, assessor scores sit
+--     closer to the hidden value. This is what makes the radar and
+--     v_calibration_gap show a believable story instead of noise.
+--   * hand-written narratives. Do not use lorem ipsum: the narratives
+--     are read aloud in demos.
+--
+-- Treat everything here as fixed reference data. Create new rows to
+-- experiment; editing these changes what the whole team sees.
+-- =====================================================================
+
+-- TODO: users + tokens
+-- TODO: gigs + sprints + gig_participants
+-- TODO: framework_assignments
+-- TODO: reflections + reflection_entries
+-- TODO: scores (shaped)
+-- TODO: evidence (links only for now)
