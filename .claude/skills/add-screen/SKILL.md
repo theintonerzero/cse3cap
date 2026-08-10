@@ -39,7 +39,7 @@ every value is a token. One hardcoded colour breaks dark mode silently.
 ## The API client
 
 One typed fetch wrapper in `web/src/api/`. Types are generated from `docs/openapi.yaml` with
-openapi-typescript. Never hand-write a response type — if the shape you need is not in the
+openapi-typescript. Never hand-write a response type. If the shape you need is not in the
 generated types, the contract is wrong and that is the thing to fix.
 
 The wrapper attaches the bearer token and unwraps the error envelope centrally, so components
@@ -63,7 +63,7 @@ only, shows the student's self-score, and requires a comment when scoring lower.
 
 `RadarPanel` takes axes and scale as props. Never hardcode six axes or a four point scale. La
 Trobe's rubric has six competencies scored 1 to 4; SFIA 9 has different competencies scored 1
-to 7. Both must render through the same component with no code change — that is the entire
+to 7. Both must render through the same component with no code change. That is the entire
 point of the framework engine.
 
 The radar's caption changes with scope: whole record shows the latest score per competency, a

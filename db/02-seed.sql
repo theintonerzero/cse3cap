@@ -1,5 +1,5 @@
 -- =====================================================================
--- Reflection Diary — seed data
+-- Reflection Diary: seed data
 -- Run after 01-schema.sql. Applied centrally to the shared VPS database.
 --
 -- Contents:

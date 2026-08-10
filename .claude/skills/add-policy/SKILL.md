@@ -18,7 +18,7 @@ via one helper:
 roleFor(User $user, Gig $gig): ?string   // student|assessor|supervisor|employer|null
 ```
 
-Null means not a participant, which is a 404, not a 403 — the caller should not learn the
+Null means not a participant, which is a 404, not a 403. The caller should not learn the
 resource exists.
 
 **Never accept a role from the request.** Not from a header, not from the body, not from a
@@ -31,21 +31,21 @@ method. If your endpoint is not covered by a row, add the row first, then the po
 
 | Capability | student | assessor | supervisor | employer |
 |---|---|---|---|---|
-| create/edit/submit/delete own reflection, self-score, evidence | own | — | — | — |
+| create/edit/submit/delete own reflection, self-score, evidence | own | - | - | - |
 | view a reflection | own | their gigs | their gigs | their gigs |
-| counter-score, review queue | — | yes | yes | yes |
-| create/edit frameworks (own copies, not in use) | — | — | yes | — |
-| assign framework to gig | — | — | yes | yes |
+| counter-score, review queue | - | yes | yes | yes |
+| create/edit frameworks (own copies, not in use) | - | - | yes | - |
+| assign framework to gig | - | - | yes | yes |
 | analytics and export | own | own | own | own |
 
 Supervisor covers the educator screens. There is no separate educator role.
 
 ## 403 or 404
 
-**404** when the caller should not know the resource exists — someone else's reflection, a
+**404** when the caller should not know the resource exists: someone else's reflection, a
 gig they do not participate in. Not found and not yours are deliberately indistinguishable.
 
-**403** when they can legitimately see the resource but not perform this action — a student
+**403** when they can legitimately see the resource but not perform this action: a student
 trying to counter-score their own reflection.
 
 ## State is part of authorisation
@@ -64,7 +64,7 @@ that should fail:
 ## Testing
 
 One test per row of the matrix that touches your resource. Test the denial, not just the
-permission — a policy that returns true for everyone passes every happy-path test.
+permission. A policy that returns true for everyone passes every happy-path test.
 
 Cover: correct role succeeds, wrong role fails, non-participant gets 404, right role but
 wrong state fails.

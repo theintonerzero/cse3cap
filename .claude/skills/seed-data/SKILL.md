@@ -77,7 +77,7 @@ Seed at least one row of every state a screen can render, or empty states never 
 
 Three seeded users with documented Sanctum tokens, one per role: student, assessor, and
 supervisor which also covers the educator screens. Token values go in `db/02-seed.sql` and
-are pinned in the team channel. Keep them stable — changing them breaks everyone's setup at
+are pinned in the team channel. Keep them stable. Changing them breaks everyone's setup at
 once.
 
 ## Determinism

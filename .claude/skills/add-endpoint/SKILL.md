@@ -11,9 +11,9 @@ in order.
 
 ## 1. Read before writing
 
-- `docs/openapi.yaml` — does something close already exist? Match its shape.
-- `docs/API-Specification.md` — the annotated version, with the reasoning.
-- `db/01-schema.sql` — never guess a column name.
+- `docs/openapi.yaml`: does something close already exist? Match its shape.
+- `docs/API-Specification.md`: the annotated version, with the reasoning.
+- `db/01-schema.sql`: never guess a column name.
 
 If the endpoint is already specified in the contract, implement what is there. Do not
 improve on it silently. If the spec is wrong, change the spec in the same PR and say so.
@@ -83,7 +83,7 @@ One envelope, always:
 ```
 
 Codes are enumerated in the contract. Do not invent a new one without adding it there.
-Where a failure concerns specific rows, put the ids in `details` — the submit gate returns
+Where a failure concerns specific rows, put the ids in `details`. The submit gate returns
 `details.entry_ids` so the frontend can highlight which competencies are incomplete.
 
 Status codes: 400 validation or rule failure, 401 bad token, 403 wrong role, 404 not found

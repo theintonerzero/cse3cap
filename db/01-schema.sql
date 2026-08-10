@@ -1,5 +1,5 @@
 -- =====================================================================
--- Reflection Diary — MySQL 8 schema (v2)
+-- Reflection Diary: MySQL 8 schema (v2)
 -- Alumable / La Trobe CSE3CAP Capstone, Semester 2 2026
 --
 -- Supersedes the PostgreSQL schema. AI tables (ai_suggestions,
@@ -24,7 +24,7 @@
 SET NAMES utf8mb4;
 
 -- ---------------------------------------------------------------------
--- 1. Integration seam — mirrors of host-platform entities
+-- 1. Integration seam: mirrors of host-platform entities
 -- ---------------------------------------------------------------------
 
 CREATE TABLE users (
@@ -77,7 +77,7 @@ CREATE TABLE gig_participants (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ---------------------------------------------------------------------
--- 2. Framework engine — the rubric as data, not code
+-- 2. Framework engine: the rubric as data, not code
 -- ---------------------------------------------------------------------
 
 CREATE TABLE frameworks (
@@ -139,7 +139,7 @@ CREATE TABLE framework_assignments (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ---------------------------------------------------------------------
--- 3. The record — owned by the student, outlives the gig
+-- 3. The record: owned by the student, outlives the gig
 -- ---------------------------------------------------------------------
 
 -- gig_key / sprint_key are MySQL's substitute for Postgres's
@@ -350,7 +350,7 @@ WHERE f.is_active = 1
 );
 
 -- ---------------------------------------------------------------------
--- 5. Seed — two structurally different frameworks on identical code
+-- 5. Seed: two structurally different frameworks on identical code
 -- ---------------------------------------------------------------------
 
 SET @latrobe = UUID();

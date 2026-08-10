@@ -12,7 +12,7 @@ A migration that contradicts it is a bug.
 
 **Does this need an ADR?** New table, changed relationship, changed delete rule, changed
 constraint: yes. New nullable column on an existing table for a feature already agreed: no.
-When unsure, write the ADR — it is cheap and the register is a graded artifact.
+When unsure, write the ADR. It is cheap and the register is a graded artifact.
 
 **Announce it.** The database is shared on a VPS. Two people migrating at once conflict, and
 a bad migration takes out everyone's environment. Say so in the channel before running.
@@ -70,7 +70,7 @@ Do not default to `CASCADE`.
 `reflections.user_id` and `reflections.gig_id` use `ON DELETE RESTRICT` deliberately.
 Deleting a gig must fail loudly rather than quietly wiping the reflections written about it.
 Student ownership is enforced by this constraint, not by a policy document. Never weaken it
-to make a test or a teardown easier — fix the teardown.
+to make a test or a teardown easier. Fix the teardown instead.
 
 `reflections.sprint_id` uses `SET NULL`, so reorganising sprints loosens a reflection's
 context rather than blocking the change.

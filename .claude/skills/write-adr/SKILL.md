@@ -5,7 +5,7 @@ description: Write an architecture decision record. Use when making or reversing
 
 # Writing an ADR
 
-Records are append only. A decision that changes later is never edited or deleted — a new
+Records are append only. A decision that changes later is never edited or deleted. A new
 record supersedes it and the old one is marked. The trail is the point: it shows how the
 design actually developed, which reads better than a design that appears to have been right
 first time.
@@ -76,7 +76,7 @@ Someone reading later needs to know what was true at the time, not just what was
 
 Do not edit the old record beyond changing its Status line to `Superseded by #M`. The new
 record lists what it supersedes and explains what changed. One new record can supersede
-several old ones — ADR #10 supersedes five at once, from when the AI scope was cut and the
+several old ones. ADR #10 supersedes five at once, from when the AI scope was cut and the
 project moved back to MySQL.
 
 ## Voice

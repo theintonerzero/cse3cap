@@ -23,5 +23,5 @@ servers:
 
 # TODO: components.securitySchemes (bearer)
 # TODO: components.schemas (Error envelope, User, Gig, Framework, Reflection, Entry, Score, Export)
-# TODO: paths — see API-Specification.md sections 2 through 10
+# TODO: paths, see API-Specification.md sections 2 through 10
 paths: {}
