@@ -61,10 +61,10 @@ A Reflection Diary module inside Alumable where:
 
 | Principle     | What it means                                                                                        |
 | ------------- | ---------------------------------------------------------------------------------------------------- |
-| **Permanent** | Every reflection and score stays with the student for life, not locked inside a subject that closes.   |
-| **Credible**  | Verified by the people who actually supervised the work.                                               |
-| **Useful**    | Built around recognised skill frameworks, so the record means something to a future employer.           |
-| **Flexible**  | Works with SFIA 9 today and any other rubric Alumable or its university partners need tomorrow.         |
+| **Permanent** | Every reflection and score stays with the student for life, not locked inside a subject that closes. |
+| **Credible**  | Verified by the people who actually supervised the work.                                             |
+| **Useful**    | Built around recognised skill frameworks, so the record means something to a future employer.        |
+| **Flexible**  | Works with SFIA 9 today and any other rubric Alumable or its university partners need tomorrow.      |
 
 ## Objectives
 
@@ -195,25 +195,28 @@ Full ERD: [`docs/erd.png`](docs/erd.png) · commentary:
 
 ## Getting started
 
-### 1. Clone and configure
+### 1. Clone
 
 ```bash
 git clone https://github.com/theintonerzero/cse3cap.git
 cd cse3cap
-cp .env.example .env
 ```
 
-Fill `.env` with the shared database credentials. Ask in the team channel; they are not in
-the repository.
+`.env.example` at the root lists every value the project needs and where each one goes.
+Ask in the team channel for the database credentials; they are not in the repository.
 
 ### 2. Backend
 
 ```bash
 cd api
+cp ../.env.example .env
 composer install
 php artisan key:generate
 php artisan serve          # http://localhost:8000
 ```
+
+Laravel reads `api/.env`, not the copy at the root. Fill in the database block before
+starting the server.
 
 Do **not** run `php artisan migrate` without saying so in the channel first. See
 [shared database](#shared-database).
@@ -226,10 +229,14 @@ npm install
 npm run dev                # http://localhost:5173
 ```
 
+Vite reads `web/.env`, which needs one line:
+`VITE_API_BASE_URL=http://localhost:8000/api/v1`.
+
 ### Shared database
 
-MySQL runs on a shared VPS rather than locally, so nobody needs Docker or a local install.
-Everyone connects to the same instance, which has two consequences.
+MySQL is self-hosted on a shared Oracle Cloud VPS rather than on each machine, so there is
+nothing to install locally. Everyone connects to the same instance, which has two
+consequences.
 
 **Migrations are applied centrally.** Two people running migrations at once will conflict,
 and a bad migration takes out everyone's environment rather than just one. Announce in the
@@ -246,9 +253,9 @@ There is no login screen in the MVP. Three tokens are seeded, one per role. Pass
 
 | Role                  | User   | Use for                                                 |
 | --------------------- | ------ | ------------------------------------------------------- |
-| Student               | Jane   | Writing reflections, self-scoring, export                |
-| Assessor              | Sam    | Review queue, counter-scoring                            |
-| Supervisor (educator) | Dr Lee | Framework select, edit and assign, plus counter-scoring  |
+| Student               | Jane   | Writing reflections, self-scoring, export               |
+| Assessor              | Sam    | Review queue, counter-scoring                           |
+| Supervisor (educator) | Dr Lee | Framework select, edit and assign, plus counter-scoring |
 
 Token values are in [`db/02-seed.sql`](db/02-seed.sql) and pinned in the team channel.
 Educator is not a separate role in the schema, it maps to `supervisor`.
@@ -288,7 +295,9 @@ npm install -g intelephense
 ```
 
 The MySQL MCP connection is deliberately read-only. Agents can read the schema and query
-data, but cannot modify a database five people share.
+data, but cannot modify a database five people share. It expands `DB_HOST`, `DB_PORT`,
+`DB_READONLY_USER` and `DB_READONLY_PASSWORD` from your environment, so export those in
+your shell profile before starting Claude Code.
 
 Only plugins from the official marketplace are enabled. Plugins execute arbitrary code with
 your user privileges, so raise it in the channel before adding others.
@@ -299,15 +308,15 @@ and the reasoning behind the unusual decisions.
 
 ## Documentation
 
-| Document | What it covers |
-| --- | --- |
-| [`docs/PROJECT-CONTEXT.md`](docs/PROJECT-CONTEXT.md) | Background briefing: product, vocabulary, architecture, traps |
-| [`docs/API-Specification.md`](docs/API-Specification.md) | The annotated API contract |
-| [`docs/openapi.yaml`](docs/openapi.yaml) | Machine-readable contract, source of truth |
-| [`docs/Stack-and-Build-Scope.md`](docs/Stack-and-Build-Scope.md) | What is being built, and the definition of done |
-| [`docs/adr/`](docs/adr/) | Architecture decision records |
-| [`docs/erd-explained.md`](docs/erd-explained.md) | Walkthrough of the data model |
-| [`db/01-schema.sql`](db/01-schema.sql) | The schema, with inline reasoning |
+| Document                                                         | What it covers                                                |
+| ---------------------------------------------------------------- | ------------------------------------------------------------- |
+| [`docs/PROJECT-CONTEXT.md`](docs/PROJECT-CONTEXT.md)             | Background briefing: product, vocabulary, architecture, traps |
+| [`docs/API-Specification.md`](docs/API-Specification.md)         | The annotated API contract                                    |
+| [`docs/openapi.yaml`](docs/openapi.yaml)                         | Machine-readable contract, source of truth                    |
+| [`docs/Stack-and-Build-Scope.md`](docs/Stack-and-Build-Scope.md) | What is being built, and the definition of done               |
+| [`docs/adr/`](docs/adr/)                                         | Architecture decision records                                 |
+| [`docs/erd-explained.md`](docs/erd-explained.md)                 | Walkthrough of the data model                                 |
+| [`db/01-schema.sql`](db/01-schema.sql)                           | The schema, with inline reasoning                             |
 
 ## Team
 

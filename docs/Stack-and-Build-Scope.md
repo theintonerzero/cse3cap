@@ -40,9 +40,9 @@ enough), pagination libraries (result sets are small), any vector database or AI
 
 ### Database access
 
-MySQL runs on the VPS rather than locally, so nobody needs Docker or a local MySQL
-install. Everyone connects to the same instance with credentials from `.env`. Two
-consequences worth knowing:
+MySQL is self-hosted on a shared Oracle Cloud VPS rather than on each machine, so there is
+nothing to install locally. Everyone connects to the same instance with credentials from
+`.env`. Two consequences worth knowing:
 
 - The schema is applied once, centrally, rather than each person running the DDL.
   Migrations are run against the shared database by whoever owns the change.

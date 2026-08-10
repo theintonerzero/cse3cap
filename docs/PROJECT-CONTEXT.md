@@ -86,8 +86,8 @@ Repository layout:
 /docs/adr/                 architecture decision records
 ```
 
-MySQL runs on the shared VPS rather than locally, so there is no local database and no
-containers. See ADR #14.
+MySQL is self-hosted on a shared Oracle Cloud VPS, so there is no local database to set
+up. See ADR #14.
 
 ## 4. Architecture
 
