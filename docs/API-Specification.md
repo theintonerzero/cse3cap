@@ -285,7 +285,7 @@ never been evidenced.
 ### POST /exports
 `{ "format": "pdf" | "json", "reflection_id": null }` (null = whole record) →
 **202** `{ "id": "…", "status": "pending" }`. Queued job; the `exports` row is the job
-record. JSON ships first; PDF follows (see plan risks).
+record. JSON ships first, PDF follows.
 
 ### GET /exports/{export_id}
 `{ "id": "…", "format": "json", "status": "complete",

@@ -128,8 +128,9 @@ table belongs to, the design mostly explains itself.
 **Integration:** `users`, `gigs`, `sprints`, `gig_participants`
 
 Alumable owns identity and gigs, we do not, and we have no direct database access. These are
-small local mirrors, each carrying an `external_ref` holding Alumable's id for the same thing.
-That single column per table is the only coupling, which is what keeps the adapter small.
+small local mirrors, and `users` and `gigs` each carry an `external_ref` holding Alumable's id
+for the same record. Those two columns are the entire coupling surface, which is what keeps
+the adapter small.
 
 Role lives on `gig_participants` rather than `users`, because the same person can be a student
 on one gig and an assessor on another. It is also where role-based access control checks
@@ -279,10 +280,10 @@ Branching, commits, PRs and review are in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 The repository ships shared configuration so everyone gets the same setup.
 
-`.claude/settings.json` enables six plugins from the official Anthropic marketplace: PHP and
-TypeScript language servers, security guidance, GitHub, commit commands, and the PR review
-toolkit. `.mcp.json` adds Context7 for current library documentation and a read-only MySQL
-connection so agents can inspect the real schema instead of guessing.
+`.claude/settings.json` enables ten plugins from the official Anthropic marketplace: the PHP
+and TypeScript language servers, Context7, frontend design, Playwright, superpowers, security
+guidance, GitHub, commit commands, and the PR review toolkit. `.mcp.json` adds a read-only
+MySQL connection so agents can inspect the real schema instead of guessing.
 
 Trust the repository folder when prompted and Claude Code should offer to install them. If
 nothing appears, run `/plugin` and install from the Discover tab.

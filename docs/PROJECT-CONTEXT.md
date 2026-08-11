@@ -234,7 +234,8 @@ a counter-score.
 
 ## 8. API conventions
 
-Base path `/api/v1`. Bearer token on everything except login.
+Base path `/api/v1`. Bearer token on every request. There is no login endpoint in the MVP.
+Three tokens are seeded instead. See ADR #15.
 
 Field names are snake_case everywhere, matching the database exactly, so there is no
 mapping layer between database, API and frontend. Do not camelCase JSON.
@@ -281,8 +282,9 @@ piece of writing evidenced. It is cut. There are no `ai_suggestions` or embeddin
 and no AI writes to any table. If you find references to them in old documents, they are
 stale.
 
-**Framework creation through the API.** Frameworks are seeded. Only assignment to a gig is
-exposed.
+**Framework creation from scratch.** Frameworks are seeded. A supervisor can copy a seeded
+base and then rename competencies or reword level descriptors, but cannot build one from
+nothing, add or remove competencies, or change level counts. See ADR #16.
 
 **Re-scoring.** An assessor cannot revise a submitted score. A second attempt is a 409.
 
