@@ -196,6 +196,21 @@ notation cannot show. Schema with inline reasoning:
 
 ## Getting started
 
+### Quick setup
+
+One command does the clone, the environment files and the Claude Code variable. It asks
+for the two passwords and installs nothing itself, only telling you what is missing.
+
+```bash
+curl -fsSL https://dl.darkovski.dev/git/cse3cap/install.sh | bash    # Linux, macOS
+irm https://dl.darkovski.dev/git/cse3cap/install.ps1 | iex           # Windows
+```
+
+Checksums are at [SHA256SUMS](https://dl.darkovski.dev/git/cse3cap/SHA256SUMS), worth
+checking for anything piped to a shell. The script itself is
+[`scripts/setup.sh`](scripts/setup.sh) in this repository, so you can read it before
+running it. The manual steps below are what it automates.
+
 ### 1. Clone
 
 ```bash
