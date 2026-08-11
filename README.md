@@ -204,7 +204,8 @@ cd cse3cap
 ```
 
 `.env.example` at the root lists every value the project needs and where each one goes.
-Ask in the team channel for the database credentials; they are not in the repository.
+Host, port, database and usernames are already filled in. The only things missing are the
+two passwords, which are pinned in the team channel.
 
 ### 2. Backend
 
@@ -216,8 +217,13 @@ php artisan key:generate
 php artisan serve          # http://localhost:8000
 ```
 
-Laravel reads `api/.env`, not the copy at the root. Fill in the database block before
-starting the server.
+Laravel reads `api/.env`, not the copy at the root. Paste `DB_PASSWORD` in before starting
+the server; everything else in the database block is already correct.
+
+The database refuses unencrypted connections. `MYSQL_ATTR_SSL_CA` in `.env.example` points
+at `db/letsencrypt-roots.pem`, which is committed so the path is the same on every machine.
+Without it PDO connects in the clear and the server rejects it as `Access denied`, which
+looks like a wrong password and is not.
 
 Do **not** run `php artisan migrate` without saying so in the channel first. See
 [shared database](#shared-database).
@@ -235,9 +241,17 @@ Vite reads `web/.env`, which needs one line:
 
 ### Shared database
 
-MySQL is self-hosted on a shared Oracle Cloud VPS rather than on each machine, so there is
-nothing to install locally. Everyone connects to the same instance, which has two
-consequences.
+MySQL 9.7 LTS is self-hosted on a shared Oracle Cloud VPS rather than on each machine, so
+there is nothing to install locally.
+
+| | |
+| --- | --- |
+| Host | `db.darkovski.dev` port `3306` |
+| Database | `reflection_diary` |
+| Accounts | `diary_app` for the application, `diary_ro` read-only for agents |
+| TLS | Required. Real Let's Encrypt certificate, so `verify_identity` works |
+
+Everyone connects to the same instance, which has two consequences.
 
 **Migrations are applied centrally.** Two people running migrations at once will conflict,
 and a bad migration takes out everyone's environment rather than just one. Announce in the
@@ -296,9 +310,18 @@ npm install -g intelephense
 ```
 
 The MySQL MCP connection is deliberately read-only. Agents can read the schema and query
-data, but cannot modify a database five people share. It expands `DB_HOST`, `DB_PORT`,
-`DB_READONLY_USER` and `DB_READONLY_PASSWORD` from your environment, so export those in
-your shell profile before starting Claude Code.
+data, but cannot modify a database five people share. That is enforced by the grant on
+`diary_ro`, not only by the server's own flags.
+
+Everything it needs is defaulted in `.mcp.json` except the password, so setup is one line
+in your shell profile:
+
+```bash
+export DB_READONLY_PASSWORD='...'      # from the team channel
+```
+
+Restart Claude Code afterwards. Without it the MySQL server fails to start and agents fall
+back to guessing from `db/01-schema.sql`.
 
 Only plugins from the official marketplace are enabled. Plugins execute arbitrary code with
 your user privileges, so raise it in the channel before adding others.

@@ -1,18 +1,15 @@
 {
   "mcpServers": {
-    "context7": {
-      "command": "npx",
-      "args": ["-y", "@upstash/context7-mcp"]
-    },
     "mysql": {
       "command": "npx",
       "args": ["-y", "@benborla29/mcp-server-mysql"],
       "env": {
-        "MYSQL_HOST": "${DB_HOST}",
-        "MYSQL_PORT": "${DB_PORT}",
-        "MYSQL_USER": "${DB_READONLY_USER}",
+        "MYSQL_HOST": "${DB_HOST:-db.darkovski.dev}",
+        "MYSQL_PORT": "${DB_PORT:-3306}",
+        "MYSQL_USER": "${DB_READONLY_USER:-diary_ro}",
         "MYSQL_PASS": "${DB_READONLY_PASSWORD}",
-        "MYSQL_DB": "reflection_diary",
+        "MYSQL_DB": "${DB_DATABASE:-reflection_diary}",
+        "MYSQL_SSL": "true",
         "ALLOW_INSERT_OPERATION": "false",
         "ALLOW_UPDATE_OPERATION": "false",
         "ALLOW_DELETE_OPERATION": "false"
