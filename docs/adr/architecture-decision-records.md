@@ -19,14 +19,19 @@ Index
 #7  Retrieve then score for competency tagging ..... Superseded by #10
 #8  Server side inference, not on device ........... Superseded by #10
 #9  No fine tuning ................................. Superseded by #10
-#10 Remove AI scope, move to MySQL ................. Accepted
-#11 MySQL specific schema workarounds .............. Accepted
-#12 React, Vite and TypeScript for the frontend .... Accepted
+#10 Remove AI scope, move to MySQL ................. Accepted, versions per #18
+#11 MySQL specific schema workarounds .............. Accepted, extended by #19
+#12 React, Vite and TypeScript for the frontend .... Accepted, versions per #18
 #13 Contract first with OpenAPI and a mock server .. Accepted
-#14 Shared VPS database instead of local Docker .... Accepted
+#14 Shared VPS database instead of local Docker .... Accepted, access per #21
 #15 Three seeded tokens instead of a login screen .. Accepted
 #16 Copy then edit for frameworks .................. Accepted
 #17 Educator mapped to the supervisor role ......... Accepted
+#18 Stack versions moved to current releases ....... Accepted
+#19 Virtual generated columns, context check ....... Accepted
+#20 Laravel baselines the schema, does not own it .. Accepted
+#21 MySQL public with mandatory TLS ................ Accepted
+#22 A Laravel seeder replaces the sql seed file .... Accepted
 
 ===============================================================
 
@@ -335,7 +340,7 @@ baseline, so the LLM's advantage can be quantified rather than assumed.
 ===============================================================
 
 ADR #10: Remove AI from scope, move to MySQL
-Status: Accepted
+Status: Accepted. Version pin revised by #18
 Date: 2026-08-01
 Supersedes: #1, #2, #4, #7, #8, #9
 
@@ -416,7 +421,7 @@ removes gig level reflections, which the brief asks for.
 ===============================================================
 
 ADR #12: React, Vite and TypeScript for the frontend
-Status: Accepted
+Status: Accepted. Version pin revised by #18
 Date: 2026-08-06
 
 Context:
@@ -486,7 +491,7 @@ agreeing what to build, so it cannot be used to unblock parallel work.
 ===============================================================
 
 ADR #14: Shared VPS database instead of local Docker
-Status: Accepted
+Status: Accepted. Version pin revised by #18, access model settled by #21
 Date: 2026-08-06
 
 Context:
@@ -615,3 +620,255 @@ matrix, for a distinction that does not clearly exist in the real workflow.
 
 Reuse `employer` for framework management. Employers are external to the university, so
 letting them define assessment rubrics is the wrong permission boundary.
+
+===============================================================
+
+ADR #18: Stack versions moved to current releases
+Status: Accepted
+Date: 2026-08-11
+Revises the version pins in: #10, #12, #14
+
+Context:
+The versions recorded in #10, #12 and #14 were current when they were written. They are
+not now. MySQL 9.7 became the first LTS since 8.4 in April 2026, PHP 8.3 went to security
+only support, Laravel 13 shipped in March, and React 19 has been out for over a year.
+Nothing was pinned anywhere yet, since `api/` and `web/` did not exist, so the cost of
+changing our minds was a few lines of prose rather than a dependency upgrade.
+
+The forcing function was provisioning the db. We had to install a specific version, and
+installing an already superseded LTS on a box meant to outlive the semester made no sense.
+
+Decision:
+MySQL 9.7 LTS, PHP 8.5, Laravel 13, React 19, Vite 8. The client's stack is unchanged in
+kind: still MySQL, still PHP and Laravel, so the integration argument in #10 stands
+untouched. Only the numbers move.
+
+Two things deliberately do not move to latest.
+
+The OpenAPI contract stays at 3.1. Version 3.2 is out and is described as a drop in
+change, but neither Prism nor openapi-typescript reads it, and those two are what the mock
+server and the generated types depend on. Adopting it would break the parallel build that
+record #13 set up, for a spec feature we do not use.
+
+TypeScript is pinned to 6.x, not 7. TypeScript 7 is the native compiler rewrite, and
+openapi-typescript 7.13 crashes on it with an unresolved upstream bug. Since #13 makes
+generated types mandatory rather than optional, the generator picks the compiler version.
+
+Consequences:
+Positive:
+The db has five years of premier support ahead of it rather than trailing an LTS that was
+already superseded. PHP 8.3 was in security only support, which is a weak thing to defend
+in a report. Nothing had to be upgraded, only rewritten, because no lockfile existed yet.
+
+Negative:
+Fewer answers on the internet apply cleanly to Laravel 13 and MySQL 9.7 than to the
+versions they replace, which costs time when something goes wrong. The client runs some
+MySQL 8 in prod, so an eventual integration crosses a major version, though the schema
+uses nothing 9.x removed. Pinning TypeScript below latest is a debt that has to be revisited
+once openapi-typescript catches up.
+
+Alternatives:
+Stay on the recorded versions. Consistent with the existing register, and defensible on
+"do not change what works". Rejected because nothing was built yet, so there was nothing
+working to protect, and shipping a capstone on a security only PHP release invites a
+question we would rather not answer.
+
+Take everything at absolute latest including OpenAPI 3.2 and TypeScript 7. Rejected on
+evidence rather than caution. Both were tested and both break the contract first
+workflow that #13 depends on.
+
+===============================================================
+
+ADR #19: Virtual generated columns, and the context check over the keys
+Status: Accepted
+Date: 2026-08-11
+Extends: #11
+
+Context:
+`db/01-schema.sql` had been reviewed but never executed. Applying it to a real server for
+the first time failed twice on the `reflections` table.
+
+MySQL rejected `ck_refl_context` with error 3823, because a CHECK cannot reference a
+column that carries an ON DELETE SET NULL referential action, and `sprint_id` has one from
+#6. It then rejected the table outright with error 1215, because InnoDB will not accept a
+STORED generated column whose source carries that same action, and `sprint_key` coalesces
+`sprint_id`.
+
+Both restrictions date to MySQL 8.0.16, so this was never going to work on 8.4 either. The
+sentinel key design from #11 and the SET NULL rule from #6 are individually sound and were
+mutually impossible as written.
+
+Decision:
+The generated columns become VIRTUAL rather than STORED. A unique index over a virtual
+column is still materialised by InnoDB, so the one reflection per context guarantee is
+unchanged, and #11 never specified a storage type.
+
+`ck_refl_context` is expressed over the generated keys instead of the raw fks:
+`gig_key <> sentinel OR sprint_key <> sentinel`. The generated columns carry no referential
+action of their own, so the restriction does not apply. The two forms are equivalent, since
+a key equals the sentinel exactly when its source id is null.
+
+Consequences:
+Positive:
+Every constraint the design intended is still enforced, verified against MySQL 9.7: the
+table creates, a reflection with neither gig nor sprint is rejected, and a duplicate
+context still surfaces as 1062 for the API to render as 409. Neither #6 nor #11 had to be
+reversed.
+
+Negative:
+The check now reads in terms of sentinels rather than nullability, which is a layer removed
+from the rule a person would state out loud, so it needs the comment that sits above it.
+Virtual columns are computed on read, which costs a little on the index maintenance path,
+though at MVP row counts this is not measurable.
+
+The wider lesson is the uncomfortable one. A reviewed schema that has never been run is
+not a verified schema, and this cost an afternoon to find at provisioning time rather than
+five minutes to find in week one.
+
+Alternatives:
+Drop `ck_refl_context` and rely on the service layer, which already returns
+CONTEXT_REQUIRED. Rejected because it weakens a db constraint to work around a tooling
+limit, and the app level rule was meant to be the second line, not the only one.
+
+Change `sprint_id` to RESTRICT so both the check and the stored column become legal.
+Rejected because it reverses #6 for an unrelated reason. Reorganising sprints would start
+failing loudly, which is the opposite of what that record decided.
+
+===============================================================
+
+ADR #20: Laravel adopts the schema by baselining, not by owning it
+Status: Accepted
+Date: 2026-08-11
+
+Context:
+Two documents disagreed. CLAUDE.md ranks `db/01-schema.sql` as source of truth number one,
+while the build scope asks for the DDL ported to migrations. Both cannot be fully true.
+Meanwhile the schema is already applied to the shared instance, so `php artisan migrate`
+against it would try to create fourteen tables that exist and fail.
+
+Tests complicate it further. The schema needs generated columns, CHECK constraints and
+VALUES row constructors, so sqlite is not an option and `RefreshDatabase` needs a real
+MySQL db to rebuild.
+
+Decision:
+One baseline migration that reads `db/01-schema.sql` and executes it, rather than restating
+the DDL in the Schema builder. On the shared instance that migration is recorded as already
+run, so `migrate` there is a no op. Every change after this one is an ordinary migration,
+and `01-schema.sql` is updated alongside it.
+
+Each developer gets their own test db on the shared instance, named from
+`DB_TEST_DATABASE`, with the app user granted rights on the `reflection_diary_test_%`
+pattern only.
+
+Consequences:
+Positive:
+Neither document has to be wrong. The sql file stays the reviewed artifact the report
+refers to, and Laravel gets the migration history it needs. Executing the file rather than
+transcribing it means there is no second copy of the schema to drift. A slip cannot reach
+the shared db, because the test connection is a separate config entry pointing at a
+different database.
+
+Negative:
+The baseline is opaque compared to a hand written Schema builder migration, so a reader has
+to open the sql file to see what it does. `01-schema.sql` and the migration history must be
+kept in step by discipline rather than by tooling, and nothing enforces it. The separate
+test connection is a config value, not a wall, so `migrate:fresh` on the wrong connection
+still destroys the shared schema.
+
+Alternatives:
+Let migrations own the schema outright and delete or demote the sql file. The conventional
+Laravel answer. Rejected because it demotes source of truth number one and would mean
+rebuilding the shared instance we had just provisioned.
+
+Keep applying the sql file by hand and skip migrations entirely. Simplest, and no risk of
+anyone migrating the shared db. Rejected because it contradicts the build scope and leaves
+tests with no way to rebuild a database, which makes `RefreshDatabase` unusable.
+
+===============================================================
+
+ADR #21: MySQL published on the public internet with mandatory TLS
+Status: Accepted
+Date: 2026-08-11
+
+Context:
+Five people on residential connections with rotating ip addresses all need tcp access to
+one db. #14 settled that the db is shared and on a VPS, but not how anyone reaches it. The
+options each trade convenience against exposure, and 3306 on the open internet is scanned
+continuously.
+
+Weighing against strictness: the MVP holds seeded demo data and no real student records,
+a point #8 already relied on. Weighing for it: losing the db mid semester or mid demo is
+the failure that actually hurts.
+
+Decision:
+3306 is published. Encryption is not optional: `require_secure_transport` is ON, both
+accounts carry REQUIRE SSL at the account level as well, and the certificate is a real
+Let's Encrypt one issued by the Caddy instance already on the box, so clients can verify
+identity rather than merely encrypt. Remote root is removed. The agent facing account holds
+SELECT and SHOW VIEW only, enforced by grant rather than by a client side flag. fail2ban
+watches the MySQL error log and bans in the DOCKER-USER chain, because container published
+ports never traverse the input chain where the default action writes its rules.
+
+Consequences:
+Positive:
+Zero setup for four of five people, which is the same reasoning that produced #14.
+Verifiable identity is a stronger position than most self hosted MySQL, and worth a line in
+the security section of the report. The read only grant is a property an assessor can test
+rather than take on trust.
+
+Negative:
+The port is scanned constantly and the password is the thing standing in front of the data,
+so the credentials must not leak. This is not a production posture and saying otherwise in
+the report would be dishonest. fail2ban depends on a custom chain that a future docker
+upgrade could disturb, and nothing alerts us if it silently stops banning.
+
+Alternatives:
+A Tailscale or WireGuard mesh with 3306 bound to the tunnel. Genuinely more secure, and it
+handles rotating home ip addresses cleanly. Rejected on the same ground as #14 rejected
+Docker: it puts a new dependency in front of four teammates before they can do any work,
+and week one setup problems cost more than they save.
+
+Allowlisting the five source ip addresses at the firewall. No new software for anyone.
+Rejected because residential addresses rotate, so every rotation silently breaks somebody
+and needs a firewall edit to fix.
+
+===============================================================
+
+ADR #22: A Laravel seeder replaces the sql seed file
+Status: Accepted
+Date: 2026-08-11
+
+Context:
+`db/02-seed.sql` existed as a header and six TODO comments and was never written. The API
+work needs seeded users, gigs and tokens now, and Sanctum tokens cannot sensibly be written
+as sql anyway, since the plain text exists only at the moment of creation and the db stores
+a hash.
+
+Continuing with both would mean two places to define demo data, which drift.
+
+Decision:
+`DemoSeeder` under `api/database/seeders` is the canonical demo data and `db/02-seed.sql`
+is removed. The two frameworks stay in `db/01-schema.sql`, because they are part of the
+reviewed schema rather than demo data and the analytics views depend on them. The shaped
+score distribution and the written narratives described in the seed-data skill extend the
+seeder when the scoring work needs them.
+
+Consequences:
+Positive:
+One definition of demo data instead of two. Tokens can be issued properly and printed once.
+Factories and seeders share the model layer, so demo data and test fixtures cannot disagree
+about what a valid row looks like. Seeding becomes idempotent by construction, which
+matters on a db five people share.
+
+Negative:
+Demo data now requires a working PHP toolchain, where a sql file could be piped in by
+anyone with a MySQL client. The seed no longer lives next to the schema it populates, so
+`/db` tells only half the story and the repo layout documentation had to change to say so.
+
+Alternatives:
+Write `02-seed.sql` properly and have the seeder call it. Keeps demo data next to the
+schema. Rejected because Sanctum tokens still could not live there, so the split would
+persist with extra machinery on top.
+
+Keep both and let each own part of the data. Rejected outright. Two sources of demo data
+for one db is the drift we were trying to avoid.

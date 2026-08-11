@@ -28,15 +28,16 @@ migration. On the shared instance that migration is recorded as already run, so
 `php artisan migrate` there is a no-op and cannot damage a database five people share.
 `db/01-schema.sql` remains source of truth for the current shape and the migration mirrors
 it. This satisfies both CLAUDE.md, which ranks the SQL file first, and Stack-and-Build-Scope
-§4.2, which asks for migrations. No superseding ADR is needed because no recorded decision
-is reversed.
+§4.2, which asks for migrations. Recorded as ADR #20, along with the per-developer test
+databases.
 
 The alternative of letting migrations own the schema outright was rejected: it demotes
 source of truth number one, needs an ADR, and would mean rebuilding the shared instance we
 have just provisioned.
 
-**The database host is `rddb.darkovski.dev`.** Renamed from `db.darkovski.dev` so the name
-is scoped to this project rather than claiming the generic one on a personal domain. The
+**The database host is `rddb.darkovski.dev`**, reachable over public TLS as recorded in
+ADR #21. Renamed from `db.darkovski.dev` so the name is scoped to this project rather than
+claiming the generic one on a personal domain. The
 API will eventually be served at `rdapi.darkovski.dev` by the same Caddy instance, but
 deployment is out of scope here: development runs `php artisan serve` on
 `localhost:8000` against the shared database.
