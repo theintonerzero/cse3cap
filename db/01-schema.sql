@@ -148,6 +148,11 @@ CREATE TABLE framework_assignments (
 -- sentinel UUID so the unique index treats "no sprint" as one value.
 -- Without this, a student could create unlimited gig-level reflections
 -- on the same gig, because MySQL treats every NULL as distinct.
+--
+-- They are VIRTUAL rather than STORED because InnoDB refuses a stored
+-- generated column whose source carries a SET NULL referential action,
+-- and sprint_id has one. A unique index over a virtual column is still
+-- materialised, so the guarantee is identical either way.
 CREATE TABLE reflections (
     id                 CHAR(36) NOT NULL DEFAULT (UUID()),
     user_id            CHAR(36) NOT NULL,
@@ -161,9 +166,9 @@ CREATE TABLE reflections (
     updated_at         DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
                        ON UPDATE CURRENT_TIMESTAMP(6),
     gig_key    CHAR(36) GENERATED ALWAYS AS
-               (COALESCE(gig_id,    '00000000-0000-0000-0000-000000000000')) STORED,
+               (COALESCE(gig_id,    '00000000-0000-0000-0000-000000000000')) VIRTUAL,
     sprint_key CHAR(36) GENERATED ALWAYS AS
-               (COALESCE(sprint_id, '00000000-0000-0000-0000-000000000000')) STORED,
+               (COALESCE(sprint_id, '00000000-0000-0000-0000-000000000000')) VIRTUAL,
     PRIMARY KEY (id),
     UNIQUE KEY ak_reflections_context (user_id, gig_key, sprint_key),
     KEY ix_reflections_user   (user_id),
@@ -177,7 +182,14 @@ CREATE TABLE reflections (
     CONSTRAINT fk_refl_sprint FOREIGN KEY (sprint_id)    REFERENCES sprints (id)    ON DELETE SET NULL,
     CONSTRAINT fk_refl_fw     FOREIGN KEY (framework_id) REFERENCES frameworks (id),
     CONSTRAINT ck_refl_status  CHECK (status IN ('draft','submitted','assessed')),
-    CONSTRAINT ck_refl_context CHECK (sprint_id IS NOT NULL OR gig_id IS NOT NULL)
+    -- Phrased over the generated keys, not over sprint_id and gig_id
+    -- directly. MySQL rejects a CHECK on a column that carries a
+    -- SET NULL referential action (error 3823), and sprint_id does.
+    -- The two forms are equivalent: a key equals the sentinel exactly
+    -- when its source id is NULL.
+    CONSTRAINT ck_refl_context CHECK (
+        gig_key    <> '00000000-0000-0000-0000-000000000000'
+     OR sprint_key <> '00000000-0000-0000-0000-000000000000')
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE reflection_entries (
