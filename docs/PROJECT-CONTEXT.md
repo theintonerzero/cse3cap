@@ -65,9 +65,9 @@ number of axes and the scale both vary by framework.
 
 | Layer | Technology |
 |---|---|
-| Database | MySQL 8.4, hosted on a shared VPS |
-| Backend | PHP 8.3 / Laravel 11, JSON API |
-| Frontend | React 18 + Vite + TypeScript |
+| Database | MySQL 9.7 LTS, self-hosted on an Oracle Cloud VPS |
+| Backend | PHP 8.5 / Laravel 13, JSON API |
+| Frontend | React 19 + Vite + TypeScript |
 | Charts | recharts |
 | Auth | Laravel Sanctum bearer tokens |
 | Storage | Server filesystem via Laravel's filesystem abstraction |

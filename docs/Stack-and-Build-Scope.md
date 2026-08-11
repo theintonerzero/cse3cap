@@ -22,10 +22,10 @@ and the student keeps and exports the record.
 
 | Layer | Technology | Why |
 |---|---|---|
-| Database | MySQL 8.4, hosted on a shared VPS | Set by the client; matches their live platform. One shared instance means no local setup for anyone |
-| Backend | PHP 8.3 / Laravel 11 | Set by the client; Sanctum, policies, queues, Faker all built in |
+| Database | MySQL 9.7 LTS, self-hosted on an Oracle Cloud VPS | Set by the client; matches their live platform. One shared instance means no local setup for anyone |
+| Backend | PHP 8.5 / Laravel 13 | Set by the client; Sanctum, policies, queues, Faker all built in |
 | API style | REST, OpenAPI 3 contract | Screens map cleanly to resources; contract enables parallel build |
-| Frontend | React 18 + Vite + TypeScript | Recharts radar; types generated from the contract catch drift at compile time |
+| Frontend | React 19 + Vite + TypeScript | Recharts radar; types generated from the contract catch drift at compile time |
 | Charts | recharts | First-class React radar component |
 | Routing | React Router | Standard, nothing exotic needed |
 | Styling | CSS variables + CSS modules | Design tokens already exist as variables; no Tailwind config to maintain |
@@ -58,7 +58,7 @@ nothing to install locally. Everyone connects to the same instance with credenti
 /db
   01-schema.sql          the reviewed DDL
   02-seed.sql            demo data: frameworks, users, gigs, reflections, scores
-/api                     Laravel 11
+/api                     Laravel 13
 /web                     React + Vite + TS
 /docs
   openapi.yaml           the API contract, source of truth
@@ -76,7 +76,7 @@ README.md                setup, connection details, the three tokens
 
 ### 4.1 Environment and data
 
-- [ ] MySQL 8.4 provisioned on the VPS, credentials distributed, `.env.example` committed
+- [ ] MySQL 9.7 LTS provisioned on the VPS, credentials distributed, `.env.example` committed
 - [ ] `01-schema.sql` applied and verified
 - [ ] `02-seed.sql`: two frameworks (La Trobe six-competency, SFIA 9), six users covering
       every role, two gigs with sprints, reflections at every status, scores with a shaped
@@ -88,7 +88,7 @@ README.md                setup, connection details, the three tokens
 ### 4.2 Backend
 
 **Foundation**
-- [ ] Laravel 11 scaffold, Sanctum installed, CORS for the Vite dev origin
+- [ ] Laravel 13 scaffold, Sanctum installed, CORS for the Vite dev origin
 - [ ] DDL ported to migrations (CHECKs and generated columns via `DB::statement`)
 - [ ] Base model: `HasUuids`, `$keyType = 'string'`, `$incrementing = false`
 - [ ] Exception renderer producing the single error envelope
@@ -120,7 +120,10 @@ README.md                setup, connection details, the three tokens
 ### 4.3 Frontend
 
 **Foundation, in this order**
-- [ ] Vite + TS scaffold, ESLint, Prettier
+- [ ] Vite 8 + TS scaffold, ESLint, Prettier. Pin TypeScript to 6.x, not 7. TypeScript 7
+      is the native compiler rewrite and openapi-typescript 7.13 crashes on it
+      (openapi-ts issue #2841, open with no workaround). Generated types are load-bearing
+      here, so the generator picks the compiler version
 - [ ] `tokens.css`: colour, spacing, radius as CSS variables; light and dark via
       `data-theme`. No raw hex anywhere else in the codebase
 - [ ] Core components: Card, Button, Chip, Badge, TextArea (debounced), ProgressBar,

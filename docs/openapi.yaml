@@ -1,5 +1,10 @@
 # OpenAPI 3.1 contract for the Reflection Diary API.
 #
+# Stays on 3.1 deliberately. OpenAPI 3.2 is out and is a drop-in change on
+# paper, but neither Prism nor openapi-typescript reads it yet, and those two
+# are what the mock server and the generated types depend on. Revisit when
+# both support it.
+#
 # This file is the machine source of truth: the frontend mock server
 # (prism mock docs/openapi.yaml) and the generated TypeScript types both
 # come from here, and the backend implements it.

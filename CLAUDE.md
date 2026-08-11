@@ -14,7 +14,7 @@ University capstone project (La Trobe CSE3CAP, Semester 2 2026), five people, re
 
 ## Stack
 
-MySQL 8.4 on a shared VPS · PHP 8.3 / Laravel 11 · React 18 + Vite + TypeScript ·
+MySQL 9.7 LTS on a shared VPS · PHP 8.5 / Laravel 13 · React 19 + Vite + TypeScript ·
 recharts · Sanctum tokens · REST with an OpenAPI 3 contract.
 
 The client set the backend stack. Do not propose replacing it.

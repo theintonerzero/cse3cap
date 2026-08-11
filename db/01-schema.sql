@@ -1,12 +1,13 @@
 -- =====================================================================
--- Reflection Diary: MySQL 8 schema (v2)
+-- Reflection Diary: MySQL schema (v2)
 -- Alumable / La Trobe CSE3CAP Capstone, Semester 2 2026
 --
 -- Supersedes the PostgreSQL schema. AI tables (ai_suggestions,
 -- entry_embeddings, level_embeddings) removed per scope change.
 --
 -- Requires MySQL 8.0.19+ (expression defaults, enforced CHECK
--- constraints, VALUES row constructors).
+-- constraints, VALUES row constructors). Deployed on 9.7 LTS; the
+-- floor is kept accurate so the DDL stays portable.
 --
 -- MySQL-specific decisions, explained inline:
 --   * ids are CHAR(36) UUIDs, not BINARY(16). Readable in queries,

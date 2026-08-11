@@ -106,10 +106,10 @@ A Reflection Diary module inside Alumable where:
 
 | Layer    | Choice                            |
 | -------- | --------------------------------- |
-| Backend  | PHP 8.3 / Laravel 11, JSON API    |
-| Frontend | React 18 + Vite + TypeScript      |
+| Backend  | PHP 8.5 / Laravel 13, JSON API    |
+| Frontend | React 19 + Vite + TypeScript      |
 | Charts   | recharts                          |
-| Database | MySQL 8.4, hosted on a shared VPS |
+| Database | MySQL 9.7 LTS, self-hosted on an Oracle Cloud VPS |
 | Auth     | Laravel Sanctum bearer tokens     |
 | Contract | OpenAPI 3, mock-first with Prism  |
 | Design   | Figma                             |
@@ -186,7 +186,7 @@ Full ERD: [`docs/erd.png`](docs/erd.png) · commentary:
 
 ```
 .
-├── api/          # Laravel 11 backend
+├── api/          # Laravel 13 backend
 ├── web/          # React + Vite + TypeScript frontend
 ├── db/           # Schema and seed data
 ├── docs/         # Brief, ERD, API spec, ADRs, meeting records
