@@ -246,7 +246,7 @@ there is nothing to install locally.
 
 | | |
 | --- | --- |
-| Host | `db.darkovski.dev` port `3306` |
+| Host | `rddb.darkovski.dev` port `3306` |
 | Database | `reflection_diary` |
 | Accounts | `diary_app` for the application, `diary_ro` read-only for agents |
 | TLS | Required. Real Let's Encrypt certificate, so `verify_identity` works |

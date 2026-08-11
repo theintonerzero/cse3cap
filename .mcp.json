@@ -4,7 +4,7 @@
       "command": "npx",
       "args": ["-y", "@benborla29/mcp-server-mysql"],
       "env": {
-        "MYSQL_HOST": "${DB_HOST:-db.darkovski.dev}",
+        "MYSQL_HOST": "${DB_HOST:-rddb.darkovski.dev}",
         "MYSQL_PORT": "${DB_PORT:-3306}",
         "MYSQL_USER": "${DB_READONLY_USER:-diary_ro}",
         "MYSQL_PASS": "${DB_READONLY_PASSWORD}",
