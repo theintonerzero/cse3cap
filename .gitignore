@@ -22,6 +22,10 @@
 # Claude Code local overrides (settings.json is committed, .local is not)
 .claude/settings.local.json
 
+# Scratch space for subagent-driven plan execution: ledgers, briefs,
+# review packages. Regenerable, and the git history is the real record.
+.superpowers/
+
 # Editors and OS
 .DS_Store
 .idea

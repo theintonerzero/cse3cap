@@ -178,9 +178,9 @@ one table serves every event type. Notifications are derived from it rather than
 `exports` logs downloads as the audit trail for the exportable-record requirement, and doubles
 as the job record for async export generation.
 
-Full ERD: [`docs/erd.png`](docs/erd.png) · commentary:
-[`docs/erd-explained.md`](docs/erd-explained.md) · schema:
-[`db/01-schema.sql`](db/01-schema.sql)
+Full ERD: [`docs/erd.png`](docs/erd.png), whose legend lists the constraints crow's foot
+notation cannot show. Schema with inline reasoning:
+[`db/01-schema.sql`](db/01-schema.sql).
 
 ## Repository structure
 
@@ -340,7 +340,8 @@ and the reasoning behind the unusual decisions.
 | [`docs/openapi.yaml`](docs/openapi.yaml)                         | Machine-readable contract, source of truth                    |
 | [`docs/Stack-and-Build-Scope.md`](docs/Stack-and-Build-Scope.md) | What is being built, and the definition of done               |
 | [`docs/adr/`](docs/adr/)                                         | Architecture decision records                                 |
-| [`docs/erd-explained.md`](docs/erd-explained.md)                 | Walkthrough of the data model                                 |
+| [`docs/erd.png`](docs/erd.png)                                   | Entity relationship diagram, with a legend of hidden constraints |
+| [`docs/superpowers/specs/`](docs/superpowers/specs/)             | Design specs for each build slice                             |
 | [`db/01-schema.sql`](db/01-schema.sql)                           | The schema, with inline reasoning                             |
 
 ## Team

@@ -319,7 +319,8 @@ author it; the same rule applies to the people building it.
 `db/01-schema.sql` for the schema, including comments explaining each unusual choice.
 `docs/openapi.yaml` for the contract. `docs/adr/` for why any given decision was made.
 `docs/erd.png` for the diagram, whose legend lists the constraints that crow's foot
-notation cannot show.
+notation cannot show, including that a score's level must belong to the entry's
+competency, which the service layer enforces because the database cannot.
 
 If something in this document contradicts the schema or the contract, the schema and the
 contract win, and the contradiction is a bug in this document worth reporting.
