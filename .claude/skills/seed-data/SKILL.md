@@ -1,6 +1,6 @@
 ---
 name: seed-data
-description: Create or modify demo and seed data for the shared database. Use when adding or changing users, gigs, sprints, reflections, scores or frameworks in db/02-seed.sql or Laravel seeders. Encodes the shaped-score approach, written narratives, and the rules for a database five people share.
+description: Create or modify demo and seed data for the shared database. Use when adding or changing users, gigs, sprints, reflections or scores in the Laravel seeders under api/database/seeders. Encodes the shaped-score approach, written narratives, and the rules for a database five people share.
 ---
 
 # Seed data
@@ -75,10 +75,10 @@ Seed at least one row of every state a screen can render, or empty states never 
 
 ## The three tokens
 
-Three seeded users with documented Sanctum tokens, one per role: student, assessor, and
-supervisor which also covers the educator screens. Token values go in `db/02-seed.sql` and
-are pinned in the team channel. Keep them stable. Changing them breaks everyone's setup at
-once.
+Three seeded users with Sanctum tokens, one per role: student, assessor, and supervisor
+which also covers the educator screens. `DemoSeeder` issues them and prints the plain text
+once, because Sanctum stores only a hash and it cannot be recovered afterwards. Pin them in
+the team channel. Keep them stable: reissuing breaks everyone's setup at once.
 
 ## Determinism
 

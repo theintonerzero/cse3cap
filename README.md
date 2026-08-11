@@ -272,8 +272,9 @@ There is no login screen in the MVP. Three tokens are seeded, one per role. Pass
 | Assessor              | Sam    | Review queue, counter-scoring                           |
 | Supervisor (educator) | Dr Lee | Framework select, edit and assign, plus counter-scoring |
 
-Token values are in [`db/02-seed.sql`](db/02-seed.sql) and pinned in the team channel.
-Educator is not a separate role in the schema, it maps to `supervisor`.
+Tokens are issued by `php artisan db:seed --class=DemoSeeder`, which prints them once, and
+are pinned in the team channel. Sanctum stores only a hash, so a token cannot be recovered
+after that. Educator is not a separate role in the schema, it maps to `supervisor`.
 
 ## Working agreements
 

@@ -79,7 +79,7 @@ Repository layout:
 
 ```
 /db/01-schema.sql          the DDL, applied centrally to the shared instance
-/db/02-seed.sql            demo data
+/api/database/seeders      demo data, DemoSeeder is canonical
 /api                       Laravel
 /web                       React
 /docs/openapi.yaml         the API contract

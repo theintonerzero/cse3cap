@@ -57,7 +57,7 @@ nothing to install locally. Everyone connects to the same instance with credenti
 ```
 /db
   01-schema.sql          the reviewed DDL
-  02-seed.sql            demo data: frameworks, users, gigs, reflections, scores
+                         frameworks are seeded here; everything else is a Laravel seeder
 /api                     Laravel 13
 /web                     React + Vite + TS
 /docs
@@ -78,10 +78,11 @@ README.md                setup, connection details, the three tokens
 
 - [ ] MySQL 9.7 LTS provisioned on the VPS, credentials distributed, `.env.example` committed
 - [ ] `01-schema.sql` applied and verified
-- [ ] `02-seed.sql`: two frameworks (La Trobe six-competency, SFIA 9), six users covering
-      every role, two gigs with sprints, reflections at every status, scores with a shaped
-      distribution (hidden ability profile per student, self-scores slightly optimistic,
-      assessor scores closer to truth), hand-written narratives rather than lorem
+- [ ] `DemoSeeder`: three token holders covering every role, two gigs with sprints,
+      reflections at every status, scores with a shaped distribution (hidden ability
+      profile per student, self-scores slightly optimistic, assessor scores closer to
+      truth), hand-written narratives rather than lorem. The two frameworks are already
+      seeded by `01-schema.sql`
 - [ ] Three seeded tokens documented in the README
 - [ ] Views verified: `v_radar`, `v_calibration_gap`, `v_coverage_gaps`, `v_framework_scale`
 

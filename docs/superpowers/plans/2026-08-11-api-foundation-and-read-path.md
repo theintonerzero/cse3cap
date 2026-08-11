@@ -1328,8 +1328,10 @@ use Illuminate\Database\Seeder;
  * Idempotent by design. The database is shared, and a seeder that
  * duplicates rows on a second run changes what everyone else sees.
  *
- * This does not attempt the shaped score distribution or the written
- * narratives; that is db/02-seed.sql's job and it is still outstanding.
+ * This does not yet attempt the shaped score distribution or the written
+ * narratives described in the seed-data skill. Those arrive with the
+ * reflection and scoring slices, as additions to this seeder. There is
+ * no SQL seed file: DemoSeeder is canonical.
  */
 class DemoSeeder extends Seeder
 {
@@ -2472,4 +2474,4 @@ git commit -m "docs: explain how to run the api and its tests"
 
 **If a test fails with `Access denied`, suspect TLS before the password.** PDO does not negotiate TLS unless `MYSQL_ATTR_SSL_CA` is set, and MySQL reports the refusal as an authentication failure. This costs an hour if you do not know it.
 
-**`db/02-seed.sql` is still outstanding** and now overlaps `DemoSeeder`. The team needs to decide which is canonical before both grow.
+**`DemoSeeder` is the canonical demo data.** `db/02-seed.sql` has been removed. Frameworks are still seeded by `db/01-schema.sql`, because they are part of the reviewed schema; everything else belongs to the seeder. When the shaped scores and written narratives are needed for the scoring slice, they extend `DemoSeeder` rather than reviving a SQL file.

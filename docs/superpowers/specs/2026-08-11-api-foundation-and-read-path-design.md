@@ -152,6 +152,15 @@ event log. Deployment of the API to `rdapi.darkovski.dev`, including the comment
 block, which currently carries a placeholder upstream that is wrong for Laravel and needs
 revisiting when deployment happens. Any frontend work.
 
+## Resolved: DemoSeeder is canonical
+
+Decided after this spec was written. `db/02-seed.sql` has been removed and the Laravel
+seeder owns demo data. The two frameworks stay in `db/01-schema.sql`, because they are part
+of the reviewed schema rather than demo data. The shaped scores and written narratives
+described in the `seed-data` skill extend `DemoSeeder` when the scoring slice needs them.
+
+The section below is kept for the reasoning that led there.
+
 ## Open question for the team
 
 `db/02-seed.sql` is still a set of TODO comments, so the database holds the two seeded
