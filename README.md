@@ -24,9 +24,11 @@ after the subject closes and after they graduate.
 - [Data model](#data-model)
 - [Repository structure](#repository-structure)
 - [Getting started](#getting-started)
+- [Working agreements](#working-agreements)
+- [Claude Code](#claude-code)
+- [Documentation](#documentation)
 - [Team](#team)
 - [Client](#client)
-<!-- Documentation and links section will be added later -->
 
 ---
 
@@ -57,12 +59,12 @@ A Reflection Diary module inside Alumable where:
 
 ### Design principles
 
-| Principle     | What it means                                                                                            |
-| ------------- | -------------------------------------------------------------------------------------------------------- |
-| **Permanent** | Every reflection and score stays with the student for life, not locked inside a subject that closes.       |
-| **Credible**  | Verified by the people who actually supervised the work.                                                   |
-| **Useful**    | Built around recognised skill frameworks, so the record means something to a future employer.               |
-| **Flexible**  | Works with SFIA 9 today and any other rubric Alumable or its university partners need tomorrow.             |
+| Principle     | What it means                                                                                        |
+| ------------- | ---------------------------------------------------------------------------------------------------- |
+| **Permanent** | Every reflection and score stays with the student for life, not locked inside a subject that closes. |
+| **Credible**  | Verified by the people who actually supervised the work.                                             |
+| **Useful**    | Built around recognised skill frameworks, so the record means something to a future employer.        |
+| **Flexible**  | Works with SFIA 9 today and any other rubric Alumable or its university partners need tomorrow.      |
 
 ## Objectives
 
@@ -84,126 +86,294 @@ A Reflection Diary module inside Alumable where:
 - Self-assessment scoring against a competency rubric, with assessor/supervisor counter-scoring.
 - Radar-chart visualisation of self vs assessor scores across competencies.
 - A persistent, student-owned, exportable record that outlives the subject.
+- Interchangeable competency frameworks (SFIA 9 and La Trobe's six-competency rubric),
+  including copying and editing a framework.
 
 **Nice to have**
 
 - Employer feedback and ratings integrated into the diary.
-- Interchangeable competency frameworks (SFIA 9 plus custom rubrics).
 - Reflection prompts and reminders to drive regular use.
-
-**Optional**
-
 - Longitudinal analytics across semesters.
-- AI-assisted reflection prompts.
+
+**Out of scope**
+
+- AI features of any kind. Cut at the scope review, see [ADR #10](docs/adr/).
+- Framework creation from scratch, adding or removing competencies, changing level counts.
+  Editing means copying a seeded base, then renaming and rewording only.
+- Re-scoring by an assessor, pagination, notifications as stored state, real-time updates.
 
 ## Tech stack
 
-| Layer          | Choice                                                       |
-| -------------- | ------------------------------------------------------------ |
-| API components | PHP / Laravel, for anything integrating with Alumable's APIs |
-| Microservices  | Node.js or Python, for independent services                  |
-| Database       | MySQL                                                        |
-| Hosting        | AWS                                                          |
-| Design         | Figma                                                        |
-| Tracking       | Jira                                                         |
+| Layer    | Choice                            |
+| -------- | --------------------------------- |
+| Backend  | PHP 8.5 / Laravel 13, JSON API    |
+| Frontend | React 19 + Vite + TypeScript      |
+| Charts   | recharts                          |
+| Database | MySQL 9.7 LTS, self-hosted on an Oracle Cloud VPS |
+| Auth     | Laravel Sanctum bearer tokens     |
+| Contract | OpenAPI 3, mock-first with Prism  |
+| Design   | Figma                             |
+| Tracking | Jira                              |
 
-This stack was set by the client so the Reflection Diary integrates cleanly with their live
-platform. Production and staging portals cannot be shared, so development happens against a
-sandboxed environment with dummy student, educator and employer data.
+PHP, Laravel and MySQL were set by the client so the Reflection Diary integrates cleanly
+with their live platform. Production and staging portals cannot be shared and we have no
+access to their database, so the MVP runs standalone against our own seeded data and
+connects later through the `external_ref` columns described below.
 
 ## Data model
 
-The schema is grouped into four areas. Once you know which group a table belongs to, the
-design mostly explains itself.
+The schema is grouped into three areas plus an audit trail. Once you know which group a
+table belongs to, the design mostly explains itself.
 
-**Integration** — `users`, `gigs`, `sprints`, `gig_participants`
+**Integration:** `users`, `gigs`, `sprints`, `gig_participants`
 
 Alumable owns identity and gigs, we do not, and we have no direct database access. These are
-small local mirrors, each carrying an `external_ref` holding Alumable's id for the same thing.
-That single column per table is the only coupling, which is what keeps the adapter small.
+small local mirrors, and `users` and `gigs` each carry an `external_ref` holding Alumable's id
+for the same record. Those two columns are the entire coupling surface, which is what keeps
+the adapter small.
 
 Role lives on `gig_participants` rather than `users`, because the same person can be a student
 on one gig and an assessor on another. It is also where role-based access control checks
 resolve. `sprints` is a table rather than an integer on `reflections` because sprints have
 dates, which lets the UI say things like "due in 3 days" or "not open yet".
 
-**Framework engine** — `frameworks`, `competencies`, `levels`, `framework_assignments`
+**Framework engine:** `frameworks`, `competencies`, `levels`, `framework_assignments`
 
 The rubric is data, not code. Competency names, scales and level descriptions should not
 appear anywhere in application logic. `levels` hangs off `competencies` rather than
-`frameworks`, because SFIA skills are each valid over only part of the seven levels — one
+`frameworks`, because SFIA skills are each valid over only part of the seven levels. One
 skill might run 3 to 5 and another 2 to 7, so the valid range has to live in the data.
 `framework_assignments` records which rubric applies to which gig, as a table rather than a
 column, so we also capture who assigned it and when.
 
-**Record** — `reflections`, `reflection_entries`, `scores`, `evidence`, `events`, `exports`
+A framework referenced by any reflection is permanently read-only. Editing is copy-then-edit,
+because mutating a framework in place would silently change what past students were scored
+against.
+
+**Record:** `reflections`, `reflection_entries`, `scores`, `evidence`
 
 `reflections` is the container: one per student per sprint, or per gig for gig-level
 reflections. It belongs to the student rather than the gig, and the foreign keys to `users`
 and `gigs` use `RESTRICT` so a mistaken gig delete fails loudly instead of erasing the
 reflections written for it.
 
-`reflection_entries` is the hub — one row per reflection per competency, holding the narrative
-text. Evidence, scores and AI suggestions attach here rather than to the reflection, because
-the assessment unit is the competency, not the sprint.
+`reflection_entries` is the hub. One row per reflection per competency, and it holds the
+narrative text. Evidence and scores attach here rather than to the reflection, because the
+assessment unit is the competency, not the sprint.
 
 `scores` are rows, not columns. There is no `self_score`/`assessor_score` pair; each row is one
 scorer's opinion tagged with `scorer_role`, recording who scored and when. The radar chart is
 just a query grouped by role, and adding a new scorer type later needs no migration. One score
-per person per role per entry, so re-scoring overwrites rather than stacking.
+per person per role per entry: a student may change their self-score before submitting, but an
+assessor cannot revise a counter-score once given.
 
 `framework_version` on `reflections` looks redundant next to `framework_id`, but the id points
 at a row that can change, while the copied string snapshots exactly what the student was scored
-against. `events` powers the history sheet, and `exports` logs downloads as the audit trail for
-the exportable-record requirement.
+against.
 
-**AI (optional scope)** — `ai_suggestions`, `entry_embeddings`, `level_embeddings`
+**Audit:** `events`, `exports`
 
-The AI writes to `ai_suggestions` and nothing else. There is no path from a model into `scores` a human accepting a suggestion is what creates a score. Reflections are graded work, so we
-need to be able to prove an AI cannot author an assessment. `evidence_quote` on a suggestion
-must be a literal substring of what the student wrote, which gives them a reason for the
-suggestion and acts as a cheap hallucination check. Embeddings are split into two tables because
-the foreign keys point at different things, and both store `model_name` so we know which rows
-went stale if the embedding model is swapped.
+`events` is an append-only log that powers the history sheet, with a JSON metadata column so
+one table serves every event type. Notifications are derived from it rather than stored.
+`exports` logs downloads as the audit trail for the exportable-record requirement, and doubles
+as the job record for async export generation.
 
-Full ERD: [`docs/erd.png`](docs/erd.png) · commentary: [`docs/erd-explained.md`](docs/erd-explained.md)
+Full ERD: [`docs/erd.png`](docs/erd.png), whose legend lists the constraints crow's foot
+notation cannot show. Schema with inline reasoning:
+[`db/01-schema.sql`](db/01-schema.sql).
 
 ## Repository structure
 
 ```
 .
-├── docs/          # Brief, ERD, design notes, meeting records
-├── src/           # Application code
+├── api/          # Laravel 13 backend
+├── web/          # React + Vite + TypeScript frontend
+├── db/           # Schema and seed data
+├── docs/         # Brief, ERD, API spec, ADRs, meeting records
+├── CLAUDE.md     # Rules for agents working in this repo
 └── README.md
 ```
 
-> To be expanded as the Laravel app and microservices land.
-
 ## Getting started
+
+### Quick setup
+
+One command does the clone, the environment files and the Claude Code variable. It asks
+for the two passwords and installs nothing itself, only telling you what is missing.
+
+```bash
+curl -fsSL https://dl.darkovski.dev/git/cse3cap/install.sh | bash    # Linux, macOS
+irm https://dl.darkovski.dev/git/cse3cap/install.ps1 | iex           # Windows
+```
+
+Checksums are at [SHA256SUMS](https://dl.darkovski.dev/git/cse3cap/SHA256SUMS), worth
+checking for anything piped to a shell. The script itself is
+[`scripts/setup.sh`](scripts/setup.sh) in this repository, so you can read it before
+running it. The manual steps below are what it automates.
+
+### 1. Clone
 
 ```bash
 git clone https://github.com/theintonerzero/cse3cap.git
 cd cse3cap
 ```
 
-Setup instructions for the Laravel app, microservices and local database will be added here
-once the initial scaffold is committed.
+`.env.example` at the root lists every value the project needs and where each one goes.
+Host, port, database and usernames are already filled in. The only things missing are the
+two passwords, which are pinned in the team channel.
+
+### 2. Backend
+
+```bash
+cd api
+cp ../.env.example .env
+composer install
+php artisan key:generate
+php artisan serve          # http://localhost:8000
+```
+
+Laravel reads `api/.env`, not the copy at the root. Paste `DB_PASSWORD` in before starting
+the server; everything else in the database block is already correct.
+
+The database refuses unencrypted connections. `MYSQL_ATTR_SSL_CA` in `.env.example` points
+at `db/letsencrypt-roots.pem`, which is committed so the path is the same on every machine.
+Without it PDO connects in the clear and the server rejects it as `Access denied`, which
+looks like a wrong password and is not.
+
+Do **not** run `php artisan migrate` without saying so in the channel first. See
+[shared database](#shared-database).
+
+### 3. Frontend
+
+```bash
+cd web
+npm install
+npm run dev                # http://localhost:5173
+```
+
+Vite reads `web/.env`, which needs one line:
+`VITE_API_BASE_URL=http://localhost:8000/api/v1`.
+
+### Shared database
+
+MySQL 9.7 LTS is self-hosted on a shared Oracle Cloud VPS rather than on each machine, so
+there is nothing to install locally.
+
+| | |
+| --- | --- |
+| Host | `rddb.darkovski.dev` port `3306` |
+| Database | `reflection_diary` |
+| Accounts | `diary_app` for the application, `diary_ro` read-only for agents |
+| TLS | Required. Real Let's Encrypt certificate, so `verify_identity` works |
+
+Everyone connects to the same instance, which has two consequences.
+
+**Migrations are applied centrally.** Two people running migrations at once will conflict,
+and a bad migration takes out everyone's environment rather than just one. Announce in the
+channel before applying anything.
+
+**Seed data is shared.** Treat the seeded users, gigs and frameworks as fixed reference
+data. If you need to experiment, create new rows rather than editing the seeds, otherwise
+you change what everyone else sees, including mid-demo.
+
+### Authentication
+
+There is no login screen in the MVP. Three tokens are seeded, one per role. Pass them as
+`Authorization: Bearer <token>`.
+
+| Role                  | User   | Use for                                                 |
+| --------------------- | ------ | ------------------------------------------------------- |
+| Student               | Jane   | Writing reflections, self-scoring, export               |
+| Assessor              | Sam    | Review queue, counter-scoring                           |
+| Supervisor (educator) | Dr Lee | Framework select, edit and assign, plus counter-scoring |
+
+Tokens are issued by `php artisan db:seed --class=DemoSeeder`, which prints them once, and
+are pinned in the team channel. Sanctum stores only a hash, so a token cannot be recovered
+after that. Educator is not a separate role in the schema, it maps to `supervisor`.
+
+## Working agreements
+
+**Contract first.** [`docs/openapi.yaml`](docs/openapi.yaml) is the agreement between
+frontend and backend. The frontend develops against a mock generated from it
+(`prism mock docs/openapi.yaml`) while the backend implements the real thing. If you change
+an endpoint, update the contract in the same PR.
+
+**Decisions get an ADR.** Anything that changes the schema, the contract, or a choice
+already recorded gets a new record in [`docs/adr/`](docs/adr/). Supersede, never rewrite.
+
+**Naming is snake_case everywhere:** database, JSON, frontend types. There is no mapping
+layer between them.
+
+Branching, commits, PRs and review are in [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Claude Code
+
+The repository ships shared configuration so everyone gets the same setup.
+
+`.claude/settings.json` enables ten plugins from the official Anthropic marketplace: the PHP
+and TypeScript language servers, Context7, frontend design, Playwright, superpowers, security
+guidance, GitHub, commit commands, and the PR review toolkit. `.mcp.json` adds a read-only
+MySQL connection so agents can inspect the real schema instead of guessing.
+
+Trust the repository folder when prompted and Claude Code should offer to install them. If
+nothing appears, run `/plugin` and install from the Discover tab.
+
+Install the language server binaries once per machine; the plugins do not install them:
+
+```bash
+npm install -g typescript-language-server typescript
+npm install -g intelephense
+```
+
+The MySQL MCP connection is deliberately read-only. Agents can read the schema and query
+data, but cannot modify a database five people share. That is enforced by the grant on
+`diary_ro`, not only by the server's own flags.
+
+Everything it needs is defaulted in `.mcp.json` except the password, so setup is one line
+in your shell profile:
+
+```bash
+export DB_READONLY_PASSWORD='...'      # from the team channel
+```
+
+Restart Claude Code afterwards. Without it the MySQL server fails to start and agents fall
+back to guessing from `db/01-schema.sql`.
+
+Only plugins from the official marketplace are enabled. Plugins execute arbitrary code with
+your user privileges, so raise it in the channel before adding others.
+
+[`CLAUDE.md`](CLAUDE.md) holds the rules agents must follow.
+[`docs/PROJECT-CONTEXT.md`](docs/PROJECT-CONTEXT.md) explains the product, the architecture
+and the reasoning behind the unusual decisions.
+
+## Documentation
+
+| Document                                                         | What it covers                                                |
+| ---------------------------------------------------------------- | ------------------------------------------------------------- |
+| [`docs/PROJECT-CONTEXT.md`](docs/PROJECT-CONTEXT.md)             | Background briefing: product, vocabulary, architecture, traps |
+| [`docs/API-Specification.md`](docs/API-Specification.md)         | The annotated API contract                                    |
+| [`docs/openapi.yaml`](docs/openapi.yaml)                         | Machine-readable contract, source of truth                    |
+| [`docs/Stack-and-Build-Scope.md`](docs/Stack-and-Build-Scope.md) | What is being built, and the definition of done               |
+| [`docs/adr/`](docs/adr/)                                         | Architecture decision records                                 |
+| [`docs/erd.png`](docs/erd.png)                                   | Entity relationship diagram, with a legend of hidden constraints |
+| [`docs/superpowers/specs/`](docs/superpowers/specs/)             | Design specs for each build slice                             |
+| [`db/01-schema.sql`](db/01-schema.sql)                           | The schema, with inline reasoning                             |
 
 ## Team
 
-**404 Not Found** — CSE3CAP, Semester 2, 2026
+**404 Not Found**, CSE3CAP, Semester 2, 2026
 
-| Name             | Student Number | Role                | GitHub                                               |
-| ---------------- | -------------- | ------------------- | ---------------------------------------------------- |
-| Tony To          | 22817115       | Cybersecurity Lead  | [@L1quidDroid](https://github.com/L1quidDroid)       |
-| Amenah Sabri     | 22209031       | Frontend Engineer   | [@amn-4](https://github.com/amn-4)                   |
-| Jesse Darkovski  | 21707695       | Data & AI Lead      | [@theintonerzero](https://github.com/theintonerzero) |
-| Patrick Anley    | 19517303       | Full Stack Engineer | [@RickLTCS ](https://github.com/RickLTCS)            |
-| Andrew Johansson | 21703763       | Cybersecurity Analyst | @TODO                                              |
+| Name             | Student Number | Role                  | GitHub                                               |
+| ---------------- | -------------- | --------------------- | ---------------------------------------------------- |
+| Tony To          | 22817115       | Cybersecurity Lead    | [@L1quidDroid](https://github.com/L1quidDroid)       |
+| Amenah Sabri     | 22209031       | Frontend Engineer     | [@amn-4](https://github.com/amn-4)                   |
+| Jesse Darkovski  | 21707695       | Data & Analytics Lead | [@theintonerzero](https://github.com/theintonerzero) |
+| Patrick Anley    | 19517303       | Full Stack Engineer   | [@RickLTCS](https://github.com/RickLTCS)             |
+| Andrew Johansson | 21703763       | Cybersecurity Analyst | [@Thinkeel](https://github.com/Thinkeel)             |
 
 ## Client
 
-**Alumable** a Melbourne edtech platform connecting university students with employers
+**Alumable** is a Melbourne edtech platform connecting university students with employers
 through paid gigs and projects, with a gamified portfolio that tracks skills mapped to
 frameworks such as SFIA 9.
 
@@ -213,5 +383,3 @@ published here.
 Engagement includes at least three touchpoints: a week-2 meet and greet, a mid-semester design
 checkpoint, and final handover. Intellectual property in the delivered solution is assigned to
 Alumable.
-
-University, Semester 2 2026.*
