@@ -23,11 +23,12 @@ parameter. A client-supplied role is a client-supplied permission. Roles resolve
 server-side from `gig_participants` through `RoleResolver`, per gig, because the
 same person is a student on one gig and an assessor on another.
 
-**Never duplicate a business rule.** Each has exactly one implementation: the
-submit gate lives in the submit endpoint, the comment-when-lower rule in the
-counter-score endpoint, level-belongs-to-competency in the two scoring
-endpoints, framework immutability in the framework mutation endpoints. If you
-find yourself writing a check that exists elsewhere, call the existing one.
+**Never duplicate a business rule.** Each has exactly one implementation, and it
+is a service class under `api/app/Services/`, never the controller and never the
+FormRequest. The rule map in `CLAUDE.md` says which class owns which rule; read
+it rather than trusting a summary here, because a second copy of that list is
+how the first one goes stale. If you find yourself writing a check that exists
+elsewhere, call the existing one.
 
 **404, not 403, when the caller should not learn the resource exists.** A policy
 returns `Response::denyAsNotFound()`. 403 is for "you can see it but you may not
