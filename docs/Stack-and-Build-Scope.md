@@ -189,7 +189,7 @@ README.md                setup, connection details, the three tokens
 
 ### 4.5 Cross-cutting
 
-- [x] CI running Pint, ESLint, Prettier and both builds, set up before the first feature PR.
+- [x] CI running Pint, oxlint, Prettier and both builds, set up before the first feature PR.
       `.github/workflows/ci.yml`. The backend job brings up its own MySQL 9.7 service
       container rather than touching the shared instance, because the suite runs
       `migrate:fresh`. The frontend job is written and skips itself until `web/` exists.
