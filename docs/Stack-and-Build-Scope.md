@@ -122,8 +122,11 @@ README.md                setup, connection details, the three tokens
 - [x] Comment required when a counter-score is lower than the self score
 - [x] Level belongs to the entry's competency (service layer; the database cannot express it)
 - [x] Framework immutable once referenced by any reflection
+- [x] One rubric per gig. `FrameworkAssigner` refuses a second, and since ADR #35
+      `ak_fw_assignments` is unique on `gig_id` so the database refuses it too
 - [x] Eager entry creation, one per competency, on reflection create
-- [x] Auto-flip to `assessed` when every entry has a counter-score
+- [x] Auto-flip to `assessed` when every entry has a counter-score. Counter-scoring closes
+      with it: `submitted` is the only state that accepts one (ADR #34)
 
 ### 4.3 Frontend
 
@@ -211,7 +214,11 @@ Recorded so nobody builds them by accident.
 - **Adding or removing competencies, changing level counts.** Renaming competencies and
   rewording descriptors only.
 - **Editing a framework that is in use.** Permanently read-only once referenced.
-- **Re-scoring.** An assessor cannot revise a submitted score; a repeat is a 409.
+- **Re-scoring.** An assessor cannot revise a submitted score; a repeat is a 409, and a
+  reflection that has flipped to `assessed` stops accepting counter-scores entirely.
+- **Changing a gig's rubric once assigned.** A gig takes one and there is no endpoint to
+  replace it, because reflections already created point at the framework they snapshotted.
+  The answer to "I picked the wrong rubric" is a new gig. See ADR #33.
 - **Login screen.** Three seeded tokens; auth exists server-side.
 - **Pagination, notifications table, multi-tenancy, real-time updates.**
 
