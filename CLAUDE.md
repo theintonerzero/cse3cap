@@ -29,8 +29,10 @@ In this order. If they disagree, the higher one wins and the lower one is a bug.
 4. `docs/PROJECT-CONTEXT.md`, background
 5. This file
 
-`docs/Retention-and-Erasure.md` covers what the `ON DELETE` behaviour means for deleting a
-person, and why some of it cannot be deleted at all.
+`docs/Frontend-and-Backend.md` is the seam between `api/` and `web/`: what crosses it, what
+is generated from what, and what drifts without anyone noticing. Read it before your first
+change in either folder. `docs/Retention-and-Erasure.md` covers what the `ON DELETE`
+behaviour means for deleting a person.
 
 Never invent a column or an endpoint. Read the schema and the contract first.
 
@@ -74,6 +76,14 @@ itself is built on the principle that a machine can scaffold reflection but neve
 it; the same applies to the people building it.
 
 ## Conventions
+
+**Documentation:** every document this project keeps lives in `docs/` and is listed in the
+README table. Do not create a markdown or HTML file anywhere else. A plan, a summary or a
+note to yourself either belongs in `docs/` or belongs in your scratchpad outside the
+repository, never at the repository root. `scripts/guard-docs-location.sh` refuses it,
+whether you reach for the Write tool or for `cat >`. Agent and skill definitions under
+`.claude/` are configuration rather than documentation, and a `README` next to the thing it
+describes is fine.
 
 **Naming:** snake_case in the database, in JSON, and in frontend types. There is no
 mapping layer. Do not camelCase API fields.

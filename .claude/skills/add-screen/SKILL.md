@@ -5,6 +5,10 @@ description: Build a new React screen or page in the frontend. Use when adding a
 
 # Adding a screen
 
+`docs/Frontend-and-Backend.md` is the seam between `api/` and `web/`. Read it first if you
+have not: it covers what crosses between the folders, why types are generated rather than
+written, and the drift that does not announce itself.
+
 A screen is not done when it renders data. It is done when it renders correctly with no
 data, slow data, and broken data as well.
 

@@ -76,8 +76,8 @@ Orchestrate and serialise. Resolve the model, call the policy, call the service,
 resource. If a controller is doing arithmetic or building a query with more than a couple of
 joins, that work belongs in a service or a view.
 
-Analytics controllers read the SQL views (`v_radar`, `v_calibration_gap`,
-`v_coverage_gaps`, `v_framework_scale`) and do not aggregate in PHP.
+Analytics controllers read the SQL views (`v_entry_score`, `v_radar`,
+`v_calibration_gap`, `v_coverage_gaps`, `v_framework_scale`) and do not aggregate in PHP.
 
 ## 7. Errors
 

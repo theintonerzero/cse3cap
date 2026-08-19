@@ -29,12 +29,33 @@ jobs:
       - name: Lint the OpenAPI contract
         run: npx -y @redocly/cli@latest lint docs/openapi.yaml
 
+      # The guard that stops a shell command dropping the shared schema.
+      # It is only as good as its cases, and it has already been wrong
+      # once, so the cases run on every push.
+      - name: Check the shared-database guard
+        run: python3 scripts/guard-shared-db.test.py
+
+      - name: Check the docs-location guard
+        run: python3 scripts/guard-docs-location.test.py
+
       # Nobody on the team runs Windows day to day, so the PowerShell
       # installer is the one file that can rot unnoticed until a new
       # teammate cannot start. pwsh ships on the GitHub runners.
       - name: Check the Windows installer
         shell: pwsh
         run: ./scripts/setup.ps1.test.ps1
+
+      # run.ps1 has no behavioural test: starting two servers and killing
+      # them is not something to assert in CI. Parsing is the floor, and it
+      # is the failure that would otherwise reach a teammate first.
+      - name: Check the Windows task runner parses
+        shell: pwsh
+        run: |
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path ./run.ps1), [ref]$null, [ref]$errors) | Out-Null
+          if ($errors.Count) { $errors | ForEach-Object { Write-Error $_ }; exit 1 }
+          Write-Host "run.ps1 parses"
 
   backend:
     name: Backend

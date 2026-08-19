@@ -1,0 +1,220 @@
+#!/usr/bin/env bash
+#
+# One entry point for the whole project, from the repository root.
+#
+#   ./run            what you can do
+#   ./run dev        both servers, one Ctrl-C stops both
+#   ./run check      everything CI runs
+#
+# api/ and web/ are separate applications with separate toolchains. This
+# does not hide that, it just saves the cd. Every command it runs is
+# printed before it runs, so this stays a shortcut rather than a layer
+# nobody can see through.
+#
+# Windows: use run.ps1.
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$ROOT"
+
+if [ -t 1 ]; then
+    BLUE=$'\033[1;34m'; GREEN=$'\033[1;32m'; YELLOW=$'\033[1;33m'
+    RED=$'\033[1;31m';  DIM=$'\033[2m';      RESET=$'\033[0m'
+else
+    BLUE=''; GREEN=''; YELLOW=''; RED=''; DIM=''; RESET=''
+fi
+
+say()  { printf '%s==>%s %s\n' "$BLUE" "$RESET" "$1"; }
+die()  { printf '%sError:%s %s\n' "$RED" "$RESET" "$1" >&2; exit 1; }
+
+# Print what is about to happen, then do it. The point of a task runner is
+# to save typing, not to make the real command a mystery, so what it prints
+# is what you would type yourself.
+step() {
+    printf '%s$ %s%s\n' "$DIM" "$*" "$RESET"
+    "$@"
+}
+
+# The same, inside api/ or web/. Printed as "web $ npm run lint" rather
+# than wrapped in a bash -c whose quoting does not survive being echoed.
+in_dir() {
+    local dir="$1"; shift
+    printf '%s%s $ %s%s\n' "$DIM" "$dir" "$*" "$RESET"
+    ( cd "$dir" && "$@" )
+}
+
+need_api() {
+    [ -f api/artisan ] || die "api/ is not set up. Run ./scripts/setup.sh first."
+
+    # A fresh clone has artisan and no vendor/, so checking for artisan
+    # alone let every command through to a raw PHP fatal about a missing
+    # autoload.php. That is the first thing a new teammate would have hit.
+    [ -f api/vendor/autoload.php ] || {
+        say "Installing PHP dependencies"
+        ( cd api && composer install --no-interaction )
+    }
+
+    # This one cannot be fixed automatically: .env carries the database
+    # password and setup.sh asks for it. Say so, rather than failing later
+    # with a connection error that reads like a network problem.
+    [ -f api/.env ] || die "api/.env is missing. Run ./scripts/setup.sh, which asks for the database password."
+}
+
+need_web() { [ -f web/package.json ] || die "web/ does not exist yet."; }
+
+need_web_deps() {
+    need_web
+    [ -d web/node_modules ] || { say "Installing frontend dependencies"; ( cd web && npm install ); }
+}
+
+# --------------------------------------------------------------------------
+# dev: both servers at once
+# --------------------------------------------------------------------------
+# Stopping this cleanly is the whole difficulty. Each server sits under a
+# subshell and a prefixing pipeline, so the pid bash reports is never the
+# pid holding the port. Signalling the process group was tried first and
+# left both servers orphaned on :8000 and :5173, which is worse than no
+# runner at all: the next ./run dev fails on a port already in use and the
+# cause is invisible.
+#
+# So the descendants are walked explicitly and killed from the leaves up.
+# pgrep -P behaves the same on macOS and Linux.
+kill_tree() {
+    local pid="$1" child
+    for child in $(pgrep -P "$pid" 2>/dev/null || true); do
+        kill_tree "$child"
+    done
+    kill "$pid" 2>/dev/null || true
+}
+
+dev() {
+    need_api
+    need_web_deps
+
+    local pids=()
+
+    stop() {
+        trap - INT TERM EXIT
+        printf '\n'
+        say "Stopping"
+        local pid
+        for pid in "${pids[@]}"; do
+            kill_tree "$pid"
+        done
+        wait 2>/dev/null || true
+        say "Stopped"
+    }
+    trap stop INT TERM EXIT
+
+    prefixed() {
+        local label="$1" colour="$2"; shift 2
+        "$@" 2>&1 | while IFS= read -r line; do
+            printf '%s%-4s%s %s\n' "$colour" "$label" "$RESET" "$line"
+        done
+    }
+
+    say "api  http://localhost:8000/api/v1"
+    say "web  http://localhost:5173"
+    printf '%sCtrl-C stops both.%s\n\n' "$DIM" "$RESET"
+
+    prefixed api "$BLUE"  bash -c 'cd api && exec php artisan serve --port=8000' &
+    pids+=($!)
+    prefixed web "$GREEN" bash -c 'cd web && exec npm run dev' &
+    pids+=($!)
+
+    wait
+}
+
+# --------------------------------------------------------------------------
+case "${1:-help}" in
+    dev)   dev ;;
+
+    api)   need_api; in_dir api php artisan serve --port=8000 ;;
+    web)   need_web_deps; in_dir web npm run dev ;;
+
+    # The contract mocked, so the frontend does not need the backend.
+    mock)  step npx -y @stoplight/prism-cli mock docs/openapi.yaml ;;
+
+    test)  need_api; in_dir api php artisan test ;;
+
+    # Over HTTP against a server you started yourself, with the real
+    # tokens. Proves the wiring the unit tests cannot.
+    smoke)
+        curl -fsS -o /dev/null "http://localhost:8000/api/v1/auth/me" 2>/dev/null \
+            || [ "$?" = "22" ] \
+            || die "Nothing is serving on :8000. Start it with ./run api"
+        step ./scripts/smoke.sh
+        ;;
+
+    lint)
+        need_api
+        in_dir api ./vendor/bin/pint --test
+        if [ -f web/package.json ]; then
+            need_web_deps
+            in_dir web npm run lint
+            in_dir web npx prettier --check .
+        fi
+        ;;
+
+    fmt|format)
+        need_api
+        in_dir api ./vendor/bin/pint
+        [ -f web/package.json ] && { need_web_deps; in_dir web npm run format; }
+        ;;
+
+    build)
+        need_web_deps
+        in_dir web npm run build
+        ;;
+
+    # Everything CI runs, in CI's order, so a red pipeline is something you
+    # can reproduce here rather than by pushing again.
+    check)
+        say "Contract"
+        step npx -y @redocly/cli@latest lint docs/openapi.yaml
+        say "Guards"
+        step python3 scripts/guard-shared-db.test.py
+        step python3 scripts/guard-docs-location.test.py
+        say "Backend"
+        need_api
+        in_dir api ./vendor/bin/pint --test
+        in_dir api php artisan test
+        if [ -f web/package.json ]; then
+            say "Frontend"
+            need_web_deps
+            in_dir web npm run lint
+            in_dir web npx prettier --check .
+            in_dir web npm run build
+        fi
+        printf '\n%sAll checks passed.%s\n' "$GREEN" "$RESET"
+        ;;
+
+    setup) step ./scripts/setup.sh ;;
+
+    help|-h|--help)
+        cat <<HELP
+${BLUE}Alumable Reflection Diary${RESET}
+
+  ${GREEN}./run dev${RESET}      both servers. api on :8000, web on :5173. Ctrl-C stops both
+  ${GREEN}./run api${RESET}      backend only
+  ${GREEN}./run web${RESET}      frontend only
+  ${GREEN}./run mock${RESET}     mock the contract on :4010, so web needs no backend
+
+  ${GREEN}./run test${RESET}     backend test suite, against your own test database
+  ${GREEN}./run smoke${RESET}    end-to-end over HTTP. Needs a server already running
+  ${GREEN}./run lint${RESET}     pint, oxlint and prettier, checking only
+  ${GREEN}./run fmt${RESET}      the same, writing changes
+  ${GREEN}./run build${RESET}    production build of the frontend
+  ${GREEN}./run check${RESET}    everything CI runs, in CI's order
+
+  ${GREEN}./run setup${RESET}    first-time setup. Writes env files, installs dependencies
+
+${DIM}api/ and web/ are separate applications. This saves the cd, nothing more:
+every command is printed before it runs. Windows: use run.ps1.
+See docs/Frontend-and-Backend.md for how the two connect.${RESET}
+HELP
+        ;;
+
+    *) die "Unknown command '$1'. Try ./run help" ;;
+esac
