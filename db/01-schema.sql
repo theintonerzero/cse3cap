@@ -133,7 +133,12 @@ CREATE TABLE framework_assignments (
     assigned_by   CHAR(36) NULL,
     assigned_at   DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     PRIMARY KEY (id),
-    UNIQUE KEY ak_fw_assignments (gig_id, framework_id),
+    -- One rubric per gig, not one row per pair. On (gig_id, framework_id)
+    -- this stopped the same rubric being assigned twice and let a second,
+    -- different one through, which is the case that actually hurts: every
+    -- reflection snapshots the gig's framework, so two would score two
+    -- students on one gig against different rubrics. See ADR #35.
+    UNIQUE KEY ak_fw_assignments (gig_id),
     CONSTRAINT fk_fa_fw   FOREIGN KEY (framework_id) REFERENCES frameworks (id),
     CONSTRAINT fk_fa_gig  FOREIGN KEY (gig_id)       REFERENCES gigs (id) ON DELETE CASCADE,
     CONSTRAINT fk_fa_user FOREIGN KEY (assigned_by)  REFERENCES users (id) ON DELETE SET NULL
@@ -266,12 +271,16 @@ CREATE TABLE events (
         REFERENCES users (id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Audit trail for the exportable-record must-have.
+-- Audit trail for the exportable-record must-have. This row is also the
+-- queued job's record, which is why status is stored rather than derived
+-- from completed_at: a job that fails has no completion time and no
+-- error either way, so the frontend's poll loop would never terminate.
 CREATE TABLE exports (
     id             CHAR(36) NOT NULL DEFAULT (UUID()),
     user_id        CHAR(36) NOT NULL,
     reflection_id  CHAR(36) NULL,            -- NULL = whole record
     format         VARCHAR(10) NOT NULL,
+    status         VARCHAR(20) NOT NULL DEFAULT 'pending',
     uri            TEXT NULL,
     summary        JSON NULL,
     requested_at   DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
@@ -282,7 +291,8 @@ CREATE TABLE exports (
         REFERENCES users (id) ON DELETE CASCADE,
     CONSTRAINT fk_ex_refl FOREIGN KEY (reflection_id)
         REFERENCES reflections (id) ON DELETE SET NULL,
-    CONSTRAINT ck_ex_format CHECK (format IN ('pdf','json'))
+    CONSTRAINT ck_ex_format CHECK (format IN ('pdf','json')),
+    CONSTRAINT ck_ex_status CHECK (status IN ('pending','complete','failed'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ---------------------------------------------------------------------
@@ -299,8 +309,46 @@ FROM competencies c
 JOIN levels l ON l.competency_id = c.id
 GROUP BY c.framework_id;
 
--- Radar data: one row per competency per scorer role. Axes and scale
--- come from the framework, so this serves La Trobe and SFIA unchanged.
+-- The scoring rule the analytics layer reads through. Two things are
+-- settled here and nowhere else:
+--
+--   * A counter-score is a class, not a role. The permission matrix
+--     lets an assessor, a supervisor and an employer all counter-score,
+--     so "assessor" is the wrong name for the opposing value. The radar
+--     draws one opposing polygon, not three.
+--   * Where more than one person counter-scores an entry, the most
+--     recent one is the value that counts. Both a gig's assessor and
+--     its supervisor can score the same entry, so this is reachable in
+--     the seeded data, not a theoretical case.
+--
+-- scored_at is DATETIME(6), so a tie needs two writes in the same
+-- microsecond; id breaks it deterministically if that ever happens.
+CREATE VIEW v_entry_score AS
+SELECT reflection_entry_id, scorer_class, scorer_role, scorer_user_id,
+       level_id, level_value, comment, scored_at
+FROM (
+    SELECT s.reflection_entry_id,
+           IF(s.scorer_role = 'self', 'self', 'counter') AS scorer_class,
+           s.scorer_role,
+           s.scorer_user_id,
+           s.level_id,
+           l.level_value,
+           s.comment,
+           s.scored_at,
+           ROW_NUMBER() OVER (
+               PARTITION BY s.reflection_entry_id,
+                            IF(s.scorer_role = 'self', 'self', 'counter')
+               ORDER BY s.scored_at DESC, s.id DESC
+           ) AS rn
+    FROM scores s
+    JOIN levels l ON l.id = s.level_id
+) ranked
+WHERE rn = 1;
+
+-- Radar data: one row per competency per scorer class, plus a row with
+-- a NULL class for a competency nobody has scored yet, so an axis still
+-- appears on an empty diary. Axes and scale come from the framework, so
+-- this serves La Trobe and SFIA unchanged.
 CREATE VIEW v_radar AS
 SELECT
     r.id            AS reflection_id,
@@ -308,52 +356,65 @@ SELECT
     r.gig_id,
     r.sprint_id,
     f.fw_key        AS framework_key,
+    fs.scale_min,
     fs.scale_max,
     c.code          AS competency_code,
     c.short_label,
     c.position,
-    s.scorer_role,
-    l.level_value
+    es.scorer_class,
+    es.scorer_role,
+    es.level_value
 FROM reflections r
 JOIN frameworks          f  ON f.id  = r.framework_id
 JOIN v_framework_scale   fs ON fs.framework_id = f.id
 JOIN reflection_entries  e  ON e.reflection_id = r.id
 JOIN competencies        c  ON c.id  = e.competency_id
-LEFT JOIN scores         s  ON s.reflection_entry_id = e.id
-LEFT JOIN levels         l  ON l.id  = s.level_id;
+LEFT JOIN v_entry_score  es ON es.reflection_entry_id = e.id;
 
--- Calibration gap: self minus assessor per competency. Positive means
--- the student scored themselves higher.
+-- Calibration gap: self minus counter per competency. Positive means
+-- the student scored themselves higher. MAX is a pivot rather than a
+-- choice: v_entry_score already yields at most one row per class.
+-- counter_role carries who it was, so the UI can name them.
 CREATE VIEW v_calibration_gap AS
 SELECT
     r.user_id,
     r.gig_id,
     r.sprint_id,
     c.code AS competency_code,
-    MAX(CASE WHEN s.scorer_role = 'self'     THEN l.level_value END) AS self_level,
-    MAX(CASE WHEN s.scorer_role = 'assessor' THEN l.level_value END) AS assessor_level,
-    MAX(CASE WHEN s.scorer_role = 'self'     THEN l.level_value END)
-      - MAX(CASE WHEN s.scorer_role = 'assessor' THEN l.level_value END) AS gap
+    MAX(CASE WHEN es.scorer_class = 'self'    THEN es.level_value END) AS self_level,
+    MAX(CASE WHEN es.scorer_class = 'counter' THEN es.level_value END) AS counter_level,
+    MAX(CASE WHEN es.scorer_class = 'counter' THEN es.scorer_role END) AS counter_role,
+    MAX(CASE WHEN es.scorer_class = 'self'    THEN es.level_value END)
+      - MAX(CASE WHEN es.scorer_class = 'counter' THEN es.level_value END) AS gap
 FROM reflections r
-JOIN reflection_entries e ON e.reflection_id = r.id
-JOIN competencies       c ON c.id = e.competency_id
-JOIN scores             s ON s.reflection_entry_id = e.id
-JOIN levels             l ON l.id = s.level_id
+JOIN reflection_entries e  ON e.reflection_id = r.id
+JOIN competencies       c  ON c.id = e.competency_id
+JOIN v_entry_score      es ON es.reflection_entry_id = e.id
 GROUP BY r.user_id, r.gig_id, r.sprint_id, c.code;
 
--- Coverage gaps: competencies in a framework the student has never
--- evidenced. Drives the "what's missing" view.
+-- Coverage gaps: competencies the student has never been scored on.
+-- Scored, not evidenced: evidence is optional per framework, so
+-- requiring it would report gaps that are not gaps.
+--
+-- Scoped to frameworks actually assigned to a gig the user is a student
+-- on. Crossing every user against every framework instead would tell an
+-- assessor they have six gaps in a rubric they have never been measured
+-- against. DISTINCT collapses two gigs sharing one framework.
 CREATE VIEW v_coverage_gaps AS
-SELECT
-    u.id   AS user_id,
+SELECT DISTINCT
+    u.id     AS user_id,
+    f.id     AS framework_id,
     f.fw_key AS framework_key,
-    c.code AS competency_code,
-    c.name
+    c.code   AS competency_code,
+    c.name,
+    c.short_label,
+    c.position
 FROM users u
-CROSS JOIN frameworks f
-JOIN competencies c ON c.framework_id = f.id
-WHERE f.is_active = 1
-  AND NOT EXISTS (
+JOIN gig_participants      gp ON gp.user_id = u.id AND gp.role = 'student'
+JOIN framework_assignments fa ON fa.gig_id  = gp.gig_id
+JOIN frameworks            f  ON f.id = fa.framework_id AND f.is_active = 1
+JOIN competencies          c  ON c.framework_id = f.id
+WHERE NOT EXISTS (
     SELECT 1
     FROM reflections r
     JOIN reflection_entries e ON e.reflection_id = r.id
@@ -424,3 +485,24 @@ CROSS JOIN (VALUES
   ROW(7, 'Set strategy / inspire')
 ) AS l(level_value, descriptor)
 WHERE c.framework_id = @sfia;
+
+-- ---------------------------------------------------------------------
+-- 6. Not in this file
+-- ---------------------------------------------------------------------
+--
+-- personal_access_tokens belongs to Sanctum. It is framework plumbing
+-- with no product meaning, so it is not transcribed here; it lives in
+-- api/database/migrations and arrives with php artisan migrate.
+--
+-- Two changes were needed to Sanctum's published version, both of which
+-- this file is the reason for:
+--
+--   * morphs('tokenable') is a bigint unsigned, and users.id is a
+--     char(36) uuid. MySQL truncates the id on insert and reports it as
+--     warning 1265 rather than an error, so every token silently points
+--     at nothing. It is uuidMorphs now.
+--   * Sanctum uses TIMESTAMP columns, which this project does not: they
+--     stop working in January 2038. DATETIME(6), like everything here.
+--
+-- Its primary key stays an auto-increment bigint, unlike every table
+-- above. It never appears in a url, an export or the API.

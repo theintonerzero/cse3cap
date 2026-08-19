@@ -26,15 +26,17 @@
 
 Already done, do not redo:
 
-- MySQL 9.7.2 is live at `rddb.darkovski.dev:3306`, database `reflection_diary`, 14 tables and 4 views applied, two frameworks seeded.
+- MySQL 9.7.2 is live at `rddb.darkovski.dev:3306`, database `reflection_diary`, 14 tables applied, two frameworks seeded. Views come to five once the patch below is run.
 - `diary_app` holds DML plus DDL on `reflection_diary` and on `reflection\_diary\_test\_%`, verified by creating and dropping a test database.
 - `db/letsencrypt-roots.pem` is committed. TLS is mandatory and PDO fails with a misleading `Access denied` without it.
+- PHP 8.5.9 and Composer 2.10.2 are installed. `scripts/setup.sh` checks both, and Node 24 for the frontend, so run that rather than a package manager command if anything is missing.
 
-Required before Task 1, run by the user:
+Required before Task 1:
 
-```bash
-sudo dnf install -y php-cli php-mysqlnd php-mbstring php-xml php-intl php-sodium php-pecl-zip composer
-```
+- The analytics-view and export-status fix (ADR #23, #24, #25) is merged to `dev` and
+  `db/patches/2026-08-18-analytics-views-and-export-status.sql` has been run against
+  `reflection_diary`. Task 2 baselines `db/01-schema.sql` verbatim, so a shared instance
+  still on the old views would be recorded as matching a schema it does not match.
 
 ---
 
@@ -52,7 +54,7 @@ sudo dnf install -y php-cli php-mysqlnd php-mbstring php-xml php-intl php-sodium
 - [ ] **Step 1: Create the project**
 
 ```bash
-cd /home/jdarkovski/workspace/cse3cap
+cd "$(git rev-parse --show-toplevel)"
 composer create-project laravel/laravel api
 cd api
 php artisan --version    # expect "Laravel Framework 13.x"
@@ -101,7 +103,7 @@ Confirm `.gitignore` at the repository root already covers `/vendor` and `.env`.
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /home/jdarkovski/workspace/cse3cap
+cd "$(git rev-parse --show-toplevel)"
 git add api .gitignore
 git commit -m "feat(api): scaffold Laravel 13 with Sanctum"
 ```
@@ -172,7 +174,7 @@ return new class extends Migration
         ];
 
         DB::statement('SET FOREIGN_KEY_CHECKS=0');
-        foreach (['v_coverage_gaps', 'v_calibration_gap', 'v_radar', 'v_framework_scale'] as $view) {
+        foreach (['v_coverage_gaps', 'v_calibration_gap', 'v_radar', 'v_entry_score', 'v_framework_scale'] as $view) {
             DB::statement("DROP VIEW IF EXISTS {$view}");
         }
         foreach ($tables as $table) {
@@ -323,7 +325,7 @@ Expected: `Nothing to migrate.`
 - [ ] **Step 9: Commit**
 
 ```bash
-cd /home/jdarkovski/workspace/cse3cap
+cd "$(git rev-parse --show-toplevel)"
 git add api/database api/config/database.php api/phpunit.xml
 git commit -m "feat(api): baseline the reviewed schema as a migration"
 ```
@@ -1000,7 +1002,7 @@ class Export extends Model
     public const CREATED_AT = 'requested_at';
     public const UPDATED_AT = null;
 
-    protected $fillable = ['user_id', 'reflection_id', 'format', 'uri', 'summary', 'completed_at'];
+    protected $fillable = ['user_id', 'reflection_id', 'format', 'status', 'uri', 'summary', 'completed_at'];
 
     protected $casts = [
         'summary' => 'array',
@@ -1026,7 +1028,7 @@ Expected: 3 passing tests. `RefreshDatabase` runs the baseline migration against
 - [ ] **Step 8: Commit**
 
 ```bash
-cd /home/jdarkovski/workspace/cse3cap
+cd "$(git rev-parse --show-toplevel)"
 git add api/app/Models api/tests/Feature/ModelMappingTest.php
 git commit -m "feat(api): add uuid base model and the fourteen eloquent models"
 ```
@@ -1224,7 +1226,7 @@ Expected: 4 passing tests. The 401 case needs the route from Task 6; if it is no
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /home/jdarkovski/workspace/cse3cap
+cd "$(git rev-parse --show-toplevel)"
 git add api/app/Exceptions api/bootstrap/app.php api/tests/Feature/ErrorEnvelopeTest.php
 git commit -m "feat(api): render every error through one envelope"
 ```
@@ -1428,7 +1430,7 @@ Copy the three printed tokens into the team channel. They cannot be recovered af
 - [ ] **Step 7: Commit**
 
 ```bash
-cd /home/jdarkovski/workspace/cse3cap
+cd "$(git rev-parse --show-toplevel)"
 git add api/database/seeders api/tests/Feature/DemoSeederTest.php
 git commit -m "feat(api): seed three role holders and two gigs for the demo"
 ```
@@ -1701,7 +1703,7 @@ paths:
 - [ ] **Step 8: Commit**
 
 ```bash
-cd /home/jdarkovski/workspace/cse3cap
+cd "$(git rev-parse --show-toplevel)"
 git add api/app api/routes/api.php api/tests/Feature/AuthMeTest.php docs/openapi.yaml
 git commit -m "feat(api): resolve roles per gig and add GET /auth/me"
 ```
@@ -2035,7 +2037,7 @@ And to `paths`:
 - [ ] **Step 8: Commit**
 
 ```bash
-cd /home/jdarkovski/workspace/cse3cap
+cd "$(git rev-parse --show-toplevel)"
 git add api/app api/routes/api.php api/tests/Feature/GigsTest.php docs/openapi.yaml
 git commit -m "feat(api): add GET /gigs and GET /gigs/{gig}"
 ```
@@ -2406,7 +2408,7 @@ And to `paths`:
 
 ```bash
 cd api && php artisan test
-cd /home/jdarkovski/workspace/cse3cap
+cd "$(git rev-parse --show-toplevel)"
 git add api/app api/routes/api.php api/tests/Feature/FrameworksTest.php docs/openapi.yaml
 git commit -m "feat(api): add GET /frameworks and GET /frameworks/{framework}"
 ```

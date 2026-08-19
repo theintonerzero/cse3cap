@@ -15,7 +15,8 @@ column on `users`. Role resolves from `gig_participants` for the specific gig in
 via one helper:
 
 ```php
-roleFor(User $user, Gig $gig): ?string   // student|assessor|supervisor|employer|null
+App\Services\RoleResolver::for(User $user, Gig $gig): ?string
+// student|assessor|supervisor|employer|null
 ```
 
 Null means not a participant, which is a 404, not a 403. The caller should not learn the

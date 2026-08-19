@@ -14,8 +14,28 @@ after the subject closes and after they graduate.
 
 ---
 
+## Where this is up to
+
+| Part | State |
+| --- | --- |
+| Database | Applied and verified on the shared instance. 14 tables, 5 views |
+| Backend | **Complete.** 30 endpoints, all seven business rules, 110 feature tests |
+| Contract | `docs/openapi.yaml` matches the served routes, checked mechanically |
+| Frontend | **Not started.** `web/` does not exist yet |
+
+The API is finished and stable enough to build against. The contract is the agreement, so
+the frontend can start now against `prism mock docs/openapi.yaml` without waiting for
+anything. Not built on the backend: PDF export, which needs dompdf and is a package
+decision for the team.
+
+[`docs/Stack-and-Build-Scope.md`](docs/Stack-and-Build-Scope.md) has the item-by-item
+checklist.
+
+---
+
 ## Table of contents
 
+- [Where this is up to](#where-this-is-up-to)
 - [The problem](#the-problem)
 - [The solution](#the-solution)
 - [Objectives](#objectives)
@@ -187,9 +207,11 @@ notation cannot show. Schema with inline reasoning:
 ```
 .
 ├── api/          # Laravel 13 backend
-├── web/          # React + Vite + TypeScript frontend
-├── db/           # Schema and seed data
-├── docs/         # Brief, ERD, API spec, ADRs, meeting records
+├── web/          # React + Vite + TypeScript frontend (not created yet)
+├── db/           # Schema, patches and seed data
+├── docs/         # Brief, ERD, API spec, ADRs. Every document lives here
+├── scripts/      # Setup and the smoke test
+├── .github/      # CI
 ├── CLAUDE.md     # Rules for agents working in this repo
 └── README.md
 ```
@@ -245,14 +267,12 @@ Do **not** run `php artisan migrate` without saying so in the channel first. See
 
 ### 3. Frontend
 
-```bash
-cd web
-npm install
-npm run dev                # http://localhost:5173
-```
+`web/` does not exist yet; the frontend is the next slice of work. Develop against the
+contract in the meantime:
 
-Vite reads `web/.env`, which needs one line:
-`VITE_API_BASE_URL=http://localhost:8000/api/v1`.
+```bash
+npx -y @stoplight/prism-cli mock docs/openapi.yaml    # http://localhost:4010
+```
 
 ### Shared database
 
@@ -272,6 +292,13 @@ Everyone connects to the same instance, which has two consequences.
 and a bad migration takes out everyone's environment rather than just one. Announce in the
 channel before applying anything.
 
+> **Applied 2026-08-19, batch 3.** `2026_08_19_120000_one_framework_assignment_per_gig`
+> narrowed `ak_fw_assignments` from `(gig_id, framework_id)` to `(gig_id)`, so a gig holds
+> one rubric rather than one per rubric ([ADR #35](docs/adr/architecture-decision-records.md)).
+> The shared instance is done and both existing assignments are untouched. Nothing to do
+> unless you keep a personal test database: `php artisan migrate` in `api/` brings one into
+> line, and is a no-op on any database built from the current `db/01-schema.sql`.
+
 **Seed data is shared.** Treat the seeded users, gigs and frameworks as fixed reference
 data. If you need to experiment, create new rows rather than editing the seeds, otherwise
 you change what everyone else sees, including mid-demo.
@@ -281,15 +308,67 @@ you change what everyone else sees, including mid-demo.
 There is no login screen in the MVP. Three tokens are seeded, one per role. Pass them as
 `Authorization: Bearer <token>`.
 
-| Role                  | User   | Use for                                                 |
-| --------------------- | ------ | ------------------------------------------------------- |
-| Student               | Jane   | Writing reflections, self-scoring, export               |
-| Assessor              | Sam    | Review queue, counter-scoring                           |
-| Supervisor (educator) | Dr Lee | Framework select, edit and assign, plus counter-scoring |
+| Role                  | User   | On                | Use for                                                 |
+| --------------------- | ------ | ----------------- | ------------------------------------------------------- |
+| Student               | Jane N | both gigs         | Writing reflections, self-scoring, export               |
+| Assessor              | Sam O  | first gig only    | Review queue, counter-scoring                           |
+| Supervisor (educator) | Dr Lee | both gigs         | Framework select, edit and assign, plus counter-scoring |
+
+Sam is on one gig deliberately. Every token seeing every gig would make the scoping rules
+untestable, and `GET /gigs` returning two for Jane and one for Sam is the cheapest proof
+that authorisation resolves per gig rather than globally.
 
 Tokens are issued by `php artisan db:seed --class=DemoSeeder`, which prints them once, and
 are pinned in the team channel. Sanctum stores only a hash, so a token cannot be recovered
-after that. Educator is not a separate role in the schema, it maps to `supervisor`.
+after that. The seeder is idempotent and will not reissue a token to a user who has one.
+Educator is not a separate role in the schema, it maps to `supervisor`.
+
+### What the API serves
+
+All thirty endpoints are live: identity, gigs, frameworks, the reflection write path,
+scoring, analytics and export. Run `php artisan serve` in `api/` and call
+`http://localhost:8000/api/v1`.
+
+Every non-2xx response is the same envelope, including 401 and 404:
+
+```json
+{ "error": { "code": "NOT_FOUND", "message": "No such resource, or it is not yours.", "details": {} } }
+```
+
+[`docs/openapi.yaml`](docs/openapi.yaml) is the machine contract. The operations it
+declares and the routes the application serves are compared mechanically and agree
+exactly, so `prism mock docs/openapi.yaml` is a truthful stand-in rather than a wish list.
+
+Not built: PDF export, which needs dompdf and is a package decision for the team, and the
+frontend.
+
+[`docs/api-reference.html`](docs/api-reference.html) is a single-page reference covering
+auth, the permission matrix, the error envelope, every endpoint with a real response, and
+which service class owns each business rule. Open it in a browser, no server needed.
+
+The same page is published at
+<https://claude.ai/code/artifact/35e1b32f-52b8-4458-bb3f-898efbd5bd9d>, which is a private
+link on Jesse's account and needs a claude.ai login. Ask him if you want access. The file
+in the repository is the copy that everyone can read, and the one to edit.
+
+### Testing it
+
+```bash
+cd api && php artisan test          # 110 feature tests, against real MySQL
+./scripts/smoke.sh                  # 51 checks, over HTTP, with the three real tokens
+```
+
+The suite runs `migrate:fresh`, so it needs a database of its own. `scripts/setup.sh` sets
+`DB_TEST_DATABASE=reflection_diary_test_<your username>` in `api/.env` for you; if you set
+up by hand, set it yourself. `diary_app` is granted DDL on `reflection_diary_test_%`
+precisely so yours is yours alone. Pointed at `reflection_diary` the suite refuses to start
+rather than dropping the shared schema.
+
+The suite proves the rules in isolation. The smoke script drives the whole product through
+a running server, which is where wiring bugs live: it writes a reflection as Jane, submits
+it through the gate, counter-scores it as Sam, watches it flip to `assessed`, reads the
+analytics and exports the record, checking the refusals on the way past. Start the server
+first, and rerun it as often as you like.
 
 ## Working agreements
 
@@ -352,6 +431,8 @@ and the reasoning behind the unusual decisions.
 | ---------------------------------------------------------------- | ------------------------------------------------------------- |
 | [`docs/PROJECT-CONTEXT.md`](docs/PROJECT-CONTEXT.md)             | Background briefing: product, vocabulary, architecture, traps |
 | [`docs/API-Specification.md`](docs/API-Specification.md)         | The annotated API contract                                    |
+| [`docs/api-reference.html`](docs/api-reference.html)             | Single-page API reference, including which class owns each rule |
+| [`docs/Retention-and-Erasure.md`](docs/Retention-and-Erasure.md) | What is kept, what can be deleted, and what cannot            |
 | [`docs/openapi.yaml`](docs/openapi.yaml)                         | Machine-readable contract, source of truth                    |
 | [`docs/Stack-and-Build-Scope.md`](docs/Stack-and-Build-Scope.md) | What is being built, and the definition of done               |
 | [`docs/adr/`](docs/adr/)                                         | Architecture decision records                                 |

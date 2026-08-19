@@ -1,0 +1,899 @@
+<title>Reflection Diary API</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+  /* Light is the base. Every colour is a token so the two themes stay a set. */
+  :root {
+    --ground:      #F7F8F6;
+    --surface:     #FFFFFF;
+    --surface-alt: #EFF2EE;
+    --ink:         #18201B;
+    --ink-soft:    #4A544C;
+    --ink-faint:   #6E786F;
+    --rule:        #D9DFD8;
+    --rule-strong: #BCC5BB;
+    --accent:      #3F6B52;
+    --accent-soft: #E4EDE6;
+    --ok:          #2F6B4C;
+    --ok-soft:     #E2EFE7;
+    --warn:        #8A6417;
+    --warn-soft:   #F5EBD6;
+    --crit:        #9A3B31;
+    --crit-soft:   #F6E3E0;
+    --code-bg:     #F1F4F0;
+
+    --measure: 68ch;
+    --step--1: clamp(0.82rem, 0.80rem + 0.10vw, 0.88rem);
+    --step-0:  clamp(1.00rem, 0.97rem + 0.14vw, 1.09rem);
+    --step-1:  clamp(1.20rem, 1.13rem + 0.32vw, 1.40rem);
+    --step-2:  clamp(1.48rem, 1.34rem + 0.62vw, 1.86rem);
+    --step-3:  clamp(1.90rem, 1.63rem + 1.20vw, 2.65rem);
+  }
+
+  /* Default "system" viewers get no stamp, so this is the only signal. */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:      #10140F;
+      --surface:     #171C16;
+      --surface-alt: #1D231C;
+      --ink:         #E7ECE5;
+      --ink-soft:    #B3BCB1;
+      --ink-faint:   #8B958A;
+      --rule:        #2A322A;
+      --rule-strong: #3B453A;
+      --accent:      #86B394;
+      --accent-soft: #1E2A21;
+      --ok:          #7FBE97;
+      --ok-soft:     #1B2A21;
+      --warn:        #D8B26A;
+      --warn-soft:   #2B2418;
+      --crit:        #E39288;
+      --crit-soft:   #2E1D1A;
+      --code-bg:     #141A14;
+    }
+  }
+
+  /* An explicit toggle must win in both directions. */
+  :root[data-theme="dark"] {
+    --ground:      #10140F;
+    --surface:     #171C16;
+    --surface-alt: #1D231C;
+    --ink:         #E7ECE5;
+    --ink-soft:    #B3BCB1;
+    --ink-faint:   #8B958A;
+    --rule:        #2A322A;
+    --rule-strong: #3B453A;
+    --accent:      #86B394;
+    --accent-soft: #1E2A21;
+    --ok:          #7FBE97;
+    --ok-soft:     #1B2A21;
+    --warn:        #D8B26A;
+    --warn-soft:   #2B2418;
+    --crit:        #E39288;
+    --crit-soft:   #2E1D1A;
+    --code-bg:     #141A14;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Source Sans 3", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: var(--step-0);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
+
+  a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+
+  code, pre, .mono { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+  /* ---------- shell ---------- */
+  .shell {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    max-width: 78rem;
+    margin: 0 auto;
+    padding: 0 1.5rem 6rem;
+  }
+
+  @media (min-width: 62rem) {
+    .shell { grid-template-columns: 15rem minmax(0, 1fr); gap: 4rem; padding-inline: 2.5rem; }
+  }
+
+  /* ---------- masthead ---------- */
+  .masthead {
+    grid-column: 1 / -1;
+    border-bottom: 1px solid var(--rule);
+    padding: 3.5rem 0 2.25rem;
+    margin-bottom: 3rem;
+  }
+  .masthead__eyebrow {
+    font-size: var(--step--1);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 0.9rem;
+  }
+  .masthead h1 {
+    font-family: Newsreader, ui-serif, Georgia, serif;
+    font-weight: 500;
+    font-size: var(--step-3);
+    line-height: 1.05;
+    letter-spacing: -0.015em;
+    margin: 0 0 0.75rem;
+    text-wrap: balance;
+  }
+  .masthead p {
+    max-width: var(--measure);
+    color: var(--ink-soft);
+    margin: 0 0 1.5rem;
+    font-size: var(--step-1);
+    line-height: 1.5;
+  }
+  .facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 2.5rem;
+    margin: 0;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--rule);
+  }
+  .facts div { padding-top: 0.9rem; }
+  .facts dt {
+    font-size: var(--step--1);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 0.15rem;
+  }
+  .facts dd { margin: 0; font-family: "IBM Plex Mono", monospace; font-size: var(--step--1); }
+
+  /* ---------- contents rail ---------- */
+  .rail { display: none; }
+  @media (min-width: 62rem) {
+    .rail {
+      display: block;
+      position: sticky;
+      top: 2rem;
+      align-self: start;
+      max-height: calc(100vh - 4rem);
+      overflow-y: auto;
+      font-size: var(--step--1);
+    }
+  }
+  .rail h2 {
+    font-size: var(--step--1);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 0.9rem;
+    font-weight: 600;
+    font-family: "Source Sans 3", sans-serif;
+  }
+  .rail ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.45rem; }
+  .rail ol ol { margin-top: 0.45rem; padding-left: 0.9rem; border-left: 1px solid var(--rule); }
+  .rail a { color: var(--ink-soft); text-decoration: none; display: block; }
+  .rail a:hover { color: var(--accent); }
+
+  /* ---------- prose ---------- */
+  main { min-width: 0; }
+  section { margin-bottom: 3.5rem; scroll-margin-top: 1.5rem; }
+
+  h2 {
+    font-family: Newsreader, ui-serif, Georgia, serif;
+    font-weight: 500;
+    font-size: var(--step-2);
+    letter-spacing: -0.01em;
+    margin: 0 0 1rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid var(--rule-strong);
+    text-wrap: balance;
+  }
+  h3 {
+    font-family: Newsreader, ui-serif, Georgia, serif;
+    font-weight: 600;
+    font-size: var(--step-1);
+    margin: 2.25rem 0 0.6rem;
+    text-wrap: balance;
+  }
+  p, li { max-width: var(--measure); }
+  p { margin: 0 0 1rem; }
+  ul { padding-left: 1.1rem; margin: 0 0 1rem; }
+  li { margin-bottom: 0.35rem; }
+  strong { font-weight: 600; }
+
+  .lede { font-size: var(--step-1); color: var(--ink-soft); line-height: 1.5; }
+
+  /* ---------- endpoints ---------- */
+  .endpoint { border-top: 1px solid var(--rule); padding-top: 1.4rem; margin-top: 1.75rem; }
+  .endpoint:first-of-type { border-top: 0; margin-top: 0.5rem; padding-top: 0; }
+
+  .sig {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.65rem;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: var(--step-0);
+    margin-bottom: 0.5rem;
+  }
+  .verb {
+    font-weight: 600;
+    font-size: var(--step--1);
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 0.12rem 0.45rem;
+    border-radius: 2px;
+  }
+  .path { font-weight: 500; word-break: break-word; }
+  .path .param { color: var(--ink-faint); font-style: italic; }
+
+  /* State chips: the one structural device here, because live vs not-built
+     is genuinely the reader's first question about any given endpoint. */
+  .chip {
+    font-family: "Source Sans 3", sans-serif;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    padding: 0.16rem 0.5rem;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .chip--live    { color: var(--ok);   background: var(--ok-soft); }
+  .chip--planned { color: var(--warn); background: var(--warn-soft); }
+
+  /* ---------- code ---------- */
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 0.9rem 1rem;
+    overflow-x: auto;
+    font-size: var(--step--1);
+    line-height: 1.55;
+    margin: 0.75rem 0 1rem;
+    tab-size: 2;
+  }
+  pre code { background: none; padding: 0; font-size: inherit; }
+  :not(pre) > code {
+    background: var(--code-bg);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    padding: 0.05em 0.32em;
+    font-size: 0.9em;
+  }
+
+  /* ---------- tables ---------- */
+  .tablewrap { overflow-x: auto; margin: 1rem 0 1.25rem; }
+  table { border-collapse: collapse; width: 100%; font-size: var(--step--1); min-width: 32rem; }
+  caption {
+    text-align: left;
+    color: var(--ink-faint);
+    font-size: var(--step--1);
+    padding-bottom: 0.5rem;
+  }
+  th, td { text-align: left; padding: 0.55rem 0.9rem 0.55rem 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th {
+    font-size: 0.74rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 600;
+    border-bottom-color: var(--rule-strong);
+  }
+  td.mono, th.mono { font-family: "IBM Plex Mono", monospace; font-variant-numeric: tabular-nums; }
+  .yes { color: var(--ok); font-weight: 600; }
+  .no  { color: var(--ink-faint); }
+
+  /* ---------- callout ---------- */
+  .note {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    padding: 1rem 1.1rem;
+    margin: 1.25rem 0;
+    border-radius: 0 3px 3px 0;
+  }
+  .note p:last-child { margin-bottom: 0; }
+  .note__label {
+    font-size: 0.74rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 600;
+    display: block;
+    margin-bottom: 0.35rem;
+  }
+
+  footer {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--rule);
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    color: var(--ink-faint);
+    font-size: var(--step--1);
+  }
+  footer p { max-width: var(--measure); }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+</style>
+
+<div class="shell">
+
+  <header class="masthead">
+    <p class="masthead__eyebrow">Alumable &middot; CSE3CAP Semester 2 2026</p>
+    <h1>Reflection Diary API</h1>
+    <p class="lede">A competency reflection and scoring service. Students write reflections per sprint, score themselves against a swappable rubric, and a supervisor or assessor counter-scores. The record belongs to the student.</p>
+    <dl class="facts">
+      <div>
+        <dt>Base URL</dt>
+        <dd>http://localhost:8000/api/v1</dd>
+      </div>
+      <div>
+        <dt>Auth</dt>
+        <dd>Bearer token (Sanctum)</dd>
+      </div>
+      <div>
+        <dt>Contract</dt>
+        <dd>docs/openapi.yaml &middot; OpenAPI 3.1</dd>
+      </div>
+      <div>
+        <dt>Database</dt>
+        <dd>MySQL 9.7.2 LTS, shared, TLS</dd>
+      </div>
+    </dl>
+  </header>
+
+  <nav class="rail" aria-label="Contents">
+    <h2>Contents</h2>
+    <ol>
+      <li><a href="#start">Getting a response</a></li>
+      <li><a href="#auth">Authentication</a>
+        <ol>
+          <li><a href="#tokens">The three tokens</a></li>
+          <li><a href="#roles">Roles and permissions</a></li>
+        </ol>
+      </li>
+      <li><a href="#errors">Errors</a></li>
+      <li><a href="#endpoints">Endpoints</a>
+        <ol>
+          <li><a href="#ep-me">Identity</a></li>
+          <li><a href="#ep-gigs">Gigs</a></li>
+          <li><a href="#ep-frameworks">Frameworks</a></li>
+          <li><a href="#ep-reflections">Reflections</a></li>
+          <li><a href="#ep-scoring">Scoring</a></li>
+          <li><a href="#ep-analytics">Analytics</a></li>
+          <li><a href="#ep-export">Export</a></li>
+        </ol>
+      </li>
+      <li><a href="#rules">The business rules</a></li>
+      <li><a href="#testing">Testing it</a></li>
+      <li><a href="#conventions">Conventions</a></li>
+      <li><a href="#notbuilt">Not built yet</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+    <section id="start">
+      <h2>Getting a response</h2>
+      <p>The API runs locally against the shared database. There is nothing to install for MySQL: everyone points at the same instance.</p>
+<pre><code>cd api
+php artisan serve
+
+curl -H "Authorization: Bearer $JANE" \
+     http://localhost:8000/api/v1/auth/me</code></pre>
+      <p>If you would rather not wait for the backend, the contract mocks itself and returns the same seeded data used below:</p>
+<pre><code>npx @stoplight/prism-cli mock docs/openapi.yaml --port 4010</code></pre>
+      <div class="note">
+        <span class="note__label">If a request fails with Access denied</span>
+        <p>Suspect TLS before the password. The server refuses unencrypted connections and PDO does not negotiate TLS unless handed a CA file, so a missing <code>MYSQL_ATTR_SSL_CA</code> surfaces as an authentication failure. The CA is committed at <code>db/letsencrypt-roots.pem</code> and <code>config/database.php</code> anchors the path to the application root.</p>
+      </div>
+    </section>
+
+    <section id="auth">
+      <h2>Authentication</h2>
+      <p>Every route requires <code>Authorization: Bearer &lt;token&gt;</code>. There is no login endpoint and there will not be one: identity belongs to the host platform, and the MVP authenticates with three seeded tokens.</p>
+
+      <h3 id="tokens">The three tokens</h3>
+      <p>Issued by <code>php artisan db:seed --class=DemoSeeder</code>, which prints them once. Sanctum stores only a hash, so a token cannot be recovered afterwards. The values are pinned in the team channel, never in the repository.</p>
+      <div class="tablewrap">
+        <table>
+          <caption>Sam is on one gig deliberately. If every token saw every gig, nothing would prove that authorisation resolves per gig rather than globally.</caption>
+          <thead>
+            <tr><th>User</th><th>Role</th><th>Participates in</th><th>Exercises</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Jane N</td><td>student</td><td>both gigs</td><td>Writing, self-scoring, export</td></tr>
+            <tr><td>Sam O</td><td>assessor</td><td>Develop AI use cases only</td><td>Review queue, counter-scoring</td></tr>
+            <tr><td>Dr Lee</td><td>supervisor</td><td>both gigs</td><td>Framework select, edit, assign, plus counter-scoring</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 id="roles">Roles and permissions</h3>
+      <p><strong>The client never sends a role.</strong> Not in a header, not in the body, not in a query parameter. A client-supplied role is a client-supplied permission. Roles resolve server-side from <code>gig_participants</code>, for the specific gig in question, because the same person can be a student on one gig and an assessor on another. There is no role column on <code>users</code>.</p>
+      <div class="tablewrap">
+        <table>
+          <caption>Educator is not a distinct role. It maps to <code>supervisor</code>, which already exists.</caption>
+          <thead>
+            <tr><th>Capability</th><th>student</th><th>assessor</th><th>supervisor</th><th>employer</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Create, edit, submit, delete own reflection; self-score; evidence</td><td class="yes">own</td><td class="no">&mdash;</td><td class="no">&mdash;</td><td class="no">&mdash;</td></tr>
+            <tr><td>View a reflection</td><td class="yes">own</td><td class="yes">their gigs</td><td class="yes">their gigs</td><td class="yes">their gigs</td></tr>
+            <tr><td>Counter-score, review queue</td><td class="no">&mdash;</td><td class="yes">yes</td><td class="yes">yes</td><td class="yes">yes</td></tr>
+            <tr><td>Create and edit frameworks (own copies, not in use)</td><td class="no">&mdash;</td><td class="no">&mdash;</td><td class="yes">yes</td><td class="no">&mdash;</td></tr>
+            <tr><td>Assign a framework to a gig</td><td class="no">&mdash;</td><td class="no">&mdash;</td><td class="yes">yes</td><td class="yes">yes</td></tr>
+            <tr><td>Analytics and export</td><td class="yes">own</td><td class="yes">own</td><td class="yes">own</td><td class="yes">own</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Authorisation lives in policies and nowhere else. A policy denies as <em>not found</em> rather than <em>forbidden</em> whenever the caller should not learn the resource exists, so a gig you do not participate in and a gig id that does not exist return byte-identical responses.</p>
+    </section>
+
+    <section id="errors">
+      <h2>Errors</h2>
+      <p>One envelope for every non-2xx response, including 401 and 404. It is registered centrally, so no controller can return a different shape.</p>
+<pre><code>{
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "No such resource, or it is not yours.",
+    "details": {}
+  }
+}</code></pre>
+      <p><code>details</code> is always an object. Switch on <code>code</code>; never parse <code>message</code>.</p>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th class="mono">Status</th><th>Means</th><th>Codes</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">400</td><td>Validation or a business rule refused it</td><td class="mono">VALIDATION_FAILED, CONTEXT_REQUIRED, COMMENT_REQUIRED, LEVEL_NOT_IN_COMPETENCY, EVIDENCE_REQUIRED, NARRATIVE_REQUIRED, SELF_SCORE_MISSING, FILE_TYPE_NOT_ACCEPTED, FILE_TOO_LARGE, FRAMEWORK_NOT_ASSIGNED</td></tr>
+            <tr><td class="mono">401</td><td>Missing or invalid token</td><td class="mono">UNAUTHENTICATED</td></tr>
+            <tr><td class="mono">403</td><td>You can see it, but your role may not do this</td><td class="mono">ROLE_FORBIDDEN</td></tr>
+            <tr><td class="mono">404</td><td>No such thing, or it is not yours</td><td class="mono">NOT_FOUND</td></tr>
+            <tr><td class="mono">409</td><td>Conflict with something that already exists or a state you are not in</td><td class="mono">DUPLICATE_REFLECTION, DUPLICATE_ASSIGNMENT, ALREADY_SCORED, NOT_DRAFT, NOT_SUBMITTED, FRAMEWORK_IN_USE</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>The list is exhaustive. A response carrying a code that is not here is a bug in the endpoint, not an undocumented feature.</p>
+      <div class="note">
+        <span class="note__label">Why 404 says so little</span>
+        <p>One code covers both &ldquo;no such thing&rdquo; and &ldquo;there is one, but it is not yours&rdquo;. A second code would tell the caller which, and that is the leak. The three 409 codes come from distinct unique indexes in the database, so the API can tell you exactly which constraint you hit without inventing a rule the schema does not enforce.</p>
+      </div>
+    </section>
+
+    <section id="endpoints">
+      <h2>Endpoints</h2>
+      <p>Thirty endpoints, all live. The contract and the router are compared mechanically and agree exactly, and everything below has been driven end to end over HTTP with real bearer tokens.</p>
+
+      <h3 id="ep-me">Identity</h3>
+
+      <div class="endpoint">
+        <div class="sig">
+          <span class="verb">GET</span>
+          <span class="path">/auth/me</span>
+          <span class="chip chip--live">live</span>
+        </div>
+        <p>The caller and their role on each gig. This is what drives role-aware navigation: the frontend does not guess who someone is.</p>
+<pre><code>{
+  "id": "01a01406-c03a-719a-b24d-eba956565fa2",
+  "display_name": "Dr Lee",
+  "participations": [
+    { "gig_id": "01a01406-c08e-7025-bec6-42f7baf58a7b",
+      "gig_title": "Develop AI use cases",
+      "role": "supervisor" },
+    { "gig_id": "01a01406-c1d3-715f-a81c-4e8003f23c86",
+      "gig_title": "Data migration audit",
+      "role": "supervisor" }
+  ]
+}</code></pre>
+      </div>
+
+      <h3 id="ep-gigs">Gigs</h3>
+
+      <div class="endpoint">
+        <div class="sig">
+          <span class="verb">GET</span>
+          <span class="path">/gigs</span>
+          <span class="chip chip--live">live</span>
+        </div>
+        <p>Gigs the caller participates in, in any role. A caller on no gigs gets an empty array, not an error.</p>
+<pre><code>[
+  {
+    "id": "01a01406-c08e-7025-bec6-42f7baf58a7b",
+    "title": "Develop AI use cases",
+    "org_name": "Alumable",
+    "starts_on": "2026-08-03",
+    "ends_on": "2026-10-26",
+    "my_role": "student",
+    "sprints": [
+      { "id": "…", "ordinal": 1, "opens_on": "2026-08-03", "due_on": "2026-08-16" },
+      { "id": "…", "ordinal": 2, "opens_on": "2026-08-17", "due_on": "2026-08-30" },
+      { "id": "…", "ordinal": 3, "opens_on": "2026-08-31", "due_on": "2026-09-13" }
+    ],
+    "framework": {
+      "id": "d7018d17-9547-11f1-9b81-f227eb28d537",
+      "fw_key": "latrobe6",
+      "name": "La Trobe six-competency",
+      "version": "v1"
+    },
+    "reflection_summary": { "draft": 0, "submitted": 0, "assessed": 0 }
+  }
+]</code></pre>
+        <p><code>reflection_summary</code> counts only what the caller may see. A student gets their own reflections; an assessor, supervisor or employer gets every reflection on that gig. The difference is decided per gig, because one person can be both on different gigs.</p>
+      </div>
+
+      <div class="endpoint">
+        <div class="sig">
+          <span class="verb">GET</span>
+          <span class="path">/gigs/<span class="param">{gig_id}</span></span>
+          <span class="chip chip--live">live</span>
+        </div>
+        <p>The same shape as a list entry, plus <code>participants</code>. A caller who does not participate gets 404.</p>
+<pre><code>{
+  "…": "as above",
+  "participants": [
+    { "id": "…", "display_name": "Jane N", "role": "student" },
+    { "id": "…", "display_name": "Sam O",  "role": "assessor" },
+    { "id": "…", "display_name": "Dr Lee", "role": "supervisor" }
+  ]
+}</code></pre>
+      </div>
+
+      <h3 id="ep-frameworks">Frameworks</h3>
+
+      <div class="endpoint">
+        <div class="sig">
+          <span class="verb">GET</span>
+          <span class="path">/frameworks</span>
+          <span class="chip chip--live">live</span>
+        </div>
+        <p>Available rubrics. <code>created_by</code> is null for a seeded base template and set for someone's copy, which is how the framework picker groups them. <code>in_use</code> is derived from whether any reflection references it, never stored.</p>
+<pre><code>[
+  { "id": "d7018d17-9547-11f1-9b81-f227eb28d537", "fw_key": "latrobe6",
+    "version": "v1",  "name": "La Trobe six-competency",
+    "is_active": true, "created_by": null, "in_use": false },
+  { "id": "d70190aa-9547-11f1-9b81-f227eb28d537", "fw_key": "sfia9",
+    "version": "9.0", "name": "SFIA 9",
+    "is_active": true, "created_by": null, "in_use": false }
+]</code></pre>
+        <p>Accepts <code>?active=true</code>. Once <code>in_use</code> turns true the framework is permanently read-only: editing one would silently change what past students were scored against.</p>
+      </div>
+
+      <div class="endpoint">
+        <div class="sig">
+          <span class="verb">GET</span>
+          <span class="path">/frameworks/<span class="param">{framework_id}</span></span>
+          <span class="chip chip--live">live</span>
+        </div>
+        <p>The full rubric, nested. This drives the entry stepper, the radar axes and the framework editor.</p>
+<pre><code>{
+  "id": "d7018d17-9547-11f1-9b81-f227eb28d537",
+  "fw_key": "latrobe6",
+  "version": "v1",
+  "name": "La Trobe six-competency",
+  "created_by": null,
+  "in_use": false,
+  "comment_required": true,
+  "evidence_required": false,
+  "accepted_file_types": null,
+  "max_file_bytes": 10485760,
+  "scale": { "min": 1, "max": 4 },
+  "competencies": [
+    {
+      "id": "…", "code": "contribution", "name": "Contribution",
+      "short_label": "Contrib.", "category": null, "position": 1,
+      "levels": [
+        { "id": "…", "level_value": 1, "descriptor": "Emerging — acts when prompted." },
+        { "id": "…", "level_value": 4, "descriptor": "Advanced — shapes the work and lifts others." }
+      ]
+    }
+  ]
+}</code></pre>
+        <div class="note">
+          <span class="note__label">The same endpoint, a different rubric</span>
+          <p>Ask for SFIA 9 and you get <code>"scale": { "min": 1, "max": 7 }</code>, seven levels per competency and a populated <code>category</code>. The axis count, the scale and every descriptor change with no code change on either side. That is the point of storing the rubric as data, and it is a definition-of-done item for the whole project.</p>
+        </div>
+        <p><code>scale</code> is read from the <code>v_framework_scale</code> view rather than computed in PHP, because a SFIA skill is valid over only part of the seven-point scale and the bounds belong to the level rows.</p>
+      </div>
+
+      <h3 id="ep-reflections">Reflections</h3>
+
+      <div class="endpoint">
+        <div class="sig">
+          <span class="verb">POST</span>
+          <span class="path">/reflections</span>
+          <span class="chip chip--live">live</span>
+        </div>
+        <p>Start one, on a gig or a sprint. Send <code>gig_id</code>, <code>sprint_id</code>, or both. A sprint already knows its gig, so sending both and disagreeing is refused rather than guessed at.</p>
+        <p>One entry is created eagerly per competency, so the stepper can say &ldquo;3 of 6&rdquo; before anything is written. The framework version is snapshotted here and the framework is frozen from this moment.</p>
+<pre><code>{ "sprint_id": "11111111-aaaa-4111-8111-111111111111" }
+&rarr; 201, the full nested reflection with six empty entries</code></pre>
+        <p>Refusals: <code>CONTEXT_REQUIRED</code> when neither id is given, <code>FRAMEWORK_NOT_ASSIGNED</code> when the gig has no rubric, <code>DUPLICATE_REFLECTION</code> when one already exists for that context, 403 for anyone who is not a student on the gig.</p>
+      </div>
+
+      <div class="endpoint">
+        <div class="sig">
+          <span class="verb">GET</span>
+          <span class="path">/reflections</span>
+          <span class="chip chip--live">live</span>
+        </div>
+        <p>Newest first, filtered by <code>gig_id</code>, <code>sprint_id</code> or <code>status</code>. A student sees their own; an assessor, supervisor or employer sees every reflection on the gigs they are on.</p>
+      </div>
+
+      <div class="endpoint">
+        <div class="sig">
+          <span class="verb">GET</span>
+          <span class="path">/reflections/<span class="param">{reflection_id}</span></span>
+          <span class="chip chip--live">live</span>
+        </div>
+        <p>The screen payload, and the same shape for the student's stepper and the assessor's. What differs is what each may do with it, and that is decided by policies rather than by hiding fields.</p>
+<pre><code>{
+  "id": "…", "status": "assessed", "framework_version": "v1",
+  "owner": { "id": "…", "display_name": "Jane N" },
+  "entries": [{
+    "id": "…", "competency_code": "contribution", "position": 1,
+    "narrative": "Paired on the importer…",
+    "evidence": [{ "kind": "link", "label": "The pull request", "uri": "…" }],
+    "scores": [
+      { "scorer_role": "self",     "scorer_class": "self",
+        "level_value": 3, "comment": null,  "scorer": { "display_name": "Jane N" } },
+      { "scorer_role": "assessor", "scorer_class": "counter",
+        "level_value": 2, "comment": "Solid, more to do on testing.",
+        "scorer": { "display_name": "Sam O" } }
+    ]
+  }]
+}</code></pre>
+      </div>
+
+      <div class="endpoint">
+        <div class="sig">
+          <span class="verb">PATCH</span>
+          <span class="path">/entries/<span class="param">{entry_id}</span></span>
+          <span class="chip chip--live">live</span>
+        </div>
+        <p>The autosave endpoint. The frontend debounces into it. Owner only, draft only.</p>
+      </div>
+
+      <div class="endpoint">
+        <div class="sig">
+          <span class="verb">POST</span>
+          <span class="path">/entries/<span class="param">{entry_id}</span>/evidence</span>
+          <span class="chip chip--live">live</span>
+        </div>
+        <p>A link as JSON, a file as multipart. Type and size are checked against the <em>rubric's</em> policy, not a global setting, so one gig can accept a screenshot and another can insist on a PDF. <code>DELETE /evidence/{evidence_id}</code> removes one while the reflection is still a draft.</p>
+      </div>
+
+      <div class="endpoint">
+        <div class="sig">
+          <span class="verb">POST</span>
+          <span class="path">/reflections/<span class="param">{reflection_id}</span>/submit</span>
+          <span class="chip chip--live">live</span>
+        </div>
+        <p>The gate. Every entry needs a narrative and a self-score, plus evidence if the rubric requires it. It refuses on the first rule that fails and names the offending entries, because the stepper sends the student straight to them.</p>
+<pre><code>{ "error": {
+    "code": "NARRATIVE_REQUIRED",
+    "message": "Every competency needs something written before you can submit.",
+    "details": { "entry_ids": ["…", "…"] } } }</code></pre>
+        <p>After it passes, the reflection is read-only. Editing an entry, deleting the record or submitting again all return 409 <code>NOT_DRAFT</code>. <code>DELETE /reflections/{id}</code> works on a draft and never afterwards, which is part of the ownership promise.</p>
+      </div>
+
+      <div class="endpoint">
+        <div class="sig">
+          <span class="verb">GET</span>
+          <span class="path">/reflections/<span class="param">{reflection_id}</span>/events</span>
+          <span class="chip chip--live">live</span>
+        </div>
+        <p>The history, newest first. Append-only, and notifications are derived from it rather than stored separately.</p>
+      </div>
+
+      <h3 id="ep-scoring">Scoring</h3>
+
+      <div class="endpoint">
+        <div class="sig">
+          <span class="verb">PUT</span>
+          <span class="path">/entries/<span class="param">{entry_id}</span>/scores/self</span>
+          <span class="chip chip--live">live</span>
+        </div>
+        <p>The student's own score, and a <code>PUT</code> deliberately: changing your mind before submitting is part of reflecting, so it replaces rather than adding a second row.</p>
+      </div>
+
+      <div class="endpoint">
+        <div class="sig">
+          <span class="verb">POST</span>
+          <span class="path">/entries/<span class="param">{entry_id}</span>/scores</span>
+          <span class="chip chip--live">live</span>
+        </div>
+        <p>Everyone else's. The reflection must be submitted first. One score per scorer per entry, so a repeat is <code>ALREADY_SCORED</code> and there is no re-scoring in the MVP.</p>
+        <p>The response says whether that score was the one that completed the reflection:</p>
+<pre><code>{ "level_value": 2, "scorer_class": "counter", …,
+  "reflection_status": "assessed",
+  "completed_the_reflection": true }</code></pre>
+      </div>
+
+      <div class="endpoint">
+        <div class="sig">
+          <span class="verb">GET</span>
+          <span class="path">/review-queue</span>
+          <span class="chip chip--live">live</span>
+        </div>
+        <p>Submitted reflections awaiting <em>your</em> score, with per-row progress. A gig can have both an assessor and a supervisor, and a reflection one of them has scored is still work for the other.</p>
+        <div class="note">
+          <span class="note__label">One consequence worth knowing</span>
+          <p>The last counter-score flips the reflection to <code>assessed</code>, and an assessed reflection is in nobody's queue. So on a gig with two counter-scorers, whoever finishes first closes it for the other. That follows from the two rules as specified rather than from a defect, but it is worth confirming with the client that it is what they want.</p>
+        </div>
+      </div>
+
+      <h3 id="ep-analytics">Analytics</h3>
+
+      <div class="endpoint">
+        <div class="sig">
+          <span class="verb">GET</span>
+          <span class="path">/me/radar</span>
+          <span class="chip chip--live">live</span>
+        </div>
+        <p>Self against counter, per competency. Scope mirrors the UI: <code>sprint_id</code> gives that sprint's true comparison, <code>gig_id</code> the latest within a gig, neither the latest across the record.</p>
+<pre><code>{
+  "scope": { "gig_id": null, "sprint_id": null },
+  "framework": { "fw_key": "latrobe6", "scale_min": 1, "scale_max": 4 },
+  "axes": [{ "code": "contribution", "short_label": "Contrib.", "position": 1,
+             "self": 3, "counter": 2, "counter_role": "supervisor" }]
+}</code></pre>
+        <p>An axis appears for every competency in the rubric, scored or not, so the shape of the chart does not change as scores arrive.</p>
+        <div class="note">
+          <span class="note__label">Why the unscoped radar names a framework</span>
+          <p>A student on two gigs can be scored against two rubrics whose competency codes do not overlap at all, so &ldquo;the whole record&rdquo; would mean twelve axes and no meaning. The framework of the most recent reflection wins, and the response says which, so the chart is always coherent and the caller can always tell what they are looking at.</p>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="sig">
+          <span class="verb">GET</span>
+          <span class="path">/me/progress</span>
+          <span class="chip chip--live">live</span>
+        </div>
+        <p>The same two numbers along the sprints of one gig, which is what turns a snapshot into a trend. <code>gig_id</code> is required.</p>
+      </div>
+
+      <div class="endpoint">
+        <div class="sig">
+          <span class="verb">GET</span>
+          <span class="path">/me/calibration</span>
+          <span class="chip chip--live">live</span>
+        </div>
+        <p>Self minus counter. A positive gap means the student rated themselves higher than the person assessing them did, which is the conversation the screen exists to start. Null until both sides have scored.</p>
+<pre><code>[{ "competency_code": "contribution", "self_level": 4,
+   "counter_level": 2, "counter_role": "assessor", "gap": 2 }]</code></pre>
+      </div>
+
+      <div class="endpoint">
+        <div class="sig">
+          <span class="verb">GET</span>
+          <span class="path">/me/coverage</span>
+          <span class="chip chip--live">live</span>
+        </div>
+        <p>Competencies you have never been scored on, in rubric order. <code>framework_id</code> is required. Scored rather than evidenced, because evidence is optional per rubric and requiring it would report gaps that are not gaps.</p>
+      </div>
+
+      <h3 id="ep-export">Export</h3>
+
+      <div class="endpoint">
+        <div class="sig">
+          <span class="verb">POST</span>
+          <span class="path">/exports</span>
+          <span class="chip chip--live">live</span>
+        </div>
+        <p>Ask for the record as a file. Returns <strong>202</strong> with whatever the row actually says: on a synchronous queue the job has already run and it reads <code>complete</code>; on a real worker it reads <code>pending</code>. Poll <code>GET /exports/{id}</code> until it is <code>complete</code> or <code>failed</code>.</p>
+        <p><code>reflection_id</code> exports one reflection; omitting it exports everything.</p>
+      </div>
+
+      <div class="endpoint">
+        <div class="sig">
+          <span class="verb">GET</span>
+          <span class="path">/exports/<span class="param">{export_id}</span>/download</span>
+          <span class="chip chip--live">live</span>
+        </div>
+        <p>The file itself, served through the API rather than as a link, so the policy runs on every fetch. Export is &ldquo;own&rdquo; for every role in the matrix, so not even a supervisor on the gig can read one, and the refusal is 404.</p>
+        <p>The file carries the framework version snapshotted on each reflection, not the rubric's current version. What the student was scored against is the whole point of an exportable record.</p>
+      </div>
+    </section>
+
+    <section id="rules">
+      <h2>The business rules</h2>
+      <p>Seven rules carry the product. Each has exactly one implementation, and this is where it lives.</p>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Rule</th><th>Implemented in</th></tr></thead>
+          <tbody>
+            <tr><td>The submit gate: narrative, self-score, evidence if the rubric asks</td><td class="mono">SubmitGate</td></tr>
+            <tr><td>A comment is required when a counter-score is below the student's own</td><td class="mono">Scoring</td></tr>
+            <tr><td>The level must belong to the entry's competency</td><td class="mono">Scoring</td></tr>
+            <tr><td>A framework referenced by any reflection is permanently read-only</td><td class="mono">FrameworkEditing</td></tr>
+            <tr><td>A gig is scored against one rubric, never two</td><td class="mono">FrameworkAssigner</td></tr>
+            <tr><td>One entry per competency, created eagerly with the reflection</td><td class="mono">ReflectionCreator</td></tr>
+            <tr><td>Assessed once every entry carries a counter-score</td><td class="mono">Scoring</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>The third is the one the database cannot help with. <code>scores.level_id</code> points at a level and a level points at a competency, but nothing stops a level from a <em>different</em> competency being attached to an entry. Without the check a student could score &ldquo;Advanced&rdquo; on Collaboration using the Leadership descriptor, and the radar would show a number nobody ever meant.</p>
+    </section>
+
+    <section id="testing">
+      <h2>Testing it</h2>
+
+      <h3>The suite</h3>
+      <p>110 feature tests against real MySQL, not sqlite: the schema uses generated columns, <code>CHECK</code> constraints and window functions that sqlite cannot express, so an in-memory suite would be testing a different database from the one we ship on.</p>
+<pre><code>cd api && php artisan test</code></pre>
+      <p>They test the denials, not just the permissions. A policy that returns true for everyone passes every happy-path test ever written.</p>
+
+      <h3>The smoke script</h3>
+      <p>The suite proves the rules in isolation with <code>Sanctum::actingAs</code>. That cannot see wiring: middleware order, the guest redirect, content negotiation, anything that only exists once a request crosses HTTP. So there is a script that drives the whole product with the three real tokens.</p>
+<pre><code>cd api && php artisan serve &amp;
+./scripts/smoke.sh</code></pre>
+      <p>It writes a reflection as Jane, submits it through the gate, counter-scores it as Sam, watches it flip to assessed, reads all four analytics endpoints, then exports and downloads the record, checking the refusals on the way past. 51 checks, each printing the status it got against the status it wanted, so a failure names the call that broke.</p>
+      <p>It picks a sprint Jane has not used yet, so you can run it more than once against the same database.</p>
+
+      <h3>The mock</h3>
+      <p>The contract mocks itself, with the seeded data as examples, so the frontend can build against every endpoint before touching the backend:</p>
+<pre><code>npx @stoplight/prism-cli mock docs/openapi.yaml</code></pre>
+      <p>It returns 401 without a bearer token and the documented example with one.</p>
+
+      <div class="note">
+        <span class="note__label">The contract cannot drift</span>
+        <p>The operations <code>docs/openapi.yaml</code> declares and the routes the application serves are compared mechanically, and they agree exactly: thirty for thirty. An endpoint added without its contract entry, or a contract entry with no endpoint behind it, shows up as a mismatch rather than as a frontend bug three weeks later.</p>
+      </div>
+    </section>
+
+    <section id="conventions">
+      <h2>Conventions</h2>
+      <h3>Names</h3>
+      <p>snake_case in the database, in JSON and in the generated frontend types. There is no mapping layer anywhere, so a column called <code>uri</code> is a field called <code>uri</code>. A field renamed on the way out is a bug, not a convenience.</p>
+
+      <h3>Identifiers and time</h3>
+      <p>Every id is a <code>char(36)</code> UUID. Timestamps are ISO 8601 in UTC, <code>2026-08-14T03:20:00Z</code>. The database stores <code>DATETIME(6)</code> throughout and never <code>TIMESTAMP</code>, which stops working in January 2038 — this product is a record meant to outlive that.</p>
+
+      <h3>Pagination</h3>
+      <p>None. Result sets are small at MVP scale, and a student has one reflection per sprint per gig.</p>
+
+      <h3>The contract is the agreement</h3>
+      <p><code>docs/openapi.yaml</code> is the machine source of truth. The frontend generates its types from it and mocks against it; the backend implements it. It describes exactly the endpoints that exist, so the mock is a truthful stand-in rather than a wish list. Any change to an endpoint updates the contract in the same commit.</p>
+    </section>
+
+    <section id="notbuilt">
+      <h2>Not built yet</h2>
+      <p>The API is complete. Two things are deliberately outstanding, listed so nobody builds against something that is not there.</p>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Thing</th><th>Where it stands</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>PDF export</td>
+              <td>The schema and the contract both allow <code>pdf</code>, and <code>exports.format</code> accepts it. Rendering one needs dompdf, and adding a package is the team's decision rather than something to slip into a commit, so <code>POST /exports</code> refuses <code>pdf</code> clearly instead of quietly producing JSON.</td>
+            </tr>
+            <tr>
+              <td>The frontend</td>
+              <td>Nothing in <code>web/</code> yet. The contract mocks itself, so it can be built against every endpoint on this page today.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Also worth deciding before the demo: whether completing a reflection should close it for every scorer, or only for the one who finished. The current behaviour follows the specification exactly, and is described under the review queue above.</p>
+    </section>
+
+  <footer>
+    <p>Reflection Diary, a competency reflection and scoring module for Alumable. Built by Team 404 Not Found for La Trobe CSE3CAP, Semester 2 2026. Endpoint behaviour on this page was driven over HTTP against real MySQL rather than transcribed from the specification; where the two ever disagree, <code>docs/openapi.yaml</code> wins and this page is stale.</p>
+  </footer>
+
+</div>

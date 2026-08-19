@@ -13,6 +13,9 @@
 # version. If the two disagree, this file wins and the markdown is stale.
 #
 # Update this in the same commit as any endpoint change.
+#
+# Covers the whole API: identity, gigs, frameworks, the reflection write
+# path, scoring, analytics and export.
 
 openapi: 3.1.0
 info:
@@ -23,10 +26,1516 @@ info:
     docs/API-Specification.md for the annotated contract and
     docs/PROJECT-CONTEXT.md for background.
 servers:
+  # Development runs artisan serve against the shared database. The
+  # deployed host will be rdapi.darkovski.dev; deployment is a later slice.
   - url: http://localhost:8000/api/v1
     description: Local development
 
-# TODO: components.securitySchemes (bearer)
-# TODO: components.schemas (Error envelope, User, Gig, Framework, Reflection, Entry, Score, Export)
-# TODO: paths, see API-Specification.md sections 2 through 10
-paths: {}
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Identity
+    description: Who the caller is and what they may do, resolved server-side.
+  - name: Gigs
+    description: Read-only mirrors of host-platform gigs and their sprints.
+  - name: Frameworks
+    description: The rubric as data. Swappable per gig without a code change.
+  - name: Reflections
+    description: The record. Student-owned, one per gig or sprint, exportable.
+  - name: Scoring
+    description: Self-scores and counter-scores, and the queue of work waiting.
+  - name: Analytics
+    description: Thin wrappers over the SQL views. Always the caller's own record.
+  - name: Export
+    description: The record as a file. The exports row is the queued job's record.
+
+paths:
+  /auth/me:
+    get:
+      tags: [Identity]
+      operationId: getMe
+      summary: The caller and their role on each gig
+      description: >
+        Drives role-aware navigation. Roles are resolved server-side from
+        gig_participants and are never accepted from the client.
+      responses:
+        '200':
+          description: The caller
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Me' }
+              example:
+                id: 6f1c2b6e-0f5a-4a3f-9d4a-3a1b7c9e2d10
+                display_name: Jane N
+                participations:
+                  - gig_id: b2c3d4e5-1111-4a2b-9c3d-4e5f60718293
+                    gig_title: Develop AI use cases
+                    role: student
+                  - gig_id: c3d4e5f6-2222-4b3c-8d4e-5f6071829304
+                    gig_title: Data migration audit
+                    role: student
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+
+  /gigs:
+    get:
+      tags: [Gigs]
+      operationId: listGigs
+      summary: Gigs the caller participates in, in any role
+      responses:
+        '200':
+          description: The caller's gigs, empty if they are on none
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Gig' }
+              example:
+                - id: b2c3d4e5-1111-4a2b-9c3d-4e5f60718293
+                  title: Develop AI use cases
+                  org_name: Alumable
+                  starts_on: '2026-08-03'
+                  ends_on: '2026-10-26'
+                  my_role: student
+                  sprints:
+                    - id: 11111111-aaaa-4111-8111-111111111111
+                      ordinal: 1
+                      opens_on: '2026-08-03'
+                      due_on: '2026-08-16'
+                    - id: 22222222-aaaa-4222-8222-222222222222
+                      ordinal: 2
+                      opens_on: '2026-08-17'
+                      due_on: '2026-08-30'
+                  framework:
+                    id: aaaa1111-0000-4aaa-8aaa-aaaaaaaaaaaa
+                    fw_key: latrobe6
+                    name: La Trobe six-competency
+                    version: v1
+                  reflection_summary: { draft: 1, submitted: 0, assessed: 1 }
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+
+  /gigs/{gig_id}:
+    get:
+      tags: [Gigs]
+      operationId: getGig
+      summary: One gig, with its participants
+      parameters:
+        - $ref: '#/components/parameters/GigId'
+      responses:
+        '200':
+          description: The gig
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GigDetail' }
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /frameworks:
+    post:
+      tags: [Frameworks]
+      operationId: copyFramework
+      summary: Copy a base template, supervisor only
+      description: >
+        Copy-then-edit is the only editing model. There is no way to create
+        a framework from nothing, and no way to change one that a reflection
+        already references, because doing either would silently change what
+        past students were scored against.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [based_on_framework_id, name]
+              properties:
+                based_on_framework_id: { type: string, format: uuid }
+                name: { type: string, maxLength: 191 }
+      responses:
+        '201':
+          description: The new copy, nested in full
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FrameworkDetail' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    get:
+      tags: [Frameworks]
+      operationId: listFrameworks
+      summary: Available rubrics
+      parameters:
+        - name: active
+          in: query
+          required: false
+          schema: { type: boolean }
+          description: Limit to frameworks with is_active true.
+      responses:
+        '200':
+          description: Frameworks
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Framework' }
+              example:
+                - id: aaaa1111-0000-4aaa-8aaa-aaaaaaaaaaaa
+                  fw_key: latrobe6
+                  version: v1
+                  name: La Trobe six-competency
+                  is_active: true
+                  created_by: null
+                  in_use: true
+                - id: bbbb2222-0000-4bbb-8bbb-bbbbbbbbbbbb
+                  fw_key: sfia9
+                  version: '9.0'
+                  name: SFIA 9
+                  is_active: true
+                  created_by: null
+                  in_use: false
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+
+  /frameworks/{framework_id}:
+    patch:
+      tags: [Frameworks]
+      operationId: updateFramework
+      summary: Rename or adjust policy, on your own unused copy
+      parameters:
+        - $ref: '#/components/parameters/FrameworkId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, maxLength: 191 }
+                comment_required: { type: boolean }
+                evidence_required: { type: boolean }
+                accepted_file_types:
+                  type: [array, 'null']
+                  items: { type: string }
+                max_file_bytes: { type: integer }
+      responses:
+        '200':
+          description: The updated framework
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FrameworkDetail' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403':
+          description: >
+            Not your copy. A seeded base template belongs to nobody and can
+            never be edited; copy it instead.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/FrameworkInUse' }
+    get:
+      tags: [Frameworks]
+      operationId: getFramework
+      summary: One rubric with its competencies and level descriptors
+      description: >
+        Drives the entry stepper, the radar axes and the framework editor.
+        scale comes from the v_framework_scale view rather than from a
+        stored column, because a SFIA skill is valid over only part of the
+        seven-point scale.
+      parameters:
+        - $ref: '#/components/parameters/FrameworkId'
+      responses:
+        '200':
+          description: The framework
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FrameworkDetail' }
+              example:
+                id: aaaa1111-0000-4aaa-8aaa-aaaaaaaaaaaa
+                fw_key: latrobe6
+                version: v1
+                name: La Trobe six-competency
+                created_by: null
+                in_use: true
+                comment_required: true
+                evidence_required: false
+                accepted_file_types: [pdf, png, jpg]
+                max_file_bytes: 10485760
+                scale: { min: 1, max: 4 }
+                competencies:
+                  - id: cccc3333-0000-4ccc-8ccc-cccccccccccc
+                    code: collaboration
+                    name: Collaboration
+                    short_label: Collab.
+                    category: null
+                    position: 3
+                    levels:
+                      - id: dddd4444-0000-4ddd-8ddd-dddddddddddd
+                        level_value: 1
+                        descriptor: Emerging, acts when prompted.
+                      - id: eeee5555-0000-4eee-8eee-eeeeeeeeeeee
+                        level_value: 4
+                        descriptor: Advanced, shapes the work and lifts others.
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /competencies/{competency_id}:
+    patch:
+      tags: [Frameworks]
+      operationId: updateCompetency
+      summary: Rename a competency on your own unused copy
+      description: >
+        Renaming and rewording only. Adding or removing competencies, and
+        changing how many levels one has, are out of scope: a rubric with a
+        different shape is a different rubric.
+      parameters:
+        - name: competency_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, maxLength: 191 }
+                short_label: { type: [string, 'null'], maxLength: 32 }
+      responses:
+        '200':
+          description: The updated competency
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CompetencySummary' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/FrameworkInUse' }
+
+  /levels/{level_id}:
+    patch:
+      tags: [Frameworks]
+      operationId: updateLevel
+      summary: Reword a level descriptor on your own unused copy
+      description: >
+        The descriptor is what a student reads when deciding what to score
+        themselves, so this is the edit most likely to matter.
+      parameters:
+        - name: level_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [descriptor]
+              properties:
+                descriptor: { type: string }
+      responses:
+        '200':
+          description: The updated level
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Level' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/FrameworkInUse' }
+
+  /framework-assignments:
+    post:
+      tags: [Frameworks]
+      operationId: assignFramework
+      summary: Assign a rubric to a gig, supervisor or employer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [framework_id, gig_id]
+              properties:
+                framework_id: { type: string, format: uuid }
+                gig_id: { type: string, format: uuid }
+      responses:
+        '201':
+          description: The assignment
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, gig_id, framework_id, assigned_by, assigned_at]
+                properties:
+                  id: { type: string, format: uuid }
+                  gig_id: { type: string, format: uuid }
+                  framework_id: { type: string, format: uuid }
+                  assigned_by: { type: [string, 'null'], format: uuid }
+                  assigned_at: { type: string, format: date-time }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: >
+            DUPLICATE_ASSIGNMENT. A gig is scored against one rubric, so
+            this covers both assigning the same one twice and assigning a
+            second, different one. details.framework_id names the rubric
+            the gig already has.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example:
+                error:
+                  code: DUPLICATE_ASSIGNMENT
+                  message: This gig already has a rubric, and a gig is scored against one.
+                  details: { framework_id: aaaa1111-0000-4aaa-8aaa-aaaaaaaaaaaa }
+
+  /reflections:
+    get:
+      tags: [Reflections]
+      operationId: listReflections
+      summary: Reflections the caller may see, newest first
+      description: >
+        A student sees their own. An assessor, supervisor or employer sees
+        every reflection on the gigs they are on.
+      parameters:
+        - name: gig_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: sprint_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/ReflectionStatus' }
+      responses:
+        '200':
+          description: Reflections
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ReflectionSummary' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+    post:
+      tags: [Reflections]
+      operationId: createReflection
+      summary: Start a reflection on a gig or a sprint
+      description: >
+        One of gig_id or sprint_id is required; a sprint knows its gig, so
+        sending both and disagreeing is refused rather than guessed at. One
+        entry is created eagerly per competency, so the stepper can say
+        "3 of 6" before anything is written.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                gig_id: { type: [string, 'null'], format: uuid }
+                sprint_id: { type: [string, 'null'], format: uuid }
+      responses:
+        '201':
+          description: The new draft, nested in full
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReflectionDetail' }
+        '400':
+          description: >
+            CONTEXT_REQUIRED when neither id is given or they disagree.
+            FRAMEWORK_NOT_ASSIGNED when the gig has no rubric yet.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: A reflection already exists for that context
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example:
+                error:
+                  code: DUPLICATE_REFLECTION
+                  message: A reflection already exists for that context.
+                  details: {}
+
+  /reflections/{reflection_id}:
+    get:
+      tags: [Reflections]
+      operationId: getReflection
+      summary: The screen payload, for the student and the assessor alike
+      parameters:
+        - $ref: '#/components/parameters/ReflectionId'
+      responses:
+        '200':
+          description: The reflection
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReflectionDetail' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Reflections]
+      operationId: deleteReflection
+      summary: Discard a draft, owner only
+      description: >
+        Draft only. A submitted or assessed record cannot be deleted through
+        the API at all, which is part of the ownership promise.
+      parameters:
+        - $ref: '#/components/parameters/ReflectionId'
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Not a draft
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /reflections/{reflection_id}/submit:
+    post:
+      tags: [Reflections]
+      operationId: submitReflection
+      summary: Hand it in, once the gate passes
+      description: >
+        Every entry needs a narrative and a self-score, and evidence too if
+        the rubric requires it. The gate refuses on the first rule that
+        fails and names the offending entries in details.entry_ids, because
+        the stepper sends the student straight to them.
+      parameters:
+        - $ref: '#/components/parameters/ReflectionId'
+      responses:
+        '200':
+          description: Submitted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReflectionDetail' }
+        '400':
+          description: >
+            NARRATIVE_REQUIRED, SELF_SCORE_MISSING or EVIDENCE_REQUIRED,
+            each with details.entry_ids.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example:
+                error:
+                  code: NARRATIVE_REQUIRED
+                  message: Every competency needs something written before you can submit.
+                  details:
+                    entry_ids: [11111111-aaaa-4111-8111-111111111111]
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Already submitted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /reflections/{reflection_id}/events:
+    get:
+      tags: [Reflections]
+      operationId: getReflectionEvents
+      summary: The history, newest first
+      description: >
+        Append-only. Notifications are derived from this rather than stored
+        separately.
+      parameters:
+        - $ref: '#/components/parameters/ReflectionId'
+      responses:
+        '200':
+          description: Events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [id, event_type, actor_display_name, occurred_at, metadata]
+                  properties:
+                    id: { type: string, format: uuid }
+                    event_type:
+                      type: string
+                      example: reflection_submitted
+                    actor_display_name: { type: [string, 'null'] }
+                    occurred_at: { type: string, format: date-time }
+                    metadata: { type: object, additionalProperties: true }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /entries/{entry_id}:
+    patch:
+      tags: [Reflections]
+      operationId: updateEntry
+      summary: Autosave a narrative, owner and draft only
+      parameters:
+        - $ref: '#/components/parameters/EntryId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [narrative]
+              properties:
+                narrative: { type: [string, 'null'], maxLength: 20000 }
+      responses:
+        '200':
+          description: The updated entry
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, reflection_id, competency_id, narrative, updated_at]
+                properties:
+                  id: { type: string, format: uuid }
+                  reflection_id: { type: string, format: uuid }
+                  competency_id: { type: string, format: uuid }
+                  narrative: { type: [string, 'null'] }
+                  updated_at: { type: string, format: date-time }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Not a draft
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /entries/{entry_id}/evidence:
+    post:
+      tags: [Reflections]
+      operationId: addEvidence
+      summary: Attach a link or a file to an entry
+      description: >
+        A link as JSON, a file as multipart. Type and size are checked
+        against the rubric's own policy rather than a global setting.
+      parameters:
+        - $ref: '#/components/parameters/EntryId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kind, label, uri]
+              properties:
+                kind: { type: string, enum: [link] }
+                label: { type: string, maxLength: 255 }
+                uri: { type: string, format: uri }
+          multipart/form-data:
+            schema:
+              type: object
+              required: [label, file]
+              properties:
+                label: { type: string, maxLength: 255 }
+                file: { type: string, format: binary }
+      responses:
+        '201':
+          description: The attached evidence
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Evidence' }
+        '400':
+          description: FILE_TYPE_NOT_ACCEPTED or FILE_TOO_LARGE, per the rubric
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Not a draft
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /evidence/{evidence_id}:
+    delete:
+      tags: [Reflections]
+      operationId: deleteEvidence
+      summary: Remove evidence, owner and draft only
+      parameters:
+        - name: evidence_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Not a draft
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /entries/{entry_id}/scores/self:
+    put:
+      tags: [Scoring]
+      operationId: setSelfScore
+      summary: The student's own score, upserted
+      description: >
+        PUT, because changing your mind before submitting replaces the score
+        rather than adding a second one. The level must belong to this
+        entry's competency; the database cannot express that, so the API
+        checks it.
+      parameters:
+        - $ref: '#/components/parameters/EntryId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [level_id]
+              properties:
+                level_id: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The score
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Score' }
+        '400':
+          description: LEVEL_NOT_IN_COMPETENCY
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Not a draft
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /entries/{entry_id}/scores:
+    post:
+      tags: [Scoring]
+      operationId: addCounterScore
+      summary: A counter-score from an assessor, supervisor or employer
+      description: >
+        The reflection must be submitted: a draft is too early and an
+        assessed one is too late, because the most recent counter-score is
+        the one that counts and a late one would move a radar the record
+        was already closed on. A comment is required when the score is
+        below the student's own, and whenever the rubric asks for one. One
+        score per scorer per entry: there is no re-scoring, and a repeat is
+        a conflict. When the last entry is scored the reflection flips to
+        assessed, which closes it for every other scorer.
+      parameters:
+        - $ref: '#/components/parameters/EntryId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [level_id]
+              properties:
+                level_id: { type: string, format: uuid }
+                comment: { type: [string, 'null'], maxLength: 4000 }
+      responses:
+        '201':
+          description: The score, and whether it completed the reflection
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Score'
+                  - type: object
+                    required: [reflection_status, completed_the_reflection]
+                    properties:
+                      reflection_status: { $ref: '#/components/schemas/ReflectionStatus' }
+                      completed_the_reflection: { type: boolean }
+        '400':
+          description: COMMENT_REQUIRED or LEVEL_NOT_IN_COMPETENCY
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example:
+                error:
+                  code: COMMENT_REQUIRED
+                  message: You are scoring below what the student gave themselves, so a comment is required.
+                  details: { self_level: 4, counter_level: 2 }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: >
+            NOT_SUBMITTED when the reflection is a draft or already
+            assessed, or ALREADY_SCORED by this scorer
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /review-queue:
+    get:
+      tags: [Scoring]
+      operationId: getReviewQueue
+      summary: Submitted reflections awaiting the caller's own score
+      description: >
+        Per caller, not per gig. A gig can have both an assessor and a
+        supervisor, and a reflection one of them has scored is still work
+        for the other, until the last entry completes it for everybody.
+      responses:
+        '200':
+          description: The worklist
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [reflection_id, student, gig_id, submitted_at, progress]
+                  properties:
+                    reflection_id: { type: string, format: uuid }
+                    student: { $ref: '#/components/schemas/Person' }
+                    gig_id: { type: [string, 'null'], format: uuid }
+                    gig_title: { type: [string, 'null'] }
+                    sprint_id: { type: [string, 'null'], format: uuid }
+                    sprint_ordinal: { type: [integer, 'null'] }
+                    submitted_at: { type: [string, 'null'], format: date-time }
+                    progress:
+                      type: object
+                      required: [scored_by_me, entries]
+                      properties:
+                        scored_by_me: { type: integer }
+                        entries: { type: integer }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+  /me/radar:
+    get:
+      tags: [Analytics]
+      operationId: getRadar
+      summary: Self against counter, per competency
+      description: >
+        Scope mirrors the UI. A sprint gives that sprint's comparison, a gig
+        the latest within it, neither the latest across the record. Unscoped
+        needs a framework chosen for it, because a student on two gigs can be
+        scored against two rubrics whose codes do not overlap; the most
+        recent reflection decides and the response says which.
+      parameters:
+        - name: gig_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: sprint_id
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: One axis per competency, scored or not
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [scope, framework, axes]
+                properties:
+                  scope:
+                    type: object
+                    properties:
+                      gig_id: { type: [string, 'null'], format: uuid }
+                      sprint_id: { type: [string, 'null'], format: uuid }
+                  framework:
+                    type: object
+                    required: [id, fw_key, scale_min, scale_max]
+                    properties:
+                      id: { type: string, format: uuid }
+                      fw_key: { type: string }
+                      scale_min: { type: integer }
+                      scale_max: { type: integer }
+                  axes:
+                    type: array
+                    items:
+                      type: object
+                      required: [code, short_label, position, self, counter, counter_role]
+                      properties:
+                        code: { type: string }
+                        short_label: { type: [string, 'null'] }
+                        position: { type: integer }
+                        self: { type: [integer, 'null'] }
+                        counter: { type: [integer, 'null'] }
+                        counter_role: { $ref: '#/components/schemas/CounterRole' }
+              example:
+                scope: { gig_id: null, sprint_id: null }
+                framework:
+                  id: aaaa1111-0000-4aaa-8aaa-aaaaaaaaaaaa
+                  fw_key: latrobe6
+                  scale_min: 1
+                  scale_max: 4
+                axes:
+                  - code: collaboration
+                    short_label: Collab.
+                    position: 3
+                    self: 3
+                    counter: 2
+                    counter_role: supervisor
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404':
+          description: Nothing written yet, so there is nothing to chart
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /me/progress:
+    get:
+      tags: [Analytics]
+      operationId: getProgress
+      summary: The same two numbers along the sprints of one gig
+      parameters:
+        - name: gig_id
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: One series per competency
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [competencies]
+                properties:
+                  competencies:
+                    type: array
+                    items:
+                      type: object
+                      required: [code, short_label, series]
+                      properties:
+                        code: { type: string }
+                        short_label: { type: [string, 'null'] }
+                        series:
+                          type: array
+                          items:
+                            type: object
+                            required: [sprint_ordinal, self, counter]
+                            properties:
+                              sprint_ordinal: { type: integer }
+                              self: { type: [integer, 'null'] }
+                              counter: { type: [integer, 'null'] }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+  /me/calibration:
+    get:
+      tags: [Analytics]
+      operationId: getCalibration
+      summary: Self minus counter, per competency
+      description: >
+        A positive gap means the student rated themselves higher than the
+        person assessing them did. Null until both sides have scored.
+      parameters:
+        - name: gig_id
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The gaps
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [competency_code, self_level, counter_level, counter_role, gap]
+                  properties:
+                    competency_code: { type: string }
+                    gig_id: { type: [string, 'null'], format: uuid }
+                    sprint_id: { type: [string, 'null'], format: uuid }
+                    self_level: { type: [integer, 'null'] }
+                    counter_level: { type: [integer, 'null'] }
+                    counter_role: { $ref: '#/components/schemas/CounterRole' }
+                    gap: { type: [integer, 'null'] }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+  /me/coverage:
+    get:
+      tags: [Analytics]
+      operationId: getCoverage
+      summary: Competencies the caller has never been scored on
+      description: >
+        Scored, not evidenced. Evidence is optional per rubric, so requiring
+        it would report gaps that are not gaps. Scoped to rubrics the caller
+        studies under, so an assessor gets an empty list.
+      parameters:
+        - name: framework_id
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The gaps, in rubric order
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [competency_code, name, short_label, position]
+                  properties:
+                    competency_code: { type: string }
+                    name: { type: string }
+                    short_label: { type: [string, 'null'] }
+                    position: { type: integer }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+  /exports:
+    get:
+      tags: [Export]
+      operationId: listExports
+      summary: Your own export history
+      responses:
+        '200':
+          description: Exports
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Export' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+    post:
+      tags: [Export]
+      operationId: requestExport
+      summary: Ask for the record as a file
+      description: >
+        Returns 202 with whatever the row says. On a synchronous queue the
+        job has already run and it reads complete; on a worker it reads
+        pending. Poll until status is complete or failed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [format]
+              properties:
+                format:
+                  type: string
+                  enum: [json]
+                  description: >
+                    JSON only for now. The schema allows pdf and the product
+                    intends it, but rendering one needs a package the project
+                    has not adopted, so asking for it is refused rather than
+                    quietly answered with JSON.
+                reflection_id:
+                  type: [string, 'null']
+                  format: uuid
+                  description: Null exports the whole record.
+      responses:
+        '202':
+          description: Accepted, with something to poll
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Export' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /exports/{export_id}:
+    get:
+      tags: [Export]
+      operationId: getExport
+      summary: Poll one export
+      parameters:
+        - $ref: '#/components/parameters/ExportId'
+      responses:
+        '200':
+          description: The export
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Export' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /exports/{export_id}/download:
+    get:
+      tags: [Export]
+      operationId: downloadExport
+      summary: The file itself, owner only
+      description: >
+        Served through the API rather than as a link, so the policy runs on
+        every fetch. Export is "own" for every role, so not even a
+        supervisor on the gig can read one.
+      parameters:
+        - $ref: '#/components/parameters/ExportId'
+      responses:
+        '200':
+          description: The file
+          content:
+            application/json:
+              schema: { type: string, format: binary }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404':
+          description: Not yours, still building, or the job failed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: >
+        A Sanctum personal access token. There is no login endpoint in the
+        MVP; three tokens are seeded by DemoSeeder and pinned in the team
+        channel.
+
+  parameters:
+    GigId:
+      name: gig_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    FrameworkId:
+      name: framework_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    ReflectionId:
+      name: reflection_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    EntryId:
+      name: entry_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    ExportId:
+      name: export_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+  responses:
+    Unauthenticated:
+      description: Missing or invalid bearer token
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            error:
+              code: UNAUTHENTICATED
+              message: A valid bearer token is required.
+              details: {}
+    BadRequest:
+      description: The payload or a business rule refused it
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Forbidden:
+      description: >
+        The caller can see the resource but their role does not permit this
+        action. Distinct from 404, which means they should not know it exists.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            error:
+              code: ROLE_FORBIDDEN
+              message: Your role on this gig does not permit that.
+              details: {}
+    FrameworkInUse:
+      description: >
+        A reflection references this framework, so it is permanently
+        read-only. Copy it and edit the copy.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            error:
+              code: FRAMEWORK_IN_USE
+              message: This framework has been used to score a reflection and can no longer be changed.
+              details: { framework_id: aaaa1111-0000-4aaa-8aaa-aaaaaaaaaaaa }
+    NoContent:
+      description: Done. No body.
+    NotFound:
+      description: >
+        No such resource, or it exists and is not the caller's. The two are
+        deliberately indistinguishable.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            error:
+              code: NOT_FOUND
+              message: No such resource, or it is not yours.
+              details: {}
+
+  schemas:
+    Error:
+      type: object
+      description: >
+        The single envelope for every non-2xx response. No endpoint returns
+        any other error shape.
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, details]
+          properties:
+            code:
+              type: string
+              description: >
+                The full enumeration for the product, not only the codes
+                these five endpoints can raise. A response carrying a code
+                outside this list is a bug in the endpoint.
+              enum:
+                - VALIDATION_FAILED
+                - CONTEXT_REQUIRED
+                - DUPLICATE_REFLECTION
+                - DUPLICATE_ASSIGNMENT
+                - NOT_DRAFT
+                - NOT_SUBMITTED
+                - COMMENT_REQUIRED
+                - LEVEL_NOT_IN_COMPETENCY
+                - EVIDENCE_REQUIRED
+                - NARRATIVE_REQUIRED
+                - SELF_SCORE_MISSING
+                - FILE_TYPE_NOT_ACCEPTED
+                - FILE_TOO_LARGE
+                - FRAMEWORK_NOT_ASSIGNED
+                - FRAMEWORK_IN_USE
+                - ALREADY_SCORED
+                - ROLE_FORBIDDEN
+                - UNAUTHENTICATED
+                - NOT_FOUND
+            message:
+              type: string
+              description: Human readable. Never switch on this.
+            details:
+              type: object
+              additionalProperties: true
+
+    Role:
+      type: string
+      enum: [student, assessor, supervisor, employer]
+
+    CounterRole:
+      type: [string, 'null']
+      enum: [assessor, supervisor, employer, null]
+      description: >
+        Which role gave the counter-score. The class is always "counter";
+        this names who it was, because the radar draws one opposing polygon
+        and the legend still has to be honest about whose it is.
+
+    ReflectionStatus:
+      type: string
+      enum: [draft, submitted, assessed]
+      description: >
+        Forward only. Draft is the only editable state, and a submitted
+        record cannot be deleted through the API at all.
+
+    Person:
+      type: object
+      required: [id, display_name]
+      properties:
+        id: { type: string, format: uuid }
+        display_name: { type: string }
+
+    CompetencySummary:
+      type: object
+      required: [id, framework_id, code, name, short_label, category, position]
+      properties:
+        id: { type: string, format: uuid }
+        framework_id: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+        short_label: { type: [string, 'null'] }
+        category: { type: [string, 'null'] }
+        position: { type: integer }
+
+    Evidence:
+      type: object
+      required: [id, reflection_entry_id, kind, label, uri, size_bytes, uploaded_at]
+      properties:
+        id: { type: string, format: uuid }
+        reflection_entry_id: { type: string, format: uuid }
+        kind: { type: string, enum: [file, link, image] }
+        label: { type: string }
+        uri:
+          type: string
+          description: >
+            A URL for a link, a storage path for a file. Files are fetched
+            through the API, never from this path directly.
+        size_bytes: { type: [integer, 'null'] }
+        uploaded_at: { type: string, format: date-time }
+
+    Score:
+      type: object
+      required: [id, reflection_entry_id, scorer_role, scorer_class, level_id, level_value, comment, scored_at]
+      properties:
+        id: { type: string, format: uuid }
+        reflection_entry_id: { type: string, format: uuid }
+        scorer_role: { $ref: '#/components/schemas/Role' }
+        scorer_class:
+          type: string
+          enum: [self, counter]
+          description: >
+            An assessor, a supervisor and an employer all counter-score, so
+            the opposing value is a class rather than a role.
+        level_id: { type: string, format: uuid }
+        level_value: { type: integer }
+        comment: { type: [string, 'null'] }
+        scored_at: { type: string, format: date-time }
+
+    ReflectionSummary:
+      type: object
+      required: [id, status, gig_id, sprint_id, framework_id, framework_version, submitted_at, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        status: { $ref: '#/components/schemas/ReflectionStatus' }
+        gig_id: { type: [string, 'null'], format: uuid }
+        sprint_id: { type: [string, 'null'], format: uuid }
+        sprint_ordinal: { type: [integer, 'null'] }
+        framework_id: { type: string, format: uuid }
+        framework_version:
+          type: string
+          description: >
+            Snapshotted when the reflection was created, not read from the
+            framework now. The framework is frozen from that moment, so the
+            pair identifies exactly what was scored.
+        submitted_at: { type: [string, 'null'], format: date-time }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    ReflectionEntry:
+      type: object
+      required: [id, competency_id, competency_code, competency_name, short_label, position, narrative, evidence, scores]
+      properties:
+        id: { type: string, format: uuid }
+        competency_id: { type: string, format: uuid }
+        competency_code: { type: string }
+        competency_name: { type: string }
+        short_label: { type: [string, 'null'] }
+        position: { type: integer }
+        narrative: { type: [string, 'null'] }
+        evidence:
+          type: array
+          items: { $ref: '#/components/schemas/Evidence' }
+        scores:
+          type: array
+          description: Oldest first, so the self-score precedes the counter-scores.
+          items:
+            allOf:
+              - $ref: '#/components/schemas/Score'
+              - type: object
+                properties:
+                  scorer: { $ref: '#/components/schemas/Person' }
+
+    ReflectionDetail:
+      allOf:
+        - $ref: '#/components/schemas/ReflectionSummary'
+        - type: object
+          required: [owner, entries]
+          properties:
+            owner: { $ref: '#/components/schemas/Person' }
+            entries:
+              type: array
+              description: In rubric order, one per competency, created eagerly.
+              items: { $ref: '#/components/schemas/ReflectionEntry' }
+
+    Export:
+      type: object
+      required: [id, format, status, reflection_id, summary, requested_at, completed_at, uri]
+      properties:
+        id: { type: string, format: uuid }
+        format: { type: string, enum: [json, pdf] }
+        status:
+          type: string
+          enum: [pending, complete, failed]
+          description: >
+            Stored, not derived from completed_at. A failed job has no
+            completion time and no file, so without this the poll loop
+            could never tell failure from slowness.
+        reflection_id:
+          type: [string, 'null']
+          format: uuid
+          description: Null means the whole record.
+        summary:
+          type: [object, 'null']
+          additionalProperties: true
+          description: Counts of what went into the file. Null until it is built.
+        requested_at: { type: string, format: date-time }
+        completed_at: { type: [string, 'null'], format: date-time }
+        uri: { type: [string, 'null'] }
+
+    Me:
+      type: object
+      required: [id, display_name, participations]
+      properties:
+        id: { type: string, format: uuid }
+        display_name: { type: string }
+        participations:
+          type: array
+          items:
+            type: object
+            required: [gig_id, gig_title, role]
+            properties:
+              gig_id: { type: string, format: uuid }
+              gig_title: { type: string }
+              role: { $ref: '#/components/schemas/Role' }
+
+    Sprint:
+      type: object
+      required: [id, ordinal, opens_on, due_on]
+      properties:
+        id: { type: string, format: uuid }
+        ordinal: { type: integer, minimum: 1 }
+        opens_on: { type: [string, 'null'], format: date }
+        due_on: { type: [string, 'null'], format: date }
+
+    GigFramework:
+      type: [object, 'null']
+      description: The framework assigned to the gig, null until one is.
+      required: [id, fw_key, name, version]
+      properties:
+        id: { type: string, format: uuid }
+        fw_key: { type: string }
+        name: { type: string }
+        version: { type: string }
+
+    ReflectionCounts:
+      type: object
+      description: >
+        Counts of the reflections on this gig that the caller is allowed to
+        see. A student sees their own; an assessor, supervisor or employer
+        sees every reflection on the gig.
+      required: [draft, submitted, assessed]
+      properties:
+        draft: { type: integer, minimum: 0 }
+        submitted: { type: integer, minimum: 0 }
+        assessed: { type: integer, minimum: 0 }
+
+    Gig:
+      type: object
+      required:
+        [id, title, org_name, starts_on, ends_on, my_role, sprints, framework,
+         reflection_summary]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        org_name: { type: [string, 'null'] }
+        starts_on: { type: [string, 'null'], format: date }
+        ends_on: { type: [string, 'null'], format: date }
+        my_role: { $ref: '#/components/schemas/Role' }
+        sprints:
+          type: array
+          items: { $ref: '#/components/schemas/Sprint' }
+        framework: { $ref: '#/components/schemas/GigFramework' }
+        reflection_summary: { $ref: '#/components/schemas/ReflectionCounts' }
+
+    GigDetail:
+      allOf:
+        - $ref: '#/components/schemas/Gig'
+        - type: object
+          required: [participants]
+          properties:
+            participants:
+              type: array
+              items:
+                type: object
+                required: [id, display_name, role]
+                properties:
+                  id: { type: string, format: uuid }
+                  display_name: { type: string }
+                  role: { $ref: '#/components/schemas/Role' }
+
+    Framework:
+      type: object
+      required: [id, fw_key, version, name, is_active, created_by, in_use]
+      properties:
+        id: { type: string, format: uuid }
+        fw_key: { type: string }
+        version: { type: string }
+        name: { type: string }
+        is_active: { type: boolean }
+        created_by:
+          type: [string, 'null']
+          format: uuid
+          description: Null for a seeded base template, set for someone's copy.
+        in_use:
+          type: boolean
+          description: >
+            True when at least one reflection references it, which makes it
+            permanently read-only. Derived, never stored.
+
+    Level:
+      type: object
+      required: [id, level_value, descriptor]
+      properties:
+        id: { type: string, format: uuid }
+        level_value: { type: integer, minimum: 1 }
+        descriptor: { type: string }
+
+    Competency:
+      type: object
+      required: [id, code, name, short_label, category, position, levels]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+        short_label:
+          type: [string, 'null']
+          description: Radar axis label, kept short enough to fit.
+        category:
+          type: [string, 'null']
+          description: SFIA grouping. Null for La Trobe.
+        position: { type: integer }
+        levels:
+          type: array
+          items: { $ref: '#/components/schemas/Level' }
+
+    Scale:
+      type: object
+      description: Read from v_framework_scale, not aggregated in PHP.
+      required: [min, max]
+      properties:
+        min: { type: integer }
+        max: { type: integer }
+
+    FrameworkDetail:
+      type: object
+      required:
+        [id, fw_key, version, name, created_by, in_use, comment_required,
+         evidence_required, accepted_file_types, max_file_bytes, scale,
+         competencies]
+      properties:
+        id: { type: string, format: uuid }
+        fw_key: { type: string }
+        version: { type: string }
+        name: { type: string }
+        created_by: { type: [string, 'null'], format: uuid }
+        in_use: { type: boolean }
+        comment_required: { type: boolean }
+        evidence_required: { type: boolean }
+        accepted_file_types:
+          type: [array, 'null']
+          items: { type: string }
+        max_file_bytes: { type: integer }
+        scale: { $ref: '#/components/schemas/Scale' }
+        competencies:
+          type: array
+          items: { $ref: '#/components/schemas/Competency' }

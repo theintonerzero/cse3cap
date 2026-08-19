@@ -37,10 +37,18 @@ Educator is not a distinct role. It maps to `supervisor`, which already exists i
 { "error": { "code": "COMMENT_REQUIRED", "message": "Human-readable explanation", "details": {} } }
 ```
 
-**Error codes:** `VALIDATION_FAILED · CONTEXT_REQUIRED · DUPLICATE_REFLECTION · NOT_DRAFT ·
-NOT_SUBMITTED · COMMENT_REQUIRED · LEVEL_NOT_IN_COMPETENCY · EVIDENCE_REQUIRED ·
-NARRATIVE_REQUIRED · SELF_SCORE_MISSING · FILE_TYPE_NOT_ACCEPTED · FILE_TOO_LARGE ·
-FRAMEWORK_NOT_ASSIGNED · FRAMEWORK_IN_USE · ROLE_FORBIDDEN`
+**Error codes:** `VALIDATION_FAILED · CONTEXT_REQUIRED · DUPLICATE_REFLECTION ·
+DUPLICATE_ASSIGNMENT · NOT_DRAFT · NOT_SUBMITTED · COMMENT_REQUIRED ·
+LEVEL_NOT_IN_COMPETENCY · EVIDENCE_REQUIRED · NARRATIVE_REQUIRED · SELF_SCORE_MISSING ·
+FILE_TYPE_NOT_ACCEPTED · FILE_TOO_LARGE · FRAMEWORK_NOT_ASSIGNED · FRAMEWORK_IN_USE ·
+ALREADY_SCORED · ROLE_FORBIDDEN · UNAUTHENTICATED · NOT_FOUND`
+
+This list is exhaustive. A response carrying a code that is not here is a bug in the
+endpoint, not an undocumented feature. Every non-2xx response carries one, including 401
+and 404.
+
+`NOT_FOUND` covers both "no such thing" and "there is one but it is not yours". One code
+for both is the point: a second code would tell the caller which, and that is the leak.
 
 **Status codes:** 400 validation / business rule, 401 no or bad token, 403 wrong role,
 404 not found or not yours (indistinguishable on purpose), 409 conflict (duplicate, wrong
@@ -137,7 +145,7 @@ immutable once used.
 Rename or adjust policy: any of `name`, `comment_required`, `evidence_required`,
 `accepted_file_types`, `max_file_bytes`.
 If any reflection references the framework → **409 FRAMEWORK_IN_USE**.
-If `created_by` isn't the caller (seeded bases included) → 403.
+If `created_by` isn't the caller (seeded bases included) → 403 `ROLE_FORBIDDEN`.
 
 ### PATCH /competencies/{competency_id}: same guards
 `{ "name": "…", "short_label": "…" }`. Rename only in MVP scope. Adding or removing
@@ -147,7 +155,9 @@ competencies and changing level counts is out of scope (see Stack-and-Build-Scop
 `{ "descriptor": "…" }`. Reword a level descriptor.
 
 ### POST /framework-assignments: supervisor or employer
-`{ "framework_id": "…", "gig_id": "…" }` → 201. 409 `DUPLICATE` if already assigned.
+`{ "framework_id": "…", "gig_id": "…" }` → 201. 409 `DUPLICATE_ASSIGNMENT` if the gig
+already has a rubric, whether that is the same one again or a different one:
+**a gig is scored against exactly one**. `details.framework_id` names the one it has.
 Assigning is what eventually flips a framework's `in_use` (the first reflection created
 under it does).
 
@@ -232,51 +242,79 @@ nowhere else.
 
 ### POST /entries/{entry_id}/scores
 `{ "level_id": "…", "comment": "…" }`. Assessor/supervisor/employer on the gig.
-1. Reflection must be `submitted` (409 `NOT_SUBMITTED`)
+1. Reflection must be `submitted` (409 `NOT_SUBMITTED`) — a draft is too early and an
+   `assessed` one is too late, since the newest counter-score is the one `v_entry_score`
+   reports and a late one would move a radar the record was already closed on
 2. Level-in-competency check as above
 3. **Counter-score below the student's self score → comment mandatory**
    (400 `COMMENT_REQUIRED`); also mandatory when the framework's `comment_required` is on
-4. One score per scorer per entry → 409 on repeat (no re-scoring in MVP)
+4. One score per scorer per entry → 409 `ALREADY_SCORED` on repeat (no re-scoring in MVP)
 Side effect: when every entry has ≥1 counter-score, status flips to `assessed`, event
 written.
 
 ### GET /review-queue
 For assessor/supervisor/employer: submitted reflections awaiting the caller's score.
 ```json
-[{ "reflection_id": "…", "gig_title": "…", "sprint_ordinal": 2,
-   "owner_display_name": "…", "submitted_at": "…",
-   "entries_total": 6, "entries_i_scored": 2 }]
+[{ "reflection_id": "…", "gig_id": "…", "gig_title": "…",
+   "sprint_id": "…", "sprint_ordinal": 2, "submitted_at": "…",
+   "student": { "id": "…", "display_name": "…" },
+   "progress": { "scored_by_me": 2, "entries": 6 } }]
 ```
+The person and the counts are nested rather than flattened into
+`owner_display_name` and `entries_total`, matching how every other endpoint returns a
+person. Flat also left no id, so a worklist row could not link to the student.
+
+**Per caller, not per gig.** A gig can have both an assessor and a supervisor, and a
+reflection one of them has scored is still work for the other. Note the consequence: the
+last counter-score flips the reflection to `assessed`, which removes it from *everyone's*
+queue and, since ADR #34, refuses their score at the endpoint too, so whoever finishes
+first closes it for the rest. That follows from the two rules above and is worth
+confirming with the client.
 
 ---
 
 ## 8. Analytics (thin wrappers over the SQL views)
 
+**`self` and `counter`, not `self` and `assessor`.** An assessor, a supervisor and an
+employer can all counter-score, so naming the opposing value after one of them is wrong.
+Analytics collapses the three into the class `counter` and carries `counter_role` where
+the UI needs to name who it was. Where more than one person counter-scores an entry, the
+most recent score is the one that counts. That rule is implemented once, in
+`v_entry_score`, and every analytics view reads through it.
+
 ### GET /me/radar?gig_id=&sprint_id=
 Scope mirrors the UI: no params = whole record (latest per competency); gig only = latest
-within gig; gig+sprint = that sprint's true self-vs-assessor.
+within gig; gig+sprint = that sprint's true self-vs-counter.
 ```json
 {
   "scope": { "gig_id": null, "sprint_id": null },
-  "framework": { "fw_key": "latrobe6", "scale_max": 4 },
+  "framework": { "fw_key": "latrobe6", "scale_min": 1, "scale_max": 4 },
   "axes": [{ "code": "collaboration", "short_label": "Collab.", "position": 3,
-             "self": 3, "assessor": 2 }]
+             "self": 3, "counter": 2, "counter_role": "supervisor" }]
 }
 ```
-`assessor` null where no counter-score exists; frontend hides the second polygon when all
-are null. Backed by `v_radar`.
+`counter` and `counter_role` are null where no counter-score exists; the frontend hides the
+second polygon when all are null. An axis appears for every competency in the framework,
+including ones nobody has scored, so the shape of the chart does not change as scores
+arrive. Backed by `v_radar`.
 
 ### GET /me/progress?gig_id={required}
 `{ "competencies": [{ "code": "…", "short_label": "…",
-   "series": [{ "sprint_ordinal": 1, "self": 3, "assessor": 2 }] }] }`
+   "series": [{ "sprint_ordinal": 1, "self": 3, "counter": 2 }] }] }`
 
 ### GET /me/calibration?gig_id=
 From `v_calibration_gap`: `[{ "competency_code": "…", "self_level": 3,
-"assessor_level": 2, "gap": 1 }]`. A positive gap means the student rated themselves higher.
+"counter_level": 2, "counter_role": "assessor", "gap": 1 }]`. A positive gap means the
+student rated themselves higher. `gap` is null until both sides have scored.
 
 ### GET /me/coverage?framework_id={required}
-From `v_coverage_gaps`: `[{ "competency_code": "…", "name": "…" }]`. Competencies that have
-never been evidenced.
+From `v_coverage_gaps`: `[{ "competency_code": "…", "name": "…", "short_label": "…",
+"position": 4 }]`, ordered by `position`. Competencies the caller has never been scored on.
+
+Scored, not evidenced: evidence is optional per framework, so a competency with a score and
+no attachment is covered. Scoped to frameworks assigned to a gig the caller is a *student*
+on, so an assessor calling this gets an empty list rather than a rubric they have never
+been measured against.
 
 ---
 
@@ -290,7 +328,16 @@ record. JSON ships first, PDF follows.
 ### GET /exports/{export_id}
 `{ "id": "…", "format": "json", "status": "complete",
    "summary": { "sprints": 3, "scores": 30, "files": 2 },
-   "requested_at": "…", "completed_at": "…", "download_uri": "…" }`
+   "requested_at": "…", "completed_at": "…", "uri": "…" }`
+
+`status` is `pending`, `complete` or `failed`, read from the column of the same name. It is
+stored rather than derived from `completed_at`, because a failed job has no completion time
+and the poll loop would otherwise never stop. `uri` and `completed_at` are null until the
+job finishes, and stay null if it fails.
+
+The field is `uri`, matching the column. There is no mapping layer, so it is not renamed to
+`download_uri` on the way out.
+
 Frontend polls after the 202.
 
 ### GET /exports
