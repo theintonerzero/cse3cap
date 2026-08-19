@@ -55,6 +55,7 @@ where it lives. Read the class before you write anything that touches its rule.
 - level belongs to the entry's competency → `api/app/Services/Scoring.php`
 - assessed once every entry has a counter-score → `api/app/Services/Scoring.php`
 - framework immutable once referenced → `api/app/Services/FrameworkEditing.php`
+- one rubric per gig → `api/app/Services/FrameworkAssigner.php`
 - one entry per competency, on create → `api/app/Services/ReflectionCreator.php`
 
 **Never mutate a framework that is in use.** Editing is copy-then-edit. A framework

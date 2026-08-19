@@ -42,6 +42,8 @@ Index
 #30 An export is a queued job, row is record ....... Accepted
 #31 The dependencies deliberately not taken ........ Accepted
 #32 oxlint in place of ESLint ...................... Accepted
+#33 A gig is scored against one rubric ............. Accepted
+#34 Counter-scores close when a reflection does .... Accepted
 
 ===============================================================
 
@@ -1350,3 +1352,136 @@ the lack.
 Drop linting and rely on Prettier and TypeScript. Rejected: formatting and type checking are
 not linting, and the rules that catch a missing hook dependency are the ones this codebase
 will want once there are hooks.
+
+===============================================================
+
+ADR #33: A gig is scored against one rubric
+Status: Accepted
+Date: 2026-08-19
+
+Context:
+`ak_fw_assignments` is unique on `(gig_id, framework_id)`. That stops the same rubric being
+assigned to a gig twice and permits a second, different one, and `POST
+/framework-assignments` had no check of its own, so a second rubric was accepted with a
+201. Its docblock said the unique index caught duplicates, which is true only of the case
+it was never going to be asked about.
+
+Nothing downstream is built for two. `Gig::assignment` is a `hasOne`, the contract gives a
+gig a single `framework` object, and `ReflectionCreator` snapshots whichever framework that
+relation resolves to. The relation carried no `ORDER BY`, so the row it returned was
+whatever MySQL produced first. Reproduced on a seeded gig already carrying `latrobe6`: the
+second assignment returned 201, the gig then had two rows, and the relation resolved to the
+new rubric. Two students starting a reflection on the same gig in the same sprint could be
+scored against different rubrics, with nothing on any screen to explain it, and the answer
+could change again on the next query.
+
+The seam here is that the schema permits a shape the product does not have. The database is
+usually where a rule like this belongs, and `UNIQUE (gig_id)` would say it exactly. It is
+not that yet because the constraint change is a migration on the shared database, which is
+the team's call rather than one to slip into a bug fix.
+
+Decision:
+A gig has at most one framework assignment. The rule lives in
+`api/app/Services/FrameworkAssigner.php` and a second assignment is refused with 409
+`DUPLICATE_ASSIGNMENT`, whether the rubric offered is the same one or a different one;
+`details.framework_id` names the one the gig already has. The unique index stays behind it
+as the race backstop for the identical-rubric case. `Gig::assignment` gained
+`ofMany(['assigned_at' => 'max', 'id' => 'max'])` so that a gig which somehow holds two
+resolves to one of them predictably rather than arbitrarily.
+
+Consequences:
+Positive:
+The rubric a gig is scored against cannot change under a student mid-gig, which is what
+made the snapshot in ADR #5 worth taking in the first place. The contract's singular
+`framework` is now true rather than merely usual. The failure is a 409 naming the rubric
+already in place, so a supervisor who assigned the wrong one is told what is there rather
+than being left to guess.
+
+Negative:
+There is no way to correct a wrong assignment through the API: no PATCH, no DELETE, and the
+answer to "I picked the wrong rubric" is now a new gig. That is a real workflow gap and it
+is deliberate for the MVP, because replacing a rubric a reflection has already been scored
+against is the same problem ADR #16 solved for editing, and it deserves its own decision
+rather than falling out of this one.
+
+Two people assigning different rubrics to the same gig in the same instant can still both
+succeed, because the check is a read followed by a write and the unique index does not
+cover it. The window is small and the fix is the constraint below.
+
+Open, for the team rather than for this change:
+`ak_fw_assignments` should become `UNIQUE (gig_id)`, which states the rule where it belongs
+and closes the race. No gig on the shared database currently holds more than one
+assignment, checked before writing this, so the migration would apply cleanly. It is a
+migration on a database five people share and needs saying out loud first, per CLAUDE.md.
+
+Alternatives:
+Let the second assignment replace the first. Rejected: reflections already created under
+the old rubric keep pointing at it, so the gig would then contain reflections scored against
+two rubrics and the radar across it would mean nothing. It is a bigger decision than a
+refusal and would need to answer what happens to the existing records.
+
+Leave it and make `Gig::assignment` deterministic only. Rejected: predictable is not the
+same as correct. The gig would still be able to hold two rubrics, and the one it ignored
+would sit in the table waiting to confuse whoever reads it next.
+
+===============================================================
+
+ADR #34: Counter-scores close when a reflection does
+Status: Accepted
+Date: 2026-08-19
+
+Context:
+`POST /entries/{entry_id}/scores` gated on `status === 'draft'`, so `assessed` fell through
+and a late counter-score was accepted with a 201. The contract and the specification both
+say the reflection must be `submitted`; the code said it must not be a draft, which is not
+the same sentence.
+
+The consequence is not a stray row. `v_entry_score` ranks counter-scores
+`ORDER BY scored_at DESC` and reports the most recent, so the late score replaces the one
+the reflection was closed on, everywhere at once: the radar, `v_calibration_gap`, and the
+export. Reproduced end to end. A reflection was completed by its assessor at level 4 across
+six competencies and flipped to `assessed`. An employer on the same gig then scored one
+entry at level 1 and was given a 201. The student's radar moved from 4 to 1 on that axis
+and the status stayed `assessed` throughout.
+
+The employer's review queue was already empty at that point, because ADR-era behaviour
+removes an assessed reflection from everyone's queue. So the two halves of the product
+disagreed: the worklist said the reflection was finished and the endpoint said it was still
+open.
+
+Decision:
+A counter-score requires `status = 'submitted'` exactly. A draft is too early and an
+assessed reflection is too late, both refused with 409 `NOT_SUBMITTED` and a message that
+says which. The rule stays in `api/app/Services/Scoring.php`, where the rest of the
+counter-score rules already live.
+
+Consequences:
+Positive:
+A record that has been declared assessed cannot move afterwards. That is the promise the
+status is making, and it is the one a student would reasonably read into it. The endpoint
+now agrees with the review queue, so there is one answer to "is this finished" rather than
+two. The window in which a score can be written is the window the contract describes.
+
+Negative:
+The first scorer to finish still closes the reflection for everyone else, and now they are
+refused rather than merely un-prompted. On a gig with both an assessor and a supervisor,
+the second one loses the ability to record their view at all. That consequence already
+existed in the queue and this change makes it explicit and unavoidable, which is the honest
+version of it but not necessarily the version the client wants. It is the open question
+`test_completing_a_reflection_closes_it_for_every_other_scorer` has carried since it was
+written, and it is now worth more to ask than it was.
+
+Nothing distinguishes "too early" from "too late" in the error code; both are
+`NOT_SUBMITTED`, and a client that wants to tell them apart reads `details.status`. A
+second code was not worth the enumeration.
+
+Alternatives:
+Accept the late score and make `v_entry_score` prefer the earliest counter-score instead of
+the latest. Rejected: it keeps a radar stable but silently discards a score somebody was
+told was recorded, which is worse than refusing it, and it would change what every existing
+entry with two counter-scores reports.
+
+Hold the flip to `assessed` open until some deadline, so every scorer gets a chance.
+Rejected: there is no deadline in the product and inventing one is a product decision. If
+the client wants every scorer's view, the answer is to define completeness as all expected
+scorers rather than all entries, which is a change to the flip rule and not to this gate.

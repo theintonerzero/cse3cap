@@ -242,6 +242,29 @@ class AnalyticsTest extends TestCase
             ->assertOk()->assertJsonCount(0);
     }
 
+    /**
+     * `?gig_id[]=x` makes the parameter an array. Read straight into a
+     * string it is a TypeError, which is a 500 with no error code in it,
+     * and the frontend's generated types cannot parse that. A malformed
+     * request is the caller's to fix, so it is a 400 like any other.
+     */
+    public function test_a_malformed_query_parameter_is_a_400_not_a_500(): void
+    {
+        Sanctum::actingAs($this->user('Jane N'));
+
+        foreach ([
+            '/api/v1/me/radar?gig_id[]=x',
+            '/api/v1/me/radar?sprint_id[]=x',
+            '/api/v1/me/progress?gig_id[]=x',
+            '/api/v1/me/calibration?gig_id[]=x',
+            '/api/v1/me/coverage?framework_id[]=x',
+        ] as $url) {
+            $this->getJson($url)
+                ->assertStatus(400)
+                ->assertJsonPath('error.code', 'VALIDATION_FAILED');
+        }
+    }
+
     public function test_analytics_never_leak_another_students_numbers(): void
     {
         $this->scoredSprint($this->sprint(1), self: 4, counter: 2);

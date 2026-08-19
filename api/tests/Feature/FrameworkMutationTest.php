@@ -3,7 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\Framework;
+use App\Models\FrameworkAssignment;
 use App\Models\Gig;
+use App\Models\GigParticipant;
 use App\Models\Reflection;
 use App\Models\User;
 use App\Services\FrameworkEditing;
@@ -219,16 +221,40 @@ class FrameworkMutationTest extends TestCase
         $this->assertCount(2, $keys->unique(), 'fw_key is unique, so two copies cannot share one');
     }
 
+    /**
+     * Both seeded gigs already carry a rubric, and since ADR #33 that is
+     * enough to refuse another, so the happy path needs a gig with none.
+     */
+    private function unassignedGig(User $supervisor): Gig
+    {
+        $gig = Gig::create([
+            'title' => 'A gig with no rubric yet',
+            'org_name' => 'Alumable',
+            'starts_on' => '2026-08-03',
+            'ends_on' => '2026-10-26',
+        ]);
+
+        GigParticipant::create([
+            'gig_id' => $gig->id,
+            'user_id' => $supervisor->id,
+            'role' => 'supervisor',
+        ]);
+
+        return $gig;
+    }
+
     public function test_a_supervisor_assigns_a_framework_to_their_gig(): void
     {
         $lee = $this->actAsSupervisor();
         $copy = $this->copyFor($lee);
-        $gig = Gig::where('title', 'Develop AI use cases')->firstOrFail();
+        $gig = $this->unassignedGig($lee);
 
         $this->postJson('/api/v1/framework-assignments', [
             'framework_id' => $copy->id,
             'gig_id' => $gig->id,
         ])->assertStatus(201)->assertJsonPath('framework_id', $copy->id);
+
+        $this->assertSame($copy->id, $gig->fresh()->assignment->framework_id);
     }
 
     public function test_assigning_the_same_framework_twice_is_a_conflict(): void
@@ -243,6 +269,37 @@ class FrameworkMutationTest extends TestCase
         ])->assertStatus(409)->assertJsonPath('error.code', 'DUPLICATE_ASSIGNMENT');
     }
 
+    /**
+     * The one the schema does not catch. ak_fw_assignments is unique on
+     * (gig_id, framework_id), so a second, *different* rubric satisfies
+     * it, and everything downstream assumes there is one: Gig::assignment
+     * is a hasOne, the contract gives a gig one framework, and
+     * ReflectionCreator snapshots whatever that resolves to. See ADR #33.
+     */
+    public function test_a_gig_refuses_a_second_different_rubric(): void
+    {
+        $lee = $this->actAsSupervisor();
+        $gig = Gig::where('title', 'Develop AI use cases')->firstOrFail();
+        $already = $gig->assignment->framework_id;
+        $other = $this->copyFor($lee, 'A rubric this gig is not scored against');
+
+        $this->postJson('/api/v1/framework-assignments', [
+            'framework_id' => $other->id,
+            'gig_id' => $gig->id,
+        ])
+            ->assertStatus(409)
+            ->assertJsonPath('error.code', 'DUPLICATE_ASSIGNMENT')
+            ->assertJsonPath('error.details.framework_id', $already);
+
+        $this->assertSame(1, FrameworkAssignment::where('gig_id', $gig->id)->count());
+        $this->assertSame($already, $gig->fresh()->assignment->framework_id);
+    }
+
+    /**
+     * Also the ordering: this gig already has a rubric, so a 409 here
+     * would mean the conflict was decided before the role was, and a
+     * student would learn something about a gig by being refused.
+     */
     public function test_a_student_cannot_assign_and_a_stranger_gets_404(): void
     {
         $gig = Gig::where('title', 'Develop AI use cases')->firstOrFail();

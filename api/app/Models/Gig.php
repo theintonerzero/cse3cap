@@ -35,9 +35,20 @@ class Gig extends Model
         return $this->hasMany(GigParticipant::class);
     }
 
+    /**
+     * The gig's rubric. FrameworkAssigner allows only one, but the schema
+     * still permits two, so this pins which row wins rather than taking
+     * whatever MySQL returns first: without an order, a second assignment
+     * would change what new reflections are scored against, and could
+     * change back again on the next query.
+     */
     public function assignment(): HasOne
     {
-        return $this->hasOne(FrameworkAssignment::class);
+        // assigned_at is DATETIME(6), so a tie needs two writes in the
+        // same microsecond; the ids are UUIDv7 and sort by time, so they
+        // break it deterministically if that ever happens.
+        return $this->hasOne(FrameworkAssignment::class)
+            ->ofMany(['assigned_at' => 'max', 'id' => 'max']);
     }
 
     public function reflections(): HasMany

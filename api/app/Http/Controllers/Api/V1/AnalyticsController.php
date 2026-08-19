@@ -37,8 +37,8 @@ class AnalyticsController extends Controller
     public function radar(Request $request): array
     {
         $user = $request->user();
-        $gigId = $request->query('gig_id');
-        $sprintId = $request->query('sprint_id');
+        $gigId = $this->optionalQuery($request, 'gig_id');
+        $sprintId = $this->optionalQuery($request, 'sprint_id');
 
         $framework = $this->frameworkInScope($request, $gigId, $sprintId);
 
@@ -162,7 +162,7 @@ class AnalyticsController extends Controller
      */
     public function calibration(Request $request): array
     {
-        $gigId = $request->query('gig_id');
+        $gigId = $this->optionalQuery($request, 'gig_id');
 
         $rows = DB::table('v_calibration_gap')
             ->where('user_id', $request->user()->id)
@@ -229,11 +229,38 @@ class AnalyticsController extends Controller
         return $reflection->framework;
     }
 
-    private function requiredQuery(Request $request, string $key): string
+    /**
+     * A query parameter is whatever the query string says it is, and
+     * `?gig_id[]=x` makes it an array. Reading one straight into a string
+     * parameter is a TypeError, which is a 500 outside the error envelope
+     * and tells the caller nothing. A malformed request is theirs to fix,
+     * so it is a 400 like any other.
+     */
+    private function optionalQuery(Request $request, string $key): ?string
     {
         $value = $request->query($key);
 
         if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (! is_string($value)) {
+            throw new ApiException(
+                'VALIDATION_FAILED',
+                "The {$key} must be a single value.",
+                [$key => ['must be a single value']],
+                400,
+            );
+        }
+
+        return $value;
+    }
+
+    private function requiredQuery(Request $request, string $key): string
+    {
+        $value = $this->optionalQuery($request, $key);
+
+        if ($value === null) {
             throw new ApiException(
                 'VALIDATION_FAILED',
                 "This endpoint needs a {$key}.",

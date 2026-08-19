@@ -130,6 +130,39 @@ class ScoringTest extends TestCase
      * Being marked down without a reason is the most demoralising thing
      * this product could do, and it is cheap to make impossible.
      */
+    /**
+     * The other end of the same gate. v_entry_score reports the most
+     * recent counter-score, so one arriving after the flip would replace
+     * the value the record was closed on and move a radar nobody was
+     * looking at any more. See ADR #34.
+     */
+    public function test_an_assessed_reflection_cannot_be_counter_scored(): void
+    {
+        Sanctum::actingAs($this->user('Sam O'));
+        foreach ($this->entries() as $entry) {
+            $this->postJson("/api/v1/entries/{$entry->id}/scores", [
+                'level_id' => $this->levelOf($entry, 4), 'comment' => 'Agreed.',
+            ])->assertStatus(201);
+        }
+        $this->assertSame('assessed', $this->reflection->fresh()->status);
+
+        $entry = $this->entries()->first();
+
+        Sanctum::actingAs($this->user('Dr Lee'));
+        $this->postJson("/api/v1/entries/{$entry->id}/scores", [
+            'level_id' => $this->levelOf($entry, 1), 'comment' => 'Late.',
+        ])
+            ->assertStatus(409)
+            ->assertJsonPath('error.code', 'NOT_SUBMITTED')
+            ->assertJsonPath('error.details.status', 'assessed');
+
+        // The number the student was left with is the number that stands.
+        Sanctum::actingAs($this->user('Jane N'));
+        $this->getJson('/api/v1/me/radar')
+            ->assertOk()
+            ->assertJsonPath('axes.0.counter', 4);
+    }
+
     public function test_scoring_below_the_student_requires_a_comment(): void
     {
         $entry = $this->entries()->first();
@@ -290,7 +323,9 @@ class ScoringTest extends TestCase
      * That follows from the specification and is not a bug in the code,
      * but it is a product decision worth putting in front of the client,
      * because a gig with both an assessor and a supervisor probably
-     * expects both to be able to score.
+     * expects both to be able to score. ADR #34 sharpened it: the second
+     * scorer is now refused rather than merely unprompted, so the answer
+     * matters more than it did.
      */
     public function test_completing_a_reflection_closes_it_for_every_other_scorer(): void
     {
@@ -306,8 +341,14 @@ class ScoringTest extends TestCase
         Sanctum::actingAs($this->user('Dr Lee'));
         $this->getJson('/api/v1/review-queue')->assertOk()->assertJsonCount(0);
 
-        // She can still read it, and still add her own score to an entry.
+        // She can still read it. She can no longer score it: the queue and
+        // the endpoint give the same answer, which they did not before.
         $this->getJson("/api/v1/reflections/{$this->reflection->id}")->assertOk();
+
+        $entry = $this->entries()->first();
+        $this->postJson("/api/v1/entries/{$entry->id}/scores", [
+            'level_id' => $this->levelOf($entry, 2), 'comment' => 'Too late.',
+        ])->assertStatus(409)->assertJsonPath('error.code', 'NOT_SUBMITTED');
     }
 
     public function test_a_student_has_no_review_queue(): void

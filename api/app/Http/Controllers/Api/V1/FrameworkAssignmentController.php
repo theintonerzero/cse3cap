@@ -5,24 +5,27 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreFrameworkAssignmentRequest;
 use App\Models\Framework;
-use App\Models\FrameworkAssignment;
 use App\Models\Gig;
+use App\Services\FrameworkAssigner;
 use App\Services\RoleResolver;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class FrameworkAssignmentController extends Controller
 {
-    public function __construct(private RoleResolver $roles) {}
+    public function __construct(
+        private RoleResolver $roles,
+        private FrameworkAssigner $assigner,
+    ) {}
 
     /**
      * Which rubric a gig is scored against. The permission matrix gives
      * this to a supervisor or an employer, and to nobody else.
      *
-     * A duplicate is caught by the unique index on (gig_id,
-     * framework_id) rather than by a lookup first, so two people
-     * assigning at once cannot both succeed. It surfaces as
-     * DUPLICATE_ASSIGNMENT through the envelope.
+     * A gig takes one rubric and the rule lives in FrameworkAssigner.
+     * The unique index on (gig_id, framework_id) stays behind it as the
+     * race backstop for the identical-rubric case, and surfaces as the
+     * same DUPLICATE_ASSIGNMENT through the envelope.
      */
     public function store(StoreFrameworkAssignmentRequest $request): JsonResponse
     {
@@ -40,11 +43,7 @@ class FrameworkAssignmentController extends Controller
 
         $framework = Framework::findOrFail($request->validated('framework_id'));
 
-        $assignment = FrameworkAssignment::create([
-            'gig_id' => $gig->id,
-            'framework_id' => $framework->id,
-            'assigned_by' => $request->user()->id,
-        ]);
+        $assignment = $this->assigner->assign($gig, $framework, $request->user());
 
         return response()->json([
             'id' => $assignment->id,

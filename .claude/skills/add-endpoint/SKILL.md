@@ -41,7 +41,7 @@ Field names are snake_case, matching the database exactly. There is no mapping l
 ## 4. Policy for authorisation
 
 Never read a role from the request. Roles resolve server side from `gig_participants` for
-the gig in question, via the `roleFor(User, Gig)` helper.
+the gig in question, via `RoleResolver::for(User, Gig)`.
 
 The permission matrix in `docs/API-Specification.md` section 11 is the specification. Every
 row of it is a policy method. If your endpoint is not covered by a row, the matrix needs a
@@ -57,10 +57,15 @@ the controller and not in the FormRequest. Each rule has exactly one implementat
 
 | Rule | Lives in |
 |---|---|
-| Submit gate (narrative, self-score, evidence-if-required) | `SubmitReflection` |
-| Comment required when a counter-score is lower | `RecordCounterScore` |
-| Level belongs to the entry's competency | `RecordSelfScore` and `RecordCounterScore` |
-| Framework immutable once referenced | the framework mutation services |
+| Submit gate (narrative, self-score, evidence-if-required) | `SubmitGate` |
+| Comment required when a counter-score is lower | `Scoring` |
+| Level belongs to the entry's competency | `Scoring` |
+| Assessed once every entry has a counter-score | `Scoring` |
+| Framework immutable once referenced | `FrameworkEditing` |
+| One rubric per gig | `FrameworkAssigner` |
+| One entry per competency, on create | `ReflectionCreator` |
+
+The same table is in CLAUDE.md. If they disagree, CLAUDE.md wins and this one is the bug.
 
 Before adding a rule, check it does not already exist somewhere. Two implementations of the
 same rule is worse than none, because they drift.

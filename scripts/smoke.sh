@@ -117,6 +117,7 @@ call "Jane reads herself"             200 "$JANE" GET /auth/me
 say "Gigs are scoped per caller, per gig"
 call "Jane sees her gigs"             200 "$JANE" GET /gigs
 GIG="$(jq_get '[0]["id"]')"
+GIG_FW="$(jq_get '[0]["framework"]["id"]')"
 GIG2="$(jq_get '[1]["id"]')"
 SPRINT="$(jq_get '[0]["sprints"][0]["id"]')"
 call "Sam sees fewer"                 200 "$SAM"  GET /gigs
@@ -145,6 +146,12 @@ call "and renames her own copy"       200 "$LEE"  PATCH "/frameworks/$COPY" '{"n
 call "a student cannot copy"          403 "$JANE" POST /frameworks \
      "{\"based_on_framework_id\":\"$FW_LATROBE\",\"name\":\"Not mine\"}"
 call "nobody edits a seeded base"     403 "$LEE"  PATCH "/frameworks/$FW_LATROBE" '{"name":"No"}'
+
+say "A gig is scored against one rubric"
+call "the gig already has one"        409 "$LEE"  POST /framework-assignments \
+     "{\"gig_id\":\"$GIG\",\"framework_id\":\"$COPY\"}"
+call "and the same one again is too"  409 "$LEE"  POST /framework-assignments \
+     "{\"gig_id\":\"$GIG\",\"framework_id\":\"$GIG_FW\"}"
 
 say "Jane writes a reflection"
 
@@ -245,6 +252,9 @@ PY
     call "the last score flips it"        200 "$JANE" GET "/reflections/$REFLECTION"
     printf '       %sstatus is now %s%s\n' "$dim" "$(jq_get '["status"]')" "$off"
     call "the queue has emptied"          200 "$SAM"  GET /review-queue
+    call "and it is closed to Dr Lee too" 409 "$LEE"  POST "/entries/$E_FIRST/scores" \
+         "{\"level_id\":\"$L_LOWER\",\"comment\":\"Too late.\"}"
+    call "a malformed filter is a 400"    400 "$JANE" GET "/me/progress?gig_id%5B%5D=x"
     call "the history reads back"         200 "$JANE" GET "/reflections/$REFLECTION/events"
 
     rm -f /tmp/smoke-entries.$$ /tmp/smoke-fw.$$ /tmp/smoke-plan.$$

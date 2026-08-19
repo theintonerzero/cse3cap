@@ -155,8 +155,9 @@ competencies and changing level counts is out of scope (see Stack-and-Build-Scop
 `{ "descriptor": "…" }`. Reword a level descriptor.
 
 ### POST /framework-assignments: supervisor or employer
-`{ "framework_id": "…", "gig_id": "…" }` → 201. 409 `DUPLICATE_ASSIGNMENT` if this
-framework is already assigned to this gig.
+`{ "framework_id": "…", "gig_id": "…" }` → 201. 409 `DUPLICATE_ASSIGNMENT` if the gig
+already has a rubric, whether that is the same one again or a different one:
+**a gig is scored against exactly one**. `details.framework_id` names the one it has.
 Assigning is what eventually flips a framework's `in_use` (the first reflection created
 under it does).
 
@@ -241,7 +242,9 @@ nowhere else.
 
 ### POST /entries/{entry_id}/scores
 `{ "level_id": "…", "comment": "…" }`. Assessor/supervisor/employer on the gig.
-1. Reflection must be `submitted` (409 `NOT_SUBMITTED`)
+1. Reflection must be `submitted` (409 `NOT_SUBMITTED`) — a draft is too early and an
+   `assessed` one is too late, since the newest counter-score is the one `v_entry_score`
+   reports and a late one would move a radar the record was already closed on
 2. Level-in-competency check as above
 3. **Counter-score below the student's self score → comment mandatory**
    (400 `COMMENT_REQUIRED`); also mandatory when the framework's `comment_required` is on
@@ -264,8 +267,9 @@ person. Flat also left no id, so a worklist row could not link to the student.
 **Per caller, not per gig.** A gig can have both an assessor and a supervisor, and a
 reflection one of them has scored is still work for the other. Note the consequence: the
 last counter-score flips the reflection to `assessed`, which removes it from *everyone's*
-queue, so whoever finishes first closes it for the rest. That follows from the two rules
-above and is worth confirming with the client.
+queue and, since ADR #34, refuses their score at the endpoint too, so whoever finishes
+first closes it for the rest. That follows from the two rules above and is worth
+confirming with the client.
 
 ---
 

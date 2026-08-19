@@ -84,10 +84,18 @@ class Scoring
     ): array {
         $reflection = $entry->reflection;
 
-        if ($reflection->status === 'draft') {
+        // Submitted and nothing else. Draft is too early, and assessed is
+        // too late: v_entry_score takes the most recent counter-score per
+        // entry, so a score arriving after the flip would silently replace
+        // the one the record was closed on. A finished radar that moves
+        // afterwards is worse than a late score being refused, and the
+        // reflection has already left every reviewer's queue by then.
+        if ($reflection->status !== 'submitted') {
             throw new ApiException(
                 'NOT_SUBMITTED',
-                'This reflection has not been submitted yet, so there is nothing to counter-score.',
+                $reflection->status === 'draft'
+                    ? 'This reflection has not been submitted yet, so there is nothing to counter-score.'
+                    : 'This reflection has already been assessed. Counter-scores close with it.',
                 ['status' => $reflection->status],
                 409,
             );

@@ -385,15 +385,19 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
-          description: That framework is already assigned to that gig
+          description: >
+            DUPLICATE_ASSIGNMENT. A gig is scored against one rubric, so
+            this covers both assigning the same one twice and assigning a
+            second, different one. details.framework_id names the rubric
+            the gig already has.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
               example:
                 error:
                   code: DUPLICATE_ASSIGNMENT
-                  message: That framework is already assigned to this gig.
-                  details: {}
+                  message: This gig already has a rubric, and a gig is scored against one.
+                  details: { framework_id: aaaa1111-0000-4aaa-8aaa-aaaaaaaaaaaa }
 
   /reflections:
     get:
@@ -729,11 +733,14 @@ paths:
       operationId: addCounterScore
       summary: A counter-score from an assessor, supervisor or employer
       description: >
-        The reflection must be submitted. A comment is required when the
-        score is below the student's own, and whenever the rubric asks for
-        one. One score per scorer per entry: there is no re-scoring, and a
-        repeat is a conflict. When the last entry is scored the reflection
-        flips to assessed.
+        The reflection must be submitted: a draft is too early and an
+        assessed one is too late, because the most recent counter-score is
+        the one that counts and a late one would move a radar the record
+        was already closed on. A comment is required when the score is
+        below the student's own, and whenever the rubric asks for one. One
+        score per scorer per entry: there is no re-scoring, and a repeat is
+        a conflict. When the last entry is scored the reflection flips to
+        assessed, which closes it for every other scorer.
       parameters:
         - $ref: '#/components/parameters/EntryId'
       requestBody:
@@ -773,7 +780,9 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
-          description: NOT_SUBMITTED, or ALREADY_SCORED by this scorer
+          description: >
+            NOT_SUBMITTED when the reflection is a draft or already
+            assessed, or ALREADY_SCORED by this scorer
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
@@ -879,6 +888,7 @@ paths:
                     self: 3
                     counter: 2
                     counter_role: supervisor
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthenticated' }
         '404':
           description: Nothing written yet, so there is nothing to chart
@@ -955,6 +965,7 @@ paths:
                     counter_level: { type: [integer, 'null'] }
                     counter_role: { $ref: '#/components/schemas/CounterRole' }
                     gap: { type: [integer, 'null'] }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthenticated' }
 
   /me/coverage:
