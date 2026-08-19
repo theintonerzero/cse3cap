@@ -71,10 +71,29 @@ COMMAND_CASES = [
     (DENY, "echo 'a note' >> SUMMARY.txt"),
     (DENY, "printf 'x' | tee HANDOFF.md"),
 
+    # Found by review. A quoted destination came along with its quotes, so
+    # the extension test ran against a string ending in a quote rather
+    # than in .md, and the write was allowed.
+    (DENY, 'cat > "NOTES.md" <<\'EOF\'\nnote\nEOF'),
+    (DENY, "cat > 'NOTES.md' <<'EOF'\nnote\nEOF"),
+    # Quoting is how a path with a space has to be written, and the bare
+    # token stopped at the space.
+    (DENY, 'cat > "my working notes.md" <<\'EOF\'\nnote\nEOF'),
+    # tee takes flags before its file. Skipping only a literal -a captured
+    # the flag as the filename and passed the real target through.
+    (DENY, "printf 'x' | tee -i NOTES.md"),
+    (DENY, "printf 'x' | tee -ai NOTES.md"),
+    (DENY, "printf 'x' | tee --append NOTES.md"),
+
     # The same act, aimed where documents belong.
     (ALLOW, "cat > docs/adr/0026-thing.md <<'MD'\nrecord\nMD"),
     (ALLOW, "printf 'x' | tee docs/notes.md"),
     (ALLOW, "cat > .claude/agents/new.md <<'MD'\nagent\nMD"),
+    # The same forms, aimed where documents belong, must still go through.
+    (ALLOW, 'cat > "docs/adr/0033-thing.md" <<\'MD\'\nrecord\nMD'),
+    (ALLOW, "cat > 'docs/notes.md' <<'MD'\nnote\nMD"),
+    (ALLOW, "printf 'x' | tee -i docs/notes.md"),
+    (ALLOW, "printf 'x' | tee --append docs/notes.md"),
 
     # Text about writing a file, not the writing of one. The shared-database
     # guard blocked the commit that introduced it by missing this.

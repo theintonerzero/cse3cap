@@ -33,16 +33,34 @@ CASES = [
     # Names a test database and the shared one. Conservative: refuse.
     (DENY, "php artisan migrate:fresh --database=mysql_test --seed # reflection_diary"),
 
+    # Found by review. DROP DATABASE was covered and DROP TABLE was not,
+    # though it is the one an agent reaches for first to tidy one table.
+    (DENY, 'mysql -e "DROP TABLE reflection_diary.users"'),
+    (DENY, 'mysql -e "DROP VIEW v_radar"'),
+    # MySQL treats TABLE as optional, so the bare form walked past a guard
+    # that caught its own synonym.
+    (DENY, 'mysql -e "TRUNCATE reflection_diary.users"'),
+    # Data rather than schema, but the seeded frameworks and levels are
+    # reference data five people share.
+    (DENY, 'mysql -e "DELETE FROM reflection_diary.frameworks"'),
+
     # A per-developer test database is meant to be dropped and rebuilt.
     (ALLOW, "php artisan migrate:fresh --database=mysql_test"),
     (ALLOW, "DB_TEST_DATABASE=reflection_diary_test_jdarkovski php artisan migrate:fresh"),
     (ALLOW, "php artisan migrate:fresh --drop-views --database=mysql_test"),
+    (ALLOW, 'mysql -e "DROP TABLE reflection_diary_test_jdarkovski.users"'),
+    (ALLOW, 'mysql -e "TRUNCATE reflection_diary_test_jdarkovski.scores"'),
+    (ALLOW, 'mysql -e "DELETE FROM reflection_diary_test_jdarkovski.scores"'),
 
     # Not destructive at all.
     (ALLOW, "php artisan test"),
     (ALLOW, "php artisan migrate"),
     (ALLOW, "php artisan migrate:status"),
     (ALLOW, "git status"),
+    # Reading is not destroying. DELETE FROM must not make every query
+    # mentioning a table look dangerous.
+    (ALLOW, 'mysql -e "SELECT * FROM reflection_diary.users"'),
+    (ALLOW, 'mysql -e "UPDATE reflection_diary.users SET display_name = \'x\'"'),
 
     # Text about the dangerous commands, not the commands themselves.
     (ALLOW, "git commit -F- <<'EOF'\n"

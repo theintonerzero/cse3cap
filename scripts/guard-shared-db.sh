@@ -10,8 +10,8 @@
 # PHPUnit; a command typed at the shell goes nowhere near it.
 #
 # Reads the hook payload on stdin and answers on stdout. Denies only what
-# it can see is dangerous: an operation that destroys schema, aimed at
-# something other than a test database.
+# it can see is dangerous: an operation that destroys schema or the
+# reference data, aimed at something other than a test database.
 #
 # Test it with scripts/guard-shared-db.test.py, which covers the cases
 # that matter including the ones this guard used to get wrong.
@@ -39,10 +39,20 @@ command = re.sub(
     r"<<-?\s*[\"\x27]?(\w+)[\"\x27]?\n.*?^\s*\1\s*$",
     " <heredoc> ", command, flags=re.DOTALL | re.MULTILINE)
 
-# Operations that destroy schema rather than change it.
+# Operations that destroy rather than change.
+#
+# DROP TABLE is the one an agent reaches for first when tidying up a
+# single table, and it was missing while DROP DATABASE was covered.
+# TRUNCATE only matched with the TABLE keyword, which MySQL treats as
+# optional, so bare TRUNCATE walked past a guard that caught its synonym.
+# DELETE FROM destroys data rather than schema; it is here because the
+# seeded frameworks and levels are reference data five people share, and
+# losing those rows costs the same as losing the table.
 destructive = re.search(
     r"migrate:fresh|migrate:reset|db:wipe|schema:drop"
-    r"|DROP\s+DATABASE|DROP\s+SCHEMA|TRUNCATE\s+TABLE",
+    r"|DROP\s+(?:DATABASE|SCHEMA|TABLE|VIEW)"
+    r"|TRUNCATE(?:\s+TABLE)?\s+\S"
+    r"|DELETE\s+FROM",
     command, re.IGNORECASE)
 
 if not destructive:

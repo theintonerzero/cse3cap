@@ -47,8 +47,23 @@ if command:
     command = re.sub(
         r"<<-?\s*[\"\x27]?(\w+)[\"\x27]?\n.*?^\s*\1\s*$",
         " <heredoc> ", command, flags=re.DOTALL | re.MULTILINE)
-    paths += re.findall(r">>?\s*([^\s;|&<>]+)", command)
-    paths += re.findall(r"\btee\s+(?:-a\s+)?([^\s;|&<>]+)", command)
+    # A destination is either a quoted string, which is how any path with
+    # a space has to be written, or a bare token. Matching only the bare
+    # token let `cat > "NOTES.md"` through: the quotes came along in the
+    # capture and the extension test then failed on a string ending in a
+    # quote rather than in .md.
+    target = r"(\"[^\"]*\"|\x27[^\x27]*\x27|[^\s;|&<>]+)"
+
+    # tee takes flags before its file. Skipping only a literal -a let
+    # `tee -i`, `tee -ai` and `tee --append` capture the flag as the
+    # filename and pass the real target straight through.
+    paths += re.findall(r">>?\s*" + target, command)
+    paths += re.findall(r"\btee(?:\s+-\S+)*\s+" + target, command)
+
+    paths = [
+        p[1:-1] if len(p) >= 2 and p[0] in "\"\x27" and p[-1] == p[0] else p
+        for p in paths
+    ]
 
 if not paths:
     sys.exit(0)
