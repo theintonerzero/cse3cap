@@ -21,12 +21,15 @@ after the subject closes and after they graduate.
 | Database | Applied and verified on the shared instance. 14 tables, 5 views |
 | Backend | **Complete.** 30 endpoints, all seven business rules, 110 feature tests |
 | Contract | `docs/openapi.yaml` matches the served routes, checked mechanically |
-| Frontend | **Not started.** `web/` does not exist yet |
+| Frontend | **Scaffold only.** `web/` renders the word `test`. No screens built |
 
 The API is finished and stable enough to build against. The contract is the agreement, so
 the frontend can start now against `prism mock docs/openapi.yaml` without waiting for
 anything. Not built on the backend: PDF export, which needs dompdf and is a package
 decision for the team.
+
+How the two folders fit together, and what breaks quietly when they drift, is
+[`docs/Frontend-and-Backend.md`](docs/Frontend-and-Backend.md).
 
 [`docs/Stack-and-Build-Scope.md`](docs/Stack-and-Build-Scope.md) has the item-by-item
 checklist.
@@ -44,6 +47,7 @@ checklist.
 - [Data model](#data-model)
 - [Repository structure](#repository-structure)
 - [Getting started](#getting-started)
+  - [Running it](#running-it)
 - [Working agreements](#working-agreements)
 - [Claude Code](#claude-code)
 - [Documentation](#documentation)
@@ -207,10 +211,12 @@ notation cannot show. Schema with inline reasoning:
 ```
 .
 ├── api/          # Laravel 13 backend
-├── web/          # React + Vite + TypeScript frontend (not created yet)
+├── web/          # React + Vite + TypeScript frontend (scaffold only)
 ├── db/           # Schema, patches and seed data
 ├── docs/         # Brief, ERD, API spec, ADRs. Every document lives here
-├── scripts/      # Setup and the smoke test
+├── scripts/      # Setup, the smoke test and the two agent guards
+├── run           # Task runner. ./run dev starts everything (run.ps1 on Windows)
+├── .claude/      # Shared agent configuration: agents, skills, permissions
 ├── .github/      # CI
 ├── CLAUDE.md     # Rules for agents working in this repo
 └── README.md
@@ -232,6 +238,23 @@ Checksums are at [SHA256SUMS](https://dl.darkovski.dev/git/cse3cap/SHA256SUMS), 
 checking for anything piped to a shell. The script itself is
 [`scripts/setup.sh`](scripts/setup.sh) in this repository, so you can read it before
 running it. The manual steps below are what it automates.
+
+### Running it
+
+Once set up, everything runs from the repository root. No `cd` into `api/` or `web/`.
+
+```bash
+./run dev            # both servers. api on :8000, web on :5173. Ctrl-C stops both
+./run test           # the backend test suite
+./run check          # everything CI runs, in CI's order
+./run                # the full list
+```
+
+Windows: `./run.ps1` takes the same commands.
+
+`api/` and `web/` are still two separate applications with two separate toolchains, and
+`./run` does not pretend otherwise. It prints every command before running it, so you can
+always see what it is doing and run that yourself instead.
 
 ### 1. Clone
 
@@ -267,12 +290,29 @@ Do **not** run `php artisan migrate` without saying so in the channel first. See
 
 ### 3. Frontend
 
-`web/` does not exist yet; the frontend is the next slice of work. Develop against the
-contract in the meantime:
+```bash
+cd web
+npm install
+npm run dev                # http://localhost:5173
+```
+
+It renders the word `test`. That is the whole application: the scaffold exists so the
+toolchain, the CI job and the dev server are proven before anyone writes a screen. What to
+build and in what order is [`web/README.md`](web/README.md).
+
+Vite reads `web/.env`, which needs one line:
+`VITE_API_BASE_URL=http://localhost:8000/api/v1`. `scripts/setup.sh` writes it and installs
+the dependencies.
+
+The backend is a separate server on a separate port, and nothing proxies between them. You
+do not need it running to build a screen; mock the contract instead:
 
 ```bash
 npx -y @stoplight/prism-cli mock docs/openapi.yaml    # http://localhost:4010
 ```
+
+[`docs/Frontend-and-Backend.md`](docs/Frontend-and-Backend.md) is the seam between the two
+folders: what crosses it, what generates what, and the drift that does not announce itself.
 
 ### Shared database
 
@@ -354,8 +394,9 @@ in the repository is the copy that everyone can read, and the one to edit.
 ### Testing it
 
 ```bash
-cd api && php artisan test          # 110 feature tests, against real MySQL
-./scripts/smoke.sh                  # 51 checks, over HTTP, with the three real tokens
+./run test                          # 110 feature tests, against real MySQL
+./run smoke                         # 51 checks, over HTTP, with the three real tokens
+./run check                         # both, plus lint, contract and the guards
 ```
 
 The suite runs `migrate:fresh`, so it needs a database of its own. `scripts/setup.sh` sets
@@ -421,6 +462,41 @@ back to guessing from `db/01-schema.sql`.
 Only plugins from the official marketplace are enabled. Plugins execute arbitrary code with
 your user privileges, so raise it in the channel before adding others.
 
+### Agents
+
+`.claude/agents/` defines six subagents, tiered by what the task costs to get wrong rather
+than by how long it takes. Without them every subagent inherits the main model, and a
+one-line documentation fix costs the same as a schema change.
+
+| Agent | Model | For |
+| --- | --- | --- |
+| `schema-migration` | Opus, xhigh | The schema, migrations, views, and the ADR that travels with them |
+| `backend-endpoint` | Opus, high | An endpoint end to end: rule, policy, resource, test, contract |
+| `frontend-screen` | Sonnet, high | React screens and components in `web/` |
+| `contract-sync` | Sonnet | Keeping `openapi.yaml`, the API spec and the generated types in agreement |
+| `repo-explorer` | Haiku | Read-only "where is X" before you write anything |
+| `docs-tidy` | Haiku | Mechanical doc maintenance: a moved path, a stale version, a broken link |
+
+Neither Haiku agent can run Bash. `.claude/skills/` holds six task recipes, invoked with
+`/add-endpoint`, `/add-migration`, `/add-policy`, `/add-screen`, `/seed-data` and
+`/write-adr`.
+
+### Guards
+
+Two `PreToolUse` hooks refuse things that a permission rule cannot see, both with their
+cases run in CI:
+
+- `scripts/guard-shared-db.sh` blocks any shell command that destroys schema without naming
+  a test database. `api/tests/TestCase.php` already refuses inside PHPUnit, but a command
+  typed at the shell goes nowhere near it, and five people share one instance.
+- `scripts/guard-docs-location.sh` blocks a new document written outside `docs/`. Agents
+  produce prose constantly, and left alone it lands wherever the agent happened to be. It
+  reads shell redirections as well as the Write tool, because an agent working through
+  Bash creates every file with `cat > path`.
+
+Every document this project keeps lives in `docs/` and is listed in the table below. A
+working note belongs in your scratchpad, outside the repository.
+
 [`CLAUDE.md`](CLAUDE.md) holds the rules agents must follow.
 [`docs/PROJECT-CONTEXT.md`](docs/PROJECT-CONTEXT.md) explains the product, the architecture
 and the reasoning behind the unusual decisions.
@@ -432,6 +508,7 @@ and the reasoning behind the unusual decisions.
 | [`docs/PROJECT-CONTEXT.md`](docs/PROJECT-CONTEXT.md)             | Background briefing: product, vocabulary, architecture, traps |
 | [`docs/API-Specification.md`](docs/API-Specification.md)         | The annotated API contract                                    |
 | [`docs/api-reference.html`](docs/api-reference.html)             | Single-page API reference, including which class owns each rule |
+| [`docs/Frontend-and-Backend.md`](docs/Frontend-and-Backend.md)   | How `api/` and `web/` couple, and what drifts silently        |
 | [`docs/Retention-and-Erasure.md`](docs/Retention-and-Erasure.md) | What is kept, what can be deleted, and what cannot            |
 | [`docs/openapi.yaml`](docs/openapi.yaml)                         | Machine-readable contract, source of truth                    |
 | [`docs/Stack-and-Build-Scope.md`](docs/Stack-and-Build-Scope.md) | What is being built, and the definition of done               |

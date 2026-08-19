@@ -128,7 +128,11 @@ README.md                setup, connection details, the three tokens
 ### 4.3 Frontend
 
 **Foundation, in this order**
-- [ ] Vite 8 + TS scaffold, ESLint, Prettier. Pin TypeScript to 6.x, not 7. TypeScript 7
+- [x] Vite 8 + TS scaffold, Prettier, and oxlint in place of ESLint, which is what the
+      current Vite template ships. Renders the word `test` and nothing else: the point is
+      that the toolchain and the CI job are proven before a screen is written. Swapping
+      oxlint for ESLint is a deliberate decision the team has not made yet.
+      Pin TypeScript to 6.x, not 7. TypeScript 7
       is the native compiler rewrite and openapi-typescript 7.13 crashes on it
       (openapi-ts issue #2841, open with no workaround). Generated types are load-bearing
       here, so the generator picks the compiler version
@@ -185,13 +189,13 @@ README.md                setup, connection details, the three tokens
 
 ### 4.5 Cross-cutting
 
-- [x] CI running Pint, ESLint, Prettier and both builds, set up before the first feature PR.
+- [x] CI running Pint, oxlint, Prettier and both builds, set up before the first feature PR.
       `.github/workflows/ci.yml`. The backend job brings up its own MySQL 9.7 service
       container rather than touching the shared instance, because the suite runs
       `migrate:fresh`. The frontend job is written and skips itself until `web/` exists.
 - [x] `openapi.yaml` written from API spec v2 for the read path, mock server running
       (`prism mock`) and serving the seeded data as examples
-- [ ] `.claude/settings.json` with shared plugins, permissions and the shared-database
+- [x] `.claude/settings.json` with shared plugins, permissions and the shared-database
       guard; six agents in `.claude/agents/`; `PROJECT-CONTEXT.md` in `/docs`
 - [x] ADRs for every decision in §2 of this document (#26 to #32)
 

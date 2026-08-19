@@ -1,0 +1,13 @@
+/*
+ * Deliberately almost empty.
+ *
+ * Every colour, space and radius in this project comes from CSS variables
+ * defined in src/tokens.css, which does not exist yet and is the first
+ * task of the frontend build. No raw hex anywhere else, ever. Adding
+ * styling here instead is how that rule gets broken on day one.
+ */
+
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+}

@@ -26,6 +26,10 @@
 # review packages. Regenerable, and the git history is the real record.
 .superpowers/
 
+# Playwright MCP drops snapshots and console logs here when an agent
+# drives the dev server. Regenerable, and never worth reviewing.
+.playwright-mcp/
+
 # Editors and OS
 .DS_Store
 .idea

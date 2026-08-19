@@ -10,5 +10,85 @@
     "github@claude-plugins-official": true,
     "commit-commands@claude-plugins-official": true,
     "pr-review-toolkit@claude-plugins-official": true
+  },
+  "permissions": {
+    "allow": [
+      "Bash(git status *)",
+      "Bash(git status)",
+      "Bash(git diff *)",
+      "Bash(git diff)",
+      "Bash(git log *)",
+      "Bash(git show *)",
+      "Bash(git branch *)",
+      "Bash(git remote -v)",
+      "Bash(git check-ignore *)",
+      "Bash(git ls-files *)",
+      "Bash(php artisan test *)",
+      "Bash(php artisan test)",
+      "Bash(php artisan route:list *)",
+      "Bash(php artisan route:list)",
+      "Bash(php artisan migrate:status)",
+      "Bash(./vendor/bin/pint --test *)",
+      "Bash(./vendor/bin/pint --test)",
+      "Bash(php -l *)",
+      "Bash(php -v)",
+      "Bash(php -m)",
+      "Bash(composer show *)",
+      "Bash(composer validate *)",
+      "Bash(npm run lint *)",
+      "Bash(npm run build *)",
+      "Bash(npx prettier --check *)",
+      "Bash(npx -y @redocly/cli lint *)",
+      "Bash(npx -y @redocly/cli@latest lint *)"
+    ],
+    "ask": [
+      "Bash(php artisan migrate*)",
+      "Bash(php artisan db:seed*)"
+    ],
+    "deny": [
+      "Bash(php artisan migrate:fresh*)",
+      "Bash(php artisan migrate:reset*)",
+      "Bash(php artisan db:wipe*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/scripts/guard-shared-db.sh\"",
+            "if": "Bash",
+            "timeout": 10,
+            "statusMessage": "Checking the command cannot reach the shared database"
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/scripts/guard-docs-location.sh\"",
+            "if": "Write",
+            "timeout": 10,
+            "statusMessage": "Checking the document is being written into docs/"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/scripts/guard-docs-location.sh\"",
+            "if": "Bash",
+            "timeout": 10,
+            "statusMessage": "Checking the document is being written into docs/"
+          }
+        ]
+      }
+    ]
   }
 }
