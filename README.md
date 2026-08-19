@@ -19,7 +19,7 @@ after the subject closes and after they graduate.
 | Part | State |
 | --- | --- |
 | Database | Applied and verified on the shared instance. 14 tables, 5 views |
-| Backend | **Complete.** 30 endpoints, all six business rules, 106 feature tests |
+| Backend | **Complete.** 30 endpoints, all seven business rules, 110 feature tests |
 | Contract | `docs/openapi.yaml` matches the served routes, checked mechanically |
 | Frontend | **Not started.** `web/` does not exist yet |
 
@@ -354,8 +354,8 @@ in the repository is the copy that everyone can read, and the one to edit.
 ### Testing it
 
 ```bash
-cd api && php artisan test          # 106 feature tests, against real MySQL
-./scripts/smoke.sh                  # 47 checks, over HTTP, with the three real tokens
+cd api && php artisan test          # 110 feature tests, against real MySQL
+./scripts/smoke.sh                  # 51 checks, over HTTP, with the three real tokens
 ```
 
 The suite runs `migrate:fresh`, so it needs a database of its own. `scripts/setup.sh` sets

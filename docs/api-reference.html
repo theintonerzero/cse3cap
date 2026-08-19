@@ -812,7 +812,7 @@ curl -H "Authorization: Bearer $JANE" \
 
     <section id="rules">
       <h2>The business rules</h2>
-      <p>Six rules carry the product. Each has exactly one implementation, and this is where it lives.</p>
+      <p>Seven rules carry the product. Each has exactly one implementation, and this is where it lives.</p>
       <div class="tablewrap">
         <table>
           <thead><tr><th>Rule</th><th>Implemented in</th></tr></thead>
@@ -821,6 +821,7 @@ curl -H "Authorization: Bearer $JANE" \
             <tr><td>A comment is required when a counter-score is below the student's own</td><td class="mono">Scoring</td></tr>
             <tr><td>The level must belong to the entry's competency</td><td class="mono">Scoring</td></tr>
             <tr><td>A framework referenced by any reflection is permanently read-only</td><td class="mono">FrameworkEditing</td></tr>
+            <tr><td>A gig is scored against one rubric, never two</td><td class="mono">FrameworkAssigner</td></tr>
             <tr><td>One entry per competency, created eagerly with the reflection</td><td class="mono">ReflectionCreator</td></tr>
             <tr><td>Assessed once every entry carries a counter-score</td><td class="mono">Scoring</td></tr>
           </tbody>
@@ -833,7 +834,7 @@ curl -H "Authorization: Bearer $JANE" \
       <h2>Testing it</h2>
 
       <h3>The suite</h3>
-      <p>106 feature tests against real MySQL, not sqlite: the schema uses generated columns, <code>CHECK</code> constraints and window functions that sqlite cannot express, so an in-memory suite would be testing a different database from the one we ship on.</p>
+      <p>110 feature tests against real MySQL, not sqlite: the schema uses generated columns, <code>CHECK</code> constraints and window functions that sqlite cannot express, so an in-memory suite would be testing a different database from the one we ship on.</p>
 <pre><code>cd api && php artisan test</code></pre>
       <p>They test the denials, not just the permissions. A policy that returns true for everyone passes every happy-path test ever written.</p>
 
@@ -841,7 +842,7 @@ curl -H "Authorization: Bearer $JANE" \
       <p>The suite proves the rules in isolation with <code>Sanctum::actingAs</code>. That cannot see wiring: middleware order, the guest redirect, content negotiation, anything that only exists once a request crosses HTTP. So there is a script that drives the whole product with the three real tokens.</p>
 <pre><code>cd api && php artisan serve &amp;
 ./scripts/smoke.sh</code></pre>
-      <p>It writes a reflection as Jane, submits it through the gate, counter-scores it as Sam, watches it flip to assessed, reads all four analytics endpoints, then exports and downloads the record, checking the refusals on the way past. 47 checks, each printing the status it got against the status it wanted, so a failure names the call that broke.</p>
+      <p>It writes a reflection as Jane, submits it through the gate, counter-scores it as Sam, watches it flip to assessed, reads all four analytics endpoints, then exports and downloads the record, checking the refusals on the way past. 51 checks, each printing the status it got against the status it wanted, so a failure names the call that broke.</p>
       <p>It picks a sprint Jane has not used yet, so you can run it more than once against the same database.</p>
 
       <h3>The mock</h3>

@@ -175,7 +175,11 @@ README.md                setup, connection details, the three tokens
 - [x] Evidence upload: type and size validation against framework policy, storage wiring
 - [~] Export pipeline: queued jobs, JSON, download authorisation. PDF still to come
 - [x] VPS access control, `.env.example`, nothing secret committed
-- [ ] Security review on every PR touching scoring, submit, or framework mutation
+- [~] Security review on every PR touching scoring, submit, or framework mutation. Done
+      once, on the backend PR, which touches all three: it found a counter-score accepted
+      after a reflection was assessed, a gig able to hold two rubrics, and three analytics
+      endpoints returning a 500 outside the error envelope. ADRs #33, #34, #35. Stays open
+      because the commitment is per PR, not once
 - [x] Retention and erasure note for the report (the `RESTRICT` constraints make deletion
       deliberate rather than cascading)
 
