@@ -292,6 +292,14 @@ Everyone connects to the same instance, which has two consequences.
 and a bad migration takes out everyone's environment rather than just one. Announce in the
 channel before applying anything.
 
+> **One migration is outstanding.** `2026_08_19_120000_one_framework_assignment_per_gig`
+> narrows `ak_fw_assignments` from `(gig_id, framework_id)` to `(gig_id)`, so a gig can hold
+> one rubric rather than one per rubric ([ADR #35](docs/adr/architecture-decision-records.md)).
+> It is idempotent and refuses rather than half-applies if any gig holds two, and no gig
+> does. Until it is applied the shared schema permits what the API already refuses, which
+> is harmless but means the two disagree. Run `php artisan migrate` in `api/` once,
+> centrally, after announcing it.
+
 **Seed data is shared.** Treat the seeded users, gigs and frameworks as fixed reference
 data. If you need to experiment, create new rows rather than editing the seeds, otherwise
 you change what everyone else sees, including mid-demo.

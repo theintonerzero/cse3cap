@@ -98,7 +98,7 @@ README.md                setup, connection details, the three tokens
       than restating it, and is recorded as already-run on the shared instance
 - [x] Base model: `HasUuids`, `$keyType = 'string'`, `$incrementing = false`
 - [x] Exception renderer producing the single error envelope
-- [x] `roleFor(User, Gig)` helper. `GigPolicy` done; the remaining rows arrive with the
+- [x] `RoleResolver::for(User, Gig)`. `GigPolicy` done; the remaining rows arrive with the
       resources they govern
 
 **Endpoints** (full detail in API spec v2)

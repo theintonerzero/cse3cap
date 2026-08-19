@@ -116,7 +116,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // stays a 500 rather than being dressed up as a conflict.
         $duplicates = [
             'ak_reflections_context' => ['DUPLICATE_REFLECTION', 'A reflection already exists for that context.'],
-            'ak_fw_assignments' => ['DUPLICATE_ASSIGNMENT', 'That framework is already assigned to this gig.'],
+            'ak_fw_assignments' => ['DUPLICATE_ASSIGNMENT', 'This gig already has a rubric, and a gig is scored against one.'],
             'ak_scores' => ['ALREADY_SCORED', 'You have already scored this entry.'],
         ];
 

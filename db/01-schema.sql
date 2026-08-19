@@ -133,7 +133,12 @@ CREATE TABLE framework_assignments (
     assigned_by   CHAR(36) NULL,
     assigned_at   DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     PRIMARY KEY (id),
-    UNIQUE KEY ak_fw_assignments (gig_id, framework_id),
+    -- One rubric per gig, not one row per pair. On (gig_id, framework_id)
+    -- this stopped the same rubric being assigned twice and let a second,
+    -- different one through, which is the case that actually hurts: every
+    -- reflection snapshots the gig's framework, so two would score two
+    -- students on one gig against different rubrics. See ADR #35.
+    UNIQUE KEY ak_fw_assignments (gig_id),
     CONSTRAINT fk_fa_fw   FOREIGN KEY (framework_id) REFERENCES frameworks (id),
     CONSTRAINT fk_fa_gig  FOREIGN KEY (gig_id)       REFERENCES gigs (id) ON DELETE CASCADE,
     CONSTRAINT fk_fa_user FOREIGN KEY (assigned_by)  REFERENCES users (id) ON DELETE SET NULL

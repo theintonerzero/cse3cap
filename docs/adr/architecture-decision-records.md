@@ -42,8 +42,9 @@ Index
 #30 An export is a queued job, row is record ....... Accepted
 #31 The dependencies deliberately not taken ........ Accepted
 #32 oxlint in place of ESLint ...................... Accepted
-#33 A gig is scored against one rubric ............. Accepted
+#33 A gig is scored against one rubric ...... Extended by #35
 #34 Counter-scores close when a reflection does .... Accepted
+#35 One rubric per gig, in the key itself .......... Accepted
 
 ===============================================================
 
@@ -1356,7 +1357,7 @@ will want once there are hooks.
 ===============================================================
 
 ADR #33: A gig is scored against one rubric
-Status: Accepted
+Status: Accepted, extended by #35
 Date: 2026-08-19
 
 Context:
@@ -1485,3 +1486,79 @@ Hold the flip to `assessed` open until some deadline, so every scorer gets a cha
 Rejected: there is no deadline in the product and inventing one is a product decision. If
 the client wants every scorer's view, the answer is to define completeness as all expected
 scorers rather than all entries, which is a change to the flip rule and not to this gate.
+
+===============================================================
+
+ADR #35: One rubric per gig, in the key itself
+Status: Accepted
+Extends: #33
+Date: 2026-08-19
+
+Context:
+ADR #33 put "a gig is scored against one rubric" in `FrameworkAssigner` and left the
+constraint as an open question, because changing a key on a database five people share is
+not something to slip into a bug fix. The question was put to the team and the answer was
+to make the change.
+
+Two things the service check cannot do. It reads and then writes, so two people assigning
+different rubrics to one gig in the same instant can both pass the read and both insert;
+the old key, being on `(gig_id, framework_id)`, does not catch that. And it is one code
+path among the several that could write the table in future, whereas a key holds for
+anything that reaches the database, including a seeder, a console command, or somebody at
+a MySQL prompt.
+
+This is what CLAUDE.md means by constraints encoding product requirements. The old key
+encoded "the same rubric is not assigned to a gig twice", which is not a requirement anyone
+has; the requirement is "a gig has one rubric", and until now nothing in the schema said so.
+
+Decision:
+`ak_fw_assignments` becomes `UNIQUE (gig_id)`. `db/01-schema.sql` carries the new
+definition and `2026_08_19_120000_one_framework_assignment_per_gig.php` alters databases
+built before it.
+
+The migration is idempotent, because the same file runs against two different starting
+points: the baseline migration builds a fresh database from `db/01-schema.sql`, which now
+has the new key already, while the shared instance was built before the change and needs
+the alter. It reads the current key from `information_schema` and does nothing if the work
+is done. It also refuses, naming the gigs, if any gig already holds more than one rubric,
+rather than letting MySQL fail partway with a duplicate-key value and no indication of
+which gig it belongs to. No gig on the shared instance holds two, checked before the change
+and again before applying it.
+
+The check in `FrameworkAssigner` stays. It is no longer the rule, it is the explanation:
+a 1062 says a duplicate key exists, and the service says which rubric the gig already has,
+in `details.framework_id`. Both surface as 409 `DUPLICATE_ASSIGNMENT`, so a client sees one
+behaviour and never has to know which layer refused.
+
+`Gig::assignment` went back to a plain `hasOne`. ADR #33 had given it
+`ofMany(['assigned_at' => 'max', 'id' => 'max'])` to make an ambiguous answer at least a
+predictable one; with the key in place there is nothing to disambiguate, and a subquery on
+every gig load to order a set that cannot exceed one row is cost for nothing.
+
+Consequences:
+Positive:
+The rule now holds for every writer rather than for one endpoint, and it holds under
+concurrency. The gig screen's single `framework` and the snapshot every reflection takes
+rest on something the database guarantees rather than on a convention. A later change that
+adds a second way to assign a rubric cannot reintroduce the bug by forgetting to call the
+service.
+
+Negative:
+It is a migration on a shared database, so it needs coordinating: everyone runs
+`php artisan migrate` in `api/`, and anyone who does not is running against a schema that
+still permits what the code refuses. The failure mode is mild, since the service check
+covers them in the meantime, but the two are out of step until they do.
+
+Reassigning a rubric is now impossible at the database level as well as the API level. ADR
+#33 already noted that "I picked the wrong rubric" has no answer short of a new gig; the
+key makes that harder to walk back, and the eventual fix will have to delete the assignment
+row explicitly rather than write a second one over the top.
+
+Alternatives:
+Leave the constraint alone and rely on the service, as ADR #33 did. Rejected now that the
+question has been asked and answered: the race is real, the data is clean, and the change
+gets cheaper the earlier it is made.
+
+Make it a `CHECK` or a trigger instead. Rejected: a unique key is the mechanism MySQL
+provides for exactly this, it is enforced on write without a scan, and it produces the 1062
+the error envelope already maps.

@@ -9,19 +9,17 @@ use App\Models\Gig;
 use App\Models\User;
 
 /**
- * One rubric per gig, and the guard that keeps it that way.
+ * One rubric per gig, and the message that explains the refusal.
  *
- * The schema does not say this. ak_fw_assignments is unique on
- * (gig_id, framework_id), which stops the same rubric being assigned
- * twice and permits a second, different one. Nothing downstream is built
- * for that: Gig::assignment is a hasOne, the contract gives a gig one
- * framework object, and ReflectionCreator snapshots whichever framework
- * that relation resolves to. A gig carrying two assignments would hand
- * different rubrics to two students on the same gig with nothing on
- * screen to explain it.
+ * The rule itself is the database's: ak_fw_assignments is unique on
+ * (gig_id) as of ADR #35, so a second assignment cannot be written even
+ * if this check is somehow skipped, and two people assigning at once
+ * cannot both win. What this adds is a refusal a person can act on. A
+ * 1062 says a duplicate key value exists; this says which rubric the gig
+ * already has, in details.framework_id, and why it matters.
  *
- * So the rule is enforced here, once, and see ADR #33 for why it is not
- * yet a UNIQUE (gig_id) constraint instead.
+ * Both arrive as 409 DUPLICATE_ASSIGNMENT either way, so a client sees
+ * one behaviour and does not have to know which layer caught it.
  */
 class FrameworkAssigner
 {

@@ -10,6 +10,7 @@ use App\Models\Reflection;
 use App\Models\User;
 use App\Services\FrameworkEditing;
 use Database\Seeders\DemoSeeder;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -270,11 +271,12 @@ class FrameworkMutationTest extends TestCase
     }
 
     /**
-     * The one the schema does not catch. ak_fw_assignments is unique on
-     * (gig_id, framework_id), so a second, *different* rubric satisfies
-     * it, and everything downstream assumes there is one: Gig::assignment
-     * is a hasOne, the contract gives a gig one framework, and
-     * ReflectionCreator snapshots whatever that resolves to. See ADR #33.
+     * The case the old key let through. ak_fw_assignments was unique on
+     * (gig_id, framework_id), which a second, *different* rubric
+     * satisfies, and everything downstream assumes there is one:
+     * Gig::assignment is a hasOne, the contract gives a gig one
+     * framework, and ReflectionCreator snapshots whatever that resolves
+     * to. ADR #33 put the rule in the service, ADR #35 put it in the key.
      */
     public function test_a_gig_refuses_a_second_different_rubric(): void
     {
@@ -293,6 +295,35 @@ class FrameworkMutationTest extends TestCase
 
         $this->assertSame(1, FrameworkAssignment::where('gig_id', $gig->id)->count());
         $this->assertSame($already, $gig->fresh()->assignment->framework_id);
+    }
+
+    /**
+     * The key, not the service. FrameworkAssigner explains the refusal
+     * and ak_fw_assignments is what makes it true for every writer, so
+     * this goes around the service entirely: a second row for a gig has
+     * to be impossible even when nothing in PHP is looking. ADR #35.
+     */
+    public function test_the_database_itself_holds_a_gig_to_one_rubric(): void
+    {
+        $lee = User::where('display_name', 'Dr Lee')->firstOrFail();
+        $gig = Gig::where('title', 'Develop AI use cases')->firstOrFail();
+        $other = $this->copyFor($lee, 'Not this gig\'s rubric');
+
+        $this->expectException(QueryException::class);
+
+        try {
+            FrameworkAssignment::create([
+                'gig_id' => $gig->id,
+                'framework_id' => $other->id,
+                'assigned_by' => $lee->id,
+            ]);
+        } catch (QueryException $e) {
+            $this->assertSame(1062, $e->errorInfo[1] ?? null);
+            $this->assertStringContainsString('ak_fw_assignments', $e->getMessage());
+            $this->assertSame(1, FrameworkAssignment::where('gig_id', $gig->id)->count());
+
+            throw $e;
+        }
     }
 
     /**

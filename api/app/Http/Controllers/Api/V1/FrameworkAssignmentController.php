@@ -22,10 +22,9 @@ class FrameworkAssignmentController extends Controller
      * Which rubric a gig is scored against. The permission matrix gives
      * this to a supervisor or an employer, and to nobody else.
      *
-     * A gig takes one rubric and the rule lives in FrameworkAssigner.
-     * The unique index on (gig_id, framework_id) stays behind it as the
-     * race backstop for the identical-rubric case, and surfaces as the
-     * same DUPLICATE_ASSIGNMENT through the envelope.
+     * A gig takes one rubric. ak_fw_assignments enforces it and
+     * FrameworkAssigner explains it; both surface as the same
+     * DUPLICATE_ASSIGNMENT through the envelope.
      */
     public function store(StoreFrameworkAssignmentRequest $request): JsonResponse
     {
