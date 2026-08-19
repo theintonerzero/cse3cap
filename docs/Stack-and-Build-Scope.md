@@ -76,47 +76,54 @@ README.md                setup, connection details, the three tokens
 
 ### 4.1 Environment and data
 
-- [ ] MySQL 9.7 LTS provisioned on the VPS, credentials distributed, `.env.example` committed
-- [ ] `01-schema.sql` applied and verified
-- [ ] `DemoSeeder`: three token holders covering every role, two gigs with sprints,
+- [x] MySQL 9.7 LTS provisioned on the VPS, credentials distributed, `.env.example` committed
+- [x] `01-schema.sql` applied and verified, including the ADR #23 to #25 patch
+- [~] `DemoSeeder`: three token holders covering every role, two gigs with sprints,
       reflections at every status, scores with a shaped distribution (hidden ability
       profile per student, self-scores slightly optimistic, assessor scores closer to
       truth), hand-written narratives rather than lorem. The two frameworks are already
-      seeded by `01-schema.sql`
-- [ ] Three seeded tokens documented in the README
-- [ ] Views verified: `v_radar`, `v_calibration_gap`, `v_coverage_gaps`, `v_framework_scale`
+      seeded by `01-schema.sql`.
+      Role holders, gigs, sprints and assignments are seeded and the tokens are issued.
+      The reflections, shaped scores and narratives arrive with the slices that create
+      them, since nothing can write a reflection yet
+- [x] Three seeded tokens issued and documented in the README
+- [x] Views verified: `v_entry_score`, `v_radar`, `v_calibration_gap`, `v_coverage_gaps`,
+      `v_framework_scale`
 
 ### 4.2 Backend
 
 **Foundation**
-- [ ] Laravel 13 scaffold, Sanctum installed, CORS for the Vite dev origin
-- [ ] DDL ported to migrations (CHECKs and generated columns via `DB::statement`)
-- [ ] Base model: `HasUuids`, `$keyType = 'string'`, `$incrementing = false`
-- [ ] Exception renderer producing the single error envelope
-- [ ] `roleFor(User, Gig)` helper + policies for every row of the permission matrix
+- [x] Laravel 13 scaffold, Sanctum installed, CORS for the Vite dev origin
+- [x] DDL ported to migrations. The baseline executes `db/01-schema.sql` verbatim rather
+      than restating it, and is recorded as already-run on the shared instance
+- [x] Base model: `HasUuids`, `$keyType = 'string'`, `$incrementing = false`
+- [x] Exception renderer producing the single error envelope
+- [x] `roleFor(User, Gig)` helper. `GigPolicy` done; the remaining rows arrive with the
+      resources they govern
 
 **Endpoints** (full detail in API spec v2)
-- [ ] `GET /auth/me`
-- [ ] `GET /gigs`, `GET /gigs/{id}`
-- [ ] `GET /frameworks`, `GET /frameworks/{id}`
-- [ ] `POST /frameworks` (deep copy), `PATCH /frameworks/{id}`, `PATCH /competencies/{id}`,
+- [x] `GET /auth/me`
+- [x] `GET /gigs`, `GET /gigs/{id}`
+- [x] `GET /frameworks`, `GET /frameworks/{id}`
+- [x] `POST /frameworks` (deep copy), `PATCH /frameworks/{id}`, `PATCH /competencies/{id}`,
       `PATCH /levels/{id}`, all behind the `FRAMEWORK_IN_USE` guard
-- [ ] `POST /framework-assignments`
-- [ ] `GET/POST /reflections`, `GET /reflections/{id}`, `POST .../submit`, `DELETE`
-- [ ] `PATCH /entries/{id}`, `POST /entries/{id}/evidence`, `DELETE /evidence/{id}`
-- [ ] `PUT /entries/{id}/scores/self`, `POST /entries/{id}/scores`
-- [ ] `GET /review-queue`
-- [ ] `GET /me/radar`, `/me/progress`, `/me/calibration`, `/me/coverage`
-- [ ] `POST /exports`, `GET /exports/{id}`, `GET /exports`, `GET /exports/{id}/download`
-- [ ] `GET /reflections/{id}/events`
+- [x] `POST /framework-assignments`
+- [x] `GET/POST /reflections`, `GET /reflections/{id}`, `POST .../submit`, `DELETE`
+- [x] `PATCH /entries/{id}`, `POST /entries/{id}/evidence`, `DELETE /evidence/{id}`
+- [x] `PUT /entries/{id}/scores/self`, `POST /entries/{id}/scores`
+- [x] `GET /review-queue`
+- [x] `GET /me/radar`, `/me/progress`, `/me/calibration`, `/me/coverage`
+- [x] `POST /exports`, `GET /exports/{id}`, `GET /exports`, `GET /exports/{id}/download`.
+      JSON only; PDF needs dompdf, which is a package decision for the team
+- [x] `GET /reflections/{id}/events`
 
 **Business rules, one implementation each**
-- [ ] Submit gate (narrative, self-score, evidence-if-required)
-- [ ] Comment required when a counter-score is lower than the self score
-- [ ] Level belongs to the entry's competency (service layer; the database cannot express it)
-- [ ] Framework immutable once referenced by any reflection
-- [ ] Eager entry creation, one per competency, on reflection create
-- [ ] Auto-flip to `assessed` when every entry has a counter-score
+- [x] Submit gate (narrative, self-score, evidence-if-required)
+- [x] Comment required when a counter-score is lower than the self score
+- [x] Level belongs to the entry's competency (service layer; the database cannot express it)
+- [x] Framework immutable once referenced by any reflection
+- [x] Eager entry creation, one per competency, on reflection create
+- [x] Auto-flip to `assessed` when every entry has a counter-score
 
 ### 4.3 Frontend
 
@@ -161,21 +168,28 @@ README.md                setup, connection details, the three tokens
 
 ### 4.4 Security and infrastructure
 
-- [ ] Sanctum configuration and token handling
-- [ ] Policies covering every permission-matrix row, resolved from `gig_participants`
-- [ ] Evidence upload: type and size validation against framework policy, storage wiring
-- [ ] Export pipeline: queued jobs, JSON then PDF, download authorisation
-- [ ] VPS access control, `.env.example`, nothing secret committed
+- [x] Sanctum configuration and token handling
+- [~] Policies covering every permission-matrix row, resolved from `gig_participants`.
+      `GigPolicy`, `ReflectionPolicy`, `FrameworkPolicy` and `ExportPolicy` are in place;
+      the rows they do not cover belong to resources that do not exist yet
+- [x] Evidence upload: type and size validation against framework policy, storage wiring
+- [~] Export pipeline: queued jobs, JSON, download authorisation. PDF still to come
+- [x] VPS access control, `.env.example`, nothing secret committed
 - [ ] Security review on every PR touching scoring, submit, or framework mutation
-- [ ] Retention and erasure note for the report (the `RESTRICT` constraints make deletion
+- [x] Retention and erasure note for the report (the `RESTRICT` constraints make deletion
       deliberate rather than cascading)
 
 ### 4.5 Cross-cutting
 
-- [ ] CI running Pint, ESLint, Prettier and both builds, set up before the first feature PR
-- [ ] `openapi.yaml` written from API spec v2, mock server running (`prism mock`)
-- [ ] `.claude/settings.json` with shared plugins; `PROJECT-CONTEXT.md` in `/docs`
-- [ ] ADRs for every decision in §2 of this document
+- [x] CI running Pint, ESLint, Prettier and both builds, set up before the first feature PR.
+      `.github/workflows/ci.yml`. The backend job brings up its own MySQL 9.7 service
+      container rather than touching the shared instance, because the suite runs
+      `migrate:fresh`. The frontend job is written and skips itself until `web/` exists.
+- [x] `openapi.yaml` written from API spec v2 for the read path, mock server running
+      (`prism mock`) and serving the seeded data as examples
+- [ ] `.claude/settings.json` with shared plugins, permissions and the shared-database
+      guard; six agents in `.claude/agents/`; `PROJECT-CONTEXT.md` in `/docs`
+- [x] ADRs for every decision in §2 of this document (#26 to #32)
 
 ---
 

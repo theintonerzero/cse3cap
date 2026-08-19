@@ -105,8 +105,9 @@ server generated from `openapi.yaml` (`prism mock`), and the backend implements 
 contract. Both meet in the middle. This is why the contract is a source of truth rather
 than documentation written afterwards.
 
-Analytics endpoints read from SQL views (`v_radar`, `v_calibration_gap`,
-`v_coverage_gaps`, `v_framework_scale`) rather than assembling data in PHP. Controllers
+Analytics endpoints read from SQL views (`v_entry_score`, `v_radar`,
+`v_calibration_gap`, `v_coverage_gaps`, `v_framework_scale`) rather than assembling data in
+PHP. Controllers
 serialise; they do not aggregate.
 
 ## 5. The schema, and the reasoning behind it

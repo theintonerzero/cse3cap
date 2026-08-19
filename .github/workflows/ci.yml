@@ -1,0 +1,151 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+
+# A second push to the same branch cancels the first. Runs are not free
+# and nobody reads the result of a superseded one.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    name: Contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      # openapi.yaml is what the frontend generates its types from and what
+      # prism mocks. A contract that does not parse breaks both, and it
+      # breaks them somewhere else, so it is checked first and on its own.
+      - name: Lint the OpenAPI contract
+        run: npx -y @redocly/cli@latest lint docs/openapi.yaml
+
+      # Nobody on the team runs Windows day to day, so the PowerShell
+      # installer is the one file that can rot unnoticed until a new
+      # teammate cannot start. pwsh ships on the GitHub runners.
+      - name: Check the Windows installer
+        shell: pwsh
+        run: ./scripts/setup.ps1.test.ps1
+
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+
+    # Its own MySQL, not the shared instance. The suite runs migrate:fresh,
+    # which drops every table, and five people work against rddb. Same major
+    # version as production so the generated columns, CHECK constraints and
+    # window functions behave the same.
+    services:
+      mysql:
+        image: mysql:9.7
+        env:
+          MYSQL_ROOT_PASSWORD: ci
+          MYSQL_DATABASE: reflection_diary_test_ci
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pci"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: pdo_mysql, mbstring, xml, intl, zip, sodium
+          coverage: none
+
+      - name: Cache composer packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ hashFiles('api/composer.lock') }}
+          restore-keys: composer-
+
+      - name: Install dependencies
+        working-directory: api
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Write the environment
+        working-directory: api
+        run: |
+          cp ../.env.example .env
+          php artisan key:generate
+
+      - name: Check formatting
+        working-directory: api
+        run: ./vendor/bin/pint --test
+
+      # No TLS here. MYSQL_ATTR_SSL_CA is emptied deliberately: the service
+      # container speaks plaintext on localhost, while the shared instance
+      # refuses unencrypted connections and needs the CA. config/database.php
+      # filters the option out when it is empty.
+      - name: Run the test suite
+        working-directory: api
+        env:
+          DB_CONNECTION: mysql_test
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_USERNAME: root
+          DB_PASSWORD: ci
+          DB_TEST_DATABASE: reflection_diary_test_ci
+          MYSQL_ATTR_SSL_CA: ''
+        run: php artisan test
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # web/ does not exist yet. The job is here so the first frontend PR
+      # arrives to a pipeline that already runs, rather than having to
+      # build one under time pressure.
+      - name: Check whether there is a frontend yet
+        id: web
+        run: |
+          if [ -f web/package.json ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::web/ does not exist yet, skipping."
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.web.outputs.exists == 'true'
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        if: steps.web.outputs.exists == 'true'
+        working-directory: web
+        run: npm ci
+
+      - name: Lint
+        if: steps.web.outputs.exists == 'true'
+        working-directory: web
+        run: npm run lint
+
+      - name: Check formatting
+        if: steps.web.outputs.exists == 'true'
+        working-directory: web
+        run: npx prettier --check .
+
+      - name: Build
+        if: steps.web.outputs.exists == 'true'
+        working-directory: web
+        run: npm run build

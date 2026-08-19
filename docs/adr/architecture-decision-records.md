@@ -32,6 +32,16 @@ Index
 #20 Laravel baselines the schema, does not own it .. Accepted
 #21 MySQL public with mandatory TLS ................ Accepted
 #22 A Laravel seeder replaces the sql seed file .... Accepted
+#23 A counter-score is a class, not a role ......... Accepted
+#24 Coverage means never scored, own rubrics ....... Accepted
+#25 Export status is stored, not derived ........... Accepted
+#26 recharts for the radar ......................... Accepted
+#27 React Router for routing ....................... Accepted
+#28 CSS variables and modules, not Tailwind ........ Accepted
+#29 Files via Laravel's filesystem abstraction ..... Accepted
+#30 An export is a queued job, row is record ....... Accepted
+#31 The dependencies deliberately not taken ........ Accepted
+#32 oxlint in place of ESLint ...................... Accepted
 
 ===============================================================
 
@@ -872,3 +882,471 @@ persist with extra machinery on top.
 
 Keep both and let each own part of the data. Rejected outright. Two sources of demo data
 for one db is the drift we were trying to avoid.
+
+===============================================================
+
+ADR #23: A counter-score is a class, not a role
+Status: Accepted
+Date: 2026-08-18
+
+Context:
+`scores.scorer_role` allows four values and the permission matrix lets three of them
+counter-score: assessor, supervisor and employer. Only `self` is special.
+
+`v_calibration_gap` did not reflect that. It pivoted on `scorer_role = 'assessor'` and
+discarded everything else, so a supervisor's counter-score produced a null gap and the
+calibration screen showed nothing. Dr Lee is a supervisor on both seeded gigs and is
+expected to counter-score, so this was reachable in the demo data, not a corner case.
+
+Where two people counter-score the same entry, which was also unhandled, `MAX` silently
+picked the higher of them. Gig one has both an assessor and a supervisor, so that is
+reachable too.
+
+Verified against MySQL 9.7.2 with an assessor scoring 2 and a supervisor later scoring 3 on
+one entry, plus a second entry carrying a supervisor score only. The old definition reported
+the supervisor-only entry as a null gap and the two-scorer entry as the assessor's 2.
+
+Decision:
+Scores collapse into two classes, `self` and `counter`, and `counter` is whichever
+non-self score is most recent. That rule is implemented once, in a new view
+`v_entry_score`, which yields at most one row per entry per class. `v_radar` and
+`v_calibration_gap` both read through it and neither re-derives it.
+
+The API follows the schema, as it does everywhere else. `/me/radar` returns `self` and
+`counter` rather than `self` and `assessor`, and `/me/calibration` returns `counter_level`
+alongside a `counter_role` naming who scored.
+
+Consequences:
+Positive:
+A supervisor's or employer's counter-score now appears everywhere an assessor's does, which
+is what the permission matrix always said. Two counter-scorers on one entry resolve
+deterministically instead of by whichever number happened to be larger. The rule has one
+implementation, so the analytics controllers stay the thin wrappers CLAUDE.md requires. The
+frontend gets `counter_role`, so it can name the person instead of labelling every opposing
+polygon "assessor".
+
+Negative:
+`v_radar` and `v_calibration_gap` now depend on a third view, so a change to scoring
+semantics touches a file that reads like plumbing. The names in the payload no longer match
+the words on the screen, where "assessor" is what a student sees, so the frontend carries
+the mapping in one place instead of the API carrying it in none. "Most recent wins" is a
+product rule that nobody has asked for explicitly; it is defensible but it is ours, and it
+should go in front of the client.
+
+Alternatives:
+Widen the pivot to `scorer_role <> 'self'` and keep the column named `assessor_level`.
+Two lines instead of a new view. Rejected because a column named for one role holding
+another role's value is exactly the sort of thing that survives into the report.
+
+Return every counter-score and let the frontend choose. Rejected: the choice is a business
+rule, and CLAUDE.md puts business rules in one place. Two clients would make it twice.
+
+Forbid a second counter-score on an entry so the ambiguity cannot arise. Rejected because
+the permission matrix deliberately lets a supervisor score alongside an assessor, and
+narrowing the product to simplify a view is the wrong way round.
+
+===============================================================
+
+ADR #24: Coverage means never scored, on rubrics you study under
+Status: Accepted
+Date: 2026-08-18
+
+Context:
+`v_coverage_gaps` backs the "what is missing" view. Its comment said the rows were
+competencies the student had never *evidenced*, but the query tested for the absence of a
+*score*. Evidence is optional per framework, `frameworks.evidence_required` defaults to 0,
+so the two readings give different answers and the documented one was the wrong one.
+
+Separately the view crossed every user against every active framework. On the seeded data
+that reported six gaps in each of two rubrics for the assessor and the supervisor, neither
+of whom is scored against anything, and six sfia9 gaps for the student whose gig uses
+latrobe6. Thirty-three rows, of which three were true.
+
+The endpoint is `GET /me/coverage?framework_id={required}`, and the view exposed `fw_key`
+but not `framework_id`, so the controller could not filter on the parameter it takes
+without joining back to `frameworks`.
+
+Decision:
+A coverage gap is a competency the user has never been scored on, in a framework assigned
+to a gig where that user is a student. The view exposes `framework_id` so the endpoint can
+filter on what it is given, plus `short_label` and `position` so the list renders in rubric
+order. The wording in `db/01-schema.sql` and the API specification both say scored.
+
+Consequences:
+Positive:
+The endpoint answers the question a student asks. An assessor calling it gets an empty list
+rather than a rubric they have never been measured against. Thirty-three rows became three
+on the fixture, and the ordering the screen needs comes from the view instead of a sort in
+PHP.
+
+Negative:
+A student who has left a gig loses their coverage gaps for it, because the scoping runs
+through current `gig_participants` rows. That is the same assumption the rest of the
+authorisation layer makes, but it is an assumption, and it sits oddly against a record that
+is meant to outlive the gig. `DISTINCT` is doing real work now, since two gigs can share a
+framework, and it will quietly hide a duplicate-rows bug if one ever appears upstream.
+
+Alternatives:
+Keep the cross join and filter in the controller. Rejected: the controller would be
+reimplementing what the view is for, and the view would still be wrong for anyone reading
+it directly.
+
+Define coverage as never evidenced, matching the old comment. Rejected because evidence is
+optional per framework, so on a framework with `evidence_required = 0` every competency
+would read as a gap forever no matter how well the student scored.
+
+===============================================================
+
+ADR #25: Export status is stored, not derived
+Status: Accepted
+Date: 2026-08-18
+
+Context:
+`exports` had `requested_at` and `completed_at` and no status. The API specification
+returns `status` on `GET /exports/{id}` and the frontend polls it after the 202, so status
+would have been derived as "complete if `completed_at` is set".
+
+That works for the two happy states and not for the third. A queued job that throws sets no
+completion time, so a failed export is indistinguishable from one still running and the
+poll loop never terminates. The user sees a spinner until they give up.
+
+The same request also found the response using `download_uri` where the column is `uri`.
+CLAUDE.md is explicit that there is no mapping layer.
+
+Decision:
+`exports.status` is a stored column, `pending`, `complete` or `failed`, constrained by
+`ck_ex_status` and defaulting to `pending`. The job writes it. The response field is `uri`,
+matching the column.
+
+Consequences:
+Positive:
+A failed export can be reported as failed, so the export sheet can show an error state,
+which it needs anyway under the four-states rule. Status is one column read rather than a
+condition the frontend and the backend could disagree about. The naming rule holds without
+an exception, which matters mostly because the first exception is what makes the second one
+easy.
+
+Negative:
+Two columns now describe one thing, and nothing in the db stops `status = 'pending'` from
+sitting next to a non-null `completed_at`. A trigger could enforce it and we are not adding
+one, so it rests on the job being the only writer. There is still nowhere to put *why* an
+export failed; the row says it failed and the queue log says the rest.
+
+Alternatives:
+Derive status from `completed_at` and treat a stale request as failed after a timeout.
+Rejected because the timeout is a guess, and a slow job would be reported as failed while
+still running.
+
+Add `status` plus a `failure_reason` column now. Rejected as speculative. The export
+pipeline is slice five and nobody has designed its error handling yet; the column can be
+added when there is something to put in it.
+
+===============================================================
+
+ADR #26: recharts for the radar
+Status: Accepted
+Date: 2026-08-19
+
+Context:
+The radar chart is the product. Both score sets on one polygon is what the client asked to
+see, and it is the screen the demo will live or die on.
+
+It cannot be a fixed drawing. Frameworks are swappable by design, so the axis count comes
+from the framework and the scale comes from `v_framework_scale`. The seeded La Trobe rubric
+has six competencies on a one to four scale; SFIA has six on a different scale, and a
+supervisor can copy and reword a framework at any time. A component hardcoded to six axes
+or a four-point domain is wrong the first time somebody assigns a different rubric.
+
+It also has to draw two polygons that are frequently incomplete. A student self-scores
+before anybody counter-scores them, and `v_radar` deliberately emits every competency
+including the ones nobody has scored, so the shape does not change as scores arrive.
+
+Decision:
+recharts, using its `RadarChart`, with axes and domain passed as props.
+
+Consequences:
+Positive:
+recharts is a real React component library rather than a wrapper around an imperative
+drawing API, so the radar re-renders from state like everything else and there is no
+lifecycle to manage by hand. Two `Radar` children on one chart is the documented way to
+overlay two series, which is exactly the self and counter case. `PolarAngleAxis` takes the
+categories as data, so the six-axis question never becomes a code question.
+
+Negative:
+recharts pulls in d3 internals and is the largest dependency in the frontend by a wide
+margin, on a screen that is otherwise text and cards. Its TypeScript types are looser than
+the rest of the codebase, so the one place we most want type safety is the place we get the
+least. Customising it past a certain point means fighting its internals, and if the client
+asks for something recharts does not do, the fallback is a rewrite rather than a tweak.
+
+Alternatives:
+d3 directly. Rejected: more control than the project needs, and it drags imperative DOM
+manipulation into a React 19 codebase for one screen.
+
+Hand-rolled SVG. Genuinely viable for a radar, which is trigonometry and a polygon, and it
+would have no dependency and exact types. Rejected on time: axis labels, tooltips,
+responsiveness and accessibility are the parts that take the week, not the polygon.
+
+nivo or victory. Rejected as equivalent to recharts in capability with less familiarity on
+the team, and recharts was already named in the brief's stack.
+
+===============================================================
+
+ADR #27: React Router for routing
+Status: Accepted
+Date: 2026-08-19
+
+Context:
+Twelve screens across three roles, with routes that carry scope: a diary scoped to a gig,
+a gig scoped to a sprint, an entry stepper addressed by entry. Those need to be linkable
+and back-button-correct, because an assessor working a review queue moves in and out of
+entries constantly.
+
+There is no server-side rendering requirement and no SEO requirement. This is an
+authenticated tool behind three bearer tokens.
+
+Decision:
+React Router, client side only.
+
+Consequences:
+Positive:
+Nothing exotic. Every person on the team has either used it or can read its documentation
+without a detour, which matters more than elegance on a five-person capstone with a
+deadline. Nested routes map onto the gig-then-sprint-then-entry shape without inventing a
+structure. Standard hooks give the scope parameters the diary and radar captions read.
+
+Negative:
+It is another dependency for what is, at twelve screens, not a hard problem, and its API has
+changed shape enough across major versions that examples found online are often for a
+version we are not on. Data loaders are deliberately not used here, since fetching lives in
+the typed API client, so part of what the library offers is left on the table.
+
+Alternatives:
+TanStack Router, for genuinely better type safety on route params. Rejected on familiarity:
+nobody on the team has used it, and route typing is not where this project's risk is.
+
+Hand-rolled `useState` view switching. Rejected: it gives up the URL, and the URL is how an
+assessor shares "look at this entry" with a supervisor.
+
+Next.js. Rejected in #31 for reasons that have nothing to do with routing.
+
+===============================================================
+
+ADR #28: CSS variables and CSS modules, not Tailwind
+Status: Accepted
+Date: 2026-08-19
+
+Context:
+The design already exists as tokens: colour, spacing and radius, with a light and a dark
+set. That is the input to the frontend, not something to be derived from it.
+
+Light and dark both have to work. The record is something a student opens on a phone at
+night as readily as on a laptop, and a theme that only half works reads as unfinished.
+
+Decision:
+CSS custom properties in `web/src/tokens.css` for every colour, space and radius, switched
+by a `data-theme` attribute on the root. Component styles in CSS modules. No raw hex and no
+magic pixel value anywhere else in the codebase.
+
+Consequences:
+Positive:
+The tokens survive the translation from design to code as the same thing rather than as an
+approximation, and dark mode is a single attribute rather than a parallel set of class
+names. A custom property is readable in devtools and changeable at runtime, which makes
+theme bugs findable. CSS modules scope class names without a build plugin or a naming
+convention nobody enforces. There is no config file to maintain and no purge step that can
+silently drop a class.
+
+Negative:
+It is more typing than a utility class, and it relies on review to catch a hardcoded colour
+because nothing in the toolchain refuses one. One raw hex breaks dark mode silently for one
+component, which is the kind of bug that ships. If the team grows to like utility classes
+mid-project, switching is a rewrite of every component's styles rather than a config change.
+
+Alternatives:
+Tailwind. Rejected: the tokens would be re-expressed in `tailwind.config`, creating a second
+definition of the design that can drift from the first, plus a config to maintain for a
+twelve-screen app.
+
+CSS-in-JS. Rejected: a runtime cost and a build integration for something plain CSS does,
+and it puts colour values back inside components where the no-raw-hex rule is hardest to
+see.
+
+Plain global stylesheets. Rejected: class name collisions across twelve screens and ten
+shared components, with nothing to prevent them.
+
+===============================================================
+
+ADR #29: Files go through Laravel's filesystem abstraction
+Status: Accepted
+Date: 2026-08-19
+
+Context:
+Two things produce files: evidence a student attaches to an entry, and the export of a
+record. `evidence` and `exports` both store a URI rather than a blob, so the database says
+where a file is and never what is in it.
+
+The VPS holds the database and the application. There is no object storage provisioned and
+no budget conversation has happened about provisioning any.
+
+Decision:
+The server filesystem, reached only through Laravel's `Storage` facade. No path is
+constructed by hand and no controller touches `file_put_contents`.
+
+Consequences:
+Positive:
+Moving to S3 later is a driver line in `config/filesystems.php` and a credential, not a
+change to any calling code, which is the entire reason for accepting an abstraction over a
+one-line alternative. Tests get a fake disk for free, so evidence upload is testable without
+writing to a real path. Keeping blobs out of MySQL keeps the database small enough that the
+whole thing dumps and restores in seconds, which matters on a shared instance five people
+depend on.
+
+Negative:
+The files are on one VPS with no replication and no backup story written down, so a disk
+failure loses every piece of evidence while the database still references it. Nothing
+reconciles the two: a `Storage` delete that fails leaves a row pointing at nothing, and a
+deleted row leaves a file nobody will ever collect. That second case is the one
+`docs/Retention-and-Erasure.md` flags, because it means erasure is not complete when the
+row goes.
+
+Alternatives:
+Blobs in MySQL. Rejected: it inflates a shared database, makes dumps slow for everyone, and
+buys consistency the product does not need.
+
+S3 or Oracle Object Storage now. Rejected as premature. It is a credential and a cost
+conversation for a capstone MVP, and the abstraction means deferring it costs nothing.
+
+===============================================================
+
+ADR #30: An export is a queued job and its row is the record
+Status: Accepted
+Date: 2026-08-19
+
+Context:
+A student can take their record with them. That is the product's closing promise, and it is
+the one operation whose duration is not bounded by a single query: it walks every reflection,
+entry, score and evidence reference the student owns.
+
+Doing that inside the request means the request that takes longest is the one a student runs
+on the way out the door, and any timeout leaves them with nothing and no explanation.
+
+Decision:
+`POST /exports` writes an `exports` row and dispatches a job, returning `202` immediately.
+The row is the job record: the client polls `GET /exports/{id}` and downloads when `status`
+reaches `complete`. JSON is produced now. PDF is refused rather than faked.
+
+Consequences:
+Positive:
+The request is bounded and the same shape whether a student has one reflection or fifty.
+The row gives the export sheet something concrete to poll and something to show in a
+history list, and it survives a restart in a way an in-memory job would not. Refusing PDF
+with a validation error rather than quietly returning JSON means the frontend can say what
+happened, and nobody demonstrates a PDF button that produces a `.json`.
+
+Negative:
+`QUEUE_CONNECTION=sync` in development means the job runs inside the request anyway, so the
+asynchronous path is the one least exercised locally and most likely to break in front of
+the client. Polling is a worse fit than a push, and it exists because a notifications table
+and real-time updates are both explicitly out of scope. A student who requests an export
+twice gets two rows and two files, since nothing deduplicates.
+
+Alternatives:
+Build the export synchronously and stream it. Rejected: unbounded request time, nothing to
+retry, and no history.
+
+Use a real queue driver and a worker now. Rejected as operational work the capstone does not
+need; `sync` is honest for a demo and the code path is identical when a driver is added.
+
+Ship PDF with dompdf in this slice. Rejected: adopting a rendering dependency is a team
+decision and PDF layout is open-ended work. The schema and the response type already permit
+`pdf`, so adding it later changes no contract.
+
+===============================================================
+
+ADR #31: The dependencies deliberately not taken
+Status: Accepted
+Date: 2026-08-19
+
+Context:
+Section 2 of the scope document lists what is not being used as prominently as what is. A
+capstone is marked partly on judgement, and a rejected dependency with a reason is evidence
+of judgement in a way that an absence is not. This record exists so those reasons are
+somewhere other than a table cell.
+
+Decision:
+Four things are deliberately absent.
+
+**Next.js.** Laravel is the backend. Next's API routes would be a second one, and its
+rendering model solves a problem this product does not have: every screen is behind a bearer
+token, so there is nothing to server-render for and nothing to index.
+
+**axios.** One typed fetch wrapper handles the bearer token and unwraps the error envelope
+centrally. `fetch` is in the platform and the wrapper is perhaps forty lines.
+
+**A pagination library.** Result sets are a student's reflections and a rubric's
+competencies. Pagination is out of scope entirely, so a library for it would be
+infrastructure for a feature that does not exist.
+
+**Any vector database or AI service.** Cut in #10.
+
+Consequences:
+Positive:
+The dependency list stays short enough that a reviewer can read it, and every entry earns
+its place. The fetch wrapper is ours, so the error envelope is unwrapped in exactly one
+place and a new response shape is a change to one file. Nothing here is load-bearing enough
+that reversing a decision is expensive.
+
+Negative:
+The fetch wrapper is code the team maintains rather than code somebody else maintains, and
+it will grow: retries, aborts and upload progress are all things axios has and it does not.
+If result sets ever stop being small, "no pagination" becomes a scope reversal rather than a
+missing library.
+
+Alternatives:
+Taking each of them anyway. Rejected individually above. The common thread is that each
+would add a maintained surface for a problem this product does not currently have, and the
+cost of adding one later is low in every case.
+
+===============================================================
+
+ADR #32: oxlint in place of ESLint
+Status: Accepted
+Date: 2026-08-19
+
+Context:
+The scope document names ESLint and Prettier. When `web/` was scaffolded, the current Vite
+React TypeScript template shipped oxlint instead, with a `.oxlintrc.json` and a `lint`
+script already wired.
+
+The CI frontend job was written before `web/` existed and runs `npm run lint`, so it is
+satisfied either way. The choice was live, and taking the template default silently is
+exactly how a documented decision gets reversed by accident.
+
+Decision:
+Keep oxlint, the template default. Prettier was added separately, since the template ships
+no formatter and CI runs `prettier --check`.
+
+Consequences:
+Positive:
+Zero configuration to write and nothing to keep in step with a TypeScript upgrade, which is
+a real consideration given the compiler is pinned to 6.x for openapi-typescript's sake.
+It is fast enough that nobody is tempted to skip it. Staying on the template default means
+the next person to regenerate anything finds what they expect.
+
+Negative:
+It is not what the scope document says, so the document and the repository disagree until
+one of them moves. Its rule coverage is narrower than a configured
+`typescript-eslint` setup, and the React-specific rules the team might want, exhaustive
+dependencies in particular, are not equivalent. Nobody on the team has used it, so the
+first time it flags something surprising there is no one to ask.
+
+Alternatives:
+Install ESLint with `typescript-eslint` and the React plugins, as written. Still the right
+move if the team wants specific React rules; it is a swap, not a rewrite, and no other file
+changes. Rejected for now only because it is configuration written before anybody has felt
+the lack.
+
+Drop linting and rely on Prettier and TypeScript. Rejected: formatting and type checking are
+not linting, and the rules that catch a missing hook dependency are the ones this codebase
+will want once there are hooks.

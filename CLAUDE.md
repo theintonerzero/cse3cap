@@ -29,6 +29,9 @@ In this order. If they disagree, the higher one wins and the lower one is a bug.
 4. `docs/PROJECT-CONTEXT.md`, background
 5. This file
 
+`docs/Retention-and-Erasure.md` covers what the `ON DELETE` behaviour means for deleting a
+person, and why some of it cannot be deleted at all.
+
 Never invent a column or an endpoint. Read the schema and the contract first.
 
 ## Hard rules
@@ -42,13 +45,17 @@ database-generated. Keep them out of `$fillable`. A duplicate surfaces as MySQL 
 is rendered as `409 DUPLICATE_REFLECTION`.
 
 **Never accept a role from the client.** Roles resolve server-side from
-`gig_participants` for the gig in question. Authorisation lives in policies, nowhere else.
+`gig_participants` for the gig in question, in `api/app/Services/RoleResolver.php`.
+Authorisation lives in `api/app/Policies/`, nowhere else.
 
-**Never duplicate a business rule.** Each rule has exactly one implementation:
-- submit gate → the submit endpoint
-- comment required when a counter-score is lower → the counter-score endpoint
-- level belongs to the entry's competency → the two scoring endpoints only
-- framework immutable once referenced → the framework mutation endpoints
+**Never duplicate a business rule.** Each rule has exactly one implementation, and this is
+where it lives. Read the class before you write anything that touches its rule.
+- submit gate, evidence included → `api/app/Services/SubmitGate.php`
+- comment required when a counter-score is lower → `api/app/Services/Scoring.php`
+- level belongs to the entry's competency → `api/app/Services/Scoring.php`
+- assessed once every entry has a counter-score → `api/app/Services/Scoring.php`
+- framework immutable once referenced → `api/app/Services/FrameworkEditing.php`
+- one entry per competency, on create → `api/app/Services/ReflectionCreator.php`
 
 **Never mutate a framework that is in use.** Editing is copy-then-edit. A framework
 referenced by any reflection is permanently read-only (`409 FRAMEWORK_IN_USE`). Mutating
@@ -82,8 +89,8 @@ token, 403 wrong role, 404 not found or not yours, 409 conflict.
 
 **Backend layering:** FormRequests validate shape. Service classes hold business rules.
 Policies hold authorisation. Controllers orchestrate and serialise, nothing more.
-Analytics controllers read the SQL views (`v_radar`, `v_calibration_gap`,
-`v_coverage_gaps`, `v_framework_scale`) and do not aggregate in PHP.
+Analytics controllers read the SQL views (`v_entry_score`, `v_radar`,
+`v_calibration_gap`, `v_coverage_gaps`, `v_framework_scale`) and do not aggregate in PHP.
 
 **Frontend:** no raw hex anywhere. All colour, spacing and radius come from CSS variables
 in `web/src/tokens.css`. API types are generated from `docs/openapi.yaml`; do not

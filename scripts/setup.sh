@@ -28,7 +28,12 @@ DB_NAME="reflection_diary"
 
 # Piping the bootstrap into bash leaves stdin pointing at a consumed pipe,
 # so every prompt has to read the real terminal instead.
-if [ -r /dev/tty ]; then TTY=/dev/tty; else TTY=""; fi
+#
+# Opened rather than tested with -r. /dev/tty exists and looks readable
+# even with no terminal attached, and the open is what fails, so -r let
+# the script go on to print "Device not configured" three times per
+# prompt before carrying on anyway.
+if { : </dev/tty; } 2>/dev/null; then TTY=/dev/tty; else TTY=""; fi
 
 # ---------------------------------------------------------------------------
 # 1. Prerequisites
@@ -52,7 +57,9 @@ missing=0
 need() {
     local bin="$1" brew="$2" dnf="$3" apt="$4"
     if command -v "$bin" >/dev/null 2>&1; then
-        ok "$bin $("$bin" --version 2>/dev/null | head -1 | tr -d '\n' | cut -c1-40)"
+        # sed -n 1p rather than head -1, for the same reason: head closes
+        # the pipe early and pipefail turns that into a failure.
+        ok "$bin $("$bin" --version 2>/dev/null | sed -n 1p | tr -d '\n' | cut -c1-40)"
     else
         warn "$bin is missing. Try: $(pkg_hint "$brew" "$dnf" "$apt")"
         missing=1
@@ -73,7 +80,14 @@ if command -v php >/dev/null 2>&1; then
         warn "PHP $(php -r 'echo PHP_VERSION;') is too old. Laravel 13 needs 8.3 or newer, and we target 8.5."
         missing=1
     fi
-    php -m | grep -qi '^pdo_mysql$' || { warn "The pdo_mysql extension is missing."; missing=1; }
+    # Asked of PHP directly rather than by grepping `php -m`. This script
+    # runs under `set -o pipefail`, and `grep -q` exits the moment it
+    # matches, which SIGPIPEs php and makes the whole pipeline report
+    # failure. The result was the extension being reported missing on a
+    # machine where it was present and working, which is the worst kind of
+    # check: it only lies when it should have passed.
+    php -r 'exit(extension_loaded("pdo_mysql") ? 0 : 1);' \
+        || { warn "The pdo_mysql extension is missing."; missing=1; }
 fi
 
 [ "$missing" -eq 0 ] || die "Install what is missing above, then rerun this script."
@@ -108,31 +122,57 @@ read_secret "diary_ro password (blank to skip)"   RO_PW  || true
 # ---------------------------------------------------------------------------
 say "Backend environment"
 
+# Rewrite a whole line rather than substitute into it. A password can
+# contain &, | and /, all of which mean something to sed, and escaping
+# them correctly is harder than not needing to.
+set_env() {
+    local file="$1" key="$2" value="$3" tmp
+    tmp="$(mktemp)"
+    while IFS= read -r line || [ -n "$line" ]; do
+        case "$line" in
+        "$key"=*) printf '%s\n' "$key=$value" ;;
+        *)        printf '%s\n' "$line" ;;
+        esac
+    done < "$file" > "$tmp"
+    mv "$tmp" "$file"
+    chmod 600 "$file"
+}
+
 if [ -d api ]; then
     if [ -f api/.env ]; then
         ok "api/.env already exists, leaving it alone"
     else
         cp .env.example api/.env
         chmod 600 api/.env
+
         if [ -n "$APP_PW" ]; then
-            # Rewrite the line rather than substitute into it. A password can
-            # contain &, | and /, all of which mean something to sed, and
-            # escaping them correctly is harder than not needing to.
-            tmp="$(mktemp)"
-            while IFS= read -r line || [ -n "$line" ]; do
-                case "$line" in
-                DB_PASSWORD=*) printf '%s\n' "DB_PASSWORD=$APP_PW" ;;
-                *)             printf '%s\n' "$line" ;;
-                esac
-            done < api/.env > "$tmp"
-            mv "$tmp" api/.env
-            chmod 600 api/.env
+            set_env api/.env DB_PASSWORD "$APP_PW"
             ok "wrote api/.env with the database password"
         else
             ok "wrote api/.env, but DB_PASSWORD is still blank"
         fi
+
+        # One test database each. The suite runs migrate:fresh, so two
+        # people sharing a name here would drop each other's schema
+        # mid-run. Non-alphanumerics out: this becomes an identifier, and
+        # the grant is on reflection_diary_test_%.
+        who="$(id -un 2>/dev/null || echo dev)"
+        who="$(printf '%s' "$who" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9' '_')"
+        set_env api/.env DB_TEST_DATABASE "reflection_diary_test_${who}"
+        ok "test database is reflection_diary_test_${who}"
     fi
-    [ -f api/composer.json ] && { say "Installing PHP dependencies"; (cd api && composer install --no-interaction); }
+
+    if [ -f api/composer.json ]; then
+        say "Installing PHP dependencies"
+        (cd api && composer install --no-interaction)
+
+        # After composer, because artisan needs the vendor tree. APP_KEY
+        # is per developer and generated, never shared, so a copied .env
+        # always arrives without one.
+        if [ -f api/.env ] && grep -q '^APP_KEY=$' api/.env; then
+            (cd api && php artisan key:generate --ansi >/dev/null) && ok "generated APP_KEY"
+        fi
+    fi
 else
     warn "api/ does not exist yet. Rerun this script once the Laravel app lands."
 fi
