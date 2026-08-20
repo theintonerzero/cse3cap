@@ -1,0 +1,85 @@
+version: 2
+
+# Version updates. Security updates are a different thing and are already
+# on for this repository: they come from an alert on a known CVE, not from
+# this file. This file is the routine "there is a newer one" pass.
+#
+# Three manifests are watched. api/package.json is deliberately not one of
+# them. It is the Vite scaffold that came with the Laravel skeleton, it has
+# no lockfile, nothing in ./run or scripts/setup.sh installs it and no CI
+# job builds it. web/ is the frontend. Watching a build nobody runs would
+# only produce pull requests to close.
+#
+# Everything targets dev, which is where work integrates. It is also the
+# default branch, so Dependabot would pick it anyway, but CI only runs on
+# pull requests into dev or main and a bump that arrives on a branch the
+# workflow does not watch is a dependency change nobody checked. Saying it
+# here keeps that true if main becomes the default at handover.
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Australia/Melbourne
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: chore(ci)
+    # ci.yml pins to major tags, and a major tag moves under you within
+    # itself but never past itself. So the patch inside v4 arrives without
+    # a pull request and v5 never arrives at all, which is the half that
+    # eventually breaks every job at once. One grouped pull request,
+    # because these move together or not at all.
+    groups:
+      actions:
+        patterns:
+          - "*"
+
+  - package-ecosystem: composer
+    directory: /api
+    target-branch: dev
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Australia/Melbourne
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore(api)
+    # Minor and patch as one pull request, majors on their own. A Laravel
+    # or PHPUnit major is a change to read properly and possibly to refuse;
+    # burying it in a batch of fifteen is how it gets merged unread. The
+    # backend job runs the full suite against its own MySQL container, so
+    # a bump arrives already tested rather than asking someone to guess.
+    groups:
+      minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: npm
+    directory: /web
+    target-branch: dev
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Australia/Melbourne
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore(web)
+    # Same split. Almost all of web/ is toolchain right now, so most of
+    # these will be lint, build and type-checker versions that the frontend
+    # job proves by running. React and TypeScript majors come alone.
+    groups:
+      minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch

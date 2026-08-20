@@ -217,7 +217,7 @@ notation cannot show. Schema with inline reasoning:
 ├── scripts/      # Setup, the smoke test and the two agent guards
 ├── run           # Task runner. ./run dev starts everything (run.ps1 on Windows)
 ├── .claude/      # Shared agent configuration: agents, skills, permissions
-├── .github/      # CI
+├── .github/      # CI, and Dependabot's weekly dependency pass
 ├── CLAUDE.md     # Rules for agents working in this repo
 └── README.md
 ```
