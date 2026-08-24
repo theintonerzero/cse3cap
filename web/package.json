@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "gen:types": "npx -y openapi-typescript@7.13.0 ../docs/openapi.yaml -o src/api/schema.ts",
     "lint": "oxlint",
     "preview": "vite preview",
     "format": "prettier --write ."
