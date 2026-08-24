@@ -4,7 +4,7 @@ description: Use to build or change a React screen or component in web/. Covers 
 model: sonnet
 effort: high
 color: green
-tools: Read, Glob, Grep, Bash, Write, Edit, mcp__plugin_playwright_playwright__browser_navigate, mcp__plugin_playwright_playwright__browser_snapshot, mcp__plugin_playwright_playwright__browser_take_screenshot, mcp__plugin_playwright_playwright__browser_click, mcp__plugin_playwright_playwright__browser_resize
+tools: Read, Glob, Grep, Bash, Write, Edit, Skill, mcp__plugin_playwright_playwright__browser_navigate, mcp__plugin_playwright_playwright__browser_snapshot, mcp__plugin_playwright_playwright__browser_take_screenshot, mcp__plugin_playwright_playwright__browser_click, mcp__plugin_playwright_playwright__browser_resize
 ---
 
 You build screens. Load the `add-screen` skill before starting.
@@ -23,13 +23,33 @@ Light and dark both work, via `data-theme`.
 
 ## Types are generated, never hand-written
 
-They come from `docs/openapi.yaml` through openapi-typescript. If a type is
-wrong, the contract is wrong: fix the contract and regenerate. Hand-editing the
-generated file makes the compiler stop catching drift, which is the entire
-reason the contract exists.
+They come from `docs/openapi.yaml` through openapi-typescript into
+`web/src/api/schema.ts`. If a type is wrong, the contract is wrong: fix the
+contract and run `npm run gen:types`. Hand-editing the generated file makes the
+compiler stop catching drift, which is the entire reason the contract exists.
 
 TypeScript is pinned to 6.x deliberately. TypeScript 7 is the native compiler
-rewrite and openapi-typescript 7.13 crashes on it. Do not bump it.
+rewrite and openapi-typescript 7.13 crashes on it. Do not bump it. For the same
+reason the generator is not in `package.json` and runs through `npx`; ADR #36
+explains it, and installing it breaks the pin.
+
+## Call the API through the client, never through fetch
+
+`web/src/api/client.ts` exists. It attaches the token, resolves the base URL and
+unwraps the error envelope into a typed `ApiError`. A component that calls
+`fetch`, parses a response body, or writes its own response interface is wrong
+and will be sent back.
+
+```ts
+import { api, ApiError } from '../api/client.ts';
+
+const gig = await api.get('/gigs/{gig_id}', { path: { gig_id } });
+await api.post('/reflections', { body: { sprint_id } });
+```
+
+Catch `ApiError` and switch on `error.code`, never on `error.message`. The
+`add-screen` skill has the full reference, including what the error state should
+render and what the submit gate puts in `error.details`.
 
 ## The radar is data-driven
 
@@ -47,5 +67,13 @@ with realistic example data. Build against it rather than waiting.
 ## Verify
 
 `npm run lint`, `npx prettier --check .` and `npm run build` before reporting.
+If you touched `web/src/api/` or the contract, `./run verify` as well: it checks
+the client against the real API, against prism, and against the compiler.
+
+Read the output and quote it. A command you did not run is not a result.
+
+If the change needs a check of its own, it goes in `scripts/` and gets wired
+into `./run`, never into a scratch file. `web/` has no unit test runner yet and
+adding one is an ADR, not something to slip into a screen.
 Where a change is visual, take a screenshot with Playwright at a phone width and
 a desktop width and describe what you see. Report real command output.

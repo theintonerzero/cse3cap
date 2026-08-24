@@ -45,6 +45,7 @@ Index
 #33 A gig is scored against one rubric ...... Extended by #35
 #34 Counter-scores close when a reflection does .... Accepted
 #35 One rubric per gig, in the key itself .......... Accepted
+#36 The type generator runs through npx .......... Accepted
 
 ===============================================================
 
@@ -1562,3 +1563,75 @@ gets cheaper the earlier it is made.
 Make it a `CHECK` or a trigger instead. Rejected: a unique key is the mechanism MySQL
 provides for exactly this, it is enforced on write without a scan, and it produces the 1062
 the error envelope already maps.
+
+===============================================================
+
+ADR #36: The type generator runs through npx, not as a dependency
+Status: Accepted
+Date: 2026-08-24
+
+Context:
+The frontend's API types are generated from `docs/openapi.yaml` by openapi-typescript. ADR
+#18 pinned TypeScript to 6.x and the scope document says why: TypeScript 7 is the native
+compiler rewrite and openapi-typescript 7.13 crashes on it, openapi-ts issue #2841, open
+with no workaround. The generated types are load bearing, so the generator picks the
+compiler version.
+
+Adding openapi-typescript to `web/devDependencies` turns out not to work either.
+openapi-typescript 7.13.0, which is the current release, declares `peerDependencies:
+{ typescript: "^5.x" }`. The pin is 6.x, so npm refuses the install:
+
+    Found: typescript@6.0.3
+    Could not resolve dependency: peer typescript@"^5.x" from openapi-typescript@7.13.0
+
+The range is stale rather than meaningful. The generator reads a YAML file and prints type
+declarations, and it ran against this contract without complaint. But `npm ci` in CI
+enforces peer ranges, so the only way to keep it as a dependency is `--legacy-peer-deps`,
+which switches peer resolution off for every package in the project, not just this one.
+
+The version the generator runs under and the version the project compiles with do not have
+to match. The output is plain declarations. openapi-typescript can use its own TypeScript 5
+to print a file that TypeScript 6 then reads.
+
+Decision:
+`npm run gen:types` runs `npx -y openapi-typescript@7.13.0 ../docs/openapi.yaml -o
+src/api/schema.ts`. The generator is not in `package.json` dependencies. The version is
+pinned in the script, so everyone generates the same file. The output is committed.
+
+This follows what the repository already does with contract tooling: `./run mock` runs
+prism through `npx -y`, and `./run check` runs redocly the same way. Neither is a
+dependency either.
+
+Consequences:
+Positive:
+The TypeScript pin stays a real pin. `npm ci` keeps enforcing peer ranges for everything
+else, so the next genuine conflict is still an error rather than something already switched
+off. The generator's own compiler is its problem, which is what it should have been all
+along. When issue #2841 closes and the peer range moves, this becomes a one line change.
+
+Negative:
+A build-critical tool is not in `package.json`, which is the first place anyone looks. It
+needs the network on the first run, so a fresh clone with no connectivity can compile
+`schema.ts` but cannot regenerate it. The pinned version lives in a script string where
+Dependabot does not see it, so nobody will be told when 7.14 lands.
+
+The committed `schema.ts` also becomes the thing that can drift, since nothing yet checks
+that regenerating leaves the tree clean. That check is CAP-25.
+
+Alternatives:
+Install it and add `--legacy-peer-deps` to the install and to CI. Rejected. It is the
+smaller diff and it would work today, but it disables peer checking for the whole project
+to accommodate one package's stale range, and the cost lands on some unrelated future
+conflict that then installs silently.
+
+Unpin TypeScript to 5.x so the peer range is satisfied. Rejected: it moves the whole
+frontend backwards a major version to suit a build tool, and ADR #18 chose current releases
+deliberately.
+
+Wait for openapi-typescript to widen the range, and hand-write types until it does.
+Rejected outright. Hand-written response types are the exact drift `docs/openapi.yaml`
+exists to prevent, and the wait has no end date.
+
+Vendor the generated file and generate it only on one machine. Rejected: it makes one
+person's environment the build, and the failure mode is that everyone else stops
+regenerating and the types quietly go stale.

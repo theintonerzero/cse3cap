@@ -104,12 +104,109 @@ Analytics controllers read the SQL views (`v_entry_score`, `v_radar`,
 `v_calibration_gap`, `v_coverage_gaps`, `v_framework_scale`) and do not aggregate in PHP.
 
 **Frontend:** no raw hex anywhere. All colour, spacing and radius come from CSS variables
-in `web/src/tokens.css`. API types are generated from `docs/openapi.yaml`; do not
-hand-write them. The radar component takes axes and scale as props and is never hardcoded
-to six axes or a four-point scale.
+in `web/src/tokens.css`. API types are generated from `docs/openapi.yaml` into
+`web/src/api/schema.ts` by `npm run gen:types`; do not hand-write them and do not edit that
+file. The radar component takes axes and scale as props and is never hardcoded to six axes
+or a four-point scale.
+
+**Every API call goes through `web/src/api/client.ts`.** It attaches the bearer token,
+resolves the base URL and unwraps the error envelope into a typed `ApiError` you switch on
+by `code`. A component that calls `fetch`, parses a response body, or declares its own
+response interface is a bug. `/add-screen` carries the full reference; `./run verify`
+checks it.
 
 **Every screen ships four states:** loaded, loading (skeletons, not spinners), empty, and
 error. Not three.
+
+**Tests and checks live in the repository, in one of two places.** Backend unit and feature
+tests in `api/tests/`, run by `./run test`. Anything needing a running server, or checking
+something a unit test cannot reach, is a script in `scripts/` wired into `./run`:
+`scripts/smoke.sh` walks the product over HTTP, `scripts/verify-client.sh` checks the typed
+API client. Never leave a check in a scratchpad, a home directory or a chat message. A
+check only one person can run is a check the team does not have. `web/` has no unit test
+runner yet; choosing one is a decision with an ADR, not something to add in passing.
+
+## Skills, agents and plugins
+
+This repository ships skills in `.claude/skills/` and agents in `.claude/agents/`, and
+enables the `superpowers` plugin for everyone. They are not decoration. The conventions
+live in them, so work done without loading the relevant one gets the conventions wrong and
+gets sent back at review.
+
+**Load the skill before you touch anything**, including before asking a clarifying question
+or exploring the codebase. The skill tells you how to explore. If you think there is even a
+chance one applies, load it. Announce which one and follow it.
+
+### This repository's skills
+
+| Doing this | Load |
+| --- | --- |
+| Any screen, component or API call in `web/` | `/add-screen` |
+| Any route, controller, request or contract change | `/add-endpoint` |
+| Any policy, gate or role check | `/add-policy` |
+| Any schema, migration or view change | `/add-migration` |
+| Any seeder or demo data | `/seed-data` |
+| Any decision worth recording | `/write-adr` |
+
+### The superpowers workflow
+
+A chain, not a menu. A piece of work walks it end to end and each skill hands to the next.
+Use all of it; the stages people skip are planning at the front and verification at the
+back, which is where the rework comes from.
+
+| Stage | Skill | Here that means |
+| --- | --- | --- |
+| Start of every session | `superpowers:using-superpowers` | Routes to everything below. If a skill might apply, it applies. |
+| Decide what to build | `superpowers:brainstorming` | Socratic discovery and edge cases before a file is opened. A ticket that already carries written acceptance criteria has had this conversation: follow it, say so, and move on. |
+| Turn the design into work | `superpowers:writing-plans` | Bite-sized tasks. One Jira ticket, one plan. |
+| Get a clean workspace | `superpowers:using-git-worktrees` | A fresh branch off `dev`, named `<type>/<CAP-N>-<description>`. |
+| Do the work in order | `superpowers:executing-plans` | Sequential, with state tracked, so a resumed session knows what was finished. |
+| One task, clean context | `superpowers:subagent-driven-development` | Prefer this repository's agents in `.claude/agents/`; they carry the conventions a blank agent does not. |
+| Independent tasks at once | `superpowers:dispatching-parallel-agents` | Only where the tasks share no state. See the database warning below. |
+| Write the code | `superpowers:test-driven-development` | Red, green, refactor. Fully in `api/`; see below for `web/`. |
+| When something breaks | `superpowers:systematic-debugging` | Four phases to root cause. No fix proposed before phase one, however obvious it looks. |
+| Before claiming anything | `superpowers:verification-before-completion` | Run it, read the output, quote it. "Should work" is not a result, and a green run nobody executed is worse than no claim at all. |
+| Hand the work over | `superpowers:requesting-code-review` | Before opening the PR, not after somebody complains. |
+| Take the feedback | `superpowers:receiving-code-review` | Verify the criticism, then fix. Agreeing without checking is not review, and neither is arguing without checking. |
+| Close it out | `superpowers:finishing-a-development-branch` | PR into `dev`, worktree removed. It does not merge; see below. |
+| Build new tooling | `superpowers:writing-skills` | New skills go in `.claude/skills/`, alongside the six above. |
+
+**An agent that is told to load a skill needs the `Skill` tool, or the instruction
+silently does nothing.** The three that do real work carry it, so their definitions point
+at a skill rather than restating it: a second copy of a convention is how the first one
+goes stale. `contract-sync`, `docs-tidy` and `repo-explorer` do not, because mechanical and
+read-only work does not need one, and their tool lists are narrow on purpose. Check the
+frontmatter before writing "load the skill" into an agent.
+
+**Orchestration still lives in the main thread.** Brainstorm and plan before dispatching,
+not inside the agent. A sub-agent is given a task, not asked to decide what the task is.
+
+### Where this project overrides the skill
+
+Three places the plugin's default would be wrong here. The project wins.
+
+**Nobody merges their own pull request.** `finishing-a-development-branch` will offer to
+merge and clean up. CONTRIBUTING requires one approval from someone else and forbids
+self-merging. Open the PR, push, stop. Deleting the branch is the merger's job.
+
+**The database is shared.** Worktrees and parallel agents give you isolated code, not an
+isolated database: every one of them points at the same MySQL on the VPS. Never run
+migrations or seeders from more than one at a time, and never in parallel. Parallel agents
+that only read, or that only touch files, are fine.
+
+**`web/` has no test runner.** `test-driven-development` applies in full to `api/`, which
+has PHPUnit and 110 feature tests, and a failing test comes first there. In `web/` there is
+nothing to write a failing test in yet, so the loop cannot run: put the check in `scripts/`
+instead, wired into `./run`. If you think the frontend should have a runner, that is an ADR
+and a team decision, not something to add in passing.
+
+### The plugins, not just superpowers
+
+`context7` for library and framework documentation rather than recalling an API from
+memory. `playwright` to look at a screen you changed, at a phone width and a desktop width.
+The TypeScript and PHP language servers for real diagnostics instead of guessed ones. The
+MySQL MCP to read the schema rather than assuming a column. Reaching for these is cheaper
+than being wrong, every time.
 
 ## Out of scope
 
@@ -134,7 +231,10 @@ MySQL runs on a shared VPS, not locally. Everyone points at the same instance.
 
 ## Before you finish
 
+- Did you load the skill for this kind of work?
 - Did you update `docs/openapi.yaml` in the same change as the endpoint?
 - Does every new rule live in exactly one place?
 - Did you add loading, empty and error states?
+- Does the check you wrote live in `api/tests/` or `scripts/`, rather than in your scratchpad?
+- Did you run the verification and read its output, rather than assuming it?
 - Does it need an ADR?

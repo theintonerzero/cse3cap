@@ -138,6 +138,11 @@ case "${1:-help}" in
 
     test)  need_api; in_dir api php artisan test ;;
 
+    # The frontend client against real servers, plus the compile-time
+    # checks the generated types exist for. Starts prism itself; needs
+    # ./run api for the rest.
+    verify) need_web_deps; step ./scripts/verify-client.sh "${2:-}" ;;
+
     # Over HTTP against a server you started yourself, with the real
     # tokens. Proves the wiring the unit tests cannot.
     smoke)
@@ -203,6 +208,7 @@ ${BLUE}Alumable Reflection Diary${RESET}
 
   ${GREEN}./run test${RESET}     backend test suite, against your own test database
   ${GREEN}./run smoke${RESET}    end-to-end over HTTP. Needs a server already running
+  ${GREEN}./run verify${RESET}   the typed API client, against both servers and the compiler
   ${GREEN}./run lint${RESET}     pint, oxlint and prettier, checking only
   ${GREEN}./run fmt${RESET}      the same, writing changes
   ${GREEN}./run build${RESET}    production build of the frontend

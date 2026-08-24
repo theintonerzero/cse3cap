@@ -67,19 +67,24 @@ concern and not an authorisation one.
 This is the part that is easy to get wrong and expensive to unwind.
 
 ```bash
-npx openapi-typescript docs/openapi.yaml -o web/src/api/schema.ts
+cd web && npm run gen:types
 ```
 
 Hand-writing a response interface in `web/` creates a second, silent source of truth that
 agrees with the contract exactly until the day it does not. If the shape you need is not in
 the generated types, **the contract is wrong and the contract is what you fix.**
 
-This is not wired up yet. It is the first task of the frontend build, along with
-`tokens.css`, and it is specified in `docs/Stack-and-Build-Scope.md` 4.3.
+This is wired up. `web/src/api/schema.ts` is the generated file, committed, never edited,
+and `web/src/api/client.ts` is the one wrapper that consumes it. **Regenerate after any
+pull that touched the contract**; nothing catches a stale `schema.ts` yet, which is the
+gap CAP-25 closes.
 
 TypeScript is pinned to 6.x on purpose. TypeScript 7 is the native compiler rewrite and
 openapi-typescript 7.13 crashes on it (openapi-ts issue #2841, open, no workaround). The
-generator picks the compiler version here because the generated types are load-bearing.
+generator picks the compiler version here because the generated types are load-bearing. It
+runs through `npx` at a pinned version rather than as a dependency, because it declares
+`peer typescript@^5.x` and would otherwise force `--legacy-peer-deps` on the whole project.
+ADR #36.
 
 ## Running both
 
@@ -141,7 +146,7 @@ These are the failures that do not announce themselves.
 | Drift | How it shows up | What catches it |
 | --- | --- | --- |
 | Endpoint changed, contract not | Frontend types are right for an API that no longer exists | Route-vs-contract check, CI |
-| Contract changed, types not regenerated | TypeScript compiles, runtime is wrong | Nothing. Regenerate on every pull |
+| Contract changed, types not regenerated | TypeScript compiles, runtime is wrong | Nothing yet. `npm run gen:types` on every pull. CAP-25 |
 | A field camelCased in `web/` | Value is `undefined`, renders blank | Code review. There is no mapping layer to blame |
 | Vite on a port other than 5173 | CORS failure with an unhelpful console error | `FRONTEND_URL` in `api/.env` |
 | A rule reimplemented in a component | Passes until the backend rule changes | Code review, and the rule map in `CLAUDE.md` |

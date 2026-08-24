@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Written and removed again by scripts/verify-client.sh. Present mid-run only,
+# and left behind if it is killed in a way the trap cannot catch.
+src/__verify_*.ts
+.verify-out

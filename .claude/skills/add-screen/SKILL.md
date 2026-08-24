@@ -42,14 +42,88 @@ every value is a token. One hardcoded colour breaks dark mode silently.
 
 ## The API client
 
-One typed fetch wrapper in `web/src/api/`. Types are generated from `docs/openapi.yaml` with
-openapi-typescript. Never hand-write a response type. If the shape you need is not in the
-generated types, the contract is wrong and that is the thing to fix.
+`web/src/api/client.ts`. One wrapper, already built. Do not write a second one, and do not
+call `fetch` directly from a component.
 
-The wrapper attaches the bearer token and unwraps the error envelope centrally, so components
-handle a typed error rather than parsing JSON.
+```ts
+import { api, ApiError } from '../api/client.ts';
 
-Until an endpoint exists, develop against the mock: `prism mock docs/openapi.yaml`.
+await api.get('/auth/me');                                        // no arguments
+await api.get('/gigs/{gig_id}', { path: { gig_id } });            // path parameters
+await api.get('/reflections', { query: { status: 'draft' } });    // query parameters
+await api.post('/reflections', { body: { sprint_id } });          // JSON body
+await api.patch('/entries/{entry_id}', { path: { entry_id }, body: { narrative } });
+await api.delete('/reflections/{reflection_id}', { path: { reflection_id } });
+await api.blob('/exports/{export_id}/download', { path: { export_id } });   // a file
+```
+
+`get` `post` `put` `patch` `delete` `blob`. The path string is the contract's, braces and
+all: the wrapper fills them from `path` and appends `query`. Options also take `signal` for
+a screen that unmounts mid-request, and `headers` when you genuinely need one.
+
+The types are generated into `schema.ts` beside it and are **never edited**. Regenerate with
+`npm run gen:types` after any pull that touched the contract. If the shape you need is not
+there, the contract is wrong and the contract is what you fix.
+
+**What will not compile,** which is the point: a path the contract does not declare, a verb
+it does not serve, a missing or misspelled parameter, a camelCased field, a body on an
+endpoint that takes none, a value outside an enum. You do not need to check these by hand.
+`api.post('/exports', { body: { format: 'pdf' } })` is one of them: the contract enumerates
+`[json]`, and PDF export is a later ticket.
+
+### Errors
+
+Every non-2xx response arrives as `ApiError`, already unwrapped. Never parse a response
+body, and never switch on `message`.
+
+```ts
+try {
+  await api.post('/reflections/{reflection_id}/submit', { path: { reflection_id } });
+} catch (error) {
+  if (!(error instanceof ApiError)) throw error;
+  switch (error.code) {
+    case 'EVIDENCE_REQUIRED':
+    case 'NARRATIVE_REQUIRED':
+      setOffending(error.details.entry_ids);   // the gate names the entries
+      break;
+    case 'NOT_DRAFT':
+      refresh();
+      break;
+    default:
+      setError(error.message);
+  }
+}
+```
+
+`error.code` is one of the contract's codes, or `null` when the response was not the
+envelope at all. `error.status` is the HTTP status, or `0` when the request never reached
+the API. That pair is what the error state renders: a specific message for a code you
+handle, `error.message` for one you do not.
+
+`error.details` is deliberately untyped, because its contents differ per code. If a screen
+needs a field in there to be typed, that is a gap in `docs/openapi.yaml`.
+
+### The token
+
+The app shell owns it and calls `setAuthToken(token)` once. A screen never touches it.
+Before the shell exists, put a seeded token in `web/.env` as `VITE_API_TOKEN`; that file is
+gitignored, which is the only reason a token may go in it.
+
+### Without a backend
+
+`VITE_API_BASE_URL` decides where every call goes. Point it at the prism mock and build
+screens with no backend running at all:
+
+```bash
+./run mock                                  # http://localhost:4010
+```
+
+Because the mock comes from the same file the real API is checked against, a screen built
+that way works against the real thing.
+
+### If you change the client
+
+`./run verify` checks it against both servers and against the compiler. Run it.
 
 ## Reusable components first
 
