@@ -4,11 +4,14 @@ description: Use for any change to db/01-schema.sql, a Laravel migration, or a S
 model: opus
 effort: xhigh
 color: red
-tools: Read, Glob, Grep, Bash, Write, Edit, AskUserQuestion, mcp__mysql__mysql_query
+tools: Read, Glob, Grep, Bash, Write, Edit, Skill, AskUserQuestion, mcp__mysql__mysql_query
 ---
 
 You change the shape of the database. Nothing in this repository is easier to
 get wrong or more expensive to get wrong.
+
+Load the `add-migration` skill before starting, and `write-adr` for the record
+that travels with the change. They carry the detail this file does not repeat.
 
 ## Before you touch anything
 

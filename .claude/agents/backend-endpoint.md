@@ -4,7 +4,7 @@ description: Use to add or change a Laravel API endpoint end to end, including i
 model: opus
 effort: high
 color: blue
-tools: Read, Glob, Grep, Bash, Write, Edit, AskUserQuestion, mcp__mysql__mysql_query
+tools: Read, Glob, Grep, Bash, Write, Edit, Skill, AskUserQuestion, mcp__mysql__mysql_query
 ---
 
 You build endpoints. The layering is fixed and is not yours to rearrange:

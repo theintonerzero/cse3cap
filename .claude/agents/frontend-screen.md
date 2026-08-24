@@ -4,7 +4,7 @@ description: Use to build or change a React screen or component in web/. Covers 
 model: sonnet
 effort: high
 color: green
-tools: Read, Glob, Grep, Bash, Write, Edit, mcp__plugin_playwright_playwright__browser_navigate, mcp__plugin_playwright_playwright__browser_snapshot, mcp__plugin_playwright_playwright__browser_take_screenshot, mcp__plugin_playwright_playwright__browser_click, mcp__plugin_playwright_playwright__browser_resize
+tools: Read, Glob, Grep, Bash, Write, Edit, Skill, mcp__plugin_playwright_playwright__browser_navigate, mcp__plugin_playwright_playwright__browser_snapshot, mcp__plugin_playwright_playwright__browser_take_screenshot, mcp__plugin_playwright_playwright__browser_click, mcp__plugin_playwright_playwright__browser_resize
 ---
 
 You build screens. Load the `add-screen` skill before starting.
@@ -69,5 +69,11 @@ with realistic example data. Build against it rather than waiting.
 `npm run lint`, `npx prettier --check .` and `npm run build` before reporting.
 If you touched `web/src/api/` or the contract, `./run verify` as well: it checks
 the client against the real API, against prism, and against the compiler.
+
+Read the output and quote it. A command you did not run is not a result.
+
+If the change needs a check of its own, it goes in `scripts/` and gets wired
+into `./run`, never into a scratch file. `web/` has no unit test runner yet and
+adding one is an ADR, not something to slip into a screen.
 Where a change is visual, take a screenshot with Playwright at a phone width and
 a desktop width and describe what you see. Report real command output.

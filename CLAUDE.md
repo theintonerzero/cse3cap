@@ -171,11 +171,15 @@ back, which is where the rework comes from.
 | Close it out | `superpowers:finishing-a-development-branch` | PR into `dev`, worktree removed. It does not merge; see below. |
 | Build new tooling | `superpowers:writing-skills` | New skills go in `.claude/skills/`, alongside the six above. |
 
-**Orchestration lives in the main thread.** The six agents in `.claude/agents/` have no
-`Skill` tool and cannot load any of the above. That is deliberate, and it is why their
-definitions inline the conventions rather than pointing at a skill. Two consequences: load
-the skill and plan the work *before* dispatching, not inside the agent, and when a skill
-changes, mirror it into the agent covering the same ground or the two drift apart.
+**An agent that is told to load a skill needs the `Skill` tool, or the instruction
+silently does nothing.** The three that do real work carry it, so their definitions point
+at a skill rather than restating it: a second copy of a convention is how the first one
+goes stale. `contract-sync`, `docs-tidy` and `repo-explorer` do not, because mechanical and
+read-only work does not need one, and their tool lists are narrow on purpose. Check the
+frontmatter before writing "load the skill" into an agent.
+
+**Orchestration still lives in the main thread.** Brainstorm and plan before dispatching,
+not inside the agent. A sub-agent is given a task, not asked to decide what the task is.
 
 ### Where this project overrides the skill
 
