@@ -104,12 +104,64 @@ Analytics controllers read the SQL views (`v_entry_score`, `v_radar`,
 `v_calibration_gap`, `v_coverage_gaps`, `v_framework_scale`) and do not aggregate in PHP.
 
 **Frontend:** no raw hex anywhere. All colour, spacing and radius come from CSS variables
-in `web/src/tokens.css`. API types are generated from `docs/openapi.yaml`; do not
-hand-write them. The radar component takes axes and scale as props and is never hardcoded
-to six axes or a four-point scale.
+in `web/src/tokens.css`. API types are generated from `docs/openapi.yaml` into
+`web/src/api/schema.ts` by `npm run gen:types`; do not hand-write them and do not edit that
+file. The radar component takes axes and scale as props and is never hardcoded to six axes
+or a four-point scale.
+
+**Every API call goes through `web/src/api/client.ts`.** It attaches the bearer token,
+resolves the base URL and unwraps the error envelope into a typed `ApiError` you switch on
+by `code`. A component that calls `fetch`, parses a response body, or declares its own
+response interface is a bug. `/add-screen` carries the full reference; `./run verify`
+checks it.
 
 **Every screen ships four states:** loaded, loading (skeletons, not spinners), empty, and
 error. Not three.
+
+**Tests and checks live in the repository, in one of two places.** Backend unit and feature
+tests in `api/tests/`, run by `./run test`. Anything needing a running server, or checking
+something a unit test cannot reach, is a script in `scripts/` wired into `./run`:
+`scripts/smoke.sh` walks the product over HTTP, `scripts/verify-client.sh` checks the typed
+API client. Never leave a check in a scratchpad, a home directory or a chat message. A
+check only one person can run is a check the team does not have. `web/` has no unit test
+runner yet; choosing one is a decision with an ADR, not something to add in passing.
+
+## Skills, agents and plugins
+
+This repository ships skills in `.claude/skills/` and agents in `.claude/agents/`, and
+enables the `superpowers` plugin for everyone. They are not decoration. The conventions
+live in them, so work done without loading the relevant one gets the conventions wrong and
+gets sent back at review.
+
+**Load the skill before you touch anything**, including before asking a clarifying question
+or exploring the codebase. The skill tells you how to explore. If you think there is even a
+chance one applies, load it. Announce which one and follow it.
+
+| Doing this | Load |
+| --- | --- |
+| Any screen, component or API call in `web/` | `/add-screen` |
+| Any route, controller, request or contract change | `/add-endpoint` |
+| Any policy, gate or role check | `/add-policy` |
+| Any schema, migration or view change | `/add-migration` |
+| Any seeder or demo data | `/seed-data` |
+| Any decision worth recording | `/write-adr` |
+
+**Brainstorm before you build.** Anything that creates or reshapes behaviour starts with
+`superpowers:brainstorming`, before a file is opened. The requirement that looks obvious at
+the start is where the rework comes from. A ticket that already carries written acceptance
+criteria has had that conversation: follow it, say so, and skip ahead.
+
+**Debug systematically, verify before claiming.** Reach for
+`superpowers:systematic-debugging` before proposing a fix for any bug, test failure or
+surprise, and `superpowers:verification-before-completion` before saying anything is done,
+fixed or passing. Run the command, read the output, quote it. "Should work" is not a
+result, and a green run nobody executed is worse than no claim at all.
+
+**Use the tools that are enabled.** `context7` for library and framework documentation
+rather than recalling an API from memory. `playwright` to look at a screen you changed, at
+a phone width and a desktop width. The TypeScript and PHP language servers for real
+diagnostics. The MySQL MCP to read the schema instead of guessing at a column. Reaching for
+these is cheaper than being wrong.
 
 ## Out of scope
 
@@ -134,7 +186,10 @@ MySQL runs on a shared VPS, not locally. Everyone points at the same instance.
 
 ## Before you finish
 
+- Did you load the skill for this kind of work?
 - Did you update `docs/openapi.yaml` in the same change as the endpoint?
 - Does every new rule live in exactly one place?
 - Did you add loading, empty and error states?
+- Does the check you wrote live in `api/tests/` or `scripts/`, rather than in your scratchpad?
+- Did you run the verification and read its output, rather than assuming it?
 - Does it need an ADR?
