@@ -214,7 +214,7 @@ notation cannot show. Schema with inline reasoning:
 ├── web/          # React + Vite + TypeScript frontend (scaffold only)
 ├── db/           # Schema, patches and seed data
 ├── docs/         # Brief, ERD, API spec, ADRs. Every document lives here
-├── scripts/      # Setup, the smoke test and the two agent guards
+├── scripts/      # Setup, the smoke and client checks, the two agent guards
 ├── run           # Task runner. ./run dev starts everything (run.ps1 on Windows)
 ├── .claude/      # Shared agent configuration: agents, skills, permissions
 ├── .github/      # CI
@@ -396,7 +396,8 @@ in the repository is the copy that everyone can read, and the one to edit.
 ```bash
 ./run test                          # 110 feature tests, against real MySQL
 ./run smoke                         # 51 checks, over HTTP, with the three real tokens
-./run check                         # both, plus lint, contract and the guards
+./run verify                        # 28 checks on the typed API client, both servers
+./run check                         # the first, plus lint, contract and the guards
 ```
 
 The suite runs `migrate:fresh`, so it needs a database of its own. `scripts/setup.sh` sets
@@ -404,6 +405,12 @@ The suite runs `migrate:fresh`, so it needs a database of its own. `scripts/setu
 up by hand, set it yourself. `diary_app` is granted DDL on `reflection_diary_test_%`
 precisely so yours is yours alone. Pointed at `reflection_diary` the suite refuses to start
 rather than dropping the shared schema.
+
+`./run verify` is the frontend counterpart. It proves the typed API client still attaches
+the token, resolves the base URL, unwraps the error envelope and refuses off-contract calls
+at compile time, against the real API and against the prism mock. It has no test suite
+behind it and every screen is built on it, so it is checked directly. `--static` skips the
+parts that need servers.
 
 The suite proves the rules in isolation. The smoke script drives the whole product through
 a running server, which is where wiring bugs live: it writes a reflection as Jane, submits

@@ -118,6 +118,10 @@ try {
 **Regenerate after every pull that touched the contract**, with `npm run gen:types`.
 Nothing catches a stale `schema.ts` yet; that guard is CAP-25.
 
+`./run verify` from the repository root checks all of this: that regenerating changes
+nothing, that the bad calls above are compile errors, and that the client behaves against
+the real API and the prism mock. Run it after any change to `client.ts` or the contract.
+
 The bearer token lives in the module. The app shell's token context will call
 `setAuthToken` once. Until it exists, put a seeded token in `web/.env` as `VITE_API_TOKEN`
 and the client picks it up. That file is gitignored, which is the only reason a token may

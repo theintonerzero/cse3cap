@@ -113,6 +113,8 @@ switch ($Command) {
 
     'smoke' { Fail 'smoke needs bash. Use Git Bash or WSL: ./scripts/smoke.sh' }
 
+    'verify' { Fail 'verify needs bash. Use Git Bash or WSL: ./scripts/verify-client.sh' }
+
     'lint' {
         Need-Api
         Step 'api' './vendor/bin/pint' @('--test')
