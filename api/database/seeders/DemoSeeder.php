@@ -25,10 +25,15 @@ use Illuminate\Support\Carbon;
  * Idempotent by design. The database is shared, and a seeder that
  * duplicates rows on a second run changes what everyone else sees.
  *
- * This does not yet attempt the shaped score distribution or the written
- * narratives described in the seed-data skill. Those arrive with the
- * reflection and scoring slices, as additions to this seeder. There is no
- * SQL seed file: DemoSeeder is canonical.
+ * The cast, and only the cast. The reflections, the shaped scores and the
+ * written narratives live in ReflectionSeeder, which calls this one first.
+ * They are separate because ten feature test classes seed this as their
+ * fixture and then write the reflection they are about to assert on, and a
+ * seeded reflection for the same student and sprint collides with every one
+ * of them on the one-reflection-per-context unique index. See ADR #37.
+ *
+ * Keep it minimal for that reason. Something added here is added to ten
+ * tests. There is no SQL seed file: these two are canonical.
  */
 class DemoSeeder extends Seeder
 {
