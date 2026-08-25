@@ -1,0 +1,127 @@
+"Issue Type","Summary","Description","Epic Link","Parent","Assignee","Priority","Story Points","Sprint","Due Date","Labels","Labels","Labels"
+"Story","CAP-1 · Design tokens: colour, spacing and radius as CSS variables","web/src/index.css is nearly empty on purpose, so the no-raw-hex rule is not broken on day
+one. This ticket is what fills it. Every other frontend ticket in the project waits on it.
+
+Acceptance criteria
+* web/src/tokens.css defines colour, spacing, radius and the type scale as CSS custom
+  properties.
+* Light is the bare :root default. Dark is defined under BOTH [data-theme=""dark""] and
+  @media (prefers-color-scheme: dark), so an explicit choice and the system default both work.
+* A theme toggle in the shell flips data-theme on the root element and the choice survives a
+  reload.
+* No raw hex and no magic pixel value anywhere in web/src/ outside tokens.css. Add a check to
+  ./run check that greps for one and fails.
+* Every text-on-background pair meets WCAG AA contrast in both themes.
+
+Blocks CAP-3, CAP-4, CAP-6, and every screen after them.","Frontend Foundation","","Amenah Sabri","Highest","5","Sprint 3","2026-08-29","foundation","frontend","owner-amenah"
+"Story","CAP-2 · Typed API client with types generated from the contract","docs/openapi.yaml is the source of truth. A hand-written response type is how contract drift
+becomes a runtime bug instead of a compile error.
+
+Acceptance criteria
+* npx openapi-typescript docs/openapi.yaml -o web/src/api/schema.ts, wired as
+  npm run gen:types. The generated file is committed.
+* One fetch wrapper in web/src/api/client.ts: attaches the bearer token, reads the base URL
+  from VITE_API_BASE_URL, returns typed responses.
+* Non-2xx unwraps the error envelope centrally into a typed ApiError carrying code, message
+  and details, so callers switch on code rather than parsing strings.
+* snake_case throughout. No mapping layer and nobody adds one.
+* Verified against both the real API on :8000 and prism mock docs/openapi.yaml on :4010.
+* TypeScript stays pinned to 6.x. openapi-typescript 7.13 crashes on TypeScript 7
+  (openapi-ts issue #2841, open, no workaround). The generator picks the compiler version.
+
+Blocks CAP-5 and every screen.","Frontend Foundation","","Jesse Darkovski","Highest","8","Sprint 3","2026-08-29","foundation","contract","owner-jesse"
+"Story","CAP-3 · Core components, part one: Card, Button, Chip, Badge, Skeleton, ErrorNotice","Six of the ten components in the scope document. Build only the variants the screens need.
+
+Acceptance criteria
+* Badge covers draft, submitted and assessed. Chip covers selected and unselected, for the
+  scope and sprint chips on the diary home.
+* Skeleton is the loading primitive for every screen in the product. No spinners anywhere.
+* ErrorNotice renders the error envelope's message, switches on code where it matters, and
+  takes an optional retry action.
+* All styling from tokens.css. Props are snake_case.
+* A scratch route renders every component in every state so a reviewer sees them at once.
+
+Depends on CAP-1.","Frontend Foundation","","Patrick Anley","Highest","8","Sprint 3","2026-09-05","foundation","frontend","owner-patrick"
+"Story","CAP-4 · Core components, part two: TextArea, ProgressBar, BottomSheet","The three components with behaviour in them rather than only appearance.
+
+Acceptance criteria
+* TextArea debounces on_change (600ms is a sensible start) and exposes saving / saved / failed.
+  The entry stepper's autosave hangs off this, so get the failed state right, not just the
+  happy one.
+* ProgressBar renders ""Competency 3 of 6"" style progress from current and total props.
+* BottomSheet is the container for the export and history sheets. Closes on Escape and on
+  backdrop click, and traps focus while open.
+* All styling from tokens.css.
+
+Depends on CAP-1.","Frontend Foundation","","Tony To","Highest","5","Sprint 3","2026-09-05","foundation","frontend","owner-tony"
+"Story","CAP-5 · App shell: router, token context, role-aware navigation","The frame every screen mounts into.
+
+Acceptance criteria
+* React Router with a route per screen, each rendering a placeholder for now.
+* Token context holds a bearer token, calls GET /auth/me once on boot, exposes the user.
+* Navigation is built from what /auth/me returns. The client never decides a role itself.
+  A hidden nav item is a convenience; the 403 is the rule.
+* A switcher for the three seeded tokens. There is no login screen in the MVP (ADR #15).
+* A 401 anywhere clears the token and returns to the token entry state.
+
+Depends on CAP-2.","Frontend Foundation","","Andrew Johansson","Highest","8","Sprint 3","2026-09-05","foundation","frontend","owner-andrew"
+"Story","CAP-6 · RadarPanel: axes and scale from props, never hardcoded","The product's headline visual, and the component definition-of-done items 4 and 5 both turn on.
+
+Acceptance criteria
+* A recharts RadarChart wrapped as RadarPanel, taking axes and domain as props. Never
+  hardcoded to six axes or a four-point scale.
+* Two series, self and counter-score, distinguishable in both themes and not by colour alone.
+* Reads its shape from GET /me/radar.
+* Verified against both seeded frameworks: La Trobe's six competencies on a flat 1-4, and
+  SFIA 9, where each skill is valid over only part of the seven levels so the ranges are
+  uneven. The scale comes from v_framework_scale, not from the component.
+* Four states, including ""not enough scores yet"", which is different from empty.
+
+Depends on CAP-1 and CAP-2. Blocks CAP-7.","Frontend Foundation","","Amenah Sabri","Highest","8","Sprint 3","2026-09-05","foundation","frontend","owner-amenah"
+"Story","CAP-7 · Diary home screen","The student's landing screen and the first place the radar appears in context.
+
+Acceptance criteria
+* Scope chips: all gigs, or one gig. Sprint chips appear once a gig is in scope.
+* RadarPanel with a caption that changes with the scope, so it is always clear what the
+  polygon is actually summarising.
+* Entry list with status badges, linking through to the stepper.
+* Export link opening the export sheet.
+* All four states. Empty is a student with no reflections yet, and it says what to do next.
+
+Depends on CAP-3, CAP-5, CAP-6.","Student Reflection Journey","","Patrick Anley","High","8","Sprint 3","2026-09-13","screen","frontend","owner-patrick"
+"Story","CAP-8 · Gig detail screen","Acceptance criteria
+* Header with the gig, the assigned framework and the participant roles.
+* Sprint list with opens_on and due_on, worded relatively where it helps: ""due in 3 days"",
+  ""not open yet"". Sprints are a table rather than an integer precisely so this is possible.
+* Diary card linking into the diary home scoped to that gig.
+* All four states.
+
+Depends on CAP-3, CAP-5.","Student Reflection Journey","","Andrew Johansson","Medium","5","Sprint 3","2026-09-13","screen","frontend","owner-andrew"
+"Story","CAP-9 · DemoSeeder: reflections at every status, shaped scores, written narratives","Marked [~] in the scope document. Role holders, gigs, sprints and assignments are seeded and
+the tokens are issued; the reflections are not, because nothing could write one until the
+backend was finished. It can now. Every screen ticket after this is easier with real rows
+behind it, and the client demo runs on this data.
+
+Acceptance criteria
+* Reflections in all three states: draft, submitted, assessed.
+* Scores use a hidden ability profile per student, self-scores slightly optimistic and
+  counter-scores closer to it, so the radar shows a real calibration gap instead of noise.
+* Hand-written narratives, not lorem. These are read aloud at a client demo.
+* Idempotent. Creates new rows rather than editing existing seeds, because five people share
+  the instance and the seeds are fixed reference data.
+* Never writes gig_key or sprint_key. Both are database-generated; keep them out of $fillable.
+* ./run test and ./run smoke still pass afterwards.
+
+No dependencies. Start day one.","Demo Data, Hardening and Release","","Jesse Darkovski","Highest","8","Sprint 3","2026-09-05","data","backend","owner-jesse"
+"Story","CAP-10 · Review queue screen","The assessor's entry point, and the cheapest proof that authorisation resolves per gig.
+
+Acceptance criteria
+* Worklist from GET /review-queue with per-reflection progress: entries counter-scored over
+  total.
+* Scoped by gig. Sam is deliberately on one gig only, so this screen should show him one gig's
+  work and Jane's token should not reach it at all.
+* Links into the assessor stepper, a placeholder route until CAP-13.
+* All four states. Empty means nothing is waiting, which is the normal state most of the time,
+  so it should not look like an error.
+
+Depends on CAP-3, CAP-5.","Assessment and Review","","Tony To","High","5","Sprint 3","2026-09-13","screen","frontend","owner-tony"

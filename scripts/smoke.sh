@@ -85,6 +85,23 @@ if isinstance(d, dict):
 jq_get() { printf '%s' "$BODY" | python3 -c "import json,sys;print(json.load(sys.stdin)$1)" 2>/dev/null; }
 
 # --------------------------------------------------------------------------
+# check <name> <1 or 0>
+#
+# An assertion about a response already in $BODY, for the things a status
+# code cannot say. Counted alongside the calls so a failure still fails
+# the run.
+# --------------------------------------------------------------------------
+check() {
+    if [ "$2" = 1 ]; then
+        pass=$((pass + 1))
+        printf '  %sok%s   %-3s %-52s\n' "$green" "$off" '--' "$1"
+    else
+        fail=$((fail + 1))
+        printf '  %sFAIL%s %-3s %-52s\n' "$red" "$off" '--' "$1"
+    fi
+}
+
+# --------------------------------------------------------------------------
 # Tokens
 # --------------------------------------------------------------------------
 if [ -z "${JANE:-}" ] || [ -z "${SAM:-}" ] || [ -z "${LEE:-}" ]; then
@@ -251,7 +268,9 @@ PY
 
     call "the last score flips it"        200 "$JANE" GET "/reflections/$REFLECTION"
     printf '       %sstatus is now %s%s\n' "$dim" "$(jq_get '["status"]')" "$off"
-    call "the queue has emptied"          200 "$SAM"  GET /review-queue
+    call "Sam's queue is read back"       200 "$SAM"  GET /review-queue
+    printf '%s' "$BODY" | grep -q "$REFLECTION" && gone=0 || gone=1
+    check "and no longer holds the assessed one" "$gone"
     call "and it is closed to Dr Lee too" 409 "$LEE"  POST "/entries/$E_FIRST/scores" \
          "{\"level_id\":\"$L_LOWER\",\"comment\":\"Too late.\"}"
     call "a malformed filter is a 400"    400 "$JANE" GET "/me/progress?gig_id%5B%5D=x"

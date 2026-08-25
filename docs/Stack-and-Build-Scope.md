@@ -78,14 +78,15 @@ README.md                setup, connection details, the three tokens
 
 - [x] MySQL 9.7 LTS provisioned on the VPS, credentials distributed, `.env.example` committed
 - [x] `01-schema.sql` applied and verified, including the ADR #23 to #25 patch
-- [~] `DemoSeeder`: three token holders covering every role, two gigs with sprints,
+- [x] Demo data: three token holders covering every role, two gigs with sprints,
       reflections at every status, scores with a shaped distribution (hidden ability
       profile per student, self-scores slightly optimistic, assessor scores closer to
       truth), hand-written narratives rather than lorem. The two frameworks are already
       seeded by `01-schema.sql`.
-      Role holders, gigs, sprints and assignments are seeded and the tokens are issued.
-      The reflections, shaped scores and narratives arrive with the slices that create
-      them, since nothing can write a reflection yet
+      Split across two seeders per ADR #37: `DemoSeeder` holds the cast and the tokens
+      and is what the feature tests use as their fixture, `ReflectionSeeder` holds the
+      nine reflections, four students and shaped scores and calls `DemoSeeder` first.
+      `php artisan db:seed` runs both
 - [x] Three seeded tokens issued and documented in the README
 - [x] Views verified: `v_entry_score`, `v_radar`, `v_calibration_gap`, `v_coverage_gaps`,
       `v_framework_scale`

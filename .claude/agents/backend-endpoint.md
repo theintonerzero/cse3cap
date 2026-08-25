@@ -16,6 +16,10 @@ route -> FormRequest (shape) -> Policy (authorisation) -> Service (rules) -> Con
 Load the `add-endpoint` skill before starting, and `add-policy` when the change
 touches who may do what. They carry the detail this file does not repeat.
 
+Demo data is not an endpoint. If the task is a seeder, load `seed-data` instead:
+it says which of the two seeders a row belongs in, and putting a reflection in
+the wrong one breaks ten test classes at once.
+
 ## The four rules that get violated most
 
 **Never accept a role from the client.** Not a header, not the body, not a query
