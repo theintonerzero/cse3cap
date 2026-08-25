@@ -363,6 +363,43 @@ are pinned in the team channel. Sanctum stores only a hash, so a token cannot be
 after that. The seeder is idempotent and will not reissue a token to a user who has one.
 Educator is not a separate role in the schema, it maps to `supervisor`.
 
+### The demo data
+
+`php artisan db:seed` in `api/` runs both seeders and is what the client demo and every
+screen are built against. It is idempotent, so running it twice changes nothing.
+
+`DemoSeeder` is the cast above plus the two gigs, their sprints and their rubrics.
+`ReflectionSeeder` adds three classmates and nine reflections: on the La Trobe gig five
+assessed, one submitted and one draft, and on SFIA one assessed and one submitted.
+
+Scores are shaped rather than random. Each student has a hidden ability profile and rates
+themselves against it with a bias, so the radar shows a calibration gap with a shape: Tom
+is consistently two levels over-confident, Priya is well calibrated, Jane improves across
+sprints and her optimism shrinks with her, and Noor has barely started so she is the one
+with coverage gaps. Narratives are written by hand because they are read aloud at the
+demo. See ADR #37 for why it is two seeders, and `.claude/skills/seed-data` for the rules
+if you are adding to it.
+
+Jane's third sprint on the La Trobe gig is deliberately left free. `scripts/smoke.sh`
+writes a reflection there, and filling it would turn its whole write path into a skipped
+warning.
+
+That cuts both ways, and it bites on a database smoke has already been run against.
+Idempotency is per student and per sprint, so a sprint that already has a reflection on it
+is left alone. Smoke writes as Jane on the La Trobe gig every time it runs, so three runs
+fill all three of her sprints, and seeding after that quietly skips her La Trobe
+reflections and leaves the demo showing her placeholder narratives. Check first:
+
+```sql
+SELECT g.title, s.ordinal, r.status FROM reflections r
+  JOIN gigs g ON g.id = r.gig_id JOIN sprints s ON s.id = r.sprint_id
+  JOIN users u ON u.id = r.user_id WHERE u.display_name = 'Jane N';
+```
+
+Delete her smoke reflections before seeding if they are in the way. Entries, scores,
+evidence and events cascade with the reflection row, and an export that referenced it is
+set to null rather than deleted.
+
 ### What the API serves
 
 All thirty endpoints are live: identity, gigs, frameworks, the reflection write path,

@@ -79,7 +79,8 @@ Repository layout:
 
 ```
 /db/01-schema.sql          the DDL, applied centrally to the shared instance
-/api/database/seeders      demo data, DemoSeeder is canonical
+/api/database/seeders      demo data. DemoSeeder is the cast, ReflectionSeeder
+                           the record. php artisan db:seed runs both
 /api                       Laravel
 /web                       React
 /docs/openapi.yaml         the API contract

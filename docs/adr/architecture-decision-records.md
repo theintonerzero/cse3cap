@@ -46,6 +46,7 @@ Index
 #34 Counter-scores close when a reflection does .... Accepted
 #35 One rubric per gig, in the key itself .......... Accepted
 #36 The type generator runs through npx .......... Accepted
+#37 Demo reflections are a second seeder ......... Accepted
 
 ===============================================================
 
@@ -1635,3 +1636,97 @@ exists to prevent, and the wait has no end date.
 Vendor the generated file and generate it only on one machine. Rejected: it makes one
 person's environment the build, and the failure mode is that everyone else stops
 regenerating and the types quietly go stale.
+
+
+===============================================================
+
+ADR #37: The demo record is a second seeder, not more of DemoSeeder
+Status: Accepted
+Date: 2026-08-25
+
+Context:
+CAP-9 asks for reflections at every status, with shaped scores and written narratives, so
+the screens have real rows behind them and the client demo has something to read aloud. ADR
+#22 made `DemoSeeder` the one canonical seeder and deleted the SQL seed file, and its own
+docblock said the reflections would arrive later as additions to it.
+
+They cannot, as it turned out. `DemoSeeder` is not only the demo data. Ten of the twelve
+feature test classes call `$this->seed(DemoSeeder::class)` in `setUp` and then build the
+reflection they are about to assert on. `AnalyticsTest` alone writes a reflection for Jane
+on the first sprint of the La Trobe gig in ten of its thirteen tests and asserts exact radar,
+progress and calibration numbers off it.
+
+`reflections` carries a unique key on (user_id, gig_key, sprint_key), which is the rule that
+a student writes one reflection per sprint. So a seeded reflection for Jane on that sprint
+is a 1062 in every one of those tests, and the ones it does not break it breaks quietly by
+changing the numbers they assert.
+
+The two jobs have pulled apart. The tests want the smallest fixture that makes a request
+meaningful, and want it to stay still. The demo wants nine reflections, four students and a
+calibration gap with a shape. Those are different artifacts that happen to share a cast.
+
+Decision:
+`DemoSeeder` keeps the cast: the three role holders, the two gigs, the sprints, the
+participants, the rubric assignments and the three tokens. It does not change, and the
+feature tests keep using it as their fixture.
+
+`ReflectionSeeder` is new and holds the record: the three classmates, nine reflections
+across draft, submitted and assessed, the narratives, the scores and the evidence. It calls
+`DemoSeeder` itself, so the cast is always in place before the record that references it.
+
+`DatabaseSeeder` calls `ReflectionSeeder`. `php artisan db:seed` is the whole demo in one
+command, and `php artisan db:seed --class=DemoSeeder` is still the way to get just the
+people and the tokens.
+
+`ReflectionSeeder` builds rows by calling `ReflectionCreator`, `SubmitGate` and `Scoring`
+rather than by inserting them. The seed then obeys the submit gate, the comment rule and
+the level-in-competency rule by construction, and keeps obeying them when those rules
+change.
+
+Consequences:
+Positive:
+The test suite did not need touching. All 110 existing tests pass unchanged, which is worth
+more than it sounds: it means the demo data can be reshaped later without a test run being
+the thing that finds out.
+
+The seeders can now say what they are for. `DemoSeeder` is the fixture and can be kept
+minimal on purpose. `ReflectionSeeder` is the demo and can grow a student or a sprint
+whenever a screen needs one.
+
+Going through the services means the seeded rows are rows the API could have produced. Every
+reflection arrives with its events already written, so the history sheet has real data
+without the seeder knowing what an event is.
+
+Negative:
+Two seeders is one more thing to know about, and the obvious wrong guess is that
+`DemoSeeder` is the demo. The name is now slightly off and renaming it would break the
+README, `scripts/smoke.sh` and everyone's muscle memory, so it stays.
+
+`ReflectionSeeder` is slow. It makes about three hundred writes through the service layer
+where raw inserts would be one statement, and the test that covers it is the slowest in the
+suite at roughly fifteen seconds.
+
+It also has to know about `scripts/smoke.sh`. Smoke writes a reflection as Jane on the first
+free sprint of the La Trobe gig, so the seeder deliberately leaves her third sprint alone.
+That coupling is a comment in one file and a test in another, and it is the kind of thing
+that gets broken by someone adding one more reflection.
+
+Alternatives:
+Put the reflections in `DemoSeeder` and fix the tests. Rejected, though it is the reading of
+the ticket that matches its title. It is around a hundred lines of churn across ten files,
+and the result is worse than the churn: every future test that wants a reflection for Jane
+has to know which sprints the demo has already taken. The fixture would be fighting the
+demo forever.
+
+Give the tests their own seeder and let `DemoSeeder` become the demo. Rejected as the same
+change with the rename attached. It also moves `--class=DemoSeeder` out from under the
+README and the smoke script for no gain.
+
+Have `DemoSeeder` take a flag, seeding reflections only when asked. Rejected. A seeder that
+does two different things depending on an argument is the same coupling with a switch in
+front of it, and the tests would be relying on the default staying false.
+
+Seed the reflections as raw inserts rather than through the services. Rejected. It is
+faster and it would let the seeder write states the API cannot reach, which is exactly the
+problem. Demo data that no rule was applied to is data that quietly disagrees with the
+product.
