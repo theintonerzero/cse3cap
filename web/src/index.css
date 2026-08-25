@@ -1,13 +1,13 @@
+@import './tokens.css';
+
 /*
- * Deliberately almost empty.
- *
- * Every colour, space and radius in this project comes from CSS variables
- * defined in src/tokens.css, which does not exist yet and is the first
- * task of the frontend build. No raw hex anywhere else, ever. Adding
- * styling here instead is how that rule gets broken on day one.
+ * Base element styles only. Every colour, space and radius value comes
+ * from tokens.css; nothing here is a raw hex or a magic pixel number.
  */
 
 body {
   margin: 0;
-  font-family: system-ui, sans-serif;
+  font-family: var(--font-family-base);
+  background: var(--color-bg);
+  color: var(--color-text);
 }
