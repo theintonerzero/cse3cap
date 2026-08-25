@@ -125,6 +125,34 @@ that way works against the real thing.
 
 `./run verify` checks it against both servers and against the compiler. Run it.
 
+## What is behind the API
+
+`php artisan db:seed` in `api/` fills the database with a demo the screens are meant to be
+built against. Use it. A screen built against an empty database gets its empty state right
+and its loaded state wrong, and nobody finds out until the client demo.
+
+Jane's token is the one to develop with. She is the only student on both gigs, so she is
+the only one who exercises the scope selector and both rubrics.
+
+| Looking for | Use |
+| --- | --- |
+| A finished record, two polygons on the radar | Jane, La Trobe gig, sprint 1 or 2, both `assessed` |
+| The other rubric, seven point scale, six different axes | Jane, Data migration audit, sprint 1 |
+| A reflection waiting on a reviewer | Jane, Data migration audit, sprint 2, `submitted` |
+| A draft part-way through the stepper | Noor A, La Trobe sprint 1. Three narratives, two self-scores |
+| A big calibration gap | Tom H, La Trobe sprint 1. Two levels over-confident on every axis |
+| Almost no gap | Priya R, either sprint |
+| A worklist with a part-scored row | Sam's `/review-queue`. Tom's sprint 2 is 2 of 6 |
+| Coverage gaps | Noor A. Everyone with an assessed reflection has none |
+| An empty state | Any sprint 3, or Sam's `/me/radar`, which is a 404 |
+
+Sam is an assessor on the La Trobe gig only, so use his token to check that a screen scoped
+to one gig does not leak the other. Dr Lee supervises both and counter-scores on SFIA.
+
+The shapes are deliberate, not noise. If a chart you build looks like random data, suspect
+the chart before the seed. `.claude/skills/seed-data` has the detail, and
+`api/tests/Feature/ReflectionSeederTest.php` is what holds those properties in place.
+
 ## Reusable components first
 
 Check `web/src/components/` before building anything. The core set is Card, Button, Chip,
@@ -162,6 +190,7 @@ hiding a button as a security measure.
 ## Before you say it is done
 
 - All four states implemented?
+- Did you look at the loaded state against seeded data, not just the empty one?
 - Zero raw hex or pixel values?
 - Types generated, not hand-written?
 - Radar props driven by the framework payload?

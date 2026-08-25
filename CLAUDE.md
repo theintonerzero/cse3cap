@@ -60,6 +60,13 @@ where it lives. Read the class before you write anything that touches its rule.
 - one rubric per gig → `api/app/Services/FrameworkAssigner.php`
 - one entry per competency, on create → `api/app/Services/ReflectionCreator.php`
 
+**Never seed a reflection from `DemoSeeder`.** It is the fixture ten feature test classes
+build on, and they write the reflection they are about to assert on. A seeded one collides
+on the `(user_id, gig_key, sprint_key)` unique index. Demo rows go in `ReflectionSeeder`,
+which calls `DemoSeeder` first and builds every row through `ReflectionCreator`,
+`SubmitGate` and `Scoring` rather than inserting it. `php artisan db:seed` runs both. See
+ADR #37 and `/seed-data`.
+
 **Never mutate a framework that is in use.** Editing is copy-then-edit. A framework
 referenced by any reflection is permanently read-only (`409 FRAMEWORK_IN_USE`). Mutating
 one would silently change what past students were scored against.
@@ -116,7 +123,10 @@ response interface is a bug. `/add-screen` carries the full reference; `./run ve
 checks it.
 
 **Every screen ships four states:** loaded, loading (skeletons, not spinners), empty, and
-error. Not three.
+error. Not three. Build against seeded data rather than an empty database: `php artisan
+db:seed` in `api/` gives four students at different stages, and `/add-screen` says which one
+to use for which state. A screen built with nothing behind it gets the empty state right and
+the loaded one wrong.
 
 **Tests and checks live in the repository, in one of two places.** Backend unit and feature
 tests in `api/tests/`, run by `./run test`. Anything needing a running server, or checking
