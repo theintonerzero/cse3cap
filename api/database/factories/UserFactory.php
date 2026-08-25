@@ -4,42 +4,42 @@ namespace Database\Factories;
 
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 
 /**
+ * A throwaway user, for a test that needs somebody who is not one of the
+ * seeded people.
+ *
+ * Users here are a thin mirror of an Alumable account: a display name and
+ * the host platform's id for the same person. There is no name, no email
+ * and no password, because identity belongs to the host platform and the
+ * MVP authenticates with three seeded tokens. See ADR #15.
+ *
+ * Laravel's default factory set name, email, email_verified_at, password
+ * and remember_token, none of which are columns in this schema. It never
+ * failed on them, because User did not use HasFactory and the call died
+ * one step earlier. Both are fixed; ModelMappingTest holds it that way.
+ *
+ * The seeded people are fixed reference data and are not made here.
+ * DemoSeeder owns those.
+ *
  * @extends Factory<User>
  */
 class UserFactory extends Factory
 {
-    /**
-     * The current password being used by the factory.
-     */
-    protected static ?string $password;
+    /** @var class-string<User> */
+    protected $model = User::class;
 
     /**
-     * Define the model's default state.
-     *
      * @return array<string, mixed>
      */
     public function definition(): array
     {
         return [
-            'name' => fake()->name(),
-            'email' => fake()->unique()->safeEmail(),
-            'email_verified_at' => now(),
-            'password' => static::$password ??= Hash::make('password'),
-            'remember_token' => Str::random(10),
+            'display_name' => fake()->name(),
+            // Unique when set and nullable, so it has to be unique here.
+            // Prefixed because these rows are indistinguishable from real
+            // ones otherwise, and the database is shared.
+            'external_ref' => 'test-'.fake()->unique()->uuid(),
         ];
-    }
-
-    /**
-     * Indicate that the model's email address should be unverified.
-     */
-    public function unverified(): static
-    {
-        return $this->state(fn (array $attributes) => [
-            'email_verified_at' => null,
-        ]);
     }
 }
