@@ -1,0 +1,133 @@
+"Issue Type","Summary","Description","Epic Link","Parent","Assignee","Priority","Story Points","Sprint","Due Date","Labels","Labels","Labels"
+"Story","CAP-11 · Entry stepper, student mode","The heart of the product. One component, N states driven by the framework payload. The
+largest single ticket in the project; it is deliberately not split across two people because
+it is one file and the merge cost would exceed the parallelism.
+
+Acceptance criteria
+* Competency name and tappable level descriptors, both read from the framework payload. No
+  competency name, scale bound or descriptor appears in code.
+* Narrative with debounced autosave via PATCH /entries/{id}, with a visible saved / saving /
+  failed indicator.
+* Evidence row: attach via POST /entries/{id}/evidence, remove via DELETE /evidence/{id},
+  respecting the type and size limits the framework sets.
+* Self-score via PUT /entries/{id}/scores/self. PUT because it is an upsert: a student may
+  change their mind before submitting. That is deliberate, not an inconsistency to tidy.
+* ""Competency 3 of 6"" progress, Back and Next, Submit on the last one.
+* Submit failures map back to the offending entries. NARRATIVE_REQUIRED, SELF_SCORE_MISSING
+  and EVIDENCE_REQUIRED each return entry ids in details; walk the user to the first one
+  rather than showing a generic banner.
+* draft is the only editable state. A submitted reflection renders read-only.
+* All four states.
+
+Depends on CAP-3, CAP-4, CAP-5. Blocks CAP-12, CAP-13, CAP-20.","Student Reflection Journey","","Amenah Sabri","Highest","13","Sprint 4","2026-09-27","screen","frontend","owner-amenah"
+"Story","CAP-12 · Submitted confirmation screen","Acceptance criteria
+* Confirms the assessor has been notified. Notifications are derived from events, not stored;
+  there is no notifications table and this ticket does not add one.
+* Shows the next sprint's date if there is one.
+* Back to diary.
+* All four states.
+
+Depends on CAP-11.","Student Reflection Journey","","Amenah Sabri","Medium","3","Sprint 4","2026-09-27","screen","frontend","owner-amenah"
+"Story","CAP-13 · Assessor stepper","The same component as CAP-11 in a second mode, not a second component. Sequence this after
+CAP-11 merges rather than running them in parallel.
+
+Acceptance criteria
+* Student narrative and evidence read-only. Their self-score visible.
+* Level picker posting to POST /entries/{id}/scores. POST rather than PUT because a second
+  attempt is an error, not an update.
+* Comment box becomes required when the counter-score is below the self-score, and whenever
+  the framework's comment_required flag is set. The disabled button is a convenience; the
+  400 COMMENT_REQUIRED is the rule and the UI must handle it arriving anyway.
+* A 409 on a repeat counter-score is surfaced clearly, not swallowed. Re-scoring is out of
+  scope by decision (ADR #34). Do not build a way around it.
+* The reflection flips to assessed on its own once every entry has a counter-score. The UI
+  reflects that; it does not trigger it.
+* All four states.
+
+Depends on CAP-10, CAP-11.","Assessment and Review","","Patrick Anley","Highest","8","Sprint 4","2026-09-27","screen","frontend","owner-patrick"
+"Story","CAP-14 · History sheet: the event timeline","First candidate for de-scope if Sprint 4 runs hot.
+
+Acceptance criteria
+* GET /reflections/{id}/events rendered as a timeline inside a BottomSheet.
+* One row per event type, readable by a person, with the actor and the timestamp converted
+  from stored UTC to local.
+* All four states. Empty is reachable on a fresh draft.
+
+Depends on CAP-4, CAP-5.","Record Export and History","","Patrick Anley","Low","5","Sprint 4","2026-09-20","screen","frontend","owner-patrick"
+"Story","CAP-15 · Select framework screen","Acceptance criteria
+* Available templates and saved copies listed separately.
+* The Edit action is hidden when in_use. A framework referenced by any reflection is
+  permanently read-only, because mutating it would silently change what past students were
+  scored against.
+* Assign posts to POST /framework-assignments.
+* A gig takes exactly one rubric. A second assignment is refused by FrameworkAssigner and by
+  ak_fw_assignments at the database (ADR #35). Surface the 409. Do not build a replace flow:
+  there is no endpoint, and the answer to ""I picked the wrong rubric"" is a new gig (ADR #33).
+* All four states.
+
+Depends on CAP-3, CAP-5. Blocks CAP-16.","Framework Management","","Andrew Johansson","High","5","Sprint 4","2026-09-20","screen","frontend","owner-andrew"
+"Story","CAP-16 · Edit framework screen","Copy-then-edit. The scope here is narrower than it looks and the temptation is to widen it.
+
+Acceptance criteria
+* Based-on selector, name field, competencies with their level descriptors.
+* Save creates a copy via POST /frameworks (deep copy), then PATCH /frameworks/{id},
+  PATCH /competencies/{id} and PATCH /levels/{id}.
+* Renaming competencies and rewording descriptors ONLY. No creating a framework from scratch,
+  no adding or removing competencies, no changing level counts (ADR #16). Do not add UI for
+  any of them, not even disabled.
+* 409 FRAMEWORK_IN_USE surfaced plainly if the guard fires mid-edit.
+* All four states.
+
+Depends on CAP-15.","Framework Management","","Andrew Johansson","Medium","8","Sprint 4","2026-09-27","screen","frontend","owner-andrew"
+"Story","CAP-17 · PDF export: the dompdf decision, the ADR and the implementation","The one remaining backend gap. It was left open deliberately as a package decision for the
+team, so the decision is part of this ticket, not a prerequisite to it.
+
+Acceptance criteria
+* An ADR in docs/adr/ recording the choice of dompdf and what was rejected. Appended, never
+  rewritten.
+* POST /exports accepts pdf and the queued job renders it. The exports row is the job record
+  (ADR #30); status is stored, not derived (ADR #25).
+* The PDF carries the reflections, both score sets, the framework version snapshot and the
+  radar. This is the student-owned record leaving the system, so it has to stand alone
+  without the application to interpret it.
+* docs/openapi.yaml updated in the same PR, not afterwards.
+* Download authorisation holds: another student's export is a 404, not a 403.
+* Feature tests for render, authorisation and the failure path.
+
+No dependencies. Start day one of the sprint.","Record Export and History","","Jesse Darkovski","High","8","Sprint 4","2026-09-20","backend","contract","owner-jesse"
+"Story","CAP-18 · Export sheet screen","Acceptance criteria
+* PDF and JSON selector, plus a summary of what the export includes.
+* Request, receive 202 with a job id, poll GET /exports/{id}, download.
+* Polling backs off and eventually gives up with a readable error rather than spinning
+  forever.
+* Five states here, not four: the in-progress state is its own thing and is not the loading
+  skeleton.
+
+Depends on CAP-4, CAP-17.","Record Export and History","","Jesse Darkovski","Medium","5","Sprint 4","2026-09-27","screen","frontend","owner-jesse"
+"Story","CAP-19 · Policies covering every remaining permission-matrix row","Marked [~] in the scope document. GigPolicy, ReflectionPolicy, FrameworkPolicy and
+ExportPolicy exist; the rows they do not cover belong to resources that did not exist when
+they were written. Those resources exist now.
+
+Acceptance criteria
+* Every row of the permission matrix in docs/api-reference.html has a policy method behind it.
+* Roles resolve server-side through RoleResolver from gig_participants, for the gig in
+  question. The client never sends a role.
+* Authorisation lives in api/app/Policies/ and nowhere else. Not in a controller, not in a
+  FormRequest, not duplicated into the frontend.
+* Not-yours returns 404 rather than 403, deliberately indistinguishable from does-not-exist.
+* A feature test per row, including the negative case. The negative case is the point.
+
+No dependencies.","Demo Data, Hardening and Release","","Tony To","High","5","Sprint 4","2026-09-20","backend","security","owner-tony"
+"Story","CAP-20 · Prove the framework swap: SFIA 9 end to end, no code change","Definition of done item 5, and the claim the entire product rests on. If this needs a code
+change, the rubric is not really data and that is the most important bug in the project.
+
+Acceptance criteria
+* A new gig assigned SFIA 9 rather than the La Trobe rubric. A new gig, not an edited seed.
+* The stepper renders SFIA's competencies and descriptors, and the radar renders SFIA's axes.
+* The scale comes from v_framework_scale, where each skill is valid over only part of the
+  seven levels, so the ranges are uneven per competency and the radar has to cope.
+* Zero frontend and zero backend code changes required. Any that are needed are logged as
+  bugs and fixed inside this ticket.
+* Written up as a short verification note and screenshotted for the client demo.
+
+Depends on CAP-6, CAP-11, CAP-15.","Framework Management","","Tony To","High","5","Sprint 4","2026-09-27","testing","backend","owner-tony"

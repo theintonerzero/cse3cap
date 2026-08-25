@@ -559,6 +559,7 @@ and the reasoning behind the unusual decisions.
 | [`docs/adr/`](docs/adr/)                                         | Architecture decision records                                 |
 | [`docs/erd.png`](docs/erd.png)                                   | Entity relationship diagram, with a legend of hidden constraints |
 | [`docs/superpowers/specs/`](docs/superpowers/specs/)             | Design specs for each build slice                             |
+| [`docs/jira/`](docs/jira/)                                       | Jira CSV imports: the epics and the sprint 3 to 5 backlogs    |
 | [`db/01-schema.sql`](db/01-schema.sql)                           | The schema, with inline reasoning                             |
 
 ## Team

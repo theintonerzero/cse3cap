@@ -1,0 +1,112 @@
+"Issue Type","Summary","Description","Epic Link","Parent","Assignee","Priority","Story Points","Sprint","Due Date","Labels","Labels","Labels"
+"Story","CAP-21 · Four-states audit across every screen","Definition of done item 8. A PR with only the happy path is not finished, and by Sprint 5
+some of them will have shipped that way anyway. This ticket is where that is found and fixed,
+not logged.
+
+Acceptance criteria
+* Every screen demonstrates loaded, loading, empty and error. Loading is a skeleton, never a
+  spinner.
+* The error state surfaces the envelope's message and switches on code where it matters,
+  particularly the submit gate, which reports which entries failed.
+* A checklist in the PR with a screenshot per state per screen.
+* Anything missing is fixed here. Nothing is deferred out of this ticket.
+
+Depends on every screen ticket.","Demo Data, Hardening and Release","","Amenah Sabri","Highest","8","Sprint 5","2026-10-11","testing","frontend","owner-amenah"
+"Story","CAP-22 · End-to-end journey test with Playwright","Definition of done items 2, 3 and 4 proved in one run, through the browser, which is where
+the wiring bugs the feature suite cannot see actually live.
+
+Acceptance criteria
+* Student creates a reflection, writes every entry, self-scores, is refused an incomplete
+  submit with the offending entries named, then submits.
+* Assessor sees it in the queue, is forced to comment when scoring below the student, counter-
+  scores every entry, and the reflection flips to assessed on its own.
+* The radar renders both polygons from real rows afterwards.
+* Runs against a seeded test database in CI. Never against the shared instance: the suite
+  runs migrate:fresh and five people share that box.
+
+Depends on CAP-11, CAP-13.","Demo Data, Hardening and Release","","Patrick Anley","Highest","8","Sprint 5","2026-10-04","testing","","owner-patrick"
+"Story","CAP-23 · Accessibility and responsive pass","Acceptance criteria
+* Every interactive element reachable by keyboard with a visible focus ring. Correct roles and
+  labels on the stepper and the sheets, which are the two places this usually breaks.
+* Contrast AA in both themes, re-checked rather than assumed from CAP-1.
+* Usable at 360px and at desktop width.
+* The radar has a non-visual equivalent, a table of the same numbers, because colour alone
+  cannot carry self versus assessor.
+
+Depends on CAP-21.","Demo Data, Hardening and Release","","Amenah Sabri","Medium","5","Sprint 5","2026-10-11","frontend","testing","owner-amenah"
+"Story","CAP-24 · Security review of the frontend and the API seam","The commitment in the scope document is a security review on every PR touching scoring,
+submit or framework mutation. It has been honoured once, on the backend PR. The frontend PRs
+that touch all three have not had one.
+
+Acceptance criteria
+* Token storage and exposure reviewed, including what ends up in devtools and in logs.
+* Narrative, comment and evidence-filename text rendered without injection.
+* No client-side role trust anywhere. A hidden nav item and a disabled button are conveniences;
+  the 403 and the 409 are the rules.
+* Findings raised as tickets rather than fixed silently, and the sign-off recorded.
+
+Depends on CAP-13, CAP-16.","Demo Data, Hardening and Release","","Tony To","High","5","Sprint 5","2026-10-04","security","","owner-tony"
+"Story","CAP-25 · Contract drift guard in CI","docs/openapi.yaml and web/src/api/schema.ts drift silently. That is exactly the failure mode
+docs/Frontend-and-Backend.md warns about, and right now nothing catches it.
+
+Acceptance criteria
+* A CI job regenerates the types from the contract and fails if the committed file differs.
+* The existing route-versus-contract comparison runs in the same job.
+* Documented in docs/Frontend-and-Backend.md so the next person knows why the job exists.
+
+Depends on CAP-2.","Demo Data, Hardening and Release","","Andrew Johansson","Medium","5","Sprint 5","2026-10-04","contract","ci","owner-andrew"
+"Story","CAP-26 · Deploy a demo instance","Something to point the client at that is not somebody's laptop.
+
+Acceptance criteria
+* The built frontend and the API served over TLS from the VPS.
+* The three seeded tokens work against it.
+* MYSQL_ATTR_SSL_CA and the mandatory-TLS connection hold in the deployed environment. The
+  database refuses unencrypted connections and the failure looks like a wrong password, so
+  test this rather than assuming it.
+* A documented rollback.
+* Nothing secret in the repository, and nothing secret in the deploy config either.
+
+Depends on CAP-21.","Demo Data, Hardening and Release","","Tony To","High","8","Sprint 5","2026-10-04","release","","owner-tony"
+"Story","CAP-27 · Refresh the ERD and the state tables","docs/erd.png is three schema changes behind. ADRs #33, #34 and #35 are not on it, including
+ak_fw_assignments narrowing from (gig_id, framework_id) to (gig_id). It is the diagram the
+client and the marker both look at first.
+
+Acceptance criteria
+* Regenerated ERD, with the legend still listing the constraints crow's foot notation cannot
+  show, including that a score's level must belong to the entry's competency, which the
+  service layer enforces because the database cannot.
+* README ""Where this is up to"" table and the docs/Stack-and-Build-Scope.md checkboxes updated
+  to what is actually true, including the [~] items this plan closes.
+
+No dependencies.","Demo Data, Hardening and Release","","Jesse Darkovski","Low","3","Sprint 5","2026-10-04","docs","","owner-jesse"
+"Story","CAP-28 · Bug bash and triage","Acceptance criteria
+* A fixed two-hour session with all five people driving the product as all three roles against
+  seeded data. Scheduled, not ""when we get a chance"".
+* Everything found is logged with reproduction steps.
+* Triaged into fix-now, fix-if-time, and known-and-accepted.
+* The known-and-accepted list is written down. An accepted defect nobody recorded is just a
+  defect.
+
+Depends on CAP-26.","Demo Data, Hardening and Release","","Patrick Anley","High","5","Sprint 5","2026-10-08","testing","","owner-patrick"
+"Story","CAP-29 · Fresh-clone verification on macOS, Windows and Linux","Definition of done item 1. Worth its own ticket because run.ps1 has never actually been
+executed anywhere, and the Windows path is therefore unproven rather than working.
+
+Acceptance criteria
+* Clone, run scripts/setup.sh (and setup.ps1 on Windows), then ./run dev, on all three
+  platforms, performed by someone who did not write the script.
+* ./run check passes on each.
+* Whatever breaks is fixed inside this ticket rather than documented as a workaround.
+
+Depends on CAP-27.","Demo Data, Hardening and Release","","Jesse Darkovski","High","5","Sprint 5","2026-10-08","release","testing","owner-jesse"
+"Story","CAP-30 · Release and handover pack","The last ticket on the board. Intellectual property in the delivered solution is assigned to
+Alumable, so handover is a real deliverable and not a formality.
+
+Acceptance criteria
+* dev merged to main and tagged.
+* A runbook: how to start it, where the database lives, how to reseed, how to issue a token.
+* Credentials transferred out of band. Never into the repository, and not into a chat log that
+  outlives the project either.
+* The client demo path written down as a script someone who has never seen the product could
+  follow.
+
+Depends on CAP-28, CAP-29.","Demo Data, Hardening and Release","","Andrew Johansson","Highest","5","Sprint 5","2026-10-11","release","","owner-andrew"
