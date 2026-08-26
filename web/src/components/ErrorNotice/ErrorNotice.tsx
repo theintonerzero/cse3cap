@@ -34,6 +34,24 @@ function copy_for(error: ApiError): Copy {
     };
   }
 
+  // Retryability comes from TRANSPORT, never from the contract's code. A 4xx
+  // is a considered answer -- NOT_DRAFT, ROLE_FORBIDDEN and friends will say
+  // the same thing again on retry -- so only "never arrived" (handled above)
+  // or "the server broke" (5xx) are worth a "Try again" button. Do not
+  // re-derive this per case below; that is exactly the bug this replaced.
+  const can_retry = error.status >= 500;
+
+  if (error.code === null) {
+    // Not the error envelope at all: a proxy page, an empty 500, a body that
+    // is not JSON. client.ts's message for this names the request URL, which
+    // is not something to show a student, so fixed copy replaces it here.
+    return {
+      title: 'Something went wrong',
+      message: 'The server sent a response we could not read. Please try again shortly.',
+      can_retry,
+    };
+  }
+
   switch (error.code) {
     case 'UNAUTHENTICATED':
       return {
@@ -45,19 +63,19 @@ function copy_for(error: ApiError): Copy {
       return {
         title: 'You do not have access to this',
         message: error.message,
-        can_retry: false,
+        can_retry,
       };
     case 'NOT_FOUND':
       return {
         title: 'Not found',
         message: error.message,
-        can_retry: false,
+        can_retry,
       };
     default:
       return {
         title: 'Something went wrong',
         message: error.message,
-        can_retry: true,
+        can_retry,
       };
   }
 }

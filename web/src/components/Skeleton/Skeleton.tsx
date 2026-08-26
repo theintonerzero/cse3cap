@@ -21,7 +21,8 @@ export type SkeletonVariant = 'text' | 'block' | 'circle';
 export interface SkeletonProps {
   variant?: SkeletonVariant;
   /** Number of bars, for `text` only. The last is drawn short, the way a
-   *  real paragraph ends. */
+   *  real paragraph ends. Clamped to at least 1, so 0 or a negative value
+   *  cannot lie about how many bars appear. */
   lines?: number;
   /**
    * A CSS length: a percentage, `ch`, `em`, `rem`, or a `var(--space-*)`.
@@ -46,17 +47,25 @@ export function Skeleton({ variant = 'text', lines = 1, width, height }: Skeleto
   if (width) style.width = width;
   if (height) style.height = height;
 
-  if (variant === 'text' && lines > 1) {
+  const line_count = Math.max(1, lines);
+
+  if (variant === 'text' && line_count > 1) {
     return (
-      <div className={styles.lines} aria-hidden="true">
-        {Array.from({ length: lines }, (_, index) => (
+      <span className={styles.lines} aria-hidden="true">
+        {Array.from({ length: line_count }, (_, index) => (
           <span
             key={index}
             className={`${styles.skeleton} ${styles.text}`}
-            style={{ ...style, width: index === lines - 1 ? '60%' : style.width }}
+            // The short last line is a DEFAULT for the ragged end of a real
+            // paragraph, not an override: a caller-supplied width wins on
+            // every line, including the last.
+            style={{
+              ...style,
+              width: width ?? (index === line_count - 1 ? '60%' : undefined),
+            }}
           />
         ))}
-      </div>
+      </span>
     );
   }
 
@@ -70,8 +79,12 @@ export function Skeleton({ variant = 'text', lines = 1, width, height }: Skeleto
 }
 
 export function SkeletonGroup({ children, label = 'Loading' }: SkeletonGroupProps) {
+  // No aria-busy: it tells assistive tech to withhold the region's content
+  // until busy flips back to false, and this group never flips it -- it
+  // unmounts when loading finishes. Left on, it can suppress the very
+  // "Loading" announcement role="status" exists to make.
   return (
-    <div role="status" aria-busy="true">
+    <div role="status">
       <span className={styles.sr_only}>{label}</span>
       {children}
     </div>

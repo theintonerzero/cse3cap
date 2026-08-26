@@ -11,6 +11,10 @@
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
+  /* full_width={false} must mean the same thing in every container: without
+     this, a stretch flex/grid parent still stretches the button even though
+     .full_width never applied. */
+  width: fit-content;
 }
 
 /* Full width is the default in the source design, not an opt-in. */
