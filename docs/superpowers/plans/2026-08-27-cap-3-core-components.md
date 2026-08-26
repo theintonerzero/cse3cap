@@ -214,8 +214,21 @@ createRoot(root).render(
 }
 
 /* A column for components that are full width by default, so they do not
-   fight the flex row. */
+   fight the flex row. Children keep their own width, so a Button opting out
+   of full width is visibly narrower. */
 .column {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-16);
+  max-width: 24rem;
+  width: 100%;
+}
+
+/* Like .column, but children stretch to fill it. Skeletons and notices have
+   no intrinsic width -- they are placeholders -- so in a flex-start column
+   they would collapse to nothing. */
+.stack {
   display: flex;
   flex-direction: column;
   gap: var(--space-16);
@@ -1126,7 +1139,7 @@ Extend the import to include `Skeleton` and `SkeletonGroup`. The last block show
 
 ```tsx
       <Section title="Skeleton">
-        <div className={styles.column}>
+        <div className={styles.stack}>
           <Skeleton />
           <Skeleton variant="text" lines={3} />
           <Skeleton variant="block" />
@@ -1323,7 +1336,7 @@ The constructor is `(status, code, message, details?)`:
 
 ```tsx
       <Section title="ErrorNotice">
-        <div className={styles.column}>
+        <div className={styles.stack}>
           <ErrorNotice
             error={new ApiError(0, null, 'The request never reached the API.')}
             on_retry={() => undefined}
