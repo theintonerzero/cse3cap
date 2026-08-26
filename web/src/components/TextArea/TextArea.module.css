@@ -1,0 +1,47 @@
+/*
+ * Token names verified against the merged CAP-1 tokens.css.
+ *
+ * .textarea's 1px border is a literal, not a token: tokens.css has no
+ * border-width scale. scripts/check-tokens.sh will flag it; that's a
+ * known, accepted gap, not an oversight.
+ */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.textarea {
+  min-height: 6em;
+  padding: var(--space-16);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  resize: vertical;
+}
+
+.textarea:disabled {
+  opacity: 0.6;
+}
+
+.status {
+  min-height: 1em;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.saved {
+  color: var(--color-success);
+}
+
+.failed {
+  color: var(--color-danger);
+}

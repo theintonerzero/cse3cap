@@ -1,0 +1,31 @@
+/* No overlay/shadow token exists in tokens.css (checked against the CAP-1
+   merge). The backdrop is derived from --color-text instead of a new
+   token so it stays theme-aware without reopening CAP-1's file. */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, var(--color-text) 50%, transparent);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.sheet {
+  width: 100%;
+  /* TODO(CAP-1): no spacing token maps to a layout max-width; check with
+     Amenah whether tokens.css adds one, rather than hardcoding a magic
+     pixel value here. */
+  max-width: 30rem;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: var(--space-24);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.title {
+  margin: 0 0 var(--space-16);
+  font-size: var(--font-size-lg);
+}
