@@ -30,4 +30,22 @@ class GigPolicy
             ? Response::allow()
             : Response::denyAsNotFound();
     }
+
+    /**
+     * Which rubric this gig is scored against. Supervisor or employer,
+     * same as the matrix row -- a student or an assessor can see the gig
+     * but has no business changing what it is scored against.
+     */
+    public function assignFramework(User $user, Gig $gig): Response
+    {
+        $role = $this->roles->for($user, $gig);
+
+        if ($role === null) {
+            return Response::denyAsNotFound();
+        }
+
+        return in_array($role, ['supervisor', 'employer'], true)
+            ? Response::allow()
+            : Response::deny('Only a supervisor or employer can assign this gig\'s framework.');
+    }
 }

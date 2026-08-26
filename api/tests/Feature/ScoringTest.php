@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Competency;
 use App\Models\Gig;
+use App\Models\GigParticipant;
 use App\Models\Reflection;
 use App\Models\ReflectionEntry;
 use App\Models\User;
@@ -220,6 +221,28 @@ class ScoringTest extends TestCase
             ->assertStatus(201);
 
         $this->assertSame(2, $entry->scores()->where('scorer_role', '!=', 'self')->count());
+    }
+
+    /**
+     * The matrix gives this row to a supervisor or an employer, and the
+     * seed carries no employer at all, so this is the only place that
+     * role is exercised against this endpoint.
+     */
+    public function test_an_employer_can_also_counter_score(): void
+    {
+        $entry = $this->entries()->first();
+
+        $employer = User::create(['display_name' => 'An Employer']);
+        GigParticipant::create([
+            'gig_id' => $this->reflection->gig_id,
+            'user_id' => $employer->id,
+            'role' => 'employer',
+        ]);
+
+        Sanctum::actingAs($employer);
+        $this->postJson("/api/v1/entries/{$entry->id}/scores", [
+            'level_id' => $this->levelOf($entry, 3), 'comment' => 'Agreed.',
+        ])->assertStatus(201);
     }
 
     public function test_a_student_cannot_counter_score_even_their_own(): void

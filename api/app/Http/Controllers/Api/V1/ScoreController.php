@@ -11,7 +11,6 @@ use App\Services\RoleResolver;
 use App\Services\Scoring;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Gate;
-use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class ScoreController extends Controller
 {
@@ -51,20 +50,12 @@ class ScoreController extends Controller
     public function store(StoreScoreRequest $request, ReflectionEntry $entry): JsonResponse
     {
         $reflection = $entry->reflection;
-        $gig = $reflection->gig;
 
-        // The reflection has to be visible before anything else is
-        // considered, and invisible means 404 rather than 403.
-        $role = $gig === null ? null : $this->roles->for($request->user(), $gig);
+        Gate::authorize('counterScore', $reflection);
 
-        if ($role === null) {
-            throw new NotFoundHttpException;
-        }
-
-        // A student on the gig can see the reflection but has no business
-        // scoring it, including their own.
-        abort_if(! in_array($role, ['assessor', 'supervisor', 'employer'], true), 403);
-
+        // The policy has already decided this is allowed; this just reads
+        // back which of the allowed roles it was, for the score row.
+        $role = $this->roles->for($request->user(), $reflection->gig);
         $level = Level::findOrFail($request->validated('level_id'));
 
         [$score, $completed] = $this->scoring->counterScore(
