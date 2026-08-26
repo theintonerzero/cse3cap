@@ -8,7 +8,7 @@
  */
 import { useState, type ReactNode } from 'react';
 
-import { Badge, Card } from '../components/index.ts';
+import { Badge, Card, Chip } from '../components/index.ts';
 import { getStoredTheme, setTheme, type Theme } from '../theme.ts';
 import styles from './Gallery.module.css';
 
@@ -29,6 +29,7 @@ export function Section({ title, children }: { title: string; children: ReactNod
 
 export default function Gallery() {
   const [theme, set_theme_state] = useState<Theme>(initial_theme);
+  const [scope, set_scope] = useState('all');
 
   function toggle_theme() {
     const next: Theme = theme === 'dark' ? 'light' : 'dark';
@@ -62,6 +63,18 @@ export default function Gallery() {
         <Card accent="pink">Pink</Card>
         <Card accent="lavender">Lavender</Card>
         <Card accent="evidence">Evidence</Card>
+      </Section>
+      <Section title="Chip">
+        <Chip selected={scope === 'all'} on_click={() => set_scope('all')}>
+          All gigs
+        </Chip>
+        <Chip selected={scope === 'latrobe'} on_click={() => set_scope('latrobe')}>
+          La Trobe
+        </Chip>
+        <Chip selected={scope === 'audit'} on_click={() => set_scope('audit')}>
+          Data migration audit
+        </Chip>
+        <Chip disabled>Sprint 3 (disabled)</Chip>
       </Section>
     </main>
   );
