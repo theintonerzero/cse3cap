@@ -962,7 +962,7 @@ AA as literally exported and were darkened to pass.
   corrected values in place. No task after this one depends on the
   literal values, only the names, so this is a same-shape edit.
 
-- [ ] **Step 1: Raise the contrast finding**
+- [x] **Step 1: Raise the contrast finding**
 
 Before touching any code: seven of the ten sampled text-on-background
 pairs failed WCAG AA as exported (`--color-text-muted`, `--color-danger`,
@@ -975,7 +975,7 @@ this plan should quietly absorb. Flag it to whoever owns the Figma
 file/brand so the fix either gets adopted upstream or
 deliberately overridden with a reason on record.
 
-- [ ] **Step 2: Get the type scale and interaction-state colours from Figma**
+- [x] **Step 2: Get the type scale and interaction-state colours from Figma**
 
 Open the file and use Inspect (select a layer, read the right-hand panel)
 rather than the prototype view, which doesn't expose values. Record:
@@ -989,7 +989,7 @@ rather than the prototype view, which doesn't expose values. Record:
   source confirming a measured value is strictly better evidence than one
   independently-measured screenshot.
 
-- [ ] **Step 3: Update `web/src/tokens.css`**
+- [x] **Step 3: Update `web/src/tokens.css`**
 
 Replace only what Step 2 found real numbers for — most likely just the
 `--font-size-*` block and, if the file has one, `--color-primary-hover`.
@@ -999,7 +999,7 @@ swap, not a rename, so nothing that already references
 "ESTIMATED" flags to say what was confirmed and what (if anything) is
 still open.
 
-- [ ] **Step 4: Rerun both checks**
+- [x] **Step 4: Rerun both checks**
 
 Run: `scripts/check-tokens.sh && node scripts/check-contrast.mjs`
 Expected: both pass. If the contrast check fails on a value Step 3
@@ -1007,12 +1007,25 @@ introduced, that is a real finding to raise with whoever owns the Figma
 file — not something to route around by lowering the threshold in
 `scripts/check-contrast.mjs`.
 
-- [ ] **Step 5: Rerun the full check suite**
+- [x] **Step 5: Rerun the full check suite** (partial -- see note below)
 
 Run: `./run check` (or `./run.ps1 check` on Windows)
 Expected: `All checks passed.`
 
-- [ ] **Step 6: Commit**
+Note: `./run check` doesn't complete end-to-end on this machine -- a
+pre-existing, unrelated environment gap (no `python3` on this Windows
+box, plus Python's `subprocess` resolving a bare `bash` to the Windows
+WSL launcher stub in `System32` instead of Git Bash, regardless of
+`PATH` order) stops it at the Guards step, before it ever reaches the
+frontend section. It affects the already-merged `guard-*.test.py`
+scripts too, not just this branch. Verified everything CAP-1 actually
+touches directly instead: `scripts/check-tokens.sh`,
+`node scripts/check-contrast.mjs`, `npm run lint` and `npm run build`
+all pass clean. `npx prettier --check .` fails, but on a separate,
+repo-wide CRLF/`core.autocrlf` mismatch present on `dev` itself, not on
+anything this branch changed.
+
+- [x] **Step 6: Commit**
 
 ```bash
 git add web/src/tokens.css
