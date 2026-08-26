@@ -794,7 +794,7 @@ MSG
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  /* 44px tap floor, as on Chip. */
+  /* 2.75rem = 44 device pixels, the same tap floor as Chip. */
   min-height: 2.75rem;
   padding: var(--space-12) var(--space-20);
   border: none;
@@ -1011,7 +1011,7 @@ No contrast rows: nothing here carries text.
 }
 
 /* Visually hidden, not display:none -- a screen reader still announces it.
-   Written in rem because check-tokens.sh rejects the conventional 1px. */
+   Written in rem because check-tokens.sh rejects the conventional pixel value. */
 .sr_only {
   position: absolute;
   width: 0.0625rem;
@@ -1057,8 +1057,8 @@ export interface SkeletonProps {
    * A CSS length: a percentage, `ch`, `em`, `rem`, or a `var(--space-*)`.
    *
    * NEVER `px`. scripts/check-tokens.sh fails the build on any pixel value
-   * outside tokens.css, and it reads .tsx as well as .css, so `width="200px"`
-   * here breaks CI rather than merely breaking the convention.
+   * outside tokens.css, and it reads .tsx as well as .css, so a pixel width
+   * passed here breaks CI rather than merely breaking the convention.
    */
   width?: string;
   /** As `width`. Defaults come from the variant, so most callers pass none. */
