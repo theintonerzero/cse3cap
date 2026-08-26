@@ -88,7 +88,7 @@ export default function Gallery() {
         </div>
       </Section>
       <Section title="Skeleton">
-        <div className={styles.column}>
+        <div className={styles.stack}>
           <Skeleton />
           <Skeleton variant="text" lines={3} />
           <Skeleton variant="block" />

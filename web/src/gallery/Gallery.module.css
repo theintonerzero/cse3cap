@@ -70,3 +70,14 @@
   max-width: 24rem;
   width: 100%;
 }
+
+/* Like .column, but children stretch to fill it. Skeletons and notices have
+   no intrinsic width -- they are placeholders -- so in a flex-start column
+   they would collapse to nothing. */
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  max-width: 24rem;
+  width: 100%;
+}
