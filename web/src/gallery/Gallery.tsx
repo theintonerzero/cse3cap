@@ -8,7 +8,7 @@
  */
 import { useState, type ReactNode } from 'react';
 
-import { Badge, Card, Chip } from '../components/index.ts';
+import { Badge, Button, Card, Chip } from '../components/index.ts';
 import { getStoredTheme, setTheme, type Theme } from '../theme.ts';
 import styles from './Gallery.module.css';
 
@@ -75,6 +75,17 @@ export default function Gallery() {
           Data migration audit
         </Chip>
         <Chip disabled>Sprint 3 (disabled)</Chip>
+      </Section>
+      <Section title="Button">
+        <div className={styles.column}>
+          <Button>Submit reflection</Button>
+          <Button variant="secondary">Back</Button>
+          <Button disabled>Submitting…</Button>
+          <Button variant="secondary" disabled>
+            Back (disabled)
+          </Button>
+          <Button full_width={false}>Inline width</Button>
+        </div>
       </Section>
     </main>
   );

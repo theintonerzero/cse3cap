@@ -45,6 +45,7 @@ const PAIRS = [
   ['--color-success', '--color-bg', 'normal'],
   ['--color-success', '--color-surface', 'normal'],
   ['--color-primary', '--color-bg', 'large'],
+  ['--color-text-inverse', '--color-primary-hover', 'normal'],
 ];
 
 const THRESHOLD = { normal: 4.5, large: 3.0 };
