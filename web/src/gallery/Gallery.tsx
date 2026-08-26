@@ -8,7 +8,7 @@
  */
 import { useState, type ReactNode } from 'react';
 
-import { Badge, Button, Card, Chip } from '../components/index.ts';
+import { Badge, Button, Card, Chip, Skeleton, SkeletonGroup } from '../components/index.ts';
 import { getStoredTheme, setTheme, type Theme } from '../theme.ts';
 import styles from './Gallery.module.css';
 
@@ -85,6 +85,21 @@ export default function Gallery() {
             Back (disabled)
           </Button>
           <Button full_width={false}>Inline width</Button>
+        </div>
+      </Section>
+      <Section title="Skeleton">
+        <div className={styles.column}>
+          <Skeleton />
+          <Skeleton variant="text" lines={3} />
+          <Skeleton variant="block" />
+          <Skeleton variant="circle" />
+          <Skeleton variant="text" width="40%" />
+          <SkeletonGroup label="Loading your diary">
+            <Card>
+              <Skeleton variant="text" width="60%" />
+              <Skeleton variant="text" lines={2} />
+            </Card>
+          </SkeletonGroup>
         </div>
       </Section>
     </main>

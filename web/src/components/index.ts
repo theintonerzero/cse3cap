@@ -6,3 +6,9 @@ export { Chip } from './Chip/Chip.tsx';
 export type { ChipProps } from './Chip/Chip.tsx';
 export { Button } from './Button/Button.tsx';
 export type { ButtonProps, ButtonVariant } from './Button/Button.tsx';
+export { Skeleton, SkeletonGroup } from './Skeleton/Skeleton.tsx';
+export type {
+  SkeletonProps,
+  SkeletonGroupProps,
+  SkeletonVariant,
+} from './Skeleton/Skeleton.tsx';
