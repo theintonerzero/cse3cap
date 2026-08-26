@@ -127,6 +127,36 @@ The bearer token lives in the module. The app shell's token context will call
 and the client picks it up. That file is gitignored, which is the only reason a token may
 go in it.
 
+## The components
+
+`src/components/<Name>/<Name>.tsx` beside a colocated `<Name>.module.css`,
+re-exported from `src/components/index.ts`. Import from the barrel:
+
+```ts
+import {
+  Badge,
+  Button,
+  Card,
+  Chip,
+  ErrorNotice,
+  Skeleton,
+  SkeletonGroup,
+} from './components/index.ts';
+```
+
+**See them all at once.** `npm run dev`, then
+[localhost:5173/gallery.html](http://localhost:5173/gallery.html): every
+component in every state, with a theme toggle. It is a second Vite entry
+point rather than a route, because there is no router until CAP-5. Add a
+section to `src/gallery/Gallery.tsx` whenever you add a component.
+
+Two rules that are not obvious:
+
+- **Props are snake_case**, like everything else that crosses the seam.
+- **Never a `px` value, in CSS or in a `.tsx`.** `scripts/check-tokens.sh`
+  reads both. Use `rem`, `em`, `%` or a token. This catches
+  `<Skeleton width="200px" />` as well as a stylesheet.
+
 ## Conventions that are not negotiable
 
 - **snake_case** in types and props, matching the API and the database. There is no mapping
