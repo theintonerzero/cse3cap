@@ -190,6 +190,7 @@ case "${1:-help}" in
             need_web_deps
             in_dir web npm run lint
             in_dir web npx prettier --check .
+            step scripts/check-tokens.sh
             in_dir web npm run build
         fi
         printf '\n%sAll checks passed.%s\n' "$GREEN" "$RESET"

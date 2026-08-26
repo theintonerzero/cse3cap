@@ -166,6 +166,10 @@ jobs:
         working-directory: web
         run: npx prettier --check .
 
+      - name: Check design-token discipline
+        if: steps.web.outputs.exists == 'true'
+        run: bash scripts/check-tokens.sh
+
       - name: Build
         if: steps.web.outputs.exists == 'true'
         working-directory: web

@@ -150,6 +150,7 @@ switch ($Command) {
             Need-WebDeps
             Step 'web' 'npm' @('run', 'lint')
             Step 'web' 'npx' @('prettier', '--check', '.')
+            Step $null 'bash' @('scripts/check-tokens.sh')
             Step 'web' 'npm' @('run', 'build')
         }
         Write-Host ''
