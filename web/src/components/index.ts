@@ -12,3 +12,5 @@ export type {
   SkeletonGroupProps,
   SkeletonVariant,
 } from './Skeleton/Skeleton.tsx';
+export { ErrorNotice } from './ErrorNotice/ErrorNotice.tsx';
+export type { ErrorNoticeProps } from './ErrorNotice/ErrorNotice.tsx';

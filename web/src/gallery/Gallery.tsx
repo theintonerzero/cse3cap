@@ -8,7 +8,16 @@
  */
 import { useState, type ReactNode } from 'react';
 
-import { Badge, Button, Card, Chip, Skeleton, SkeletonGroup } from '../components/index.ts';
+import { ApiError } from '../api/client.ts';
+import {
+  Badge,
+  Button,
+  Card,
+  Chip,
+  ErrorNotice,
+  Skeleton,
+  SkeletonGroup,
+} from '../components/index.ts';
 import { getStoredTheme, setTheme, type Theme } from '../theme.ts';
 import styles from './Gallery.module.css';
 
@@ -100,6 +109,35 @@ export default function Gallery() {
               <Skeleton variant="text" lines={2} />
             </Card>
           </SkeletonGroup>
+        </div>
+      </Section>
+      <Section title="ErrorNotice">
+        <div className={styles.stack}>
+          <ErrorNotice
+            error={new ApiError(0, null, 'The request never reached the API.')}
+            on_retry={() => undefined}
+          />
+          <ErrorNotice
+            error={new ApiError(401, 'UNAUTHENTICATED', 'Bearer token missing or invalid.')}
+            on_retry={() => undefined}
+          />
+          <ErrorNotice
+            error={
+              new ApiError(403, 'ROLE_FORBIDDEN', 'You are not an assessor on this gig.')
+            }
+          />
+          <ErrorNotice
+            error={new ApiError(404, 'NOT_FOUND', 'That reflection does not exist.')}
+          />
+          <ErrorNotice
+            error={
+              new ApiError(409, 'NOT_DRAFT', 'This reflection has already been submitted.')
+            }
+            on_retry={() => undefined}
+          />
+          <ErrorNotice
+            error={new ApiError(500, null, 'The API answered outside the error envelope.')}
+          />
         </div>
       </Section>
     </main>
