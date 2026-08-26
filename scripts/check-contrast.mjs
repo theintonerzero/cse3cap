@@ -39,6 +39,7 @@ const PAIRS = [
   ['--color-text', '--color-surface-alt', 'normal'],
   ['--color-text', '--color-danger-bg', 'normal'],
   ['--color-text', '--color-success-bg', 'normal'],
+  ['--color-text', '--color-accent-evidence', 'normal'],
   ['--color-danger', '--color-bg', 'normal'],
   ['--color-danger', '--color-surface', 'normal'],
   ['--color-success', '--color-bg', 'normal'],

@@ -8,7 +8,7 @@
  */
 import { useState, type ReactNode } from 'react';
 
-import { Badge } from '../components/index.ts';
+import { Badge, Card } from '../components/index.ts';
 import { getStoredTheme, setTheme, type Theme } from '../theme.ts';
 import styles from './Gallery.module.css';
 
@@ -52,6 +52,16 @@ export default function Gallery() {
         <Badge status="draft" />
         <Badge status="submitted" />
         <Badge status="assessed" />
+      </Section>
+      <Section title="Card">
+        <Card>Plain surface</Card>
+        <Card accent="peach">Peach</Card>
+        <Card accent="mint">Mint</Card>
+        <Card accent="cream">Cream</Card>
+        <Card accent="coral">Coral</Card>
+        <Card accent="pink">Pink</Card>
+        <Card accent="lavender">Lavender</Card>
+        <Card accent="evidence">Evidence</Card>
       </Section>
     </main>
   );
