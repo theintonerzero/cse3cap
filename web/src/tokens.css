@@ -1,0 +1,192 @@
+/*
+ * Design tokens: colour, spacing, radius, type scale.
+ *
+ * Every colour, space, radius and font value used anywhere in web/src/
+ * lives here as a CSS custom property. No component defines a raw hex
+ * colour or a magic pixel value; scripts/check-tokens.sh fails the build
+ * if one shows up outside this file.
+ *
+ * SOURCED FROM FIGMA, not invented (ADR #28). Colours were extracted by
+ * reading raw pixel data out of the team's exported Figma screens; page
+ * margin, card-to-card gap (20px) and large-card radius (~16px) were
+ * measured the same way. The type scale (family, size, weight, line
+ * height) was later read directly off individual text layers in Figma
+ * Design mode -- real values, not pixel-sampled, though this seat has no
+ * Dev Mode so it's the properties panel rather than the Inspect tab.
+ * Two exceptions remain genuinely unsourced rather than estimated:
+ * checked directly, neither a hover nor a focus state variant exists
+ * anywhere in the file. --color-primary-hover is therefore a generated
+ * value (documented below, not a guess); --color-focus-ring is a
+ * deliberate team decision to reuse --color-primary rather than invent a
+ * second colour. Neither has a Figma dark frame to source from at all --
+ * the dark block is derived from the measured light values (HSL
+ * lightness inversion) and independently re-verified against WCAG AA,
+ * not sampled.
+ *
+ * Text-role colours are NOT always the literal sampled value: seven of the
+ * ten text-on-background pairs failed WCAG AA as sampled --
+ * --color-text-muted, --color-danger and --color-success used as text,
+ * plus white button text on the sampled --color-primary itself, all
+ * measured below the 4.5:1 a normal-size pair needs (as low as 2.60:1).
+ * Each was darkened by the minimum amount needed to clear AA against the
+ * *harder* of the two backgrounds it appears on (#f6f7f9, not the easier
+ * pure-white surface -- an earlier pass here optimised against the wrong
+ * one and still fell short by a hair), same hue, same family. This is a
+ * real gap in the source design, not a rounding choice, and is worth
+ * raising with whoever owns the Figma file. The exact sampled value is
+ * still what's used for anything that isn't text (chip backgrounds,
+ * icons) -- --color-primary is the one exception, darkened everywhere
+ * because it doubles as a button fill that always carries white text.
+ *
+ * Light is the default, defined on the bare :root. Dark is defined
+ * twice: once under a prefers-color-scheme media query, guarded with
+ * :not([data-theme="light"]) so an explicit light choice always wins
+ * over the system default, and once under [data-theme="dark"] so an
+ * explicit dark choice always wins regardless of the system.
+ */
+
+:root {
+  /* Colour -- sampled from Home Page, Reflection Diary hub, Score
+     Reflection and Your learning record (exported Figma screens) */
+  --color-bg: #f6f7f9;
+  --color-surface: #ffffff;
+  --color-surface-alt: #f1f1f1;
+  --color-border: #d9d9d9;
+  --color-text: #202020;
+  --color-text-muted: #717171; /* AA-adjusted from sampled #808080 (was 3.68:1 on bg) */
+  --color-text-inverse: #ffffff;
+  --color-primary: #8c63b5; /* AA-adjusted from sampled #9a76be -- white button text was 3.68:1 */
+  --color-primary-hover: #734a9b; /* generated: no hover variant in the Figma file (confirmed
+    directly in Design mode). Same hue/saturation as --color-primary (270 deg, 35.7%),
+    lightness moved -10 points (54.9% -> 44.9%). Darker on hover in light mode, lighter in
+    dark mode below -- same direction the rest of this file already uses. */
+  --color-danger: #a5612d; /* AA-adjusted from sampled #c9793b (was 3.12:1 on bg) */
+  --color-danger-bg: #ffe5c4;
+  --color-success: #37803a; /* AA-adjusted from sampled #4baf4f (was 2.60:1 on bg) */
+  --color-success-bg: #e9f4ee;
+  --color-focus-ring: #8c63b5; /* confirmed: no focus variant in the Figma file either. Reuses
+    --color-primary by deliberate team decision (2026-08-26), not a default fallback. */
+
+  /* Dashboard card accents -- decorative backgrounds, sampled as-is.
+     Heading text (--color-text) sits directly on these at 13:1+, so no
+     AA adjustment applies to the accents themselves. */
+  --color-accent-peach: #ffe8d6;
+  --color-accent-mint: #e9f4ee;
+  --color-accent-cream: #fbefd5;
+  --color-accent-coral: #ffe0db;
+  --color-accent-pink: #ffe0fb;
+  --color-accent-lavender: #efebfa;
+  --color-accent-evidence: #e9f3fd;
+
+  /* Spacing, 4px grid. --space-20 is measured, not interpolated: it is
+     both the page's horizontal margin and the gap between dashboard
+     cards, confirmed at four separate card boundaries on the Home
+     screen (19-20px each, matching the AA-quality anti-aliasing slack of
+     a 20px design value). */
+  --space-4: 4px;
+  --space-8: 8px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-20: 20px;
+  --space-24: 24px;
+  --space-32: 32px;
+  --space-48: 48px;
+  --space-64: 64px;
+
+  /* Radius. --radius-lg measured off two dashboard cards' corners
+     (~13px raw edge-detection, consistent between both). --radius-sm and
+     --radius-md are visual-proportion estimates, not measured the same
+     way -- flagged for a Figma Inspect check like the type scale. */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-full: 9999px;
+
+  /* Type scale -- measured directly off text layers in Figma Design mode
+     (family/size/weight from the properties panel; no Dev Mode on this
+     seat, so no auto-generated CSS to cross-check against). Family is
+     'Inter', added as the preferred stack entry with the previous system
+     fallbacks kept behind it -- the webfont itself isn't loaded anywhere
+     yet, so today this still renders in the fallback until that's a
+     deliberate follow-up (self-host vs Google Fonts is a decision, not
+     a default). --font-size-base and --font-size-sm measured identical
+     at 14px on the two layers checked ("1. Contribution" and "Alumly Pty
+     Limited") -- kept as two tokens since they're different semantic
+     roles, but flagging that the scale doesn't actually distinguish them
+     at these two points. Line height measured 100% (unitless 1) on every
+     text layer checked, heading and body alike, so all three tiers below
+     carry that same real value rather than three invented ones. */
+  --font-family-base: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-size-xs: 11px;
+  --font-size-sm: 14px;
+  --font-size-base: 14px;
+  --font-size-lg: 16px;
+  --font-size-xl: 20px;
+  --font-size-2xl: 32px;
+  --font-weight-regular: 400;
+  --font-weight-medium: 600;
+  --font-weight-bold: 700;
+  --line-height-tight: 1;
+  --line-height-normal: 1;
+  --line-height-relaxed: 1;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    /* Derived from the sampled (pre-AA-fix) light hues by HSL lightness
+       inversion, then independently re-verified against WCAG AA -- see
+       Task 1 Step 2. Verified standalone, not chained off the light
+       block's own AA-adjusted values, which is why e.g. --color-primary
+       here isn't a simple lighten of the light block's #8c63b5. No
+       Figma dark frame exists to sample instead. */
+    --color-bg: #12151c;
+    --color-surface: #242424;
+    --color-surface-alt: #303030;
+    --color-border: #3d3d3d;
+    --color-text: #f0f0f0;
+    --color-text-muted: #a8a8a8;
+    --color-text-inverse: #1f1f1f;
+    --color-primary: #bea6d5;
+    --color-primary-hover: #d7c9e5; /* generated: same hue/saturation as dark --color-primary
+      (270 deg, 35.8%), lightness +10 points (74.3% -> 84.3%) -- lighter on hover here, the
+      inverse of the light-mode direction above */
+    --color-danger: #dba57b;
+    --color-danger-bg: #663900;
+    --color-success: #74c377;
+    --color-success-bg: #1b3628;
+    --color-focus-ring: #bea6d5;
+    --color-accent-peach: #662d00;
+    --color-accent-mint: #224431;
+    --color-accent-cream: #5d4309;
+    --color-accent-coral: #660e00;
+    --color-accent-pink: #660059;
+    --color-accent-lavender: #251452;
+    --color-accent-evidence: #08335e;
+  }
+}
+
+:root[data-theme='dark'] {
+  --color-bg: #12151c;
+  --color-surface: #242424;
+  --color-surface-alt: #303030;
+  --color-border: #3d3d3d;
+  --color-text: #f0f0f0;
+  --color-text-muted: #a8a8a8;
+  --color-text-inverse: #1f1f1f;
+  --color-primary: #bea6d5;
+  --color-primary-hover: #d7c9e5; /* generated: same hue/saturation as dark --color-primary
+    (270 deg, 35.8%), lightness +10 points (74.3% -> 84.3%) -- lighter on hover here, the
+    inverse of the light-mode direction above */
+  --color-danger: #dba57b;
+  --color-danger-bg: #663900;
+  --color-success: #74c377;
+  --color-success-bg: #1b3628;
+  --color-focus-ring: #bea6d5;
+  --color-accent-peach: #662d00;
+  --color-accent-mint: #224431;
+  --color-accent-cream: #5d4309;
+  --color-accent-coral: #660e00;
+  --color-accent-pink: #660059;
+  --color-accent-lavender: #251452;
+  --color-accent-evidence: #08335e;
+}
