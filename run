@@ -191,6 +191,7 @@ case "${1:-help}" in
             in_dir web npm run lint
             in_dir web npx prettier --check .
             step scripts/check-tokens.sh
+            step node scripts/check-contrast.mjs
             in_dir web npm run build
         fi
         printf '\n%sAll checks passed.%s\n' "$GREEN" "$RESET"

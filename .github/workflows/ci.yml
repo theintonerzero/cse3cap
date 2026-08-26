@@ -170,6 +170,10 @@ jobs:
         if: steps.web.outputs.exists == 'true'
         run: bash scripts/check-tokens.sh
 
+      - name: Check WCAG AA contrast
+        if: steps.web.outputs.exists == 'true'
+        run: node scripts/check-contrast.mjs
+
       - name: Build
         if: steps.web.outputs.exists == 'true'
         working-directory: web

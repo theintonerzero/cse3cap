@@ -151,6 +151,7 @@ switch ($Command) {
             Step 'web' 'npm' @('run', 'lint')
             Step 'web' 'npx' @('prettier', '--check', '.')
             Step $null 'bash' @('scripts/check-tokens.sh')
+            Step $null 'node' @('scripts/check-contrast.mjs')
             Step 'web' 'npm' @('run', 'build')
         }
         Write-Host ''
