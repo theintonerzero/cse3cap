@@ -1,0 +1,107 @@
+/*
+ * Token names verified against the real tokens.css (CAP-1, merged).
+ * No border-width token exists yet (CAP-4's --border-width-sm hasn't
+ * merged to dev), so borders here use the browser default width rather
+ * than a literal pixel value.
+ */
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-16);
+  padding: var(--space-16);
+  border: solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.rowSkeleton {
+  height: var(--space-48);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-alt);
+}
+
+.rowMain {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.studentName {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.rowMeta {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.progress {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.scoreLink {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-32) var(--space-16);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-alt);
+  text-align: center;
+}
+
+.emptyTitle {
+  margin: 0;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.emptyBody {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.error {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-16);
+  border-radius: var(--radius-md);
+  background: var(--color-danger-bg);
+}
+
+.errorTitle {
+  margin: 0;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-danger);
+}
+
+.errorBody {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
