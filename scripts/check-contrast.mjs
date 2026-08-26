@@ -35,6 +35,10 @@ const PAIRS = [
   ['--color-text-muted', '--color-bg', 'normal'],
   ['--color-text-muted', '--color-surface', 'normal'],
   ['--color-text-inverse', '--color-primary', 'normal'],
+  // CAP-3 Badge: every status is a tinted fill with a --color-text label.
+  ['--color-text', '--color-surface-alt', 'normal'],
+  ['--color-text', '--color-danger-bg', 'normal'],
+  ['--color-text', '--color-success-bg', 'normal'],
   ['--color-danger', '--color-bg', 'normal'],
   ['--color-danger', '--color-surface', 'normal'],
   ['--color-success', '--color-bg', 'normal'],

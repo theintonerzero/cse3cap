@@ -8,6 +8,7 @@
  */
 import { useState, type ReactNode } from 'react';
 
+import { Badge } from '../components/index.ts';
 import { getStoredTheme, setTheme, type Theme } from '../theme.ts';
 import styles from './Gallery.module.css';
 
@@ -47,6 +48,11 @@ export default function Gallery() {
           {theme === 'dark' ? 'Switch to light' : 'Switch to dark'}
         </button>
       </header>
+      <Section title="Badge">
+        <Badge status="draft" />
+        <Badge status="submitted" />
+        <Badge status="assessed" />
+      </Section>
     </main>
   );
 }
