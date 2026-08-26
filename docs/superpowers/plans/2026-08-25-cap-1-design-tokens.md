@@ -115,7 +115,7 @@ written spec file for this ticket.
   `--font-weight-regular/medium/bold`,
   `--line-height-tight/normal/relaxed`.
 
-- [ ] **Step 1: Write `web/src/tokens.css`**
+- [x] **Step 1: Write `web/src/tokens.css`**
 
 ```css
 /*
@@ -286,7 +286,7 @@ written spec file for this ticket.
 }
 ```
 
-- [ ] **Step 2: Verify the palette against WCAG AA before committing it**
+- [x] **Step 2: Verify the palette against WCAG AA before committing it**
 
 Run this against both the light and dark sets above (this is exactly what
 `scripts/check-contrast.mjs` in Task 4 automates permanently — this step
@@ -311,7 +311,7 @@ chat history — but reproducing it here is what makes this step
 independently verifiable by anyone reading the plan rather than only by
 trusting the prose above it.)
 
-- [ ] **Step 3: Rewrite `web/src/index.css` to use the tokens**
+- [x] **Step 3: Rewrite `web/src/index.css` to use the tokens**
 
 ```css
 @import './tokens.css';
@@ -329,12 +329,12 @@ body {
 }
 ```
 
-- [ ] **Step 4: Verify it builds**
+- [x] **Step 4: Verify it builds**
 
 Run: `cd web && npm run build`
 Expected: builds clean, no TypeScript or Vite errors.
 
-- [ ] **Step 5: Verify visually**
+- [x] **Step 5: Verify visually**
 
 Run: `cd web && npm run dev`, open `http://localhost:5173`.
 Expected: page background and text use the sampled palette. Toggle the OS
@@ -343,7 +343,7 @@ prefers-color-scheme") and confirm the page follows it — this is the
 media-query block from Step 1 working before Task 2 adds an explicit
 override.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add web/src/tokens.css web/src/index.css
@@ -368,7 +368,7 @@ git commit -m "feat(web): design tokens for colour, spacing, radius and type sca
   `initTheme(): void` — all from `web/src/theme.ts`, used by `App.tsx` now
   and by the real app shell later.
 
-- [ ] **Step 1: Write `web/src/theme.ts`**
+- [x] **Step 1: Write `web/src/theme.ts`**
 
 ```ts
 /**
@@ -425,7 +425,7 @@ export function initTheme(): void {
 }
 ```
 
-- [ ] **Step 2: Call `initTheme()` before render in `web/src/main.tsx`**
+- [x] **Step 2: Call `initTheme()` before render in `web/src/main.tsx`**
 
 ```tsx
 import { StrictMode } from 'react';
@@ -450,7 +450,7 @@ createRoot(root).render(
 );
 ```
 
-- [ ] **Step 3: Add a temporary toggle to `web/src/App.tsx`**
+- [x] **Step 3: Add a temporary toggle to `web/src/App.tsx`**
 
 ```tsx
 /**
@@ -497,12 +497,12 @@ export default function App() {
 }
 ```
 
-- [ ] **Step 4: Verify it builds**
+- [x] **Step 4: Verify it builds**
 
 Run: `cd web && npm run build`
 Expected: builds clean.
 
-- [ ] **Step 5: Verify the toggle manually**
+- [x] **Step 5: Verify the toggle manually**
 
 Run: `cd web && npm run dev`, open `http://localhost:5173`.
 Expected: clicking the button flips the page between the light and dark
@@ -510,7 +510,7 @@ draft palettes regardless of OS setting. Reload the page — the theme you
 left it on is still applied (localStorage under
 `reflection-diary-theme`, visible in DevTools' Application tab).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add web/src/theme.ts web/src/main.tsx web/src/App.tsx
@@ -537,7 +537,7 @@ git commit -m "feat(web): theme persistence and a temporary toggle (CAP-1)"
   prints each offending file/line on failure. `source-dir` defaults to
   `web/src` and exists so the test can point it at a fixture.
 
-- [ ] **Step 1: Write `scripts/check-tokens.sh`**
+- [x] **Step 1: Write `scripts/check-tokens.sh`**
 
 ```bash
 #!/usr/bin/env bash
@@ -596,11 +596,11 @@ fi
 echo "No raw hex or magic pixel values outside tokens.css."
 ```
 
-- [ ] **Step 2: Make it executable**
+- [x] **Step 2: Make it executable**
 
 Run: `chmod +x scripts/check-tokens.sh`
 
-- [ ] **Step 3: Write `scripts/check-tokens.test.py`**
+- [x] **Step 3: Write `scripts/check-tokens.test.py`**
 
 ```python
 #!/usr/bin/env python3
@@ -665,19 +665,19 @@ if __name__ == "__main__":
     main()
 ```
 
-- [ ] **Step 4: Run the test**
+- [x] **Step 4: Run the test**
 
 Run: `python3 scripts/check-tokens.test.py`
 Expected: `4 cases passed.`
 
-- [ ] **Step 5: Run it against the real tree**
+- [x] **Step 5: Run it against the real tree**
 
 Run: `scripts/check-tokens.sh`
 Expected: `No raw hex or magic pixel values outside tokens.css.` (Task 1 and
 Task 2's files pass, since every value in them is either inside
 `tokens.css` or a `var(--name)` reference.)
 
-- [ ] **Step 6: Wire it into `run`'s `check` case**
+- [x] **Step 6: Wire it into `run`'s `check` case**
 
 Modify `run`, inside the `check)` case's `if [ -f web/package.json ]; then`
 block — after the prettier check, before the build:
@@ -693,7 +693,7 @@ block — after the prettier check, before the build:
         fi
 ```
 
-- [ ] **Step 7: Wire it into `run.ps1`'s `check` block**
+- [x] **Step 7: Wire it into `run.ps1`'s `check` block**
 
 Modify `run.ps1`, the same location:
 
@@ -715,7 +715,7 @@ plain foreground call is safe. Flagging this as an assumption: if the
 team wants every Windows path free of a bash dependency, this step needs a
 `.ps1` port instead.
 
-- [ ] **Step 8: Wire it into the CI frontend job**
+- [x] **Step 8: Wire it into the CI frontend job**
 
 Modify `.github/workflows/ci.yml`, in the `frontend` job, after "Check
 formatting" and before "Build":
@@ -726,7 +726,7 @@ formatting" and before "Build":
         run: bash scripts/check-tokens.sh
 ```
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add scripts/check-tokens.sh scripts/check-tokens.test.py run run.ps1 .github/workflows/ci.yml
@@ -748,7 +748,7 @@ git commit -m "chore(web): guard against raw hex and magic pixel values (CAP-1)"
 - Produces: `scripts/check-contrast.mjs` — exit 0 and a per-pair report on
   success; exit 1 and the same report with failures marked on failure.
 
-- [ ] **Step 1: Write `scripts/check-contrast.mjs`**
+- [x] **Step 1: Write `scripts/check-contrast.mjs`**
 
 ```js
 #!/usr/bin/env node
@@ -889,7 +889,7 @@ function main() {
 main();
 ```
 
-- [ ] **Step 2: Run it against the draft palette**
+- [x] **Step 2: Run it against the draft palette**
 
 Run: `node scripts/check-contrast.mjs`
 Expected: either `Every pair meets WCAG AA in both themes.` (exit 0), or a
@@ -899,7 +899,7 @@ from Task 1 and rerun until it passes — this loop is exactly what the
 script is for, and it is fine for the draft palette to need a few
 iterations here.
 
-- [ ] **Step 3: Wire it into `run`'s `check` case**
+- [x] **Step 3: Wire it into `run`'s `check` case**
 
 Modify `run`, immediately after the `check-tokens.sh` line from Task 3:
 
@@ -908,7 +908,7 @@ Modify `run`, immediately after the `check-tokens.sh` line from Task 3:
             step node scripts/check-contrast.mjs
 ```
 
-- [ ] **Step 4: Wire it into `run.ps1`'s `check` block**
+- [x] **Step 4: Wire it into `run.ps1`'s `check` block**
 
 Modify `run.ps1`, immediately after the `check-tokens.sh` line from Task 3:
 
@@ -917,7 +917,7 @@ Modify `run.ps1`, immediately after the `check-tokens.sh` line from Task 3:
             Step $null 'node' @('scripts/check-contrast.mjs')
 ```
 
-- [ ] **Step 5: Wire it into the CI frontend job**
+- [x] **Step 5: Wire it into the CI frontend job**
 
 Modify `.github/workflows/ci.yml`, immediately after the
 "Check design-token discipline" step from Task 3:
@@ -928,7 +928,7 @@ Modify `.github/workflows/ci.yml`, immediately after the
         run: node scripts/check-contrast.mjs
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add scripts/check-contrast.mjs run run.ps1 .github/workflows/ci.yml
