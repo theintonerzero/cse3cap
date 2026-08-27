@@ -3,8 +3,9 @@
 The React frontend. **No screen is built yet.** `src/App.tsx` still renders the word
 `test`, and that is the entire user interface.
 
-What does exist is the typed API client in `src/api/`, which everything else is built on.
-The rest of the foundation, `tokens.css` and the core components, comes next.
+What does exist is `tokens.css` and the typed API client in `src/api/`, which everything
+else is built on, plus six of the ten core components. The rest of the foundation, the
+remaining core components, comes next.
 
 The point of the scaffold existing before any of it was that the toolchain, the CI job and
 the dev server are proven to work before anybody writes a screen, so the first real PR is
@@ -62,12 +63,12 @@ push. All four pass today; keep them passing.
 Specified in [`docs/Stack-and-Build-Scope.md`](../docs/Stack-and-Build-Scope.md) 4.3. The
 foundation comes before any screen:
 
-1. `src/tokens.css`: colour, spacing and radius as CSS variables, light and dark via
-   `data-theme`. **No raw hex anywhere else in the codebase, ever.** `src/index.css` is
-   nearly empty on purpose so this rule is not broken on day one.
+1. ~~`src/tokens.css`: colour, spacing and radius as CSS variables, light and dark via
+   `data-theme`.~~ Done. **No raw hex anywhere else in the codebase, ever.**
+   `src/index.css` is nearly empty on purpose so this rule is not broken on day one.
 2. ~~The typed API client in `src/api/`.~~ Done. See below.
-3. Core components: Card, Button, Chip, Badge, TextArea, ProgressBar, BottomSheet,
-   RadarPanel, Skeleton, ErrorNotice.
+3. Core components: Card, Button, Chip, Badge, Skeleton and ErrorNotice exist. TextArea,
+   ProgressBar, BottomSheet (CAP-4) and RadarPanel (CAP-6) do not yet.
 4. App shell: router, token context, role-aware nav from `GET /auth/me`.
 
 Then the twelve screens. **Each ships four states: loaded, loading, empty, error.** Not
@@ -126,6 +127,36 @@ The bearer token lives in the module. The app shell's token context will call
 `setAuthToken` once. Until it exists, put a seeded token in `web/.env` as `VITE_API_TOKEN`
 and the client picks it up. That file is gitignored, which is the only reason a token may
 go in it.
+
+## The components
+
+`src/components/<Name>/<Name>.tsx` beside a colocated `<Name>.module.css`,
+re-exported from `src/components/index.ts`. Import from the barrel:
+
+```ts
+import {
+  Badge,
+  Button,
+  Card,
+  Chip,
+  ErrorNotice,
+  Skeleton,
+  SkeletonGroup,
+} from './components/index.ts';
+```
+
+**See them all at once.** `npm run dev`, then
+[localhost:5173/gallery.html](http://localhost:5173/gallery.html): every
+component in every state, with a theme toggle. It is a second Vite entry
+point rather than a route, because there is no router until CAP-5. Add a
+section to `src/gallery/Gallery.tsx` whenever you add a component.
+
+Two rules that are not obvious:
+
+- **Props are snake_case**, like everything else that crosses the seam.
+- **Never a `px` value, in CSS or in a `.tsx`.** `scripts/check-tokens.sh`
+  reads both. Use `rem`, `em`, `%` or a token. This catches
+  `<Skeleton width="200px" />` as well as a stylesheet.
 
 ## Conventions that are not negotiable
 
