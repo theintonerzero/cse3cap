@@ -102,6 +102,11 @@
   --radius-lg: 16px;
   --radius-full: 9999px;
 
+  /* Border width. Added for CAP-4: TextArea needs a hairline field
+     border and no such scale existed yet. Not sourced from Figma like
+     the rest of this file -- a single common value, not a measurement. */
+  --border-width-sm: 1px;
+
   /* Type scale -- measured directly off text layers in Figma Design mode
      (family/size/weight from the properties panel; no Dev Mode on this
      seat, so no auto-generated CSS to cross-check against). Family is
