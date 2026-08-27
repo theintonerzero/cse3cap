@@ -1,0 +1,50 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* 2.75rem = 44 device pixels, the same tap floor as Chip. */
+  min-height: 2.75rem;
+  padding: var(--space-12) var(--space-20);
+  border: none;
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  /* full_width={false} must mean the same thing in every container: without
+     this, a stretch flex/grid parent still stretches the button even though
+     .full_width never applied. */
+  width: fit-content;
+}
+
+/* Full width is the default in the source design, not an opt-in. */
+.full_width {
+  width: 100%;
+}
+
+.primary {
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+}
+
+.primary:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+/* A surface-alt fill with a --color-text label, not a primary-coloured
+   outline: --color-primary as normal-size text on --color-bg measures
+   4.29:1 in light mode, under AA. */
+.secondary {
+  background: var(--color-surface-alt);
+  color: var(--color-text);
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.button:focus-visible {
+  outline: 0.125rem solid var(--color-focus-ring);
+  outline-offset: 0.0625rem;
+}

@@ -35,11 +35,17 @@ const PAIRS = [
   ['--color-text-muted', '--color-bg', 'normal'],
   ['--color-text-muted', '--color-surface', 'normal'],
   ['--color-text-inverse', '--color-primary', 'normal'],
+  // CAP-3 Badge: every status is a tinted fill with a --color-text label.
+  ['--color-text', '--color-surface-alt', 'normal'],
+  ['--color-text', '--color-danger-bg', 'normal'],
+  ['--color-text', '--color-success-bg', 'normal'],
+  ['--color-text', '--color-accent-evidence', 'normal'],
   ['--color-danger', '--color-bg', 'normal'],
   ['--color-danger', '--color-surface', 'normal'],
   ['--color-success', '--color-bg', 'normal'],
   ['--color-success', '--color-surface', 'normal'],
   ['--color-primary', '--color-bg', 'large'],
+  ['--color-text-inverse', '--color-primary-hover', 'normal'],
 ];
 
 const THRESHOLD = { normal: 4.5, large: 3.0 };

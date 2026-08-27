@@ -1,0 +1,29 @@
+.badge {
+  display: inline-block;
+  padding: var(--space-4) var(--space-12);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  /* Every status is a tinted fill with a --color-text label. The obvious
+     alternative -- --color-success on --color-success-bg -- measures 4.32:1
+     in light mode, under the 4.5:1 AA needs. CAP-1 has no darker "ink"
+     variant to reach for, so the label stays neutral and the fill carries
+     the meaning. */
+  color: var(--color-text);
+}
+
+.draft {
+  background: var(--color-surface-alt);
+}
+
+/* Amber, not red. CAP-1 named this pair --color-danger*; the design it was
+   sampled from calls the same colour "needs attention", which is what a
+   reflection waiting on an assessor is. Not a mistake. */
+.submitted {
+  background: var(--color-danger-bg);
+}
+
+.assessed {
+  background: var(--color-success-bg);
+}
