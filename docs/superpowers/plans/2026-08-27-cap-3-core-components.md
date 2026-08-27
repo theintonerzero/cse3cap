@@ -99,7 +99,7 @@ Nothing else in this plan can be looked at until this exists, so it comes first.
 - Consumes: `getStoredTheme`, `setTheme`, `Theme` from `web/src/theme.ts` (already merged in CAP-1)
 - Produces: `Section({ title, children })`, imported by every later task to add its own block
 
-- [ ] **Step 1: Create `web/gallery.html`**
+- [x] **Step 1: Create `web/gallery.html`**
 
 ```html
 <!doctype html>
@@ -117,7 +117,7 @@ Nothing else in this plan can be looked at until this exists, so it comes first.
 </html>
 ```
 
-- [ ] **Step 2: Create `web/src/gallery.tsx`**
+- [x] **Step 2: Create `web/src/gallery.tsx`**
 
 ```tsx
 /**
@@ -148,7 +148,7 @@ createRoot(root).render(
 );
 ```
 
-- [ ] **Step 3: Create `web/src/gallery/Gallery.module.css`**
+- [x] **Step 3: Create `web/src/gallery/Gallery.module.css`**
 
 ```css
 /*
@@ -237,7 +237,7 @@ createRoot(root).render(
 }
 ```
 
-- [ ] **Step 4: Create `web/src/gallery/Gallery.tsx`**
+- [x] **Step 4: Create `web/src/gallery/Gallery.tsx`**
 
 ```tsx
 /**
@@ -294,7 +294,7 @@ export default function Gallery() {
 }
 ```
 
-- [ ] **Step 5: Modify `web/vite.config.ts` for two entry points**
+- [x] **Step 5: Modify `web/vite.config.ts` for two entry points**
 
 Replace the whole file. `import.meta.url` rather than `__dirname`, which does not exist in an ES module.
 
@@ -323,7 +323,7 @@ export default defineConfig({
 });
 ```
 
-- [ ] **Step 6: Verify it builds and renders**
+- [x] **Step 6: Verify it builds and renders**
 
 ```bash
 cd web && npm run build && npm run lint && npx prettier --check .
@@ -335,7 +335,7 @@ cd web && npm run dev
 ```
 Open `http://localhost:5173/gallery.html`. Expected: the heading "Core components" and a working theme toggle. Check both themes.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add web/gallery.html web/src/gallery.tsx web/src/gallery/ web/vite.config.ts
@@ -366,7 +366,7 @@ First component, so it sets the file pattern, creates the barrel, and adds the f
 - Consumes: `components['schemas']['ReflectionStatus']` from `../../api/schema.ts`. `Section` is defined in `Gallery.tsx` itself — no import to add.
 - Produces: `Badge({ status })`, `BadgeProps`, `BadgeStatus`
 
-- [ ] **Step 1: Create `web/src/components/Badge/Badge.module.css`**
+- [x] **Step 1: Create `web/src/components/Badge/Badge.module.css`**
 
 Note the comment on `.submitted`. It stops the next reader thinking it is a bug.
 
@@ -402,7 +402,7 @@ Note the comment on `.submitted`. It stops the next reader thinking it is a bug.
 }
 ```
 
-- [ ] **Step 2: Create `web/src/components/Badge/Badge.tsx`**
+- [x] **Step 2: Create `web/src/components/Badge/Badge.tsx`**
 
 The status type is imported from the generated schema, never re-declared. If the contract's enum changes, this stops compiling — which is the point.
 
@@ -428,7 +428,7 @@ export function Badge({ status }: BadgeProps) {
 }
 ```
 
-- [ ] **Step 3: Create `web/src/components/index.ts`**
+- [x] **Step 3: Create `web/src/components/index.ts`**
 
 One pair per component. PR #16 creates this same file with its own three pairs; whoever merges second concatenates the two blocks.
 
@@ -437,7 +437,7 @@ export { Badge } from './Badge/Badge.tsx';
 export type { BadgeProps, BadgeStatus } from './Badge/Badge.tsx';
 ```
 
-- [ ] **Step 4: Add the three contrast rows to `scripts/check-contrast.mjs`**
+- [x] **Step 4: Add the three contrast rows to `scripts/check-contrast.mjs`**
 
 Insert into the `PAIRS` array, after the `--color-text-inverse` row:
 
@@ -448,7 +448,7 @@ Insert into the `PAIRS` array, after the `--color-text-inverse` row:
   ['--color-text', '--color-success-bg', 'normal'],
 ```
 
-- [ ] **Step 5: Add the Badge section to `web/src/gallery/Gallery.tsx`**
+- [x] **Step 5: Add the Badge section to `web/src/gallery/Gallery.tsx`**
 
 Add the import beneath the existing ones:
 
@@ -466,7 +466,7 @@ And the section inside `<main>`, after `</header>`:
       </Section>
 ```
 
-- [ ] **Step 6: Verify**
+- [x] **Step 6: Verify**
 
 ```bash
 cd web && npm run build && npm run lint && npx prettier --check .
@@ -476,7 +476,7 @@ Expected: `No raw hex or magic pixel values outside tokens.css.` and every contr
 
 Then load `http://localhost:5173/gallery.html` and confirm three pills, in both themes, at 390 and 1280 wide.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add web/src/components/ web/src/gallery/Gallery.tsx scripts/check-contrast.mjs
@@ -508,7 +508,7 @@ MSG
 - Consumes: nothing from earlier tasks. `Section` is defined in `Gallery.tsx` itself — no import to add.
 - Produces: `Card({ children, accent })`, `CardProps`, `CardAccent`
 
-- [ ] **Step 1: Create `web/src/components/Card/Card.module.css`**
+- [x] **Step 1: Create `web/src/components/Card/Card.module.css`**
 
 No `box-shadow`: the design it came from has one, CAP-1 has no shadow token, and CAP-1 is not being reopened. White on `--color-bg` still reads as a raised surface.
 
@@ -551,7 +551,7 @@ No `box-shadow`: the design it came from has one, CAP-1 has no shadow token, and
 }
 ```
 
-- [ ] **Step 2: Create `web/src/components/Card/Card.tsx`**
+- [x] **Step 2: Create `web/src/components/Card/Card.tsx`**
 
 ```tsx
 import type { ReactNode } from 'react';
@@ -583,14 +583,14 @@ export function Card({ children, accent }: CardProps) {
 }
 ```
 
-- [ ] **Step 3: Add to `web/src/components/index.ts`**
+- [x] **Step 3: Add to `web/src/components/index.ts`**
 
 ```ts
 export { Card } from './Card/Card.tsx';
 export type { CardProps, CardAccent } from './Card/Card.tsx';
 ```
 
-- [ ] **Step 4: Add the missing accent row to `scripts/check-contrast.mjs`**
+- [x] **Step 4: Add the missing accent row to `scripts/check-contrast.mjs`**
 
 Six of the seven accents are already covered. `--color-accent-evidence` is not:
 
@@ -598,7 +598,7 @@ Six of the seven accents are already covered. `--color-accent-evidence` is not:
   ['--color-text', '--color-accent-evidence', 'normal'],
 ```
 
-- [ ] **Step 5: Add the Card section to `web/src/gallery/Gallery.tsx`**
+- [x] **Step 5: Add the Card section to `web/src/gallery/Gallery.tsx`**
 
 Extend the existing components import to `import { Badge, Card } from '../components/index.ts';`, then add after the Badge section:
 
@@ -615,7 +615,7 @@ Extend the existing components import to `import { Badge, Card } from '../compon
       </Section>
 ```
 
-- [ ] **Step 6: Verify**
+- [x] **Step 6: Verify**
 
 ```bash
 cd web && npm run build && npm run lint && npx prettier --check .
@@ -625,7 +625,7 @@ Expected: clean, and the new evidence row passing (14.51 light, 11.20 dark).
 
 Load the gallery: eight cards, readable text on every tint, in both themes.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add web/src/components/ web/src/gallery/Gallery.tsx scripts/check-contrast.mjs
@@ -656,7 +656,7 @@ MSG
 
 No new contrast rows: selected reuses `--color-text-inverse` on `--color-primary` (already checked), unselected reuses `--color-text` on `--color-surface-alt` (added in Task 2).
 
-- [ ] **Step 1: Create `web/src/components/Chip/Chip.module.css`**
+- [x] **Step 1: Create `web/src/components/Chip/Chip.module.css`**
 
 ```css
 .chip {
@@ -695,7 +695,7 @@ No new contrast rows: selected reuses `--color-text-inverse` on `--color-primary
 }
 ```
 
-- [ ] **Step 2: Create `web/src/components/Chip/Chip.tsx`**
+- [x] **Step 2: Create `web/src/components/Chip/Chip.tsx`**
 
 `aria-pressed` rather than `role="tab"`: the diary home's scope and sprint chips are filters, not a tablist.
 
@@ -727,14 +727,14 @@ export function Chip({ children, selected = false, disabled = false, on_click }:
 }
 ```
 
-- [ ] **Step 3: Add to `web/src/components/index.ts`**
+- [x] **Step 3: Add to `web/src/components/index.ts`**
 
 ```ts
 export { Chip } from './Chip/Chip.tsx';
 export type { ChipProps } from './Chip/Chip.tsx';
 ```
 
-- [ ] **Step 4: Add the Chip section to `web/src/gallery/Gallery.tsx`**
+- [x] **Step 4: Add the Chip section to `web/src/gallery/Gallery.tsx`**
 
 Extend the import to include `Chip`. Add after the Card section — the selected chip is stateful so a reviewer can click it:
 
@@ -759,7 +759,7 @@ And the state, beside the existing `theme` state in `Gallery()`:
   const [scope, set_scope] = useState('all');
 ```
 
-- [ ] **Step 5: Verify**
+- [x] **Step 5: Verify**
 
 ```bash
 cd web && npm run build && npm run lint && npx prettier --check .
@@ -768,7 +768,7 @@ cd /home/paddy/cse3cap && scripts/check-tokens.sh && node scripts/check-contrast
 
 In the gallery: clicking a chip moves the selection; tabbing to one shows the focus ring; the disabled one does not respond. Both themes, both widths.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add web/src/components/ web/src/gallery/Gallery.tsx
@@ -800,7 +800,7 @@ MSG
 - Consumes: nothing from earlier tasks. `Section` is defined in `Gallery.tsx` itself — no import to add.
 - Produces: `Button({ children, variant, type, disabled, full_width, on_click })`, `ButtonProps`, `ButtonVariant`. Task 7 (ErrorNotice) renders `<Button variant="secondary" full_width={false}>`.
 
-- [ ] **Step 1: Create `web/src/components/Button/Button.module.css`**
+- [x] **Step 1: Create `web/src/components/Button/Button.module.css`**
 
 ```css
 .button {
@@ -851,7 +851,7 @@ MSG
 }
 ```
 
-- [ ] **Step 2: Create `web/src/components/Button/Button.tsx`**
+- [x] **Step 2: Create `web/src/components/Button/Button.tsx`**
 
 No loading variant. CAP-3 forbids spinners; a caller waiting on a request swaps the label and sets `disabled`.
 
@@ -892,20 +892,20 @@ export function Button({
 }
 ```
 
-- [ ] **Step 3: Add to `web/src/components/index.ts`**
+- [x] **Step 3: Add to `web/src/components/index.ts`**
 
 ```ts
 export { Button } from './Button/Button.tsx';
 export type { ButtonProps, ButtonVariant } from './Button/Button.tsx';
 ```
 
-- [ ] **Step 4: Add the hover contrast row to `scripts/check-contrast.mjs`**
+- [x] **Step 4: Add the hover contrast row to `scripts/check-contrast.mjs`**
 
 ```js
   ['--color-text-inverse', '--color-primary-hover', 'normal'],
 ```
 
-- [ ] **Step 5: Add the Button section to `web/src/gallery/Gallery.tsx`**
+- [x] **Step 5: Add the Button section to `web/src/gallery/Gallery.tsx`**
 
 Extend the import to include `Button`. Uses `styles.column`, since these are full width by default:
 
@@ -923,7 +923,7 @@ Extend the import to include `Button`. Uses `styles.column`, since these are ful
       </Section>
 ```
 
-- [ ] **Step 6: Verify**
+- [x] **Step 6: Verify**
 
 ```bash
 cd web && npm run build && npm run lint && npx prettier --check .
@@ -933,7 +933,7 @@ Expected: the hover row passes (6.60 light, 10.50 dark).
 
 In the gallery: hovering the primary button darkens it in light mode and lightens it in dark; both disabled buttons ignore hover and clicks; tabbing shows the ring.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add web/src/components/ web/src/gallery/Gallery.tsx scripts/check-contrast.mjs
@@ -969,7 +969,7 @@ The API that outlives the ticket — every screen's loading state hangs off it, 
 
 No contrast rows: nothing here carries text.
 
-- [ ] **Step 1: Create `web/src/components/Skeleton/Skeleton.module.css`**
+- [x] **Step 1: Create `web/src/components/Skeleton/Skeleton.module.css`**
 
 ```css
 .skeleton {
@@ -1038,7 +1038,7 @@ No contrast rows: nothing here carries text.
 }
 ```
 
-- [ ] **Step 2: Create `web/src/components/Skeleton/Skeleton.tsx`**
+- [x] **Step 2: Create `web/src/components/Skeleton/Skeleton.tsx`**
 
 ```tsx
 /**
@@ -1122,7 +1122,7 @@ export function SkeletonGroup({ children, label = 'Loading' }: SkeletonGroupProp
 }
 ```
 
-- [ ] **Step 3: Add to `web/src/components/index.ts`**
+- [x] **Step 3: Add to `web/src/components/index.ts`**
 
 ```ts
 export { Skeleton, SkeletonGroup } from './Skeleton/Skeleton.tsx';
@@ -1133,7 +1133,7 @@ export type {
 } from './Skeleton/Skeleton.tsx';
 ```
 
-- [ ] **Step 4: Add the Skeleton section to `web/src/gallery/Gallery.tsx`**
+- [x] **Step 4: Add the Skeleton section to `web/src/gallery/Gallery.tsx`**
 
 Extend the import to include `Skeleton` and `SkeletonGroup`. The last block shows the shape a real diary row loads into, which is the thing worth reviewing:
 
@@ -1155,7 +1155,7 @@ Extend the import to include `Skeleton` and `SkeletonGroup`. The last block show
       </Section>
 ```
 
-- [ ] **Step 5: Verify**
+- [x] **Step 5: Verify**
 
 ```bash
 cd web && npm run build && npm run lint && npx prettier --check .
@@ -1168,7 +1168,7 @@ In the gallery: bars pulse; the three-line block ends short; the circle is round
 # Chrome DevTools: Rendering panel > Emulate CSS prefers-reduced-motion: reduce
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add web/src/components/ web/src/gallery/Gallery.tsx
@@ -1203,7 +1203,7 @@ MSG
 
 No contrast rows: `--color-text` on `--color-danger-bg` was added in Task 2.
 
-- [ ] **Step 1: Create `web/src/components/ErrorNotice/ErrorNotice.module.css`**
+- [x] **Step 1: Create `web/src/components/ErrorNotice/ErrorNotice.module.css`**
 
 ```css
 .notice {
@@ -1231,7 +1231,7 @@ No contrast rows: `--color-text` on `--color-danger-bg` was added in Task 2.
 }
 ```
 
-- [ ] **Step 2: Create `web/src/components/ErrorNotice/ErrorNotice.tsx`**
+- [x] **Step 2: Create `web/src/components/ErrorNotice/ErrorNotice.tsx`**
 
 Note what it deliberately does not handle. The submit gate's codes carry `details.entry_ids`, and `/add-screen` is explicit that the stepper highlights the offending competencies inline — a generic notice swallowing them would be the wrong shape.
 
@@ -1317,14 +1317,14 @@ export function ErrorNotice({ error, on_retry }: ErrorNoticeProps) {
 }
 ```
 
-- [ ] **Step 3: Add to `web/src/components/index.ts`**
+- [x] **Step 3: Add to `web/src/components/index.ts`**
 
 ```ts
 export { ErrorNotice } from './ErrorNotice/ErrorNotice.tsx';
 export type { ErrorNoticeProps } from './ErrorNotice/ErrorNotice.tsx';
 ```
 
-- [ ] **Step 4: Add the ErrorNotice section to `web/src/gallery/Gallery.tsx`**
+- [x] **Step 4: Add the ErrorNotice section to `web/src/gallery/Gallery.tsx`**
 
 Extend the components import to include `ErrorNotice`, and add the client import beneath it:
 
@@ -1364,7 +1364,7 @@ The constructor is `(status, code, message, details?)`:
       </Section>
 ```
 
-- [ ] **Step 5: Verify**
+- [x] **Step 5: Verify**
 
 ```bash
 cd web && npm run build && npm run lint && npx prettier --check .
@@ -1373,7 +1373,7 @@ cd /home/paddy/cse3cap && scripts/check-tokens.sh && node scripts/check-contrast
 
 In the gallery, confirm each notice reads correctly and that **Try again appears only on the first, second-to-last and none of the 401/403/404 cases** — the 401 passes `on_retry` but `can_retry` is false, which is the case worth checking by eye.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add web/src/components/ web/src/gallery/Gallery.tsx
@@ -1404,7 +1404,7 @@ MSG
 **Files:**
 - Modify: `web/README.md`
 
-- [ ] **Step 1: Add a Components section to `web/README.md`**
+- [x] **Step 1: Add a Components section to `web/README.md`**
 
 Insert after the "The API client" section:
 
@@ -1432,7 +1432,7 @@ Two rules that are not obvious:
   `<Skeleton width="200px" />` as well as a stylesheet.
 ````
 
-- [ ] **Step 2: Run every check, from a clean tree**
+- [x] **Step 2: Run every check, from a clean tree**
 
 ```bash
 cd /home/paddy/cse3cap
@@ -1442,7 +1442,7 @@ cd /home/paddy/cse3cap && scripts/check-tokens.sh && node scripts/check-contrast
 
 Read the output. Expected: a successful build, no lint or format complaints, `No raw hex or magic pixel values outside tokens.css.`, and every contrast row passing in both themes.
 
-- [ ] **Step 3: Look at the whole gallery, four ways**
+- [x] **Step 3: Look at the whole gallery, four ways**
 
 `npm run dev`, then `http://localhost:5173/gallery.html` in each combination:
 
@@ -1456,7 +1456,7 @@ What to actually check, rather than glance at:
 - Nothing overflows horizontally at 390.
 - Tab through the page: every Chip and Button takes a visible focus ring.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add web/README.md
@@ -1470,6 +1470,38 @@ MSG
 ```
 
 ---
+
+## Outcome
+
+All eight tasks implemented and committed, `0cb57a5..0a47b88`, fourteen commits.
+Nothing under `api/` or `db/` was touched; the only files outside `web/` are this
+plan and `scripts/check-contrast.mjs`, both as the constraints above allow.
+
+After Task 8 the branch went through a whole-branch review: sound, nothing
+Critical, four Important and two Minor. Six findings were applied as one fix wave
+in `0a47b88` -- ErrorNotice deriving retry from transport rather than from the
+error code, its off-contract branch no longer rendering a message that names the
+request URL, `aria-busy` dropped from SkeletonGroup, Skeleton's multi-line branch
+returning a `span` and no longer overriding a caller-supplied width, `lines`
+clamped to at least 1, `width: fit-content` making `full_width={false}`
+self-enforcing, and the stale build order in `web/README.md`. A scoped re-review
+verdicted all six ADDRESSED and found no new breakage.
+
+Final check run, from a clean tree:
+
+| Check | Result |
+| --- | --- |
+| `npm run build` | ✓ built in 146ms, both entry points |
+| `npm run lint` | oxlint, exit 0 |
+| `npx prettier --check .` | All matched files use Prettier code style! |
+| `bash scripts/check-tokens.sh` | No raw hex or magic pixel values outside tokens.css. |
+| `node scripts/check-contrast.mjs` | 42 rows ok, 0 failures, AA in both themes |
+
+Three observations were deliberately deferred rather than fixed here, because each
+sets a library-wide convention affecting the nine components still to come in
+CAP-4 and CAP-6: a `cx` class-joining helper, hoisting `.sr_only` out of
+Skeleton's module, and `className`/`aria` passthrough. They belong to a reviewed
+decision, not to a fix wave.
 
 ## Follow-ups, not in this plan
 
