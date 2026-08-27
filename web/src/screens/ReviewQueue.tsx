@@ -1,19 +1,19 @@
 /**
  * The assessor's worklist: submitted reflections still awaiting the
- * caller's own score. Scoping by gig and by role is entirely the
- * server's job (`GET /review-queue`, `ReviewQueueController::index`) —
- * this screen renders whatever comes back and does not re-derive it.
+ * caller's own score. Scoping by gig and by role is entirely the server's
+ * job (`GET /review-queue`, `ReviewQueueController::index`) — this screen
+ * renders whatever comes back and does not re-derive it.
  *
- * CAP-10. Skeleton only: CAP-3's reusable components (Skeleton,
- * ErrorNotice, Card, Button) and CAP-5's router/token context don't
- * exist yet, so several pieces below are marked with a TODO for the
- * ticket that will replace them. `web/src/screens/` is this file's own
- * invention — no screen-directory convention exists anywhere else in
- * the repo yet, and CAP-5 may pick a different one.
+ * CAP-10, built against CAP-3/CAP-4's real components. CAP-5's router and
+ * token context still don't exist, so the link into the assessor stepper
+ * stays a disabled placeholder and this screen has no mount point of its
+ * own in the product yet — see `web/review-queue.html` for the throwaway
+ * dev mount used to look at it before CAP-5 lands.
  */
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError } from '../api/client.ts';
 import type { paths } from '../api/schema.ts';
+import { ErrorNotice, ProgressBar, Skeleton, SkeletonGroup } from '../components/index.ts';
 import styles from './ReviewQueue.module.css';
 
 type ReviewQueueEntry =
@@ -26,6 +26,7 @@ type State =
 
 export function ReviewQueue() {
   const [state, setState] = useState<State>({ status: 'loading' });
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -46,39 +47,47 @@ export function ReviewQueue() {
       });
 
     return () => controller.abort();
+  }, [reloadKey]);
+
+  const retry = useCallback(() => {
+    setState({ status: 'loading' });
+    setReloadKey((key) => key + 1);
   }, []);
 
-  if (state.status === 'loading') {
-    return <LoadingState />;
-  }
-
-  if (state.status === 'error') {
-    return <ErrorState error={state.error} />;
-  }
-
-  if (state.entries.length === 0) {
-    return <EmptyState />;
-  }
-
   return (
-    <ul className={styles.list}>
-      {state.entries.map((entry) => (
-        <ReviewQueueRow key={entry.reflection_id} entry={entry} />
-      ))}
-    </ul>
+    <section>
+      <h1 className={styles.heading}>Review queue</h1>
+
+      {state.status === 'loading' && <LoadingState />}
+      {state.status === 'error' && <ErrorNotice error={state.error} on_retry={retry} />}
+      {state.status === 'loaded' && state.entries.length === 0 && <EmptyState />}
+      {state.status === 'loaded' && state.entries.length > 0 && (
+        <ul className={styles.list}>
+          {state.entries.map((entry) => (
+            <ReviewQueueRow key={entry.reflection_id} entry={entry} />
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 
-// TODO(CAP-3): replace with the real Skeleton component once it exists.
-// This renders the same number of placeholder rows a loaded list
-// typically has, so the layout doesn't jump when data arrives.
+/**
+ * Three rows, matching the shape a loaded list typically has, so the
+ * layout doesn't jump when data arrives.
+ */
 function LoadingState() {
   return (
-    <ul className={styles.list} aria-busy="true" aria-label="Loading the review queue">
-      {[0, 1, 2].map((i) => (
-        <li key={i} className={styles.rowSkeleton} />
-      ))}
-    </ul>
+    <SkeletonGroup label="Loading the review queue">
+      <ul className={styles.list}>
+        {[0, 1, 2].map((i) => (
+          <li key={i} className={styles.row}>
+            <Skeleton variant="text" lines={2} width="40%" />
+            <Skeleton variant="block" width="30%" height="var(--space-32)" />
+          </li>
+        ))}
+      </ul>
+    </SkeletonGroup>
   );
 }
 
@@ -97,18 +106,6 @@ function EmptyState() {
   );
 }
 
-// TODO(CAP-3): replace with the real ErrorNotice component once it
-// exists. `/review-queue` has no endpoint-specific error codes today,
-// so this always falls back to the envelope's message.
-function ErrorState({ error }: { error: ApiError }) {
-  return (
-    <div className={styles.error} role="alert">
-      <p className={styles.errorTitle}>Could not load the review queue.</p>
-      <p className={styles.errorBody}>{error.message}</p>
-    </div>
-  );
-}
-
 function ReviewQueueRow({ entry }: { entry: ReviewQueueEntry }) {
   const { student, gig_title, sprint_ordinal, progress } = entry;
 
@@ -122,17 +119,18 @@ function ReviewQueueRow({ entry }: { entry: ReviewQueueEntry }) {
         </span>
       </div>
 
-      {/* TODO(CAP-4): replace with <ProgressBar> once PR #16 merges. */}
-      <span className={styles.progress}>
-        {progress.scored_by_me} of {progress.entries} scored
-      </span>
+      <ProgressBar
+        current={progress.scored_by_me}
+        total={progress.entries}
+        label="Entries"
+      />
 
       {/*
-       * TODO(CAP-5): this becomes a real <Link> once the router exists.
-       * `/review-queue/:reflectionId` is not documented anywhere — it's
-       * this screen's own inference from the API's `reflection_id`
-       * field, and the actual path CAP-13's route ends up using may
-       * differ.
+       * Becomes a real <Link> once CAP-5's router exists and CAP-13 builds
+       * the assessor stepper it points to. `/review-queue/:reflectionId`
+       * is not documented anywhere — it's this screen's own inference
+       * from the API's `reflection_id` field, and CAP-13's actual route
+       * may differ.
        */}
       <span className={styles.scoreLink} aria-disabled="true">
         Score this →

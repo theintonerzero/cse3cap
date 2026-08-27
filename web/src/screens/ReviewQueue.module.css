@@ -1,9 +1,9 @@
-/*
- * Token names verified against the real tokens.css (CAP-1, merged).
- * No border-width token exists yet (CAP-4's --border-width-sm hasn't
- * merged to dev), so borders here use the browser default width rather
- * than a literal pixel value.
- */
+.heading {
+  margin: 0 0 var(--space-16);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+}
 
 .list {
   display: flex;
@@ -20,15 +20,9 @@
   justify-content: space-between;
   gap: var(--space-16);
   padding: var(--space-16);
-  border: solid var(--color-border);
+  border: var(--border-width-sm) solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
-}
-
-.rowSkeleton {
-  height: var(--space-48);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-alt);
 }
 
 .rowMain {
@@ -46,12 +40,6 @@
 .rowMeta {
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
-}
-
-.progress {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-  white-space: nowrap;
 }
 
 .scoreLink {
@@ -82,26 +70,4 @@
   margin: 0;
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
-}
-
-.error {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
-  padding: var(--space-16);
-  border-radius: var(--radius-md);
-  background: var(--color-danger-bg);
-}
-
-.errorTitle {
-  margin: 0;
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-danger);
-}
-
-.errorBody {
-  margin: 0;
-  font-size: var(--font-size-sm);
-  color: var(--color-text);
 }
