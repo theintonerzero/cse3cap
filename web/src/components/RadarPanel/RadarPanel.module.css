@@ -1,0 +1,30 @@
+/* Chrome only -- panel sizing and the placeholder text, nothing product-
+   specific. 20rem matches the chart's own fixed height (320, set on
+   ResponsiveContainer in RadarPanel.tsx) so loading/loaded/empty/
+   insufficient do not visibly jump size against each other. Not a
+   var(--space-*) value: the scale tops out at --space-64 (64px), and a
+   chart's pixel height is not really a spacing decision -- same
+   reasoning Skeleton.tsx already gives for its own width/height props. */
+
+.panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 20rem;
+  padding: var(--space-16);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  text-align: center;
+}
+
+.placeholder p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
