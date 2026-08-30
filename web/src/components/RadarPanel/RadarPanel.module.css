@@ -8,8 +8,26 @@
 
 .panel {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+}
+
+/* A pill, not muted caption text -- easy to miss otherwise, sitting above
+   a large chart. Peach-on-text is the same pairing the product's own
+   Figma screens use for "Awaiting assessor" -- already AA-verified in
+   tokens.css (heading text on any accent background clears 13:1+), not
+   a new colour decision. */
+.caption {
+  display: inline-block;
+  margin: 0 0 var(--space-8);
+  padding: var(--space-4) var(--space-12);
+  border-radius: var(--radius-full);
+  background: var(--color-accent-peach);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  text-align: center;
 }
 
 .placeholder {
