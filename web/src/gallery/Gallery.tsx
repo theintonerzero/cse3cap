@@ -11,6 +11,7 @@ import { useState, type ReactNode } from 'react';
 import { ApiError } from '../api/client.ts';
 import {
   Badge,
+  BottomSheet,
   Button,
   Card,
   Chip,
@@ -19,6 +20,8 @@ import {
   Skeleton,
   SkeletonGroup,
   type RadarAxis,
+  ProgressBar,
+  TextArea,
 } from '../components/index.ts';
 import { getStoredTheme, setTheme, type Theme } from '../theme.ts';
 import styles from './Gallery.module.css';
@@ -58,6 +61,17 @@ function initial_theme(): Theme {
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
+/* TextArea saves through a promise the caller supplies. There is no API
+   behind the gallery, so these are timers: long enough that "Saving…" is
+   actually readable before it resolves, rather than a flicker. */
+function save_succeeds(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 900));
+}
+
+function save_fails(): Promise<void> {
+  return new Promise((_resolve, reject) => setTimeout(reject, 900));
+}
+
 export function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className={styles.section}>
@@ -70,6 +84,9 @@ export function Section({ title, children }: { title: string; children: ReactNod
 export default function Gallery() {
   const [theme, set_theme_state] = useState<Theme>(initial_theme);
   const [scope, set_scope] = useState('all');
+  const [narrative, set_narrative] = useState('');
+  const [unsaved_narrative, set_unsaved_narrative] = useState('');
+  const [sheet_open, set_sheet_open] = useState(false);
 
   function toggle_theme() {
     const next: Theme = theme === 'dark' ? 'light' : 'dark';
@@ -126,6 +143,65 @@ export default function Gallery() {
           </Button>
           <Button full_width={false}>Inline width</Button>
         </div>
+      </Section>
+      <Section title="TextArea">
+        <div className={styles.stack}>
+          <TextArea
+            label="What did you do this sprint?"
+            placeholder="Describe the work, not the feelings about it."
+            value={narrative}
+            onChange={set_narrative}
+            onSave={save_succeeds}
+          />
+          <TextArea
+            label="A save that fails"
+            placeholder="Type here to watch the status go to 'Could not save'."
+            value={unsaved_narrative}
+            onChange={set_unsaved_narrative}
+            onSave={save_fails}
+          />
+          <TextArea
+            label="Disabled, as it is in assessor mode"
+            value="The student's narrative, read only to the assessor."
+            onChange={() => undefined}
+            onSave={save_succeeds}
+            disabled
+          />
+        </div>
+      </Section>
+      <Section title="ProgressBar">
+        <div className={styles.stack}>
+          <ProgressBar current={0} total={6} />
+          <ProgressBar current={3} total={6} />
+          <ProgressBar current={6} total={6} />
+          <ProgressBar current={2} total={6} label="Entries" />
+        </div>
+      </Section>
+      <Section title="BottomSheet">
+        <div className={styles.column}>
+          <Button full_width={false} on_click={() => set_sheet_open(true)}>
+            Open the sheet
+          </Button>
+        </div>
+        <BottomSheet
+          open={sheet_open}
+          onClose={() => set_sheet_open(false)}
+          title="Sprint 2 history"
+        >
+          <div className={styles.stack}>
+            <Card accent="mint">
+              <Badge status="assessed" />
+              <p>Counter-scored by Dr Lee, 12 August.</p>
+            </Card>
+            <Card accent="cream">
+              <Badge status="submitted" />
+              <p>Submitted by Jane N, 9 August.</p>
+            </Card>
+            <Button variant="secondary" on_click={() => set_sheet_open(false)}>
+              Close
+            </Button>
+          </div>
+        </BottomSheet>
       </Section>
       <Section title="Skeleton">
         <div className={styles.stack}>
