@@ -1,0 +1,48 @@
+/* Chrome only -- panel sizing and the placeholder text, nothing product-
+   specific. 20rem matches the chart's own fixed height (320, set on
+   ResponsiveContainer in RadarPanel.tsx) so loading/loaded/empty/
+   insufficient do not visibly jump size against each other. Not a
+   var(--space-*) value: the scale tops out at --space-64, and a
+   chart's pixel height is not really a spacing decision -- same
+   reasoning Skeleton.tsx already gives for its own width/height props. */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* A pill, not muted caption text -- easy to miss otherwise, sitting above
+   a large chart. Peach-on-text is the same pairing the product's own
+   Figma screens use for "Awaiting assessor" -- already AA-verified in
+   tokens.css (heading text on any accent background clears 13:1+), not
+   a new colour decision. */
+.caption {
+  display: inline-block;
+  margin: 0 0 var(--space-8);
+  padding: var(--space-4) var(--space-12);
+  border-radius: var(--radius-full);
+  background: var(--color-accent-peach);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  text-align: center;
+}
+
+.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 20rem;
+  padding: var(--space-16);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  text-align: center;
+}
+
+.placeholder p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}

@@ -16,13 +16,44 @@ import {
   Card,
   Chip,
   ErrorNotice,
-  ProgressBar,
+  RadarPanel,
   Skeleton,
   SkeletonGroup,
+  type RadarAxis,
+  ProgressBar,
   TextArea,
 } from '../components/index.ts';
 import { getStoredTheme, setTheme, type Theme } from '../theme.ts';
 import styles from './Gallery.module.css';
+
+// Sourced from db/01-schema.sql's actual seeded rows, not invented. The
+// point of these two fixtures is proving axis count and scale both come
+// from props -- six axes at 1-4 below, six DIFFERENT axes at 1-7 further
+// down -- not simulating unevenness the real SFIA seed does not have yet
+// (see db/01-schema.sql's own comment: per-skill narrowing isn't in).
+const latrobe_axes: RadarAxis[] = [
+  { code: 'contribution', short_label: 'Contrib.', position: 1, self: 3, counter: 2 },
+  { code: 'communication', short_label: 'Comms', position: 2, self: 4, counter: 3 },
+  { code: 'collaboration', short_label: 'Collab.', position: 3, self: 3, counter: 3 },
+  { code: 'agile', short_label: 'Agile', position: 4, self: 2, counter: 2 },
+  { code: 'continuous', short_label: 'Cont. imp.', position: 5, self: 3, counter: 4 },
+  { code: 'leadership', short_label: 'Leadership', position: 6, self: 2, counter: 1 },
+];
+
+const sfia_axes: RadarAxis[] = [
+  { code: 'PROG', short_label: 'PROG', position: 1, self: 5, counter: 4 },
+  { code: 'DESN', short_label: 'DESN', position: 2, self: 4, counter: 5 },
+  { code: 'TEST', short_label: 'TEST', position: 3, self: 6, counter: 5 },
+  { code: 'DATM', short_label: 'DATM', position: 4, self: 3, counter: 3 },
+  { code: 'RLMT', short_label: 'RLMT', position: 5, self: 5, counter: 6 },
+  { code: 'METL', short_label: 'METL', position: 6, self: 4, counter: 4 },
+];
+
+// Self scored, counter not yet -- the realistic "insufficient" case.
+// RadarPanel draws the self polygon alone with a caption for this one.
+// (Zero scores on both series is not shown separately here: RadarPanel
+// treats it identically to state="empty" -- see RadarPanel.tsx.)
+const insufficient_axes: RadarAxis[] = latrobe_axes.map((a) => ({ ...a, counter: null }));
 
 function initial_theme(): Theme {
   const stored = getStoredTheme();
@@ -214,6 +245,19 @@ export default function Gallery() {
           <ErrorNotice
             error={new ApiError(500, null, 'The API answered outside the error envelope.')}
           />
+        </div>
+      </Section>
+      <Section title="RadarPanel">
+        <div className={styles.stack}>
+          <RadarPanel state="loading" />
+          <RadarPanel
+            state="error"
+            error={new ApiError(500, null, 'The API answered outside the error envelope.')}
+          />
+          <RadarPanel state="empty" />
+          <RadarPanel state="loaded" scale={{ min: 1, max: 4 }} axes={insufficient_axes} />
+          <RadarPanel state="loaded" scale={{ min: 1, max: 4 }} axes={latrobe_axes} />
+          <RadarPanel state="loaded" scale={{ min: 1, max: 7 }} axes={sfia_axes} />
         </div>
       </Section>
     </main>

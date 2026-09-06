@@ -20,3 +20,5 @@ export type {
 } from './Skeleton/Skeleton.tsx';
 export { ErrorNotice } from './ErrorNotice/ErrorNotice.tsx';
 export type { ErrorNoticeProps } from './ErrorNotice/ErrorNotice.tsx';
+export { RadarPanel } from './RadarPanel/RadarPanel.tsx';
+export type { RadarPanelProps, RadarAxis, RadarScale } from './RadarPanel/RadarPanel.tsx';
