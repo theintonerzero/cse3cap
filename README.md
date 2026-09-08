@@ -554,6 +554,7 @@ and the reasoning behind the unusual decisions.
 | [`docs/api-reference.html`](docs/api-reference.html)             | Single-page API reference, including which class owns each rule |
 | [`docs/Frontend-and-Backend.md`](docs/Frontend-and-Backend.md)   | How `api/` and `web/` couple, and what drifts silently        |
 | [`docs/Retention-and-Erasure.md`](docs/Retention-and-Erasure.md) | What is kept, what can be deleted, and what cannot            |
+| [`docs/Framework-Swap-Verification.md`](docs/Framework-Swap-Verification.md) | Proof the rubric is data, and what the seed cannot prove |
 | [`docs/openapi.yaml`](docs/openapi.yaml)                         | Machine-readable contract, source of truth                    |
 | [`docs/Stack-and-Build-Scope.md`](docs/Stack-and-Build-Scope.md) | What is being built, and the definition of done               |
 | [`docs/adr/`](docs/adr/)                                         | Architecture decision records                                 |
