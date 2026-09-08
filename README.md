@@ -557,6 +557,7 @@ and the reasoning behind the unusual decisions.
 | [`docs/openapi.yaml`](docs/openapi.yaml)                         | Machine-readable contract, source of truth                    |
 | [`docs/Stack-and-Build-Scope.md`](docs/Stack-and-Build-Scope.md) | What is being built, and the definition of done               |
 | [`docs/adr/`](docs/adr/)                                         | Architecture decision records                                 |
+| [`docs/Security-Review.md`](docs/Security-Review.md)             | Security reviews, appended per change                         |
 | [`docs/erd.png`](docs/erd.png)                                   | Entity relationship diagram, with a legend of hidden constraints |
 | [`docs/superpowers/specs/`](docs/superpowers/specs/)             | Design specs for each build slice                             |
 | [`docs/jira/`](docs/jira/)                                       | Jira CSV imports: the epics and the sprint 3 to 5 backlogs    |
