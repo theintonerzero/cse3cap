@@ -207,6 +207,14 @@ const CODES: readonly string[] = ['VALIDATION_FAILED','CONTEXT_REQUIRED','DUPLIC
 async function real() {
   let gigs!: components['schemas']['Gig'][];
 
+  // This bundle is built in production mode, where client.ts deliberately
+  // does not seed itself from VITE_API_TOKEN -- that seed is gated behind
+  // import.meta.env.DEV so a shipped bundle cannot carry a token (F1 in
+  // docs/Security-Review.md). So do here what the app shell does in
+  // production: hand it the token explicitly. Reading it from the
+  // environment is fine in a harness that is never served to anyone.
+  setAuthToken(import.meta.env.VITE_API_TOKEN ?? null);
+
   await check('the base URL and bearer token reach GET /auth/me', async () => {
     want(getAuthToken(), 'no token. Set VITE_API_TOKEN in web/.env');
     const me = await api.get('/auth/me');
@@ -282,6 +290,11 @@ async function real() {
 }
 
 async function mock() {
+  // Same reason as in real(): this bundle is production, where client.ts does
+  // not seed itself from VITE_API_TOKEN. The mock checks the token is sent at
+  // all, so it needs one; the value is irrelevant to prism.
+  setAuthToken(import.meta.env.VITE_API_TOKEN ?? 'mock-token');
+
   await check('the same client, answered with no backend', async () => {
     const me = await api.get('/auth/me');
     return `${me.display_name}, ${me.participations.length} participations`;

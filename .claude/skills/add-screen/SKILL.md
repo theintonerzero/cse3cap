@@ -109,6 +109,11 @@ The app shell owns it and calls `setAuthToken(token)` once. A screen never touch
 Before the shell exists, put a seeded token in `web/.env` as `VITE_API_TOKEN`; that file is
 gitignored, which is the only reason a token may go in it.
 
+That seed only applies in development. `client.ts` gates it behind
+`import.meta.env.DEV`, so a production build cannot carry a token however the
+environment is set, and `./run bundle-secrets` fails the build if one ever does. In
+production the app shell is the only source. See F1 in `docs/Security-Review.md`.
+
 ### Without a backend
 
 `VITE_API_BASE_URL` decides where every call goes. Point it at the prism mock and build

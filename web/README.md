@@ -125,6 +125,8 @@ the real API and the prism mock. Run it after any change to `client.ts` or the c
 
 The bearer token lives in the module. The app shell's token context will call
 `setAuthToken` once. Until it exists, put a seeded token in `web/.env` as `VITE_API_TOKEN`
+(development only: the seed is gated behind `import.meta.env.DEV`, so a production build
+never carries it — see F1 in `docs/Security-Review.md`)
 and the client picks it up. That file is gitignored, which is the only reason a token may
 go in it.
 
