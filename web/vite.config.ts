@@ -9,13 +9,16 @@ const entry = (file: string) => fileURLToPath(new URL(file, import.meta.url));
 export default defineConfig({
   plugins: [react()],
   build: {
-    // Two pages: the app, and the CAP-3 component gallery. Without this the
-    // production build silently drops gallery.html and a broken component
-    // stops being a build failure.
+    // Three pages: the app, the CAP-3 component gallery, and CAP-10's
+    // throwaway review-queue dev mount (delete that entry once CAP-5's
+    // router can mount the screen for real). Without this the production
+    // build silently drops the extra .html files and a broken one stops
+    // being a build failure.
     rollupOptions: {
       input: {
         main: entry('index.html'),
         gallery: entry('gallery.html'),
+        reviewQueueDev: entry('review-queue.html'),
       },
     },
   },
