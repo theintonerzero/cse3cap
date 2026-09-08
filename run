@@ -143,6 +143,15 @@ case "${1:-help}" in
     # ./run api for the rest.
     verify) need_web_deps; step ./scripts/verify-client.sh "${2:-}" ;;
 
+    # Reads the deploy host and reports what is actually on it. Read-only:
+    # writes nothing, reloads nothing, which matters because that box also
+    # carries the shared database. A check, like verify and smoke.
+    #
+    # There is deliberately no ./run deploy. Whether a deploy belongs on
+    # this menu at all is still open, in §9 of
+    # docs/superpowers/specs/2026-09-06-demo-deployment-design.md.
+    check-host) step ./scripts/check-deploy-host.sh "${2:-}" ;;
+
     # Over HTTP against a server you started yourself, with the real
     # tokens. Proves the wiring the unit tests cannot.
     smoke)
@@ -217,6 +226,7 @@ ${BLUE}Alumable Reflection Diary${RESET}
   ${GREEN}./run check${RESET}    everything CI runs, in CI's order
 
   ${GREEN}./run setup${RESET}    first-time setup. Writes env files, installs dependencies
+  ${GREEN}./run check-host${RESET} [user@vps]  read the deploy host. Writes nothing
 
 ${DIM}api/ and web/ are separate applications. This saves the cd, nothing more:
 every command is printed before it runs. Windows: use run.ps1.
