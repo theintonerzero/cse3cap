@@ -1,8 +1,9 @@
 # CAP-26: a demo instance on the VPS
 
 **Date:** 2026-09-06
-**Status:** Design agreed, three decisions deferred. Not ready for an implementation plan
-until §9 is closed.
+**Status:** Parked 2026-09-08, blocked on access to the host. Design agreed; four decisions
+open in §9. Not ready for an implementation plan until §9 is closed, and §9.4 blocks the
+rest of them.
 **Ticket:** CAP-26, Sprint 5, 8 points. Epic: Demo Data, Hardening and Release.
 
 ## What this is for
@@ -205,7 +206,8 @@ above. Multi-tenancy and any second demo instance.
 ## Open decisions
 
 Recorded rather than resolved. Each carries a default so the spec stays actionable, but the
-first two are answered before an implementation plan is written.
+first two are answered before an implementation plan is written, and the fourth blocks
+everything.
 
 **1. The hostname, and who creates the DNS record.** The demo needs a name. `darkovski.dev`
 is Jesse's domain, so root on the box does not produce the record — someone else does, and
@@ -227,6 +229,28 @@ Node is needed because the build is `tsc -b && vite build`.
 *Default if unanswered:* provision PHP 8.5 from `ppa:ondrej/php` or the equivalent; fall
 back to the box's newest 8.3+ if that fights the existing Docker or Caddy installation, and
 record the divergence in `docs/Deployment.md`.
+
+**4. Shell access to the host, which nobody has confirmed.** Found 2026-09-08, and it
+blocks the other three. This design was built on the answer that the ticket's owner has
+root on the box. From his laptop that is not true: port 22 is open, but
+`tonyto@rddb.darkovski.dev` returns `Permission denied (publickey)`. Either the username is
+not `tonyto`, or the key was never installed.
+
+Only one attempt was made. ADR #21 records fail2ban on that host, and a stock install jails
+`sshd` as well as MySQL, so guessing usernames risks banning the very person who needs in.
+
+Two tiers are needed, and the first is enough to close §9.3. An unprivileged shell answers
+PHP, Node, Caddy's version, what holds the ports and whether `/var/www/diary` exists;
+`scripts/check-deploy-host.sh` degrades gracefully without root and only the read of
+`/etc/caddy/Caddyfile` needs it. The deploy itself needs sudo, because the Caddy site block,
+the php-fpm pool, systemd and `/var/www` all do.
+
+*Default if unanswered:* the ticket changes shape rather than stalling. It becomes "write a
+reviewed, reproducible deploy; whoever holds the box runs it", which was a considered option
+at the outset. Nothing in this design is wasted if it goes that way — configuration living
+in the repository rather than only on the box was chosen partly for exactly this reason, so
+the Caddyfile, the pool config and the deploy script arrive as a pull request someone else
+can read and execute.
 
 ## Risks
 
