@@ -47,12 +47,23 @@ The highest-leverage thing to say this week, and it is not about Tony's tickets.
 CAP-20, CAP-24 and CAP-26 stay open with blockers named. **CAP-24 must not be closed**: its
 injection half is genuinely undone and `docs/Security-Review.md` says so.
 
-## Phase 1 · F1, because someone else sets its deadline
+## Phase 1 · F1 — **done, PR #28**
 
-Ahead of CAP-20 despite CAP-20 being nearer to done. F1 is harmless today only because no
-screen calls the API client, so Rollup drops the request path. **The day CAP-5 lands, a
-working bearer token ships in public JavaScript**, silently. That date is not Tony's to
-choose, so the fix precedes it.
+Sequenced ahead of CAP-20 on the reasoning that its deadline belonged to someone else. That
+reasoning held, and the deadline turned out to have already passed.
+
+The prediction was that F1 goes live when CAP-5 lands. Wrong ticket: **CAP-10 did it**, when
+#19 merged earlier the same day. `web/src/screens/ReviewQueue.tsx:14` imports `api` rather
+than only `ApiError`, which pulls the whole request path, and CAP-10 gave it a
+`review-queue.html` build entry, so it ships. A production build from `dev` at `a0a6c79` put
+a bearer token in `assets/components-*.js`.
+
+The lesson is worth more than the fix: a finding whose severity depends on somebody else's
+merge should be fixed when it is found, not scheduled against a date you do not control.
+
+Fixed by gating the seed behind `import.meta.env.DEV`, which is statically `false` in a
+production build, and held there by `scripts/check-bundle-secrets.sh` — confirmed to fail
+against the vulnerable client and pass against the fixed one, and wired into `./run check`.
 
 In `web/src/api/client.ts`:
 
@@ -103,6 +114,59 @@ the implementation plan. The spec is explicit that it is not plan-ready until §
 frontend produces a clean result that means nothing.
 
 ---
+
+## The dependency chain
+
+Taken from the `Depends on` lines in `docs/jira/`, not from memory. Everything Tony still
+owns is either free of dependencies or sits behind CAP-5.
+
+```
+DONE  CAP-2 typed client ─┐
+DONE  CAP-3 components ───┤
+DONE  CAP-4 components ───┼─→ CAP-5  app shell        Andrew   NOT STARTED
+DONE  CAP-6 RadarPanel ───┘        │
+DONE  CAP-10 review queue ──┐      │
+                            │      ├─→ CAP-11 stepper      Amenah  ─┐
+                            └──────┼──────────────────────→ CAP-13  Patrick ─┐
+                                   │                                          ├─→ CAP-24
+                                   └─→ CAP-15 select fw    Andrew             │   injection
+                                            │                                 │   half
+                                            └─→ CAP-16 edit fw  Andrew ───────┘
+
+Jesse: SSH + DNS ─→ CAP-26 build                     (independent of everything above)
+```
+
+### What has to happen before each of Tony's remaining items
+
+| Item | Needs first | Owner | Depth |
+| --- | --- | --- | --- |
+| CAP-20 screenshot | nothing | Tony | 0 |
+| CAP-19 acceptance audit | nothing | Tony | 0 |
+| Documentation drift | nothing | Tony | 0 |
+| CAP-10 follow-up | CAP-5 | Andrew | 1 |
+| CAP-26 build | SSH + DNS, then §9.2 | Jesse, then team | 1 |
+| **CAP-24 injection half** | **CAP-5 → CAP-11 → CAP-13** *and* **CAP-5 → CAP-15 → CAP-16** | Andrew, Amenah, Patrick | **3, twice** |
+
+### The two things this makes obvious
+
+**CAP-24 is the last thing Tony can finish, and it is three hops deep behind a ticket nobody
+has opened.** It needs CAP-13 *and* CAP-16, which sit at the end of two separate chains, and
+both chains start at CAP-5. Nothing Tony does shortens that.
+
+**Andrew is on the critical path three times** — CAP-5, CAP-15 and CAP-16 — and CAP-5 has
+not been started. He is also the requested reviewer on the CAP-19 PR. That is a concentration
+worth naming at standup rather than working around quietly, and it is the single fact that
+most determines whether the remaining board lands.
+
+### What this changes about the order
+
+Nothing in phases 0 to 3, which are all zero-depth. It changes what to do when they run out:
+**do not wait on CAP-24.** Take CAP-5 if it is still unstarted, because it is the one piece
+of work that shortens every remaining chain at once, including the two that end at Tony's
+last ticket.
+
+CAP-26 is the exception and the opportunity: it depends on nobody in the screen chain. If
+Jesse answers, it can be finished while the frontend is still blocked.
 
 ## Escalation triggers
 
