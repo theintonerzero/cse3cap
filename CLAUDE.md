@@ -193,11 +193,16 @@ not inside the agent. A sub-agent is given a task, not asked to decide what the 
 
 ### Where this project overrides the skill
 
-Three places the plugin's default would be wrong here. The project wins.
+Three places the plugin's default needs qualifying here. Where they disagree, the project
+wins.
 
-**Nobody merges their own pull request.** `finishing-a-development-branch` will offer to
-merge and clean up. CONTRIBUTING requires one approval from someone else and forbids
-self-merging. Open the PR, push, stop. Deleting the branch is the merger's job.
+**A pull request is always required; an approval is not.** `finishing-a-development-branch`
+will offer to merge and clean up, and since 2026-08-19 that is allowed: the
+`protected-branches` ruleset requires a PR into `dev` and `main` and forbids force pushes,
+but sets `required_approving_review_count` to `0`. So merging your own work is fine.
+Pushing straight to `dev` is not, and never was. Request a reviewer before you merge even
+though nobody has to answer: a merge nobody was told about is how the team stops knowing
+what landed. See CONTRIBUTING.
 
 **The database is shared.** Worktrees and parallel agents give you isolated code, not an
 isolated database: every one of them points at the same MySQL on the VPS. Never run
