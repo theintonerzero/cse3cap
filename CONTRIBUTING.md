@@ -52,11 +52,25 @@ feat(auth): user login (CAP-12)
 
 ## Review
 
-- **1 approval from someone else.** No self-merging.
-- Aim for review within 24h.
+- **No approval is required to merge.** The `protected-branches` ruleset covers `main` and
+  `dev`: it requires a pull request, forbids force pushes and deletion, and sets
+  `required_approving_review_count` to `0`. Changed 2026-08-19 by team agreement. Five
+  people on a semester timetable could not sustain a blocking approval, and the cost was
+  finished work sitting unmerged for a fortnight.
+- **Still open a pull request.** You cannot push to `dev` or `main` directly, and that part
+  has not changed. The PR is how the team finds out what landed.
+- **Request a reviewer anyway, then merge when you are ready.** A request nobody answers
+  should not hold a branch. Requesting one costs nothing and is what makes review possible
+  at all: a PR with no reviewer requested notifies no one, which is how four of them once
+  sat for two weeks looking ignored when they had simply never been announced.
+- Aim for review within 24h on anything you are asked to look at.
 - Be specific and kind.
-- Address review comments before merging.
-- Anything touching scoring, submission or framework mutation gets a security review.
+- Address review comments before merging if they arrive in time, and in a follow-up if they
+  do not.
+- Anything touching scoring, submission or framework mutation still gets a security review,
+  per `docs/Stack-and-Build-Scope.md` §4.4. That is a commitment to do the review, not a
+  gate on the merge. It may follow the merge, and it is recorded in
+  `docs/Security-Review.md`.
 
 ## Things that travel with the change
 
