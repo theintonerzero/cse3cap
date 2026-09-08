@@ -226,7 +226,7 @@ class FrameworkMutationTest extends TestCase
      * Both seeded gigs already carry a rubric, and since ADR #33 that is
      * enough to refuse another, so the happy path needs a gig with none.
      */
-    private function unassignedGig(User $supervisor): Gig
+    private function unassignedGig(User $participant, string $role = 'supervisor'): Gig
     {
         $gig = Gig::create([
             'title' => 'A gig with no rubric yet',
@@ -237,8 +237,8 @@ class FrameworkMutationTest extends TestCase
 
         GigParticipant::create([
             'gig_id' => $gig->id,
-            'user_id' => $supervisor->id,
-            'role' => 'supervisor',
+            'user_id' => $participant->id,
+            'role' => $role,
         ]);
 
         return $gig;
@@ -256,6 +256,26 @@ class FrameworkMutationTest extends TestCase
         ])->assertStatus(201)->assertJsonPath('framework_id', $copy->id);
 
         $this->assertSame($copy->id, $gig->fresh()->assignment->framework_id);
+    }
+
+    /**
+     * The matrix gives this row to a supervisor or an employer. Nothing in
+     * the seed carries an employer, so this is the only place that role is
+     * exercised against this endpoint at all.
+     */
+    public function test_an_employer_can_also_assign_a_framework_to_their_gig(): void
+    {
+        $lee = $this->actAsSupervisor();
+        $copy = $this->copyFor($lee);
+
+        $employer = User::create(['display_name' => 'An Employer']);
+        $gig = $this->unassignedGig($employer, 'employer');
+
+        Sanctum::actingAs($employer);
+        $this->postJson('/api/v1/framework-assignments', [
+            'framework_id' => $copy->id,
+            'gig_id' => $gig->id,
+        ])->assertStatus(201)->assertJsonPath('framework_id', $copy->id);
     }
 
     public function test_assigning_the_same_framework_twice_is_a_conflict(): void

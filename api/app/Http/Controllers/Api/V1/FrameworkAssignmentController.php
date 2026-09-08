@@ -7,14 +7,12 @@ use App\Http\Requests\StoreFrameworkAssignmentRequest;
 use App\Models\Framework;
 use App\Models\Gig;
 use App\Services\FrameworkAssigner;
-use App\Services\RoleResolver;
 use Illuminate\Http\JsonResponse;
-use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Illuminate\Support\Facades\Gate;
 
 class FrameworkAssignmentController extends Controller
 {
     public function __construct(
-        private RoleResolver $roles,
         private FrameworkAssigner $assigner,
     ) {}
 
@@ -29,16 +27,8 @@ class FrameworkAssignmentController extends Controller
     public function store(StoreFrameworkAssignmentRequest $request): JsonResponse
     {
         $gig = Gig::findOrFail($request->validated('gig_id'));
-        $role = $this->roles->for($request->user(), $gig);
 
-        // Not a participant at all: 404, because the caller should not
-        // learn the gig exists. A participant in the wrong role: 403,
-        // because they can already see it.
-        if ($role === null) {
-            throw new NotFoundHttpException;
-        }
-
-        abort_if(! in_array($role, ['supervisor', 'employer'], true), 403);
+        Gate::authorize('assignFramework', $gig);
 
         $framework = Framework::findOrFail($request->validated('framework_id'));
 

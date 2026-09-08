@@ -70,6 +70,33 @@ class ReflectionPolicy
     }
 
     /**
+     * Counter-scoring: an assessor, supervisor or employer on the gig,
+     * never the student, not even their own. Whether the reflection is in
+     * the right state to actually accept a score is
+     * Scoring::counterScore's job (NOT_SUBMITTED, 409), not this policy's
+     * -- a 403 here would say "you may never do this" when the truth is
+     * "not yet."
+     */
+    public function counterScore(User $user, Reflection $reflection): Response
+    {
+        $gig = $reflection->gig;
+
+        if ($gig === null) {
+            return Response::denyAsNotFound();
+        }
+
+        $role = $this->roles->for($user, $gig);
+
+        if ($role === null) {
+            return Response::denyAsNotFound();
+        }
+
+        return in_array($role, ['assessor', 'supervisor', 'employer'], true)
+            ? Response::allow()
+            : Response::deny('Only an assessor, supervisor or employer can counter-score this reflection.');
+    }
+
+    /**
      * Draft only, and the state check lives in the controller so the
      * refusal can be a 409 with a code rather than a bare 403. Submitted
      * and assessed records cannot be deleted through the API at all,
