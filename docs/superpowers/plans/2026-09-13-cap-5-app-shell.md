@@ -78,6 +78,14 @@ Depends on CAP-2 (the typed API client), which is merged.
 - **`web/` has no test runner** (CLAUDE.md). Verification is a script in `scripts/` wired
   into `./run`, plus the gallery ritual CAP-3 established: load the app at 390px and
   1280px, in both themes, and look.
+- **`web/tsconfig.app.json` is strict in four ways that bite.** `verbatimModuleSyntax: true`
+  -- a type-only import MUST be written `import type { X }` or `import { type X }`, or it
+  is an error. `noUnusedLocals` and `noUnusedParameters` -- an unused import fails the
+  build. `erasableSyntaxOnly: true` -- no `enum`, no `namespace`, no parameter properties.
+  `allowImportingTsExtensions` -- imports carry their `.ts`/`.tsx` extension, as every
+  existing file does. `strict: true` throughout.
+- **`React.FormEvent` may be written without importing React.** Verified against
+  `web/src/review-queue-dev.tsx:29`, which does exactly that and compiles.
 - **Reusable components first.** `Card`, `Button`, `Chip`, `Badge`, `TextArea`,
   `ProgressBar`, `BottomSheet`, `RadarPanel`, `Skeleton`, `SkeletonGroup`, `ErrorNotice`
   already exist in `web/src/components/`. Build nothing this ticket can borrow.
@@ -410,8 +418,11 @@ Expected: no errors.
 
 - [ ] **Step 3: Confirm no pixel or hex value slipped in**
 
-Run from the repository root: `scripts/check-tokens.sh`
-Expected: passes. There is no styling in this file, so this is cheap insurance rather than
+Run from the repository root: `bash scripts/check-tokens.sh`
+Expected: passes. **Invoked via `bash` on purpose**: the file is committed mode `100644`,
+not `100755`, so running it directly fails with "Permission denied". That is a pre-existing
+bug in the repository, not something this ticket introduces and not something it fixes --
+it is recorded as a follow-up below. There is no styling in this file, so this is cheap insurance rather than
 a real risk -- but the script reads `.tsx` and `.ts` as well as `.css`, and running it per
 task is how a violation gets attributed to the task that introduced it.
 
@@ -1005,8 +1016,11 @@ Expected: no errors.
 
 - [ ] **Step 4: Confirm tokens**
 
-Run from the repository root: `scripts/check-tokens.sh`
-Expected: passes.
+Run from the repository root: `bash scripts/check-tokens.sh`
+Expected: passes. **Invoked via `bash` on purpose**: the file is committed mode `100644`,
+not `100755`, so running it directly fails with "Permission denied". That is a pre-existing
+bug in the repository, not something this ticket introduces and not something it fixes --
+it is recorded as a follow-up below.
 
 - [ ] **Step 5: Commit**
 
@@ -1079,10 +1093,10 @@ export interface NavItem {
 /**
  * What this user can see, from what the server said they are.
  *
- * Exported so scripts/verify-app-shell.sh and later screens use this one
- * derivation rather than each re-deriving it slightly differently. ADR #17
- * maps the educator to the supervisor role, which is why frameworks sit
- * there.
+ * Exported rather than kept private so CAP-7 onward reuse this one
+ * derivation instead of each re-deriving it slightly differently, and so it
+ * can be read on its own. ADR #17 maps the educator to the supervisor role,
+ * which is why frameworks sit there.
  */
 export function nav_items_for(me: SessionUser): NavItem[] {
   const roles = new Set(me.participations.map((participation) => participation.role));
@@ -1332,7 +1346,7 @@ business, not this ticket's.
 - [ ] **Step 3: Type-check, lint and tokens**
 
 Run from `web/`: `npx tsc -b && npm run lint`
-Run from the repository root: `scripts/check-tokens.sh`
+Run from the repository root: `bash scripts/check-tokens.sh`
 Expected: all pass.
 
 - [ ] **Step 4: Commit**
