@@ -651,7 +651,7 @@ export function useSession(): Session {
  * the second, and a production build mounts once. If you see two requests in
  * a production build, that is a real defect; two in `npm run dev` is not.
  */
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { api, ApiError, setAuthToken, setOnUnauthorized } from '../api/client.ts';
 import {
@@ -697,15 +697,16 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setState('no_token');
   }, []);
 
-  // A 401 from any request in the app, not just this one. Registered in a
-  // ref-stable callback so re-registering cannot race a request in flight.
-  const forget_ref = useRef(forget);
-  forget_ref.current = forget;
-
+  // A 401 from any request in the app, not just this one. `forget` is
+  // useCallback(..., []) over module-level imports and state setters, so its
+  // identity never changes and it can be registered directly — an earlier
+  // draft of this plan wrapped it in a ref, which bought nothing and wrote to
+  // .current during render. Clearing on unmount stops a dead provider from
+  // being called.
   useEffect(() => {
-    setOnUnauthorized(() => forget_ref.current());
+    setOnUnauthorized(forget);
     return () => setOnUnauthorized(null);
-  }, []);
+  }, [forget]);
 
   // One call per token. `token` and `retry_key` are the only things that
   // should cause another: not a re-render, not a route change.
