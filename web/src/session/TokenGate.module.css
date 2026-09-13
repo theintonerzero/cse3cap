@@ -66,3 +66,15 @@
   line-height: var(--line-height-normal);
   color: var(--color-text-muted);
 }
+
+.rejected {
+  margin: 0;
+  padding: var(--space-12);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+  /* Not --color-danger on this background: see ErrorNotice.module.css, same
+     AA shortfall. The fill carries the alarm, the text stays readable. */
+  color: var(--color-text);
+  background: var(--color-danger-bg);
+  border-radius: var(--radius-md);
+}

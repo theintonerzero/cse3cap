@@ -19,7 +19,7 @@
  */
 import { useState } from 'react';
 
-import { Button, Card, Chip, ErrorNotice } from '../components/index.ts';
+import { Button, Card, Chip } from '../components/index.ts';
 import { SLOT_IDS, SLOT_LABEL, type SlotId } from './tokens.ts';
 import { useSession } from './useSession.ts';
 import styles from './TokenGate.module.css';
@@ -33,7 +33,8 @@ export interface TokenGateProps {
 }
 
 export function TokenGate({ mode, on_done }: TokenGateProps) {
-  const { slots, active_slot, state, error, sign_in_with, switch_to, retry } = useSession();
+  const { slots, active_slot, last_sign_in_rejected, sign_in_with, switch_to } =
+    useSession();
   const [pasting_into, setPastingInto] = useState<SlotId | null>(null);
   const [draft, setDraft] = useState('');
 
@@ -94,7 +95,11 @@ export function TokenGate({ mode, on_done }: TokenGateProps) {
         </form>
       )}
 
-      {state === 'error' && error && <ErrorNotice error={error} on_retry={retry} />}
+      {last_sign_in_rejected && (
+        <p className={styles.rejected} role="alert">
+          That token was rejected. Check you pasted the right one.
+        </p>
+      )}
 
       <p className={styles.hint}>
         The seeder writes these to <code>~/reflection-diary-tokens.txt</code>. They are kept

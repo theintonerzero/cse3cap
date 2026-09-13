@@ -46,7 +46,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   // synchronous and cheap, but a render-time read makes the first paint
   // depend on storage being available, and it can refuse.
   const [slots, setSlots] = useState<TokenSlots>(() => get_slots());
-  const [active_slot, setActiveSlotState] = useState<SlotId | null>(() => get_active_slot());
+  const [active_slot, setActiveSlotState] = useState<SlotId | null>(() =>
+    get_active_slot(),
+  );
   const [token, setToken] = useState<string | null>(() => get_active_token());
 
   const [state, setState] = useState<SessionState>(() =>
@@ -55,6 +57,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [me, setMe] = useState<SessionUser | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
   const [retry_key, setRetryKey] = useState(0);
+  // Whether the token /auth/me most recently resolved was rejected with a
+  // 401, so TokenGate has something to say when that happens rather than
+  // silently returning to an entry screen that looks untouched. Cleared the
+  // moment a new sign-in attempt begins and whenever a token resolves
+  // successfully, so a stale rejection never sits on screen after a good
+  // token.
+  const [last_sign_in_rejected, setLastSignInRejected] = useState(false);
 
   const forget = useCallback(() => {
     clear_active_token();
@@ -102,6 +111,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       .then((user) => {
         setMe(user);
         setState('ready');
+        setLastSignInRejected(false);
       })
       .catch((cause: unknown) => {
         if (cause instanceof DOMException && cause.name === 'AbortError') return;
@@ -109,8 +119,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         // A 401 has already been handled: the client fired onUnauthorized
         // before throwing, so `forget` has run and the state is no_token.
         // Rendering an error over the top of that would be wrong -- the
-        // token entry state IS the answer to a 401.
-        if (cause instanceof ApiError && cause.status === 401) return;
+        // token entry state IS the answer to a 401. What forget() does not
+        // know is that the token it just discarded was this one, so this is
+        // the only place that can record the rejection for TokenGate.
+        if (cause instanceof ApiError && cause.status === 401) {
+          setLastSignInRejected(true);
+          return;
+        }
 
         setError(
           cause instanceof ApiError
@@ -123,15 +138,26 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     return () => controller.abort();
   }, [token, retry_key]);
 
+  // Trimmed once, here, and that trimmed value is what both storage and
+  // React state get -- never a re-read of storage. sessionStorage can throw
+  // (private browsing, quota) and set_slot_token swallows that, so reading
+  // it back could silently hand this call a null: a valid token pasted, the
+  // form closes, and the app never signs in. Using the value we were handed
+  // means the token still applies for this page load even when storage
+  // rejected the write, and trimming it before either destination means an
+  // untrimmed paste can never reach the Bearer header.
   const sign_in_with = useCallback((slot: SlotId, value: string) => {
-    set_slot_token(slot, value);
+    const trimmed = value.trim();
+    setLastSignInRejected(false);
+    set_slot_token(slot, trimmed);
     set_active_slot(slot);
-    setSlots(get_slots());
+    setSlots((current) => ({ ...current, [slot]: trimmed }));
     setActiveSlotState(slot);
-    setToken(get_active_token());
+    setToken(trimmed);
   }, []);
 
   const switch_to = useCallback((slot: SlotId) => {
+    setLastSignInRejected(false);
     set_active_slot(slot);
     setActiveSlotState(slot);
     setToken(get_active_token());
@@ -146,12 +172,24 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       error,
       slots,
       active_slot,
+      last_sign_in_rejected,
       sign_in_with,
       switch_to,
       sign_out: forget,
       retry,
     }),
-    [state, me, error, slots, active_slot, sign_in_with, switch_to, forget, retry],
+    [
+      state,
+      me,
+      error,
+      slots,
+      active_slot,
+      last_sign_in_rejected,
+      sign_in_with,
+      switch_to,
+      forget,
+      retry,
+    ],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

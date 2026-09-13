@@ -79,9 +79,11 @@ export function set_slot_token(slot: SlotId, token: string | null): void {
   try {
     sessionStorage.setItem(TOKENS_KEY, JSON.stringify(slots));
   } catch {
-    // Private browsing, or quota. The token still applies for this page
-    // load, because the caller holds it in React state; it just will not
-    // survive a reload.
+    // Private browsing, or quota. This write failing does not lose the
+    // token: sign_in_with (SessionProvider.tsx) puts the same trimmed value
+    // it passed in here straight into React state as well, rather than
+    // reading it back out of storage, so the token still applies for this
+    // page load. It just will not survive a reload.
   }
 }
 

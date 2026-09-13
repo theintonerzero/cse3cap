@@ -36,6 +36,15 @@ export interface Session {
   /** Which slots have a token pasted in, for the switcher to render. */
   slots: TokenSlots;
   active_slot: SlotId | null;
+  /**
+   * Whether the most recent /auth/me resolution ended in a 401. TokenGate
+   * reads this to tell a rejected paste apart from one that never happened --
+   * without it, a 401 empties the slot and returns to the gate with nothing
+   * on screen. Cleared the moment a new sign-in attempt begins (sign_in_with
+   * or switch_to) and whenever a token resolves successfully, so it never
+   * survives to sit stale over a good token.
+   */
+  last_sign_in_rejected: boolean;
   /** Store a token in a slot, make it active, and resolve it. */
   sign_in_with: (slot: SlotId, token: string) => void;
   /** Make an already-filled slot active and resolve it. */
