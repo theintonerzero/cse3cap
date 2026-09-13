@@ -160,9 +160,11 @@ export function rubric_line(
   scale_max: number,
   gigs: Gig[],
 ): string {
+  // The version goes in brackets rather than after a space: SFIA's name
+  // already ends in a number, and "SFIA 9 9.0" reads as a typo.
   const match = gigs.find((gig) => gig.framework?.fw_key === fw_key);
   const named = match?.framework
-    ? `${match.framework.name} ${match.framework.version}`
+    ? `${match.framework.name} (${match.framework.version})`
     : fw_key;
 
   return `Levels ${scale_min}–${scale_max} on ${named}.`;

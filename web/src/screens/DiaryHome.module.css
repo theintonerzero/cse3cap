@@ -56,6 +56,13 @@
   color: var(--color-text-muted);
 }
 
+.row_end {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  margin-left: auto;
+}
+
 .chevron {
   font-size: var(--font-size-lg);
   color: var(--color-text-muted);
@@ -102,6 +109,9 @@
 }
 
 .radar_block {
+  /* The chart's own radius is bounded by its height, so on a wide screen
+     an unbounded card leaves the polygon marooned in empty surface. */
+  max-width: 30rem;
   margin-top: var(--space-16);
   padding: var(--space-16);
   border: var(--border-width-sm) solid var(--color-border);

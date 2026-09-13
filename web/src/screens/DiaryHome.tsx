@@ -149,9 +149,16 @@ export function DiaryHome() {
 
       <ScopeChips gigs={mine} scope={scope} on_select={go_to} />
 
-      {whole_record.length === 0 ? (
-        <NothingWritten gigs={mine} />
-      ) : (
+      {/*
+       * Three ways to be empty, and they are not the same sentence. An
+       * untouched record needs telling what to do next; a scope with
+       * nothing in it needs telling the rest is elsewhere. The radar is
+       * skipped in both: its own empty state would be a third box saying
+       * what one of these already said.
+       */}
+      {whole_record.length === 0 && <NothingWritten gigs={mine} />}
+      {whole_record.length > 0 && rows.length === 0 && <NothingInScope />}
+      {rows.length > 0 && (
         <>
           <ScopedRadar
             key={`${scope.gig_id ?? 'all'}:${scope.sprint_id ?? 'all'}`}
@@ -446,6 +453,17 @@ function NotAStudent({ display_name }: { display_name: string | null }) {
   );
 }
 
+function NothingInScope() {
+  return (
+    <div className={styles.empty}>
+      <p className={styles.empty_title}>Nothing in this part of your diary.</p>
+      <p className={styles.empty_body}>
+        You have written reflections elsewhere. Choose a wider scope above to see them.
+      </p>
+    </div>
+  );
+}
+
 function ReflectionList({
   rows,
   show_gig,
@@ -455,17 +473,6 @@ function ReflectionList({
   show_gig: boolean;
   gigs: Gig[];
 }) {
-  if (rows.length === 0) {
-    return (
-      <div className={styles.empty}>
-        <p className={styles.empty_title}>Nothing in this part of your diary.</p>
-        <p className={styles.empty_body}>
-          You have written reflections elsewhere. Choose a wider scope above to see them.
-        </p>
-      </div>
-    );
-  }
-
   return (
     <ul className={styles.list}>
       {rows.map((row) => (
@@ -486,9 +493,12 @@ function ReflectionRow({
 }) {
   const gig = gigs.find((candidate) => candidate.id === row.gig_id);
   const title = row.sprint_ordinal == null ? 'Whole gig' : `Sprint ${row.sprint_ordinal}`;
+  // "Rubric v1" rather than a bare "v1": inside one gig the gig title
+  // drops out of this line, and a lone version string left at the front of
+  // it reads as a stray number.
   const meta = [
     show_gig ? (gig?.title ?? null) : null,
-    row.framework_version,
+    `Rubric ${row.framework_version}`,
     when(row),
   ].filter((part): part is string => part !== null);
 
@@ -499,14 +509,21 @@ function ReflectionRow({
           <span className={styles.row_title}>{title}</span>
           <span className={styles.row_meta}>{meta.join(' · ')}</span>
         </div>
-        <Badge status={row.status} />
         {/*
-         * The character itself rather than a numeric HTML entity:
-         * check-tokens.sh reads one as a raw hex colour and fails the
-         * build, which its own header lists as a known false positive.
+         * Badge and chevron travel together at the right edge. Left as
+         * three space-between children, the badge lands mid-row on a wide
+         * screen and reads as though it belongs to nothing.
          */}
-        <span className={styles.chevron} aria-hidden="true">
-          {'›'}
+        <span className={styles.row_end}>
+          <Badge status={row.status} />
+          {/*
+           * The character itself rather than a numeric HTML entity:
+           * check-tokens.sh reads one as a raw hex colour and fails the
+           * build, which its own header lists as a known false positive.
+           */}
+          <span className={styles.chevron} aria-hidden="true">
+            {'›'}
+          </span>
         </span>
       </Link>
     </li>
