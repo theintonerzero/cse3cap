@@ -162,6 +162,23 @@ export function getAuthToken(): string | null {
   return authToken;
 }
 
+/**
+ * What to do when the API says a token is no longer good.
+ *
+ * Acceptance criterion 5 of CAP-5: "a 401 anywhere clears the token and
+ * returns to the token entry state". Anywhere is the point. Every request in
+ * this app funnels through `send()` below, so this is the one place that can
+ * honour it -- the alternative is every screen remembering to, which is the
+ * same as it not happening.
+ *
+ * The shell's session provider registers this once. Nothing else should.
+ */
+let onUnauthorized: (() => void) | null = null;
+
+export function setOnUnauthorized(handler: (() => void) | null): void {
+  onUnauthorized = handler;
+}
+
 function baseUrl(): string {
   const configured = import.meta.env.VITE_API_BASE_URL;
 
@@ -368,7 +385,16 @@ async function send(
   }
 
   if (!response.ok) {
-    throw await toApiError(response, url);
+    const error = await toApiError(response, url);
+
+    // The session is gone. Told before the error is thrown, so the shell has
+    // already cleared the token by the time a screen's catch block runs and
+    // nothing gets a chance to render half a page as a stranger. The error
+    // is still thrown: the caller decides what to show, this only decides
+    // who we are.
+    if (error.status === 401) onUnauthorized?.();
+
+    throw error;
   }
 
   return response;

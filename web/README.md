@@ -1,19 +1,15 @@
 # web/
 
-The React frontend. **The foundation is complete; one of twelve screens is built.**
+The React frontend. **No screen is built yet.** `src/App.tsx` still renders the word
+`test`, and that is the entire user interface.
 
-`tokens.css`, the typed API client in `src/api/`, and all ten core components -- Card,
-Button, Chip, Badge, TextArea, ProgressBar, BottomSheet, RadarPanel, Skeleton and
-ErrorNotice. `gallery.html` renders every one of them in its states, which is the fastest
-way to see what exists before building anything.
+What does exist is `tokens.css` and the typed API client in `src/api/`, which everything
+else is built on, plus six of the ten core components. The rest of the foundation, the
+remaining core components, comes next.
 
-Of the twelve screens, the assessor review queue (`src/screens/ReviewQueue.tsx`) is built.
-It mounts through its own `review-queue.html` entry rather than a route, because the app
-shell did not exist when it was written; that is a follow-up, not the pattern to copy.
-
-The app shell -- router, session and role-aware navigation -- is in review as #30. Until it
-merges there is no route for a screen to mount on, which is the one thing gating the other
-eleven.
+The point of the scaffold existing before any of it was that the toolchain, the CI job and
+the dev server are proven to work before anybody writes a screen, so the first real PR is
+about the screen rather than about Vite.
 
 ## Running it
 
@@ -71,9 +67,10 @@ foundation comes before any screen:
    `data-theme`.~~ Done. **No raw hex anywhere else in the codebase, ever.**
    `src/index.css` is nearly empty on purpose so this rule is not broken on day one.
 2. ~~The typed API client in `src/api/`.~~ Done. See below.
-3. Core components: Card, Button, Chip, Badge, Skeleton and ErrorNotice exist. TextArea,
-   ProgressBar, BottomSheet (CAP-4) and RadarPanel (CAP-6) do not yet.
-4. App shell: router, token context, role-aware nav from `GET /auth/me`.
+3. ~~Core components: Card, Button, Chip, Badge, TextArea, ProgressBar, BottomSheet,
+   RadarPanel, Skeleton and ErrorNotice.~~ Done, all ten. See `gallery.html`.
+4. ~~App shell: router, token context, role-aware nav from `GET /auth/me`.~~ Done.
+   See "Getting a token in" below.
 
 Then the twelve screens. **Each ships four states: loaded, loading, empty, error.** Not
 three. `/add-screen` carries the full checklist.
@@ -127,12 +124,34 @@ Nothing catches a stale `schema.ts` yet; that guard is CAP-25.
 nothing, that the bad calls above are compile errors, and that the client behaves against
 the real API and the prism mock. Run it after any change to `client.ts` or the contract.
 
-The bearer token lives in the module. The app shell's token context will call
-`setAuthToken` once. Until it exists, put a seeded token in `web/.env` as `VITE_API_TOKEN`
-(development only: the seed is gated behind `import.meta.env.DEV`, so a production build
-never carries it — see F1 in `docs/Security-Review.md`)
-and the client picks it up. That file is gitignored, which is the only reason a token may
-go in it.
+The bearer token lives in the module, and **the app shell is the only thing that sets it**.
+`web/src/session/SessionProvider.tsx` calls `setAuthToken` once per token and nothing else
+should; `./run verify-shell` checks that.
+
+## Getting a token in
+
+There is no login screen (ADR #15). On first load the app asks for one of the three seeded
+tokens. `php artisan db:seed` prints each one once; it does not write them to a file.
+Save that output as `~/reflection-diary-tokens.txt` yourself -- that is the convention the
+check scripts under `scripts/` read from, not something the seeder produces. Paste one into
+the matching slot and you are that user; the header switches between whichever slots you
+have filled.
+
+Tokens are held in `sessionStorage`, so each browser tab is its own identity and a reload
+keeps you signed in. Two tabs can be two different people at once, which is how you look at
+a student's reflection and an assessor's queue side by side.
+
+A 401 from any request clears the token and returns to that screen.
+
+`VITE_API_TOKEN` in `web/.env` still seeds the client in development, so a screen can be
+built against the real API. It does not decide what the running app sends: `SessionProvider`
+calls `setAuthToken` on every boot with the session's own token -- `null` when nothing is
+stored -- which overwrites the seed before any request leaves.
+
+It cannot reach a production bundle. The seed is gated behind `import.meta.env.DEV`, which
+is statically `false` in a production build, so the branch and the value are eliminated
+before the bundle is written. That was finding F1 in `docs/Security-Review.md`, fixed in
+#28, and `./run bundle-secrets` fails the build if a token ever appears in the output again.
 
 ## The components
 
