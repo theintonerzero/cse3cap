@@ -36,20 +36,16 @@ import { TokenGate } from '../session/TokenGate.tsx';
 import { useSession, type SessionUser } from '../session/useSession.ts';
 import styles from './AppShell.module.css';
 
-export interface NavItem {
+interface NavItem {
   to: string;
   label: string;
 }
 
 /**
- * What this user can see, from what the server said they are.
- *
- * Exported rather than kept private so CAP-7 onward reuse this one
- * derivation instead of each re-deriving it slightly differently, and so it
- * can be read on its own. ADR #17 maps the educator to the supervisor role,
- * which is why frameworks sit there.
+ * What this user can see, from what the server said they are. ADR #17 maps
+ * the educator to the supervisor role, which is why frameworks sit there.
  */
-export function nav_items_for(me: SessionUser): NavItem[] {
+function nav_items_for(me: SessionUser): NavItem[] {
   const roles = new Set(me.participations.map((participation) => participation.role));
 
   const items: NavItem[] = [];
