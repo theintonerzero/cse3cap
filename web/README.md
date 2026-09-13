@@ -67,8 +67,8 @@ foundation comes before any screen:
    `data-theme`.~~ Done. **No raw hex anywhere else in the codebase, ever.**
    `src/index.css` is nearly empty on purpose so this rule is not broken on day one.
 2. ~~The typed API client in `src/api/`.~~ Done. See below.
-3. Core components: Card, Button, Chip, Badge, Skeleton and ErrorNotice exist. TextArea,
-   ProgressBar, BottomSheet (CAP-4) and RadarPanel (CAP-6) do not yet.
+3. ~~Core components: Card, Button, Chip, Badge, TextArea, ProgressBar, BottomSheet,
+   RadarPanel, Skeleton and ErrorNotice.~~ Done, all ten. See `gallery.html`.
 4. ~~App shell: router, token context, role-aware nav from `GET /auth/me`.~~ Done.
    See "Getting a token in" below.
 
