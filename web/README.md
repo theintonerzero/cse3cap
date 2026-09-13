@@ -143,13 +143,15 @@ a student's reflection and an assessor's queue side by side.
 
 A 401 from any request clears the token and returns to that screen.
 
-`VITE_API_TOKEN` in `web/.env` is still compiled into the bundle at build time, whatever it
-is set to, regardless of whether anything reads it back out. It no longer decides what
-token this app sends, though: `SessionProvider` calls `setAuthToken` on every boot with the
-session's own token -- `null` when nothing is stored -- which overwrites whatever
-`VITE_API_TOKEN` seeded before any request leaves. It predates the shell and is now pure
-liability: inert at runtime, still present in the shipped bundle. Removing it is tracked as
-finding F1 (CAP-24), not something this ticket touches.
+`VITE_API_TOKEN` in `web/.env` still seeds the client in development, so a screen can be
+built against the real API. It does not decide what the running app sends: `SessionProvider`
+calls `setAuthToken` on every boot with the session's own token -- `null` when nothing is
+stored -- which overwrites the seed before any request leaves.
+
+It cannot reach a production bundle. The seed is gated behind `import.meta.env.DEV`, which
+is statically `false` in a production build, so the branch and the value are eliminated
+before the bundle is written. That was finding F1 in `docs/Security-Review.md`, fixed in
+#28, and `./run bundle-secrets` fails the build if a token ever appears in the output again.
 
 ## The components
 
