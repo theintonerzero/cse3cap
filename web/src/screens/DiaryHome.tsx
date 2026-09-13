@@ -17,14 +17,18 @@ import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
 
 import { api, ApiError } from '../api/client.ts';
-import { Badge, ErrorNotice, Skeleton, SkeletonGroup } from '../components/index.ts';
+import { Badge, Chip, ErrorNotice, Skeleton, SkeletonGroup } from '../components/index.ts';
 import { useSession } from '../session/useSession.ts';
 import {
+  ALL_GIGS,
+  chippable_sprints,
+  params_for_scope,
   reflections_in_scope,
   scope_from_params,
   student_gigs,
   type Gig,
   type ReflectionSummary,
+  type Scope,
 } from './diary-scope.ts';
 import styles from './DiaryHome.module.css';
 
@@ -40,7 +44,7 @@ function as_api_error(error: unknown, fallback: string): ApiError {
 
 export function DiaryHome() {
   const { me } = useSession();
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const [load, setLoad] = useState<Load>({ status: 'loading' });
   const [reload_key, setReloadKey] = useState(0);
 
@@ -67,6 +71,15 @@ export function DiaryHome() {
     setLoad({ status: 'loading' });
     setReloadKey((key) => key + 1);
   }, []);
+
+  /*
+   * Replace rather than push: a student clicking along four sprint chips
+   * should be one Back away from where they came from, not four.
+   */
+  const go_to = useCallback(
+    (next: Scope) => setParams(params_for_scope(next), { replace: true }),
+    [setParams],
+  );
 
   if (load.status === 'loading') {
     return (
@@ -113,12 +126,72 @@ export function DiaryHome() {
     <section>
       <h1 className={styles.heading}>Your diary</h1>
 
+      <ScopeChips gigs={mine} scope={scope} on_select={go_to} />
+
       {whole_record.length === 0 ? (
         <NothingWritten gigs={mine} />
       ) : (
         <ReflectionList rows={rows} show_gig={scope.gig_id === null} gigs={mine} />
       )}
     </section>
+  );
+}
+
+/**
+ * Criterion 1: all gigs or one gig, and sprint chips only once a gig is in
+ * scope. Chips are Chip components rather than links because they write the
+ * URL through the router; the URL is still the state, and a shared link
+ * still restores it.
+ */
+function ScopeChips({
+  gigs,
+  scope,
+  on_select,
+}: {
+  gigs: Gig[];
+  scope: Scope;
+  on_select: (next: Scope) => void;
+}) {
+  const gig = gigs.find((candidate) => candidate.id === scope.gig_id);
+  const sprints = gig ? chippable_sprints(gig, new Date()) : [];
+
+  return (
+    <div>
+      <div className={styles.chip_row} role="group" aria-label="Scope">
+        <Chip selected={scope.gig_id === null} on_click={() => on_select(ALL_GIGS)}>
+          All gigs
+        </Chip>
+        {gigs.map((candidate) => (
+          <Chip
+            key={candidate.id}
+            selected={scope.gig_id === candidate.id}
+            on_click={() => on_select({ gig_id: candidate.id, sprint_id: null })}
+          >
+            {candidate.title}
+          </Chip>
+        ))}
+      </div>
+
+      {gig && sprints.length > 0 && (
+        <div className={styles.chip_row} role="group" aria-label="Sprint">
+          <Chip
+            selected={scope.sprint_id === null}
+            on_click={() => on_select({ gig_id: gig.id, sprint_id: null })}
+          >
+            All sprints
+          </Chip>
+          {sprints.map((sprint) => (
+            <Chip
+              key={sprint.id}
+              selected={scope.sprint_id === sprint.id}
+              on_click={() => on_select({ gig_id: gig.id, sprint_id: sprint.id })}
+            >
+              Sprint {sprint.ordinal}
+            </Chip>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
