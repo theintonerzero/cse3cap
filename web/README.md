@@ -143,9 +143,13 @@ a student's reflection and an assessor's queue side by side.
 
 A 401 from any request clears the token and returns to that screen.
 
-`VITE_API_TOKEN` in `web/.env` still seeds the client directly and is a development
-convenience with no production meaning. It predates the shell and is not how the running
-app gets its token.
+`VITE_API_TOKEN` in `web/.env` is still compiled into the bundle at build time, whatever it
+is set to, regardless of whether anything reads it back out. It no longer decides what
+token this app sends, though: `SessionProvider` calls `setAuthToken` on every boot with the
+session's own token -- `null` when nothing is stored -- which overwrites whatever
+`VITE_API_TOKEN` seeded before any request leaves. It predates the shell and is now pure
+liability: inert at runtime, still present in the shipped bundle. Removing it is tracked as
+finding F1 (CAP-24), not something this ticket touches.
 
 ## The components
 
