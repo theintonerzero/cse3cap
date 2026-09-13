@@ -95,8 +95,10 @@ export function AppShell() {
       <div className={styles.shell}>
         <header className={styles.header}>
           <SkeletonGroup label="Signing you in">
-            <Skeleton variant="text" width="40%" />
-            <Skeleton variant="text" lines={1} width="70%" />
+            <div className={styles.header_skeleton}>
+              <Skeleton variant="text" width="40%" />
+              <Skeleton variant="text" width="70%" />
+            </div>
           </SkeletonGroup>
         </header>
       </div>

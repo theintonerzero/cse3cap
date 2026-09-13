@@ -12,6 +12,12 @@
   border-bottom: var(--border-width-sm) solid var(--color-border);
 }
 
+.header_skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
 .identity {
   display: flex;
   align-items: center;
