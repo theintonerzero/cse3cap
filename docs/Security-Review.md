@@ -132,9 +132,12 @@ residual risk is a build artefact in a working tree. Recorded, not raised.
 
 Worth stating, because a review that lists only faults implies the rest was not looked at.
 
-- **The token is never persisted.** It lives in a module variable in `client.ts`, not in
-  `localStorage`, `sessionStorage` or a cookie. The only `localStorage` use in the codebase
-  is the theme (`web/src/theme.ts`). A payload that runs after a reload finds nothing stored.
+- **The token lives in `sessionStorage`, scoped to the tab.** CAP-5 persists the three
+  seeded tokens there so a reload keeps a tab signed in and two tabs can hold two
+  identities side by side; `client.ts` still holds the active one in a module variable for
+  the request path. Nothing goes in `localStorage`, whose only use in the codebase remains
+  the theme (`web/src/theme.ts`). A payload that runs after a reload finds that tab's own
+  token, not nothing.
 - **The token is never in a URL.** It is set as an `Authorization` header and nowhere else,
   so it stays out of server access logs, browser history and `Referer`.
 - **Nothing logs it.** There are no `Log::` or `logger()` calls in `api/app/`, and no
