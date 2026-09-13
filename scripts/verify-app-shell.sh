@@ -63,6 +63,12 @@ fi
 # --------------------------------------------------------------------------
 say "2. Every screen has a route"
 
+# routes.tsx carries a CAP-10 handover note with an illustrative sample
+# route inside a block comment; its continuation lines are prefixed with
+# " *". Strip those before matching, so the sample cannot satisfy a check
+# for a route that was actually deleted.
+routes_live="$(grep -v '^[[:space:]]*\*' web/src/app/routes.tsx)"
+
 for route in \
     'index' \
     'gigs/:gig_id' \
@@ -73,7 +79,16 @@ for route in \
     'frameworks' \
     'frameworks/:framework_id/edit'
 do
-    if grep -q "$route" web/src/app/routes.tsx; then
+    # index has no path= attribute of its own; every other route does, and
+    # matching the attribute rather than a bare substring is what stops
+    # e.g. "frameworks" being satisfied by "frameworks/:framework_id/edit".
+    if [ "$route" = 'index' ]; then
+        pattern='<Route index'
+    else
+        pattern="path=\"$route\""
+    fi
+
+    if printf '%s\n' "$routes_live" | grep -qF "$pattern"; then
         ok "route $route"
     else
         bad "route $route" "missing from web/src/app/routes.tsx"
@@ -90,30 +105,37 @@ fi
 
 if [ -z "$token" ]; then
     meh "live check" "$dim""no token in $TOKENS$off"
-elif ! curl -fsS -o /dev/null "$BASE/auth/me" 2>/dev/null && [ "$?" != "22" ]; then
-    meh "live check" "$dim""nothing serving on $BASE. Start it with ./run api$off"
 else
-    body="$(curl -fsS -H "Authorization: Bearer $token" -H 'Accept: application/json' \
-        "$BASE/auth/me" 2>/dev/null)"
-
-    if [ -z "$body" ]; then
-        bad "GET /auth/me" "no body"
+    curl -fsS -o /dev/null "$BASE/auth/me" 2>/dev/null
+    rc=$?
+    # 0 = answered, 22 = answered with an HTTP error status (401
+    # unauthenticated is the expected one here, since this probe sends no
+    # token). Anything else means nothing is serving.
+    if [ "$rc" -ne 0 ] && [ "$rc" -ne 22 ]; then
+        meh "live check" "$dim""nothing serving on $BASE. Start it with ./run api$off"
     else
-        for field in '"id"' '"display_name"' '"participations"'; do
-            case "$body" in
-                *"$field"*) ok "/auth/me carries $field" ;;
-                *)          bad "/auth/me carries $field" "nav cannot be built without it" ;;
-            esac
-        done
+        body="$(curl -fsS -H "Authorization: Bearer $token" -H 'Accept: application/json' \
+            "$BASE/auth/me" 2>/dev/null)"
 
-        # A participation is what nav_items_for reads. Without gig_id and
-        # role on each one, criterion 3 has nothing to derive from.
-        for field in '"gig_id"' '"gig_title"' '"role"'; do
-            case "$body" in
-                *"$field"*) ok "a participation carries $field" ;;
-                *)          bad "a participation carries $field" "the nav reads this" ;;
-            esac
-        done
+        if [ -z "$body" ]; then
+            bad "GET /auth/me" "no body"
+        else
+            for field in '"id"' '"display_name"' '"participations"'; do
+                case "$body" in
+                    *"$field"*) ok "/auth/me carries $field" ;;
+                    *)          bad "/auth/me carries $field" "nav cannot be built without it" ;;
+                esac
+            done
+
+            # A participation is what nav_items_for reads. Without gig_id
+            # and role on each one, criterion 3 has nothing to derive from.
+            for field in '"gig_id"' '"gig_title"' '"role"'; do
+                case "$body" in
+                    *"$field"*) ok "a participation carries $field" ;;
+                    *)          bad "a participation carries $field" "the nav reads this" ;;
+                esac
+            done
+        fi
     fi
 fi
 
