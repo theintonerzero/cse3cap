@@ -94,3 +94,24 @@
   font-weight: var(--font-weight-medium);
   color: var(--color-primary);
 }
+
+.radar_block {
+  margin-top: var(--space-16);
+  padding: var(--space-16);
+  border: var(--border-width-sm) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.caption {
+  margin: 0 0 var(--space-8);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text);
+}
+
+.footnote {
+  margin: var(--space-8) 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}

@@ -17,13 +17,23 @@ import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
 
 import { api, ApiError } from '../api/client.ts';
-import { Badge, Chip, ErrorNotice, Skeleton, SkeletonGroup } from '../components/index.ts';
+import type { paths } from '../api/schema.ts';
+import {
+  Badge,
+  Chip,
+  ErrorNotice,
+  RadarPanel,
+  Skeleton,
+  SkeletonGroup,
+} from '../components/index.ts';
 import { useSession } from '../session/useSession.ts';
 import {
   ALL_GIGS,
   chippable_sprints,
   params_for_scope,
+  radar_caption,
   reflections_in_scope,
+  rubric_line,
   scope_from_params,
   student_gigs,
   type Gig,
@@ -36,6 +46,14 @@ type Load =
   | { status: 'loading' }
   | { status: 'error'; error: ApiError }
   | { status: 'loaded'; gigs: Gig[]; reflections: ReflectionSummary[] };
+
+type Radar = paths['/me/radar']['get']['responses']['200']['content']['application/json'];
+
+type RadarLoad =
+  | { status: 'loading' }
+  | { status: 'error'; error: ApiError }
+  | { status: 'empty' }
+  | { status: 'loaded'; radar: Radar };
 
 /** The shape every failed call in this screen ends up in. */
 function as_api_error(error: unknown, fallback: string): ApiError {
@@ -131,9 +149,114 @@ export function DiaryHome() {
       {whole_record.length === 0 ? (
         <NothingWritten gigs={mine} />
       ) : (
-        <ReflectionList rows={rows} show_gig={scope.gig_id === null} gigs={mine} />
+        <>
+          <ScopedRadar
+            key={`${scope.gig_id ?? 'all'}:${scope.sprint_id ?? 'all'}`}
+            gig_id={scope.gig_id}
+            sprint_id={scope.sprint_id}
+            gigs={mine}
+          />
+          <ReflectionList rows={rows} show_gig={scope.gig_id === null} gigs={mine} />
+        </>
       )}
     </section>
+  );
+}
+
+/**
+ * The radar for one scope.
+ *
+ * Its own component and its own fetch because the scope decides it and the
+ * list does not: clicking a sprint chip refetches this and re-filters the
+ * list in memory. A 404 here is the API saying "nothing written in this
+ * scope yet" (AnalyticsController::frameworkInScope), which is an empty
+ * state, not an error -- rendering an error notice for it would tell a new
+ * student their diary is broken on their first visit.
+ *
+ * It takes the scope as two ids rather than as an object, and the screen
+ * gives it a `key` built from the same two. Both are deliberate: the ids
+ * are stable values an effect can depend on honestly, where a fresh
+ * `{ gig_id, sprint_id }` object every render could not be, and the key
+ * remounts this on a scope change so the caption and the polygon are never
+ * momentarily describing different things -- which is the exact ambiguity
+ * criterion 2 exists to remove.
+ */
+function ScopedRadar({
+  gig_id,
+  sprint_id,
+  gigs,
+}: {
+  gig_id: string | null;
+  sprint_id: string | null;
+  gigs: Gig[];
+}) {
+  const [load, setLoad] = useState<RadarLoad>({ status: 'loading' });
+  const [reload_key, setReloadKey] = useState(0);
+  const scope: Scope = { gig_id, sprint_id };
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const query = params_for_scope({ gig_id, sprint_id });
+
+    api
+      .get('/me/radar', { query, signal: controller.signal })
+      .then((radar) => setLoad({ status: 'loaded', radar }))
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        if (error instanceof ApiError && error.status === 404) {
+          setLoad({ status: 'empty' });
+          return;
+        }
+        setLoad({
+          status: 'error',
+          error: as_api_error(error, 'Something went wrong loading your radar.'),
+        });
+      });
+
+    return () => controller.abort();
+  }, [gig_id, sprint_id, reload_key]);
+
+  const retry = useCallback(() => {
+    setLoad({ status: 'loading' });
+    setReloadKey((key) => key + 1);
+  }, []);
+
+  if (load.status === 'loading') return <RadarPanel state="loading" />;
+  if (load.status === 'error') {
+    return <RadarPanel state="error" error={load.error} on_retry={retry} />;
+  }
+  if (load.status === 'empty') {
+    return (
+      <div className={styles.radar_block}>
+        <RadarPanel state="empty" />
+        <p className={styles.caption}>Nothing scored in this scope yet.</p>
+      </div>
+    );
+  }
+
+  const counter_role =
+    load.radar.axes.find((axis) => axis.counter_role !== null)?.counter_role ?? null;
+
+  return (
+    <div className={styles.radar_block}>
+      <p className={styles.caption}>{radar_caption(scope, gigs, counter_role)}</p>
+      <RadarPanel
+        state="loaded"
+        scale={{
+          min: load.radar.framework.scale_min,
+          max: load.radar.framework.scale_max,
+        }}
+        axes={load.radar.axes}
+      />
+      <p className={styles.footnote}>
+        {rubric_line(
+          load.radar.framework.fw_key,
+          load.radar.framework.scale_min,
+          load.radar.framework.scale_max,
+          gigs,
+        )}
+      </p>
+    </div>
   );
 }
 
