@@ -156,8 +156,10 @@ README.md                setup, connection details, the three tokens
 **Screens.** Twelve, each with loaded / loading / empty / error states
 
 *Student*
-- [ ] Diary home: scope chips (all gigs / per gig), sprint chips inside a gig, radar with
-      a caption that changes with scope, entry list with status badges, export link
+- [x] Diary home: scope chips (all gigs / per gig), sprint chips inside a gig, radar with
+      a caption that changes with scope, entry list with status badges, export link.
+      Scope lives in the URL (ADR #27) so a scoped diary is linkable, and the export link
+      opens the sheet CAP-18 fills in. `./run verify-diary` checks it
 - [ ] Gig detail: header, sprint list with dates, diary card linking in scoped to that gig
 - [ ] Entry stepper: one component, N states from the framework payload: competency name,
       tappable level descriptors, narrative with debounced autosave, evidence row,

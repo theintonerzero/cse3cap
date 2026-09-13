@@ -148,6 +148,12 @@ case "${1:-help}" in
     # live third needs a server; it skips itself rather than failing.
     verify-shell) step ./scripts/verify-app-shell.sh ;;
 
+    # The diary home's own invariants: the screen is mounted, its rows link
+    # to a route that exists, it declares no types of its own, and it ships
+    # four states. The live radar check needs a server and a token; it
+    # skips itself rather than failing.
+    verify-diary) step ./scripts/verify-diary-home.sh ;;
+
     # Reads the deploy host and reports what is actually on it. Read-only:
     # writes nothing, reloads nothing, which matters because that box also
     # carries the shared database. A check, like verify and smoke.
@@ -242,6 +248,7 @@ ${BLUE}Alumable Reflection Diary${RESET}
   ${GREEN}./run smoke${RESET}    end-to-end over HTTP. Needs a server already running
   ${GREEN}./run verify${RESET}   the typed API client, against both servers and the compiler
   ${GREEN}./run verify-shell${RESET}  the app shell: token ownership, routes, /auth/me
+  ${GREEN}./run verify-diary${RESET}  the diary home: mounted, linked, four states
   ${GREEN}./run swap${RESET}     the framework swap: SFIA against La Trobe, over HTTP
   ${GREEN}./run bundle-secrets${RESET}  proves a production build carries no token
   ${GREEN}./run lint${RESET}     pint, oxlint and prettier, checking only

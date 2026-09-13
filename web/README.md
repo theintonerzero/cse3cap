@@ -1,11 +1,11 @@
 # web/
 
-The React frontend. **No screen is built yet.** `src/App.tsx` still renders the word
-`test`, and that is the entire user interface.
+The React frontend. **The first screen is built.** `src/App.tsx` mounts the session and the
+router, and `/` is the student's diary home.
 
-What does exist is `tokens.css` and the typed API client in `src/api/`, which everything
-else is built on, plus six of the ten core components. The rest of the foundation, the
-remaining core components, comes next.
+What sits under it is `tokens.css`, the typed API client in `src/api/`, all ten core
+components, and the app shell with its route table. The remaining screens mount into the
+same frame.
 
 The point of the scaffold existing before any of it was that the toolchain, the CI job and
 the dev server are proven to work before anybody writes a screen, so the first real PR is
@@ -74,6 +74,21 @@ foundation comes before any screen:
 
 Then the twelve screens. **Each ships four states: loaded, loading, empty, error.** Not
 three. `/add-screen` carries the full checklist.
+
+## The screens
+
+`src/screens/<Name>.tsx` beside a colocated `<Name>.module.css`. A screen takes no props,
+fetches through the typed client, and owns its own states.
+
+| Screen        | Route                                                     | Check                |
+| ------------- | --------------------------------------------------------- | -------------------- |
+| `DiaryHome`   | `/`, scoped by `?gig_id=` and `?sprint_id=`               | `./run verify-diary` |
+| `ReviewQueue` | not mounted yet; CAP-10's follow-up swaps the placeholder | —                    |
+
+The diary home keeps its scope in the URL rather than in state (ADR #27), so a scoped diary
+is a link somebody can send. What a scope means -- which rows are yours, which sprints can
+be chipped, what the caption under the radar says -- lives in `src/screens/diary-scope.ts`,
+which is pure and imports no React.
 
 ## The API client
 

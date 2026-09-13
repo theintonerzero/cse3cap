@@ -21,16 +21,16 @@ after the subject closes and after they graduate.
 | Database | Applied and verified on the shared instance. 14 tables, 5 views |
 | Backend | **Complete.** 30 endpoints, all seven business rules, 110 feature tests |
 | Contract | `docs/openapi.yaml` matches the served routes, checked mechanically |
-| Frontend | **Foundation done, screens starting.** Design tokens, all ten core components, the typed client. One of twelve screens built |
+| Frontend | **Foundation done, screens starting.** Design tokens, all ten core components, the typed client, the app shell. Two of twelve screens built |
 
 The API is finished and stable enough to build against. The contract is the agreement, so a
 screen can be built against `prism mock docs/openapi.yaml` without waiting for anything.
 
 The frontend foundation is complete: `tokens.css`, the ten core components with a gallery at
-`web/gallery.html`, and the typed client generated from the contract. Of the twelve screens,
-the assessor review queue is built. The app shell that the rest mount onto is in review as
-#30; until it lands, screens have no route to sit on, which is the one thing gating the
-remaining eleven.
+`web/gallery.html`, the typed client generated from the contract, and the app shell every
+screen mounts into. Of the twelve screens, the student's diary home is built and mounted at
+`/`, and the assessor review queue is built but still waiting on the one-line route swap
+that is CAP-10's follow-up.
 
 Not built on the backend: PDF export, which needs dompdf and is a package decision for the
 team.
