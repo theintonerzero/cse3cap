@@ -21,12 +21,19 @@ after the subject closes and after they graduate.
 | Database | Applied and verified on the shared instance. 14 tables, 5 views |
 | Backend | **Complete.** 30 endpoints, all seven business rules, 110 feature tests |
 | Contract | `docs/openapi.yaml` matches the served routes, checked mechanically |
-| Frontend | **Scaffold only.** `web/` renders the word `test`. No screens built |
+| Frontend | **Foundation done, screens starting.** Design tokens, all ten core components, the typed client. One of twelve screens built |
 
-The API is finished and stable enough to build against. The contract is the agreement, so
-the frontend can start now against `prism mock docs/openapi.yaml` without waiting for
-anything. Not built on the backend: PDF export, which needs dompdf and is a package
-decision for the team.
+The API is finished and stable enough to build against. The contract is the agreement, so a
+screen can be built against `prism mock docs/openapi.yaml` without waiting for anything.
+
+The frontend foundation is complete: `tokens.css`, the ten core components with a gallery at
+`web/gallery.html`, and the typed client generated from the contract. Of the twelve screens,
+the assessor review queue is built. The app shell that the rest mount onto is in review as
+#30; until it lands, screens have no route to sit on, which is the one thing gating the
+remaining eleven.
+
+Not built on the backend: PDF export, which needs dompdf and is a package decision for the
+team.
 
 How the two folders fit together, and what breaks quietly when they drift, is
 [`docs/Frontend-and-Backend.md`](docs/Frontend-and-Backend.md).
@@ -211,7 +218,7 @@ notation cannot show. Schema with inline reasoning:
 ```
 .
 ├── api/          # Laravel 13 backend
-├── web/          # React + Vite + TypeScript frontend (scaffold only)
+├── web/          # React + Vite + TypeScript frontend
 ├── db/           # Schema, patches and seed data
 ├── docs/         # Brief, ERD, API spec, ADRs. Every document lives here
 ├── scripts/      # Setup, the smoke and client checks, the two agent guards
@@ -296,9 +303,9 @@ npm install
 npm run dev                # http://localhost:5173
 ```
 
-It renders the word `test`. That is the whole application: the scaffold exists so the
-toolchain, the CI job and the dev server are proven before anyone writes a screen. What to
-build and in what order is [`web/README.md`](web/README.md).
+`npm run dev` serves the app; `web/gallery.html` renders every core component in each of
+its states, which is the quickest way to see what is available before building a screen.
+What to build and in what order is [`web/README.md`](web/README.md).
 
 Vite reads `web/.env`, which needs one line:
 `VITE_API_BASE_URL=http://localhost:8000/api/v1`. `scripts/setup.sh` writes it and installs

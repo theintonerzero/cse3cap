@@ -1,15 +1,19 @@
 # web/
 
-The React frontend. **No screen is built yet.** `src/App.tsx` still renders the word
-`test`, and that is the entire user interface.
+The React frontend. **The foundation is complete; one of twelve screens is built.**
 
-What does exist is `tokens.css` and the typed API client in `src/api/`, which everything
-else is built on, plus six of the ten core components. The rest of the foundation, the
-remaining core components, comes next.
+`tokens.css`, the typed API client in `src/api/`, and all ten core components -- Card,
+Button, Chip, Badge, TextArea, ProgressBar, BottomSheet, RadarPanel, Skeleton and
+ErrorNotice. `gallery.html` renders every one of them in its states, which is the fastest
+way to see what exists before building anything.
 
-The point of the scaffold existing before any of it was that the toolchain, the CI job and
-the dev server are proven to work before anybody writes a screen, so the first real PR is
-about the screen rather than about Vite.
+Of the twelve screens, the assessor review queue (`src/screens/ReviewQueue.tsx`) is built.
+It mounts through its own `review-queue.html` entry rather than a route, because the app
+shell did not exist when it was written; that is a follow-up, not the pattern to copy.
+
+The app shell -- router, session and role-aware navigation -- is in review as #30. Until it
+merges there is no route for a screen to mount on, which is the one thing gating the other
+eleven.
 
 ## Running it
 
