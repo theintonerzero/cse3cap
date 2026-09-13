@@ -121,3 +121,33 @@
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
+
+.export_row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-24);
+}
+
+.sheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+.sheet_counts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+
+.sheet_counts li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
