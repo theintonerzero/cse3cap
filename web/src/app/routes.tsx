@@ -1,6 +1,7 @@
 /**
  * Every screen in docs/Stack-and-Build-Scope.md 4.3 has a route here, each
- * rendering a placeholder until its own ticket lands (criterion 1).
+ * rendering a placeholder until its own ticket lands. The diary home is the
+ * first one that is no longer a placeholder (CAP-7).
  *
  * Nested per ADR #27 so gig-then-sprint-then-entry stays linkable and
  * back-button-correct: an assessor working a queue moves in and out of
@@ -36,6 +37,19 @@ export function AppRoutes() {
 
         <Route
           path="entries/:entry_id"
+          element={<Placeholder screen="Entry stepper" ticket="CAP-11" />}
+        />
+
+        {/*
+         * The diary home links here rather than to entries/:entry_id:
+         * GET /reflections carries no entry ids, so a row could not
+         * address an entry without a request per row, and CAP-11's
+         * stepper is one reflection with N competency steps anyway
+         * ("Competency 3 of 6"). CAP-11 owns both routes and is free to
+         * keep one, the other, or both.
+         */}
+        <Route
+          path="reflections/:reflection_id"
           element={<Placeholder screen="Entry stepper" ticket="CAP-11" />}
         />
 

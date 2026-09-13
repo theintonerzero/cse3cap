@@ -14,7 +14,7 @@
  * means is in diary-scope.ts, deliberately free of React.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 
 import { api, ApiError } from '../api/client.ts';
 import type { paths } from '../api/schema.ts';
@@ -356,9 +356,9 @@ function NothingWritten({ gigs }: { gigs: Gig[] }) {
       <ul className={styles.empty_gigs}>
         {gigs.map((gig) => (
           <li key={gig.id}>
-            <a className={styles.empty_link} href={`/gigs/${gig.id}`}>
+            <Link className={styles.empty_link} to={`/gigs/${gig.id}`}>
               {gig.title}
-            </a>
+            </Link>
           </li>
         ))}
       </ul>
@@ -426,12 +426,22 @@ function ReflectionRow({
   ].filter((part): part is string => part !== null);
 
   return (
-    <li className={styles.row}>
-      <div className={styles.row_main}>
-        <span className={styles.row_title}>{title}</span>
-        <span className={styles.row_meta}>{meta.join(' · ')}</span>
-      </div>
-      <Badge status={row.status} />
+    <li>
+      <Link className={styles.row} to={`/reflections/${row.id}`}>
+        <div className={styles.row_main}>
+          <span className={styles.row_title}>{title}</span>
+          <span className={styles.row_meta}>{meta.join(' · ')}</span>
+        </div>
+        <Badge status={row.status} />
+        {/*
+         * The character itself rather than a numeric HTML entity:
+         * check-tokens.sh reads one as a raw hex colour and fails the
+         * build, which its own header lists as a known false positive.
+         */}
+        <span className={styles.chevron} aria-hidden="true">
+          {'›'}
+        </span>
+      </Link>
     </li>
   );
 }

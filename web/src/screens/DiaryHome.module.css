@@ -36,6 +36,7 @@
   border: var(--border-width-sm) solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
+  text-decoration: none;
 }
 
 .row_main {
@@ -52,6 +53,11 @@
 
 .row_meta {
   font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.chevron {
+  font-size: var(--font-size-lg);
   color: var(--color-text-muted);
 }
 
