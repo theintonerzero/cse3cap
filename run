@@ -170,6 +170,12 @@ case "${1:-help}" in
         step ./scripts/verify-framework-swap.sh
         ;;
 
+    # Builds for production with a token in the environment and fails if it
+    # survives into the bundle. The regression test for F1 in
+    # docs/Security-Review.md, which is only latent until a screen calls the
+    # API client.
+    bundle-secrets) need_web_deps; step ./scripts/check-bundle-secrets.sh ;;
+
     lint)
         need_api
         in_dir api ./vendor/bin/pint --test
@@ -211,6 +217,7 @@ case "${1:-help}" in
             step scripts/check-tokens.sh
             step node scripts/check-contrast.mjs
             in_dir web npm run build
+            step scripts/check-bundle-secrets.sh
         fi
         printf '\n%sAll checks passed.%s\n' "$GREEN" "$RESET"
         ;;
@@ -230,6 +237,7 @@ ${BLUE}Alumable Reflection Diary${RESET}
   ${GREEN}./run smoke${RESET}    end-to-end over HTTP. Needs a server already running
   ${GREEN}./run verify${RESET}   the typed API client, against both servers and the compiler
   ${GREEN}./run swap${RESET}     the framework swap: SFIA against La Trobe, over HTTP
+  ${GREEN}./run bundle-secrets${RESET}  proves a production build carries no token
   ${GREEN}./run lint${RESET}     pint, oxlint and prettier, checking only
   ${GREEN}./run fmt${RESET}      the same, writing changes
   ${GREEN}./run build${RESET}    production build of the frontend

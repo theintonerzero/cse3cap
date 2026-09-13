@@ -32,7 +32,24 @@ same review run against an empty frontend would produce a clean result that mean
 
 ### Findings
 
-#### F1 · A seeded bearer token will be compiled into public JavaScript — High, latent
+#### F1 · A seeded bearer token compiled into public JavaScript — High. **Fixed 2026-09-08**
+
+> **Update, 2026-09-08, later the same day.** Two things changed after this was written.
+>
+> **It stopped being latent.** The analysis below was correct against `4a60b2c`: no shipped
+> code path read the token, so Rollup dropped it. CAP-10 merged as #19 that afternoon, and
+> `web/src/screens/ReviewQueue.tsx:14` imports `api`, not merely `ApiError` — which pulls the
+> whole request path, and its own `review-queue.html` build entry ships it. A production
+> build from `dev` at `a0a6c79` puts the token in `assets/components-*.js`. The trigger was
+> CAP-10, not CAP-5 as predicted below.
+>
+> **It is fixed.** `web/src/api/client.ts` now gates the seed behind `import.meta.env.DEV`,
+> and `scripts/check-bundle-secrets.sh` holds it there — the check was confirmed to fail
+> against the vulnerable code and pass against the fix, and runs as part of `./run check`.
+>
+> The prediction below was wrong about *which* ticket would make it live, and that is the
+> lesson worth keeping: a finding whose severity depends on someone else's merge should be
+> fixed when found, not scheduled against a date you do not control.
 
 `web/src/api/client.ts:141` seeds the auth token from `import.meta.env.VITE_API_TOKEN`, so
 that a screen can be built against the real API before the app shell exists. Vite replaces

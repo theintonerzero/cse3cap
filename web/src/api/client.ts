@@ -137,8 +137,22 @@ async function toApiError(response: Response, url: string): Promise<ApiError> {
  * `VITE_API_TOKEN` seeds it so the real API can be used before that shell
  * exists. `web/.env` is gitignored, which is the only reason putting a token
  * there is acceptable.
+ *
+ * **The seed is development-only, and the guard is the point.** Vite replaces
+ * `import.meta.env.VITE_API_TOKEN` with a string literal at build time, so
+ * without this a bearer token compiles into public JavaScript the moment any
+ * shipped code path reads it. Nothing about the running site would look wrong.
+ * `import.meta.env.DEV` is statically `false` in a production build, so the
+ * whole branch and the value inside it are eliminated before the bundle is
+ * written -- the leak becomes impossible rather than forbidden.
+ *
+ * In production the app shell is the only source of a token, which is what it
+ * was always meant to be. Recorded as F1 in `docs/Security-Review.md`, and
+ * held in place by `scripts/check-bundle-secrets.sh`.
  */
-let authToken: string | null = import.meta.env.VITE_API_TOKEN ?? null;
+let authToken: string | null = import.meta.env.DEV
+  ? (import.meta.env.VITE_API_TOKEN ?? null)
+  : null;
 
 export function setAuthToken(token: string | null): void {
   authToken = token;

@@ -26,6 +26,12 @@
 # review packages. Regenerable, and the git history is the real record.
 .superpowers/
 
+# Written and removed again by scripts/check-bundle-secrets.sh, which builds
+# with a canary token to prove it does not reach the bundle. Present mid-run
+# only, and left behind if the trap cannot catch how it died.
+/web/.bundle-secrets-out
+/web/.env.production.local
+
 # Playwright MCP drops snapshots and console logs here when an agent
 # drives the dev server. Regenerable, and never worth reviewing.
 .playwright-mcp/
