@@ -1,0 +1,253 @@
+/**
+ * The student's landing screen, and the first place the radar appears in
+ * context.
+ *
+ * Two loads that do not wait on each other. Gigs and reflections are
+ * fetched once, because the chips and the list are both filtered from them
+ * in memory -- clicking a chip re-filters rather than refetching, so the
+ * list does not blink. The radar is refetched per scope, because the server
+ * is what computes it: a sprint gives that sprint's comparison, a gig the
+ * latest within it, neither the latest across the record
+ * (AnalyticsController::radar).
+ *
+ * Scope lives in the URL (ADR #27). Everything that decides what a scope
+ * means is in diary-scope.ts, deliberately free of React.
+ */
+import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router';
+
+import { api, ApiError } from '../api/client.ts';
+import { Badge, ErrorNotice, Skeleton, SkeletonGroup } from '../components/index.ts';
+import { useSession } from '../session/useSession.ts';
+import {
+  reflections_in_scope,
+  scope_from_params,
+  student_gigs,
+  type Gig,
+  type ReflectionSummary,
+} from './diary-scope.ts';
+import styles from './DiaryHome.module.css';
+
+type Load =
+  | { status: 'loading' }
+  | { status: 'error'; error: ApiError }
+  | { status: 'loaded'; gigs: Gig[]; reflections: ReflectionSummary[] };
+
+/** The shape every failed call in this screen ends up in. */
+function as_api_error(error: unknown, fallback: string): ApiError {
+  return error instanceof ApiError ? error : new ApiError(0, null, fallback);
+}
+
+export function DiaryHome() {
+  const { me } = useSession();
+  const [params] = useSearchParams();
+  const [load, setLoad] = useState<Load>({ status: 'loading' });
+  const [reload_key, setReloadKey] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    Promise.all([
+      api.get('/gigs', { signal: controller.signal }),
+      api.get('/reflections', { signal: controller.signal }),
+    ])
+      .then(([gigs, reflections]) => setLoad({ status: 'loaded', gigs, reflections }))
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        setLoad({
+          status: 'error',
+          error: as_api_error(error, 'Something went wrong loading your diary.'),
+        });
+      });
+
+    return () => controller.abort();
+  }, [reload_key]);
+
+  const retry = useCallback(() => {
+    setLoad({ status: 'loading' });
+    setReloadKey((key) => key + 1);
+  }, []);
+
+  if (load.status === 'loading') {
+    return (
+      <section>
+        <h1 className={styles.heading}>Your diary</h1>
+        <LoadingState />
+      </section>
+    );
+  }
+
+  if (load.status === 'error') {
+    return (
+      <section>
+        <h1 className={styles.heading}>Your diary</h1>
+        <ErrorNotice error={load.error} on_retry={retry} />
+      </section>
+    );
+  }
+
+  const mine = student_gigs(load.gigs);
+  const scope = scope_from_params(params, load.gigs);
+  const rows = reflections_in_scope(load.reflections, load.gigs, scope);
+  const whole_record = reflections_in_scope(load.reflections, load.gigs, {
+    gig_id: null,
+    sprint_id: null,
+  });
+
+  /*
+   * Every route stays reachable by URL, so an assessor can land here. The
+   * diary is the student's own record and theirs is empty by definition;
+   * saying so is better than an empty list that looks broken. A hidden nav
+   * item is a convenience; this is the same convenience, one screen in.
+   */
+  if (mine.length === 0) {
+    return (
+      <section>
+        <h1 className={styles.heading}>Your diary</h1>
+        <NotAStudent display_name={me?.display_name ?? null} />
+      </section>
+    );
+  }
+
+  return (
+    <section>
+      <h1 className={styles.heading}>Your diary</h1>
+
+      {whole_record.length === 0 ? (
+        <NothingWritten gigs={mine} />
+      ) : (
+        <ReflectionList rows={rows} show_gig={scope.gig_id === null} gigs={mine} />
+      )}
+    </section>
+  );
+}
+
+/**
+ * Shaped like the loaded screen, not a spinner: a chip row, the radar, and
+ * three list rows, so the layout does not jump when data arrives.
+ */
+function LoadingState() {
+  return (
+    <SkeletonGroup label="Loading your diary">
+      <div className={styles.chip_row}>
+        <Skeleton variant="block" width="var(--space-64)" height="var(--space-32)" />
+        <Skeleton variant="block" width="var(--space-64)" height="var(--space-32)" />
+      </div>
+      <div className={styles.radar_skeleton}>
+        <Skeleton variant="circle" width="14rem" height="14rem" />
+      </div>
+      <ul className={styles.list}>
+        {[0, 1, 2].map((row) => (
+          <li key={row} className={styles.row}>
+            <Skeleton variant="text" lines={2} width="60%" />
+          </li>
+        ))}
+      </ul>
+    </SkeletonGroup>
+  );
+}
+
+/** Criterion 5: empty says what to do next. */
+function NothingWritten({ gigs }: { gigs: Gig[] }) {
+  return (
+    <div className={styles.empty}>
+      <p className={styles.empty_title}>Nothing in your diary yet.</p>
+      <p className={styles.empty_body}>
+        A reflection belongs to a sprint: you write one short piece per competency, score
+        yourself, and someone on the gig scores you back. Open a gig and pick a sprint to
+        write your first.
+      </p>
+      <ul className={styles.empty_gigs}>
+        {gigs.map((gig) => (
+          <li key={gig.id}>
+            <a className={styles.empty_link} href={`/gigs/${gig.id}`}>
+              {gig.title}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function NotAStudent({ display_name }: { display_name: string | null }) {
+  return (
+    <div className={styles.empty}>
+      <p className={styles.empty_title}>The diary is the student&rsquo;s own record.</p>
+      <p className={styles.empty_body}>
+        {display_name ? `${display_name}, you are ` : 'You are '}
+        not a student on any gig, so there is nothing to show here. The work waiting on you
+        is in the review queue.
+      </p>
+    </div>
+  );
+}
+
+function ReflectionList({
+  rows,
+  show_gig,
+  gigs,
+}: {
+  rows: ReflectionSummary[];
+  show_gig: boolean;
+  gigs: Gig[];
+}) {
+  if (rows.length === 0) {
+    return (
+      <div className={styles.empty}>
+        <p className={styles.empty_title}>Nothing in this part of your diary.</p>
+        <p className={styles.empty_body}>
+          You have written reflections elsewhere. Choose a wider scope above to see them.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <ul className={styles.list}>
+      {rows.map((row) => (
+        <ReflectionRow key={row.id} row={row} show_gig={show_gig} gigs={gigs} />
+      ))}
+    </ul>
+  );
+}
+
+function ReflectionRow({
+  row,
+  show_gig,
+  gigs,
+}: {
+  row: ReflectionSummary;
+  show_gig: boolean;
+  gigs: Gig[];
+}) {
+  const gig = gigs.find((candidate) => candidate.id === row.gig_id);
+  const title = row.sprint_ordinal == null ? 'Whole gig' : `Sprint ${row.sprint_ordinal}`;
+  const meta = [
+    show_gig ? (gig?.title ?? null) : null,
+    row.framework_version,
+    when(row),
+  ].filter((part): part is string => part !== null);
+
+  return (
+    <li className={styles.row}>
+      <div className={styles.row_main}>
+        <span className={styles.row_title}>{title}</span>
+        <span className={styles.row_meta}>{meta.join(' · ')}</span>
+      </div>
+      <Badge status={row.status} />
+    </li>
+  );
+}
+
+/** "Submitted 29 Aug" once it is in, "Started 17 Aug" while it is a draft. */
+function when(row: ReflectionSummary): string {
+  const stamp = row.submitted_at ?? row.created_at;
+  const label = row.submitted_at ? 'Submitted' : 'Started';
+  const date = new Date(stamp).toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'short',
+  });
+
+  return `${label} ${date}`;
+}

@@ -19,6 +19,7 @@
  */
 import { Route, Routes } from 'react-router';
 
+import { DiaryHome } from '../screens/DiaryHome.tsx';
 import { AppShell } from './AppShell.tsx';
 import { Placeholder } from './Placeholder.tsx';
 
@@ -26,7 +27,7 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route element={<AppShell />}>
-        <Route index element={<Placeholder screen="Diary" ticket="CAP-7" />} />
+        <Route index element={<DiaryHome />} />
 
         <Route
           path="gigs/:gig_id"
