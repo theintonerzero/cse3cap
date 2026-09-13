@@ -131,9 +131,11 @@ should; `./run verify-shell` checks that.
 ## Getting a token in
 
 There is no login screen (ADR #15). On first load the app asks for one of the three seeded
-tokens, which `php artisan db:seed` writes to `~/reflection-diary-tokens.txt`. Paste one
-into the matching slot and you are that user; the header switches between whichever slots
-you have filled.
+tokens. `php artisan db:seed` prints each one once; it does not write them to a file.
+Save that output as `~/reflection-diary-tokens.txt` yourself -- that is the convention the
+check scripts under `scripts/` read from, not something the seeder produces. Paste one into
+the matching slot and you are that user; the header switches between whichever slots you
+have filled.
 
 Tokens are held in `sessionStorage`, so each browser tab is its own identity and a reload
 keeps you signed in. Two tabs can be two different people at once, which is how you look at

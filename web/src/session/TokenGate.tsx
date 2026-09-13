@@ -2,8 +2,11 @@
  * Getting a seeded token into the app, and swapping which one is in use.
  *
  * There is no login screen in this MVP (ADR #15). Three Sanctum tokens are
- * seeded server-side, one per role, and the seeder writes them to
- * ~/reflection-diary-tokens.txt. This is where they get pasted.
+ * seeded server-side, one per role, and `php artisan db:seed` prints each one
+ * once -- it does not write a file. ~/reflection-diary-tokens.txt is the
+ * name a developer saves that output under, and the only reason it means
+ * anything is that scripts/*.sh read it back. This is where the tokens get
+ * pasted.
  *
  * One component, two modes, which is the pattern /add-screen prescribes for
  * the student and assessor steppers rather than two builds:
@@ -12,10 +15,10 @@
  *            This is where a 401 lands (criterion 5)
  *   sheet    inside the header's BottomSheet. The switcher (criterion 4)
  *
- * The slot labels are hints about which token to paste, matching the names
- * in the tokens file. They are NOT roles and nothing reads them as roles;
- * see the comment at the top of tokens.ts. What a user may do comes from
- * GET /auth/me, per gig.
+ * The slot labels are hints about which token to paste, matching the role
+ * column of web/README.md's seeded-user table. They are NOT roles and
+ * nothing reads them as roles; see the comment at the top of tokens.ts. What
+ * a user may do comes from GET /auth/me, per gig.
  */
 import { useState } from 'react';
 
@@ -102,8 +105,9 @@ export function TokenGate({ mode, on_done }: TokenGateProps) {
       )}
 
       <p className={styles.hint}>
-        The seeder writes these to <code>~/reflection-diary-tokens.txt</code>. They are kept
-        for this browser tab only.
+        <code>php artisan db:seed</code> prints these once; it does not write a file. Save
+        that output as <code>~/reflection-diary-tokens.txt</code> yourself. Whatever you
+        paste here is kept for this browser tab only.
       </p>
     </div>
   );

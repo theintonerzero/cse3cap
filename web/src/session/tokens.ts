@@ -16,11 +16,13 @@
  *
  * NOTHING HERE DECIDES WHAT A USER MAY DO. The slot labels below exist
  * because pasting three tokens into three unlabelled boxes is miserable, and
- * because they match what the tokens are called in the file the seeder
- * writes. A label is a hint about which token to paste, never a role. Roles
- * are resolved server-side from gig_participants and reach the frontend only
- * through GET /auth/me, per gig, and that is the only thing navigation or
- * any screen may read. See CLAUDE.md and docs/Frontend-and-Backend.md.
+ * because they match the role column of web/README.md's seeded-user table --
+ * a steadier anchor than the file a developer saves the seeder's printed
+ * output into, which the seeder itself never writes. A label is a hint about
+ * which token to paste, never a role. Roles are resolved server-side from
+ * gig_participants and reach the frontend only through GET /auth/me, per
+ * gig, and that is the only thing navigation or any screen may read. See
+ * CLAUDE.md and docs/Frontend-and-Backend.md.
  *
  * No React in this file on purpose: the storage rules are easier to trust
  * when they are not tangled up with a render cycle.
@@ -34,7 +36,7 @@ export type SlotId = 'student' | 'assessor' | 'supervisor';
 
 export const SLOT_IDS: readonly SlotId[] = ['student', 'assessor', 'supervisor'];
 
-/** Matches the names in ~/reflection-diary-tokens.txt, so the paste is obvious. */
+/** Matches the role column of web/README.md's seeded-user table, so the paste is obvious. */
 export const SLOT_LABEL: Record<SlotId, string> = {
   student: 'Student',
   assessor: 'Assessor',
