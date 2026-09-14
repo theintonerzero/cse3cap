@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\GigResource;
 use App\Models\Gig;
 use App\Models\User;
-use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Gate;
@@ -66,13 +65,6 @@ class GigController extends Controller
      */
     private function visibleReflections(User $user): callable
     {
-        return fn ($query) => $query->where(fn (Builder $group) => $group
-            ->where('reflections.user_id', $user->id)
-            ->orWhereExists(fn (Builder $sub) => $sub
-                ->selectRaw('1')
-                ->from('gig_participants')
-                ->whereColumn('gig_participants.gig_id', 'reflections.gig_id')
-                ->where('gig_participants.user_id', $user->id)
-                ->whereIn('gig_participants.role', ['assessor', 'supervisor', 'employer'])));
+        return fn ($query) => $query->visibleTo($user);
     }
 }

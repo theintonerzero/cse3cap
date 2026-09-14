@@ -39,7 +39,7 @@ class ReflectionPolicy
 
         $role = $this->roles->for($user, $gig);
 
-        return in_array($role, ['assessor', 'supervisor', 'employer'], true)
+        return in_array($role, RoleResolver::REVIEWER_ROLES, true)
             ? Response::allow()
             : Response::denyAsNotFound();
     }
@@ -91,7 +91,7 @@ class ReflectionPolicy
             return Response::denyAsNotFound();
         }
 
-        return in_array($role, ['assessor', 'supervisor', 'employer'], true)
+        return in_array($role, RoleResolver::REVIEWER_ROLES, true)
             ? Response::allow()
             : Response::deny('Only an assessor, supervisor or employer can counter-score this reflection.');
     }
