@@ -1524,9 +1524,23 @@ Recorded here rather than done, because CAP-8 is CAP-8.
 - **`/review-queue` is still CAP-10's placeholder** while `web/src/screens/ReviewQueue.tsx`
   sits built and unmounted. CAP-5 and CAP-7 both recorded this; it is Tony's. It is why the
   diary card does not offer a non-student a link anywhere.
-- **`DiaryHome.module.css` puts `--color-text-muted` on `--color-surface-alt`** in
-  `.empty_body`, which is 4.32:1 and fails AA in light mode. This plan avoids the pairing in
-  its own file but does not fix CAP-7's.
+- **`DiaryHome.module.css` has two AA failures in light mode**, both measured while
+  building this ticket, neither fixed here. `.empty_body` puts `--color-text-muted` on
+  `--color-surface-alt` at **4.32:1**, and `.empty_link` puts `--color-primary` on the same
+  fill at **4.07:1** — the second is a link, so colour is also its only affordance. The
+  same pairing on the lavender card in this ticket measured 3.93:1 and was fixed here
+  (commit `8ba6e1a`); CAP-7's two are the same family and are CAP-7's to fix.
+  `scripts/check-contrast.mjs` does not catch any of them because `PAIRS` is a hand-kept
+  list and nobody added these rows.
+- **`scripts/check-tokens.sh` is not executable.** `./run` and `./run check` invoke it as
+  `scripts/check-tokens.sh`, which works only because `step` runs it through a shell that
+  finds the shebang; calling `./scripts/check-tokens.sh` directly is "Permission denied".
+  Every `verify-*.sh` beside it has the execute bit. One `chmod +x`, and it was already
+  noticed once while closing CAP-3.
+- **The gig detail screen has never been rendered in a browser.** Chromium is not installed
+  on this machine, so the Playwright half of Task 3 could not run and the screen went to
+  review unlooked-at. The checks that did run are static, the compiler, and the executed
+  date module.
 - **No `verify-*` script runs in `./run check`.** `verify-client`, `verify-shell`,
   `verify-diary` and now `verify-gig` are all run by hand. Three of the four have a live
   half that skips without a server, so wiring them in is not just a line in the `check`
