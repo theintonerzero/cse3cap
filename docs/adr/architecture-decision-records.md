@@ -47,6 +47,7 @@ Index
 #35 One rubric per gig, in the key itself .......... Accepted
 #36 The type generator runs through npx .......... Accepted
 #37 Demo reflections are a second seeder ......... Accepted
+#38 Jira is the truth about tickets .............. Accepted
 
 ===============================================================
 
@@ -1730,3 +1731,89 @@ Seed the reflections as raw inserts rather than through the services. Rejected. 
 faster and it would let the seeder write states the API cannot reach, which is exactly the
 problem. Demo data that no rule was applied to is data that quietly disagrees with the
 product.
+
+
+ADR #38: Jira is the truth about tickets, and agents may move them
+
+Status: Accepted
+Date: 2026-09-14
+
+Context:
+Ticket state has been read from `docs/jira/*.csv` since the board was created. Those files
+are the csv import the tickets were made from. They carry Issue Type, Summary, Description,
+Epic Link, Parent, Assignee, Priority, Story Points, Sprint, Due Date and Labels, and no
+status column at all. Nothing in them can say whether a ticket is done, because that
+concept was not in the export.
+
+The consequence was invisible rather than loud. Agents asked for project status inferred it
+from git history and pull request titles, which is the only signal the repository holds.
+That reads as authoritative and is wrong in specific ways: it cannot see a reassignment, it
+cannot see a ticket nobody has started, and it reports what merged rather than what the
+board says. CAP-5 was assigned to Andrew in the csv and built by Patrick; no amount of
+reading the repository would have surfaced that.
+
+The repository calls tickets CAP-n and Jira calls them COA4-nn. CAP-1 is COA4-59 and CAP-6
+is COA4-65, so the offset is not constant and there is no mapping file. What makes the two
+reconcilable is that the CAP key sits inside the Jira summary.
+
+Decision:
+Jira is the source of truth for ticket state, assignment, sprint and story points. It joins
+the list in CLAUDE.md above this file, below the schema and the contract, because a ticket
+describes intent and the schema describes the product.
+
+Access is a per-developer Atlassian API token in the shell environment, JIRA_EMAIL and
+JIRA_API_TOKEN, the same shape as DB_READONLY_PASSWORD. The `atlassian` server in
+`.mcp.json` reads them. Nothing secret is committed and every agent acts as the developer
+running it.
+
+Agents may transition tickets, not only read them. The rules are in
+`.claude/skills/jira-tickets`: In Progress when a branch has a commit, Done only when the
+pull request is merged into `dev` and that has been checked rather than assumed, never
+somebody else's ticket, never a half-finished one, and always said out loud in the same
+message as the work.
+
+CAP-n resolves to a Jira key by searching the summary, `project = COA4 AND summary ~
+"CAP-20"`, rather than by arithmetic or a mapping file that would go stale.
+
+`docs/jira/*.csv` stays in the repository as the record of what was imported, and is never
+read for status again.
+
+Consequences:
+Positive:
+Status answers stop being reconstructed from git and start being read. Reassignment,
+unstarted work and the gap between a merged branch and a closed ticket all become visible.
+The board is maintained every sprint, so the data is current rather than a snapshot. A
+ticket moving when the work merges removes the step everybody forgets.
+
+Negative:
+Five people now need Atlassian API tokens before an agent can answer a question it used to
+answer badly on its own. Someone without one gets a hard stop rather than a wrong number,
+which is correct but is still a stop. `./run jira` exists to make that a two-minute fix
+rather than a mystery, but it is a new setup step and a new failure mode.
+
+Write access is the real cost. An agent can now change something four other people see, on
+a board that is assessed, acting as whoever ran it. The guard is a skill rather than a
+permission: the token cannot distinguish a careful transition from a careless one. The rule
+that an agent never moves somebody else's ticket is doing a lot of work and nothing enforces
+it.
+
+The summary search is a text match. `summary ~ "CAP-2"` also returns CAP-20 through CAP-29,
+so every lookup has to confirm what it got. That is a sharp edge left deliberately, because
+the alternative is a mapping file that drifts the first time a ticket is renamed.
+
+Alternatives:
+Keep reading the csv exports and re-export them each sprint. Rejected: they have no status
+column, so no export cadence fixes them. A fresh import file is still an import file.
+
+Read-only access, with humans moving tickets. Genuinely safer, and rejected because the
+board going stale is the failure this is fixing. A ticket that stays In Progress for two
+weeks after its pull request merged is the same wrong answer in a different place.
+
+Add a jira_key field to a mapping file in the repository, or rename CAP-n to COA4-nn
+throughout. Rejected: the mapping goes stale silently the first time somebody renames a
+ticket, and the rename touches every branch name, commit message and document written so
+far for no gain the summary search does not already give.
+
+Atlassian's OAuth remote MCP instead of API tokens. Rejected because it cannot be checked
+from a script. A developer who cannot tell whether their access works falls back to
+guessing, which is the habit being removed.

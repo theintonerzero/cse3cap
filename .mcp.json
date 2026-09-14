@@ -14,6 +14,15 @@
         "ALLOW_UPDATE_OPERATION": "false",
         "ALLOW_DELETE_OPERATION": "false"
       }
+    },
+    "atlassian": {
+      "command": "uvx",
+      "args": ["mcp-atlassian==0.23.1"],
+      "env": {
+        "JIRA_URL": "${JIRA_SITE:-https://latrobecomsci.atlassian.net}",
+        "JIRA_USERNAME": "${JIRA_EMAIL}",
+        "JIRA_API_TOKEN": "${JIRA_API_TOKEN}"
+      }
     }
   }
 }

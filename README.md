@@ -569,7 +569,7 @@ and the reasoning behind the unusual decisions.
 | [`docs/erd.png`](docs/erd.png)                                   | Entity relationship diagram, with a legend of hidden constraints |
 | [`docs/superpowers/specs/`](docs/superpowers/specs/)             | Design specs for each build slice                             |
 | [`docs/superpowers/plans/`](docs/superpowers/plans/)             | Implementation plans, and the current sequencing plan          |
-| [`docs/jira/`](docs/jira/)                                       | Jira CSV imports: the epics and the sprint 3 to 5 backlogs    |
+| [`docs/jira/`](docs/jira/)                                       | The Jira CSV **imports**, historical. Ticket status lives in Jira, not here (ADR #38) |
 | [`db/01-schema.sql`](db/01-schema.sql)                           | The schema, with inline reasoning                             |
 
 ## Team
