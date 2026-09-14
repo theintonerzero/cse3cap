@@ -1524,6 +1524,9 @@ Recorded here rather than done, because CAP-8 is CAP-8.
 - **`/review-queue` is still CAP-10's placeholder** while `web/src/screens/ReviewQueue.tsx`
   sits built and unmounted. CAP-5 and CAP-7 both recorded this; it is Tony's. It is why the
   diary card does not offer a non-student a link anywhere.
+- **~~`DiaryHome.module.css` `.empty_link` at 4.07:1~~ — fixed in `e8e5503`**, because that
+  commit added a second link beside it and leaving one accessible and the other not would
+  have been worse than either. `.empty_body` at 4.32:1 is still open; see below.
 - **`DiaryHome.module.css` has two AA failures in light mode**, both measured while
   building this ticket, neither fixed here. `.empty_body` puts `--color-text-muted` on
   `--color-surface-alt` at **4.32:1**, and `.empty_link` puts `--color-primary` on the same
@@ -1550,6 +1553,23 @@ Recorded here rather than done, because CAP-8 is CAP-8.
 - **No screen has an automated accessibility or visual check.** The looking in Task 3 is a
   ritual a person performs. If `web/` should have a test runner, that is an ADR and a team
   decision, not something to add in passing.
+
+## Added after the plan was written
+
+**The screen had no way in.** Nothing in the nav addresses a single gig, the diary's list
+rows are already links to reflections, and the one existing link to `/gigs/:gig_id` lives
+inside `NothingWritten`, which renders only for a student who has written nothing. So every
+student with a reflection could reach the screen by URL and no other way.
+
+Patrick authorised the fix on this branch on 2026-09-14 ("we worked on cap-5 and cap-7
+together so it only makes sense that I'm able to work on access to the details screen"),
+and `e8e5503` adds a link under the scope chips, shown when one gig is in scope. The
+alternatives were each ruled out rather than weighed: a nav item cannot carry an id, and a
+link on a list row would nest an anchor inside an anchor.
+
+`verify-gig` section 2 asserts it by class name. The obvious grep — any link to `/gigs/` in
+`DiaryHome.tsx` — passed while the screen was still unreachable, because CAP-7's empty-state
+link satisfied it.
 
 ## What this ticket does not touch
 
