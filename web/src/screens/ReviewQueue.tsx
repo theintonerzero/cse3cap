@@ -4,11 +4,9 @@
  * job (`GET /review-queue`, `ReviewQueueController::index`) — this screen
  * renders whatever comes back and does not re-derive it.
  *
- * CAP-10, built against CAP-3/CAP-4's real components. CAP-5's router and
- * token context still don't exist, so the link into the assessor stepper
- * stays a disabled placeholder and this screen has no mount point of its
- * own in the product yet — see `web/review-queue.html` for the throwaway
- * dev mount used to look at it before CAP-5 lands.
+ * CAP-10, built against CAP-3/CAP-4's real components and mounted on
+ * CAP-5's router at `/review-queue`. The link into the assessor stepper
+ * stays a disabled placeholder until CAP-13 exists.
  */
 import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError } from '../api/client.ts';
