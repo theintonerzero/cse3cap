@@ -102,32 +102,23 @@
   list-style: none;
 }
 
-/* Both links on this screen are --color-text and underlined rather than
-   --color-primary. That colour fails AA as normal text on everything it sits
-   on here: 4.07:1 on --color-surface-alt behind .empty_link, 4.29:1 on
-   --color-bg behind .about_link. check-contrast.mjs only ever lists
-   --color-primary as 'large' for that reason. The underline is then what
-   says "link", which is where the affordance should have been anyway.
-   Matches GigDetail.module.css .diary_link, which the same measurement
-   produced. */
 .empty_link {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
-  color: var(--color-text);
-  text-decoration: underline;
-  text-underline-offset: var(--space-4);
+  color: var(--color-primary);
 }
 
 .about_gig {
   margin: 0 0 var(--space-12);
 }
 
+/* Same treatment as .empty_link above. A link on this screen is
+   --color-primary; the new one matches rather than inventing a second
+   look. */
 .about_link {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
-  color: var(--color-text);
-  text-decoration: underline;
-  text-underline-offset: var(--space-4);
+  color: var(--color-primary);
 }
 
 .radar_block {

@@ -1524,9 +1524,19 @@ Recorded here rather than done, because CAP-8 is CAP-8.
 - **`/review-queue` is still CAP-10's placeholder** while `web/src/screens/ReviewQueue.tsx`
   sits built and unmounted. CAP-5 and CAP-7 both recorded this; it is Tony's. It is why the
   diary card does not offer a non-student a link anywhere.
-- **~~`DiaryHome.module.css` `.empty_link` at 4.07:1~~ — fixed in `e8e5503`**, because that
-  commit added a second link beside it and leaving one accessible and the other not would
-  have been worse than either. `.empty_body` at 4.32:1 is still open; see below.
+- **The link colour is an open accessibility finding for the team, not a fix anyone should
+  make alone.** `--color-primary` as normal-size link text measures 4.07:1 on
+  `--color-surface-alt` (`.empty_link`), 4.29:1 on `--color-bg` (`.about_link`) and 3.93:1
+  on `--color-accent-lavender` (`.diary_link`) — all below the 4.5:1 AA threshold, all in
+  light mode. Colour is also the only affordance marking these as links.
+
+  This branch changed `.diary_link` and `.empty_link` to `--color-text` plus an underline
+  and Patrick reverted it on 2026-09-14: *"imagine if everyone did small changes to the css
+  our design would end up fucked."* He is right, and the reasoning generalises — a link
+  treatment is a property of the design system, so five people each fixing it locally
+  produces five link styles and no fix. All three links are now `--color-primary`,
+  consistently. Raising it as its own ticket against whoever owns the palette is the way
+  this gets solved.
 - **`DiaryHome.module.css` has two AA failures in light mode**, both measured while
   building this ticket, neither fixed here. `.empty_body` puts `--color-text-muted` on
   `--color-surface-alt` at **4.32:1**, and `.empty_link` puts `--color-primary` on the same

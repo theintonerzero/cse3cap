@@ -163,18 +163,16 @@
   gap: var(--space-8);
 }
 
-/* --color-primary on --color-accent-lavender is 3.93:1 in light mode and
-   fails AA for normal text -- the same trap as the four pairs already
-   recorded, and the reason --color-primary on --color-bg is only ever
-   listed as 'large' in check-contrast.mjs. A tinted fill takes a
-   --color-text foreground. The underline is then what says "link", which
-   is where the affordance should have been anyway. */
+/* Matches .empty_link and .about_link on the diary home: a link in this
+   product is --color-primary. Measured at 3.93:1 on this tint, which is
+   below AA for normal text -- recorded as a finding for the team in the
+   CAP-8 plan rather than fixed here, because the link treatment is a
+   design decision for whoever owns the palette, not something one screen
+   changes on its own. */
 .diary_link {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
-  color: var(--color-text);
-  text-decoration: underline;
-  text-underline-offset: var(--space-4);
+  color: var(--color-primary);
 }
 
 .empty {
