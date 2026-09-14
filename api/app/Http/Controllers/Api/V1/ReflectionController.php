@@ -13,7 +13,6 @@ use App\Services\EventLog;
 use App\Services\ReflectionCreator;
 use App\Services\RoleResolver;
 use App\Services\SubmitGate;
-use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -41,14 +40,7 @@ class ReflectionController extends Controller
         $user = $request->user();
 
         $reflections = Reflection::query()
-            ->where(fn (Builder $visible) => $visible
-                ->where('reflections.user_id', $user->id)
-                ->orWhereExists(fn (Builder $sub) => $sub
-                    ->selectRaw('1')
-                    ->from('gig_participants')
-                    ->whereColumn('gig_participants.gig_id', 'reflections.gig_id')
-                    ->where('gig_participants.user_id', $user->id)
-                    ->whereIn('gig_participants.role', ['assessor', 'supervisor', 'employer'])))
+            ->visibleTo($user)
             ->when($request->query('gig_id'), fn ($q, $id) => $q->where('gig_id', $id))
             ->when($request->query('sprint_id'), fn ($q, $id) => $q->where('sprint_id', $id))
             ->when($request->query('status'), fn ($q, $s) => $q->where('status', $s))

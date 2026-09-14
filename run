@@ -193,6 +193,11 @@ case "${1:-help}" in
     # API client.
     bundle-secrets) need_web_deps; step ./scripts/check-bundle-secrets.sh ;;
 
+    # CLAUDE.md says a business rule has exactly one implementation.
+    # Greps the rules that are a literal somebody could retype: CAP-19's
+    # audit found the reviewer roles written out five times.
+    one-rule) step ./scripts/check-one-rule.sh ;;
+
     lint)
         need_api
         in_dir api ./vendor/bin/pint --test
@@ -222,6 +227,7 @@ case "${1:-help}" in
         say "Guards"
         step python3 scripts/guard-shared-db.test.py
         step python3 scripts/guard-docs-location.test.py
+        step ./scripts/check-one-rule.sh
         say "Backend"
         need_api
         in_dir api ./vendor/bin/pint --test
@@ -252,6 +258,7 @@ ${BLUE}Alumable Reflection Diary${RESET}
 
   ${GREEN}./run test${RESET}     backend test suite, against your own test database
   ${GREEN}./run smoke${RESET}    end-to-end over HTTP. Needs a server already running
+  ${GREEN}./run one-rule${RESET}  no business rule implemented twice
   ${GREEN}./run verify${RESET}   the typed API client, against both servers and the compiler
   ${GREEN}./run verify-shell${RESET}  the app shell: token ownership, routes, /auth/me
   ${GREEN}./run verify-diary${RESET}  the diary home: mounted, linked, four states

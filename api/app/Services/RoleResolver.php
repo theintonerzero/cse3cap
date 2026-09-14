@@ -14,6 +14,24 @@ use App\Models\User;
  */
 class RoleResolver
 {
+    /**
+     * The roles that review somebody else's reflection: every participant
+     * role except the student whose reflection it is.
+     *
+     * ADR #23 is the reason this is one list rather than three checks for
+     * `assessor`. The permission matrix lets assessor, supervisor and
+     * employer counter-score, and `v_calibration_gap` pivoting on
+     * `scorer_role = 'assessor'` alone is the bug that ADR recorded: Dr Lee
+     * is a supervisor on both seeded gigs and counter-scores on them, so a
+     * narrower list is reachable in the demo, not a corner case.
+     *
+     * Seeing a reflection that is not yours and counter-scoring it are the
+     * same population, which is why one constant serves both.
+     *
+     * @var list<string>
+     */
+    public const REVIEWER_ROLES = ['assessor', 'supervisor', 'employer'];
+
     /** @var array<string, string|null> */
     private array $memo = [];
 
