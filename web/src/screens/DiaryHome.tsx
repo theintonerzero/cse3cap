@@ -388,6 +388,30 @@ function ScopeChips({
           ))}
         </div>
       )}
+
+      {/*
+       * The only way into the gig detail screen (CAP-8) from anywhere a
+       * student actually goes. It cannot live on a list row: the row is
+       * already a Link to a reflection, and a link inside a link is
+       * invalid markup and unusable with a screen reader. It cannot live
+       * in the nav either, because /gigs/:gig_id needs an id and the nav
+       * has no single gig to name. It belongs here because this is where
+       * "one gig is in scope" becomes true, and it closes the loop -- the
+       * gig screen links into the scoped diary, this links back.
+       *
+       * Absent under "All gigs", which addresses no single gig. A brand
+       * new student with nothing written reaches the same screen through
+       * NothingWritten below, which has linked there since CAP-7 -- but
+       * only while they have written nothing, which is why that link is
+       * not enough on its own.
+       */}
+      {gig && (
+        <p className={styles.about_gig}>
+          <Link className={styles.about_link} to={`/gigs/${gig.id}`}>
+            Sprints and people on this gig
+          </Link>
+        </p>
+      )}
     </div>
   );
 }

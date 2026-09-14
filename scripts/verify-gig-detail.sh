@@ -12,9 +12,12 @@
 #
 # 1. The screen is actually mounted. A screen built but left behind a
 #    placeholder is a screen nobody can reach.
-# 2. The diary card links into the diary home SCOPED, and the diary home
-#    still reads that scope back. A ?gig_id= nobody parses is a link that
-#    silently lands on the unfiltered diary.
+# 2. The screen is REACHABLE, and the link out of it goes somewhere real.
+#    Nothing in the nav addresses a single gig, so the only way in is a
+#    link on the diary home; without one the screen exists and nobody can
+#    click to it. And the card's link back must be SCOPED to a parameter
+#    the diary home actually reads -- a ?gig_id= nobody parses is a link
+#    that silently lands on the unfiltered diary.
 # 3. No second API client, and no hand-written response type.
 # 4. All four states, including skeletons rather than a spinner.
 # 5. The relative wording is REAL. gig-timing.ts is compiled and called
@@ -35,6 +38,7 @@ TOKENS="${TOKENS:-$HOME/reflection-diary-tokens.txt}"
 SCREEN="web/src/screens/GigDetail.tsx"
 TIMING="web/src/screens/gig-timing.ts"
 SCOPE="web/src/screens/diary-scope.ts"
+DIARY="web/src/screens/DiaryHome.tsx"
 ROUTES="web/src/app/routes.tsx"
 
 if [ -t 1 ]; then
@@ -66,7 +70,22 @@ else
 fi
 
 # --------------------------------------------------------------------------
-say "2. The diary card links into the diary, scoped"
+say "2. Reachable from the diary, and scoped on the way back"
+
+# The way IN. A screen with no route to it is a screen nobody finds: the
+# nav cannot carry one because /gigs/:gig_id needs an id and the nav has
+# no single gig to name.
+#
+# Checked as the about_link specifically, NOT as any link to /gigs/. The
+# diary home has carried one since CAP-7, inside NothingWritten, which only
+# renders for a student who has written nothing -- so a bare grep for
+# '/gigs/' passes while every student with a reflection still has no way
+# through. This is the always-visible one.
+if grep -q 'styles.about_link' "$DIARY" && grep -q 'to={`/gigs/' "$DIARY"; then
+    ok "the diary home links to /gigs/:gig_id" "beside the scope chips"
+else
+    bad "the diary home links to /gigs/:gig_id" "the screen would be URL-only"
+fi
 
 if grep -q '/?gig_id=' "$SCREEN"; then
     ok "the card links to /?gig_id="
