@@ -20,9 +20,9 @@ Merged to `dev` as of `2407e94`: CAP-4, CAP-10 (#19), CAP-19 (#17), CAP-24's tok
 | Documentation drift | — | Tony |
 | CAP-19 acceptance audit | — | Tony |
 | CAP-20 finish | Jane's token | Tony |
-| CAP-10 follow-up | CAP-5 | Andrew |
+| CAP-10 follow-up | CAP-5 (done) | Patrick |
 | CAP-26 build | SSH and DNS | Jesse |
-| CAP-24 injection half | CAP-13, CAP-16 | Patrick, Andrew |
+| CAP-24 injection half | CAP-13, CAP-16 | Patrick, unassigned |
 
 ## The ordering principle
 
@@ -39,9 +39,10 @@ and the php-fpm pool — and an A record for `diary.darkovski.dev`. Mention that
 records the Caddy on that box issuing the certificate MySQL serves, so the change wants his
 eyes.
 
-**0.2 Standup: CAP-5.** A Sprint 3 ticket, unstarted, no branch, `react-router` not yet a
-dependency. It gates three of Tony's items and sets the deadline on a live security finding.
-The highest-leverage thing to say this week, and it is not about Tony's tickets.
+**0.2 Standup: who owns the framework screens.** CAP-5 is done — Patrick built it after it
+was reassigned from Andrew, who does not write code. The same correction left **CAP-15 and
+CAP-16 unassigned**, and they gate CAP-24. The question for standup is who picks them up,
+not why they are late.
 
 **0.3 Jira.** CAP-4 done. CAP-10 and CAP-19 done with their follow-ups raised separately.
 CAP-20, CAP-24 and CAP-26 stay open with blockers named. **CAP-24 must not be closed**: its
@@ -123,15 +124,15 @@ owns is either free of dependencies or sits behind CAP-5.
 ```
 DONE  CAP-2 typed client ─┐
 DONE  CAP-3 components ───┤
-DONE  CAP-4 components ───┼─→ CAP-5  app shell        Andrew   NOT STARTED
+DONE  CAP-4 components ───┼─→ CAP-5  app shell        DONE (Patrick, #30)
 DONE  CAP-6 RadarPanel ───┘        │
 DONE  CAP-10 review queue ──┐      │
                             │      ├─→ CAP-11 stepper      Amenah  ─┐
                             └──────┼──────────────────────→ CAP-13  Patrick ─┐
                                    │                                          ├─→ CAP-24
-                                   └─→ CAP-15 select fw    Andrew             │   injection
+                                   └─→ CAP-15 select fw  UNASSIGNED           │   injection
                                             │                                 │   half
-                                            └─→ CAP-16 edit fw  Andrew ───────┘
+                                            └─→ CAP-16 edit fw  UNASSIGNED ───┘
 
 Jesse: SSH + DNS ─→ CAP-26 build                     (independent of everything above)
 ```
@@ -143,20 +144,32 @@ Jesse: SSH + DNS ─→ CAP-26 build                     (independent of everyth
 | CAP-20 screenshot | nothing | Tony | 0 |
 | CAP-19 acceptance audit | nothing | Tony | 0 |
 | Documentation drift | nothing | Tony | 0 |
-| CAP-10 follow-up | CAP-5 | Andrew | 1 |
+| CAP-10 follow-up | CAP-5 (done, Patrick) | — | 0 |
 | CAP-26 build | SSH + DNS, then §9.2 | Jesse, then team | 1 |
-| **CAP-24 injection half** | **CAP-5 → CAP-11 → CAP-13** *and* **CAP-5 → CAP-15 → CAP-16** | Andrew, Amenah, Patrick | **3, twice** |
+| **CAP-24 injection half** | **CAP-11 → CAP-13** *and* **CAP-15 → CAP-16** | Amenah, Patrick, **and whoever takes 15/16** | **2, twice** |
 
 ### The two things this makes obvious
 
-**CAP-24 is the last thing Tony can finish, and it is three hops deep behind a ticket nobody
-has opened.** It needs CAP-13 *and* CAP-16, which sit at the end of two separate chains, and
-both chains start at CAP-5. Nothing Tony does shortens that.
+**CAP-24 is the last thing Tony can finish, and it needs two chains to complete, not one.**
+It requires CAP-13 *and* CAP-16, which sit at the end of separate chains. CAP-5 rooted both
+and is now done, so the depth is two rather than three — but CAP-16's chain starts at an
+unassigned ticket, which is not obviously better than a blocked one. Nothing Tony does
+shortens either.
 
-**Andrew is on the critical path three times** — CAP-5, CAP-15 and CAP-16 — and CAP-5 has
-not been started. He is also the requested reviewer on the CAP-19 PR. That is a concentration
-worth naming at standup rather than working around quietly, and it is the single fact that
-most determines whether the remaining board lands.
+**Four screen tickets were assigned to somebody who does not write code.** CAP-5, CAP-8,
+CAP-15 and CAP-16 went to Andrew, who is the team's cybersecurity member rather than a
+developer. That is a planning error made when the board was filled, not a person
+underdelivering, and it is why CAP-5 sat unstarted long enough to gate everything behind it.
+
+The board has already corrected most of it, which the repository's csv files do not show:
+live Jira has CAP-5 and CAP-8 reassigned to Patrick, and **CAP-15 and CAP-16 unassigned**.
+Andrew's four live issues are all non-development work — personas, a usability walkthrough,
+a trade-show deck — which is the right shape for him.
+
+So the thing that most determines whether the remaining board lands is not a person. It is
+that **CAP-15 and CAP-16, thirteen points of framework screens, are owned by nobody**, and
+unowned work does not get done by waiting for it. Chasing an assignee who was never the
+right assignee wastes the chase.
 
 ### What this changes about the order
 
@@ -172,9 +185,14 @@ Jesse answers, it can be finished while the frontend is still blocked.
 
 Decided now, so they are not decided under pressure.
 
-**CAP-5 unstarted in three days** — it stops being Andrew's problem and becomes the team's.
-Offer to take it. It is the keystone for three of Tony's items and much of the remaining
-board.
+**An unowned ticket stays unowned for three days** — it stops being a gap on the board and
+becomes somebody's job, probably whoever noticed. CAP-15 and CAP-16 are there now. The
+lesson from CAP-5 is that a ticket with the wrong owner behaves exactly like a ticket with
+no owner, and neither announces itself: both simply fail to start.
+
+**Match the ticket to the person before the sprint, not after.** Four screen tickets went to
+the team's cybersecurity member. The board corrected two of them by reassignment and two by
+unassignment, weeks later, after CAP-5 had already delayed everything behind it.
 
 **Jesse silent on access for two days** — CAP-26 changes shape rather than stalling, to
 "write it, whoever holds the box runs it". That fallback is already in §9.4 and the
