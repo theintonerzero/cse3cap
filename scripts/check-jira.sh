@@ -55,10 +55,18 @@ ${yellow}Getting Jira API access — once per person, about two minutes${off}
      project first. Ask whoever administers the Jira site; no token will
      help until then.
 
-  2. Create an API token at
+  2. Create an API token. From any Atlassian page, click your avatar in
+     the top right, then:
+
+     ${dim}Account settings  ->  Security  ->  API tokens  ->  Create API token${off}
+
+     or go straight to it:
+
      ${dim}https://id.atlassian.com/manage-profile/security/api-tokens${off}
-     "Create API token", name it something like "cse3cap agent", copy the
-     value. Atlassian shows it once.
+
+     Name it something you will recognise later, like "cse3cap agent", and
+     copy the value. ${red}Atlassian shows it once.${off} If you lose it, revoke
+     that token and create another; there is no way to read it back.
 
   3. Put both values in your shell profile, next to DB_READONLY_PASSWORD:
 
