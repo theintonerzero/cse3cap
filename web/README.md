@@ -1,7 +1,7 @@
 # web/
 
-The React frontend. **The first screen is built.** `src/App.tsx` mounts the session and the
-router, and `/` is the student's diary home.
+The React frontend. **Two screens are built.** `src/App.tsx` mounts the session and the
+router, `/` is the student's diary home and `/gigs/:gig_id` is the gig detail screen.
 
 What sits under it is `tokens.css`, the typed API client in `src/api/`, all ten core
 components, and the app shell with its route table. The remaining screens mount into the
@@ -83,12 +83,20 @@ fetches through the typed client, and owns its own states.
 | Screen        | Route                                                     | Check                |
 | ------------- | --------------------------------------------------------- | -------------------- |
 | `DiaryHome`   | `/`, scoped by `?gig_id=` and `?sprint_id=`               | `./run verify-diary` |
+| `GigDetail`   | `/gigs/:gig_id`                                           | `./run verify-gig`   |
 | `ReviewQueue` | not mounted yet; CAP-10's follow-up swaps the placeholder | —                    |
 
 The diary home keeps its scope in the URL rather than in state (ADR #27), so a scoped diary
 is a link somebody can send. What a scope means -- which rows are yours, which sprints can
 be chipped, what the caption under the radar says -- lives in `src/screens/diary-scope.ts`,
 which is pure and imports no React.
+
+The gig detail screen splits the same way and one step further: `src/screens/gig-timing.ts`
+imports _nothing at all_, not even the generated schema, taking a structural
+`{ opens_on, due_on }` instead. That is what lets `./run verify-gig` compile it on its own
+and call it with dates of its choosing -- which it has to, because every seeded sprint is
+already past due and the wordings the ticket asks for cannot be produced by looking at the
+app.
 
 ## The API client
 

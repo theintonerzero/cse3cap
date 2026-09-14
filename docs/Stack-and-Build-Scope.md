@@ -160,7 +160,10 @@ README.md                setup, connection details, the three tokens
       a caption that changes with scope, entry list with status badges, export link.
       Scope lives in the URL (ADR #27) so a scoped diary is linkable, and the export link
       opens the sheet CAP-18 fills in. `./run verify-diary` checks it
-- [ ] Gig detail: header, sprint list with dates, diary card linking in scoped to that gig
+- [x] Gig detail: header, sprint list with dates, diary card linking in scoped to that gig.
+      Sprint dates are worded relatively where it helps ("due in 3 days", "not open yet");
+      that wording is a pure module a check compiles and executes, because every seeded
+      sprint is already past due. `./run verify-gig` checks it
 - [ ] Entry stepper: one component, N states from the framework payload: competency name,
       tappable level descriptors, narrative with debounced autosave, evidence row,
       "Competency 3 of 6" progress, Back/Next, Submit on last with gate errors mapped to
