@@ -1,0 +1,196 @@
+.heading {
+  margin: 0 0 var(--space-4);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  margin-bottom: var(--space-24);
+}
+
+.sub {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.framework {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text);
+}
+
+.people {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+  margin: var(--space-4) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.person {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-8);
+  padding: var(--space-4) var(--space-12);
+  border: var(--border-width-sm) solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+}
+
+.person_name {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.you {
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-muted);
+}
+
+.person_role {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.block {
+  margin-top: var(--space-24);
+}
+
+.block_heading {
+  margin: 0 0 var(--space-12);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.sprints {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sprint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-8) var(--space-16);
+  padding: var(--space-16);
+  border: var(--border-width-sm) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.sprint_title {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.sprint_dates {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+/* The relative phrase is the one thing on the row worth colouring, and the
+   tint carries --color-text rather than the semantic colour: four pairs of
+   coloured-text-on-tinted-fill fail AA in light mode, and --color-danger on
+   --color-danger-bg is the worst of them at 3.97. The accent tints below are
+   decorative, never status -- a reflection's state is a Badge. */
+.sprint_when {
+  margin-left: auto;
+  padding: var(--space-4) var(--space-12);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+  background: var(--color-surface-alt);
+}
+
+.not_open {
+  background: var(--color-accent-cream);
+}
+
+.open {
+  background: var(--color-accent-mint);
+}
+
+.past_due {
+  background: var(--color-accent-peach);
+}
+
+.undated {
+  background: var(--color-surface-alt);
+}
+
+.diary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+.diary_body {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text);
+}
+
+.counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8) var(--space-16);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+
+.counts li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.diary_link {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-primary);
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-32) var(--space-16);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-alt);
+  text-align: center;
+}
+
+.empty_title {
+  margin: 0;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+/* --color-text-muted on --color-surface-alt is 4.32:1 in light mode and fails
+   AA, so the body copy in a tinted empty state stays --color-text. */
+.empty_body {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text);
+}
