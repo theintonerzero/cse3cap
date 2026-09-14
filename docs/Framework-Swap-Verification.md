@@ -107,9 +107,25 @@ SFIA rather than replacing it.
 **Do not narrow the seeded SFIA ranges.** Out of scope per the scope document, and blocked by
 the framework-in-use rule regardless.
 
-## Outstanding for this ticket
+## The screenshot
 
-The screenshot for the client demo. The component gallery already renders `RadarPanel` with
-both fixtures — six axes at 1–4 and six different axes at 1–7 — at
-`web/src/gallery/Gallery.tsx:258-260`, so `./run web` and `localhost:5173/gallery.html` shows
-the swap visually without needing the stepper, which does not exist yet (CAP-11).
+![Two rubrics through one component](cap-20-framework-swap.jpg)
+
+Taken 2026-09-14 from `localhost:5173/gallery.html`, which renders `RadarPanel` with both
+fixtures at `web/src/gallery/Gallery.tsx:258-260`. Top, La Trobe's six competencies; bottom,
+SFIA's six skill codes. One component, no code change between them.
+
+The shapes are not the evidence — the radial axes are. Zoomed in, La Trobe's reads **1, 2,
+3, 4** and SFIA's reads **1, 3, 5, 7**, which is the scale arriving from
+`v_framework_scale` through the payload rather than from anything in the component. A reader
+looking only at the polygons would learn nothing; two charts can differ for many reasons.
+
+The gallery is used rather than a real screen because it is the one place both rubrics are
+on screen at once. The same component now also renders live in the diary home
+(`DiaryHome.tsx:317`), which passes `scale_min` and `scale_max` straight from `/me/radar`
+with nothing hardcoded.
+
+## Still outstanding
+
+Nothing on the radar. The remaining criterion is the stepper half of "the stepper renders
+SFIA's competencies and descriptors", which cannot be met until CAP-11 exists.
