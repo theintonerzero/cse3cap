@@ -12,6 +12,42 @@
 
 **Ticket:** COA4-73 (`project = COA4 AND summary ~ "CAP-15"`). Acceptance criteria are on the ticket and reproduced per task.
 
+## Picking this up
+
+**Nobody is assigned.** COA4-73 is unassigned deliberately — this plan was written to hand
+over, not to reserve the work. If you take it, assign the ticket to yourself first and move
+it to In Progress, so two people do not start the same screen.
+
+```bash
+git worktree add ../cse3cap-worktrees/CAP-15 \
+    -b feat/CAP-15-select-framework origin/dev
+cd ../cse3cap-worktrees/CAP-15
+
+./run api      # one terminal, the backend on :8000
+./run web      # another, Vite on :5173
+```
+
+**Load `/add-screen` before the first file.** It carries the four-states rule, the
+typed-client rule and the token rule this plan assumes rather than restates.
+
+Develop with **Dr Lee's token**: he is the supervisor on both seeded gigs, so he is the only
+seeded user who exercises this screen properly. The three tokens are pinned in the team
+channel; `web/.env` takes one as `VITE_API_TOKEN`, and that file is gitignored.
+
+Work the tasks in order. Each ends at a commit and is worth a reviewer stopping at. Open the
+pull request into `dev` once Task 4 passes, and run `./run check` before you do — it must be
+green.
+
+When it is merged, move COA4-73 to **In Review**, not Done, and say in the comment which
+acceptance criteria you checked and how. `/jira-tickets` has the rule: merged is not done,
+and CAP-19 is the worked example of why.
+
+You did not write this plan, so treat it as a proposal rather than an instruction. If a task
+is wrong, say so and change it — the person who writes a plan is not always the person who
+finds out it was wrong.
+
+---
+
 ## Global Constraints
 
 - **Every API call goes through `web/src/api/client.ts`.** A component that calls `fetch`, parses a response body, or declares its own response interface is a bug.
