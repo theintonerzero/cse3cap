@@ -154,6 +154,12 @@ case "${1:-help}" in
     # skips itself rather than failing.
     verify-diary) step ./scripts/verify-diary-home.sh ;;
 
+    # Proves your Jira credentials work, over plain HTTP, independently of
+    # the atlassian MCP server. Run it when Jira misbehaves: it separates a
+    # wrong token from a broken MCP server, which look identical otherwise.
+    # Prints how to get a token when you do not have one.
+    jira) step ./scripts/check-jira.sh ;;
+
     # Reads the deploy host and reports what is actually on it. Read-only:
     # writes nothing, reloads nothing, which matters because that box also
     # carries the shared database. A check, like verify and smoke.
@@ -258,6 +264,7 @@ ${BLUE}Alumable Reflection Diary${RESET}
 
   ${GREEN}./run setup${RESET}    first-time setup. Writes env files, installs dependencies
   ${GREEN}./run check-host${RESET} [user@vps]  read the deploy host. Writes nothing
+  ${GREEN}./run jira${RESET}     check your Jira API access, and how to get it
 
 ${DIM}api/ and web/ are separate applications. This saves the cd, nothing more:
 every command is printed before it runs. Windows: use run.ps1.
