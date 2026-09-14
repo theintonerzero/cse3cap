@@ -97,40 +97,15 @@
   color: var(--color-text);
 }
 
-.sprint_dates {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-}
-
-/* The relative phrase is the one thing on the row worth colouring, and the
-   tint carries --color-text rather than the semantic colour: four pairs of
-   coloured-text-on-tinted-fill fail AA in light mode, and --color-danger on
-   --color-danger-bg is the worst of them at 3.97. The accent tints below are
-   decorative, never status -- a reflection's state is a Badge. */
+/* Plain muted text, deliberately not a tinted pill. The first build gave
+   each state its own accent tint, which meant inventing a status vocabulary
+   out of dates alone -- and the three seeded sprints all landed on the same
+   one, so the screen showed three identical warnings. Status belongs in a
+   Badge, from the reflection, which is the follow-up SprintList names. */
 .sprint_when {
   margin-left: auto;
-  padding: var(--space-4) var(--space-12);
-  border-radius: var(--radius-full);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text);
-  background: var(--color-surface-alt);
-}
-
-.not_open {
-  background: var(--color-accent-cream);
-}
-
-.open {
-  background: var(--color-accent-mint);
-}
-
-.past_due {
-  background: var(--color-accent-peach);
-}
-
-.undated {
-  background: var(--color-surface-alt);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
 }
 
 .diary {

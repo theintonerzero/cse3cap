@@ -198,13 +198,22 @@ function ParticipantList({
 }
 
 /**
- * Criterion 2. Every row carries its dates; the relative phrase is added
- * where it helps and dropped past gig-timing's horizon.
+ * Criterion 2. One line per sprint, saying the single most useful thing
+ * about its timing -- when it opens, how long is left, or which window it
+ * was. gig_timing picks; the reasoning is on sprint_timing.
  *
  * The rows are not links. A sprint has no screen of its own -- CAP-11's
  * stepper addresses a reflection, and this screen cannot know whether one
- * exists for a sprint without a request per row. The way into the diary is
- * the card below, which is what criterion 3 asks for.
+ * exists for a sprint without asking for it. The way into the diary is the
+ * card below, which is what criterion 3 asks for.
+ *
+ * The Figma frames put a state pill on each row (Scored / Awaiting
+ * assessor / In progress / Not open) and make the row tappable. That is
+ * real and wanted and is NOT here: it needs the reflections for this gig,
+ * which is a second call and five states CAP-8 does not ask for. Recorded
+ * as a follow-up in the CAP-8 plan with the frame and the prototype's own
+ * implementation named, so whoever picks it up is not starting from a
+ * screenshot.
  */
 function SprintList({ sprints, today }: { sprints: Gig['sprints']; today: Date }) {
   if (sprints.length === 0) {
@@ -232,12 +241,7 @@ function SprintList({ sprints, today }: { sprints: Gig['sprints']; today: Date }
           return (
             <li key={sprint.id} className={styles.sprint}>
               <span className={styles.sprint_title}>Sprint {sprint.ordinal}</span>
-              <span className={styles.sprint_dates}>{timing.dates ?? 'No dates set'}</span>
-              {timing.relative && (
-                <span className={`${styles.sprint_when} ${styles[timing.state]}`}>
-                  {timing.relative}
-                </span>
-              )}
+              <span className={styles.sprint_when}>{timing.line}</span>
             </li>
           );
         })}

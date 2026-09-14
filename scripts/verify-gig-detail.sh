@@ -176,26 +176,43 @@ else
 import { sprint_timing, days_between, format_short_date, gig_dates } from './gig-timing.js';
 
 const today = new Date(2026, 8, 14);
+
+// One line per row, chosen by state: when it opens, how long is left, or
+// which window it was. A past sprint shows its dates and NOT a countdown --
+// that is the whole point of the shape, so it is asserted, not assumed.
+// Dates are matched loosely because word order follows the reader's locale.
 const cases = [
-  [{ opens_on: '2026-09-20', due_on: '2026-10-03' }, 'not_open', 'Not open yet, opens in 6 days'],
-  [{ opens_on: '2026-09-15', due_on: '2026-09-28' }, 'not_open', 'Not open yet, opens tomorrow'],
+  [{ opens_on: '2026-09-20', due_on: '2026-10-03' }, 'not_open', 'Opens in 6 days'],
+  [{ opens_on: '2026-09-15', due_on: '2026-09-28' }, 'not_open', 'Opens tomorrow'],
   [{ opens_on: '2026-09-01', due_on: '2026-09-17' }, 'open',     'Due in 3 days'],
   [{ opens_on: '2026-09-01', due_on: '2026-09-15' }, 'open',     'Due tomorrow'],
   [{ opens_on: '2026-09-01', due_on: '2026-09-14' }, 'open',     'Due today'],
-  [{ opens_on: '2026-08-31', due_on: '2026-09-13' }, 'past_due', 'Due yesterday'],
-  [{ opens_on: '2026-08-03', due_on: '2026-08-16' }, 'past_due', 'Due 29 days ago'],
-  [{ opens_on: '2026-01-05', due_on: '2026-01-18' }, 'past_due', null],
-  [{ opens_on: '2027-06-01', due_on: '2027-06-14' }, 'not_open', 'Not open yet'],
+  [{ opens_on: '2026-08-31', due_on: '2026-09-13' }, 'past_due', /31.*13|13.*31/],
+  [{ opens_on: '2026-08-03', due_on: '2026-08-16' }, 'past_due', /3.*16|16.*3/],
+  [{ opens_on: '2027-06-01', due_on: '2027-06-14' }, 'not_open', /Opens.*1/],
+  [{ opens_on: '2026-09-01', due_on: '2027-06-14' }, 'open',     /Due.*14/],
   [{ opens_on: null,         due_on: '2026-09-17' }, 'open',     'Due in 3 days'],
-  [{ opens_on: null,         due_on: null         }, 'undated',  null],
+  [{ opens_on: null,         due_on: null         }, 'undated',  'No dates set'],
 ];
 
 let failed = 0;
-for (const [sprint, state, relative] of cases) {
+for (const [sprint, state, line] of cases) {
   const got = sprint_timing(sprint, today);
   const label = `${sprint.opens_on ?? '-'}..${sprint.due_on ?? '-'}`;
-  if (got.state !== state || got.relative !== relative) {
-    console.log(`  MISMATCH ${label}: want ${state}/${relative}, got ${got.state}/${got.relative}`);
+  const line_ok = line instanceof RegExp ? line.test(got.line) : got.line === line;
+  if (got.state !== state || !line_ok) {
+    console.log(`  MISMATCH ${label}: want ${state}/${line}, got ${got.state}/${got.line}`);
+    failed++;
+  }
+}
+
+// A finished sprint must NOT read as a countdown. This is the change the
+// Figma frames prompted, and the thing most likely to get undone by someone
+// "restoring" the relative phrase everywhere.
+for (const past of [{ opens_on: '2026-08-03', due_on: '2026-08-16' },
+                    { opens_on: '2026-08-31', due_on: '2026-09-13' }]) {
+  if (/ago|Due in|Due to/.test(sprint_timing(past, today).line)) {
+    console.log(`  MISMATCH a finished sprint counts down: ${sprint_timing(past, today).line}`);
     failed++;
   }
 }
@@ -220,11 +237,15 @@ if (!format_short_date('2026-09-14').includes('14')) {
 // "14 Sep" and "Sep 14", exactly as DiaryHome's own date line does.
 // Pinning a string here would assert the developer's locale on everyone.
 
-// Dates are rendered whatever the phrase says: criterion 2 asks for
-// opens_on and due_on, not only for a paraphrase.
-if (sprint_timing({ opens_on: '2026-01-05', due_on: '2026-01-18' }, today).dates === null) {
-  console.log('  MISMATCH a past-horizon sprint lost its dates');
-  failed++;
+// Every row says something. A blank cell is the one outcome that would
+// read as broken rather than as informative.
+for (const shape of [{ opens_on: '2026-01-05', due_on: null },
+                     { opens_on: null, due_on: '2026-01-18' },
+                     { opens_on: null, due_on: null }]) {
+  if (!sprint_timing(shape, today).line) {
+    console.log(`  MISMATCH empty line for ${JSON.stringify(shape)}`);
+    failed++;
+  }
 }
 
 // The gig's own span travels with the sprints' dates, same trap, same fix.
@@ -237,9 +258,9 @@ process.exit(failed === 0 ? 0 : 1);
 JS
 
     if TZ=Pacific/Auckland node "$OUT/check.mjs" && TZ=America/Los_Angeles node "$OUT/check.mjs"; then
-        ok "sprint wording, 11 cases + 4 date assertions" "east and west of UTC"
+        ok "sprint wording, 11 cases + 6 shape assertions" "east and west of UTC"
     else
-        bad "sprint wording, 11 cases + 4 date assertions" "see mismatches above"
+        bad "sprint wording, 11 cases + 6 shape assertions" "see mismatches above"
     fi
 fi
 

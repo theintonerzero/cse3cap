@@ -14,9 +14,9 @@
  *
  * Nothing in api/app/Services/ reads opens_on or due_on: the submit gate
  * is about evidence and narrative, not the calendar. So a past sprint is
- * "Due 2 days ago", never "Closed" and never "Overdue" -- the first would
- * claim a gate the API does not enforce and the second adds a judgement
- * the product does not make.
+ * shown as the window it covered, never as "Closed" and never as
+ * "Overdue" -- the first would claim a gate the API does not enforce and
+ * the second adds a judgement the product does not make.
  */
 
 /**
@@ -32,16 +32,17 @@ export type SprintState = 'not_open' | 'open' | 'past_due' | 'undated';
 
 export interface SprintTiming {
   state: SprintState;
-  /** The relative phrase, or null when a relative phrase does not help. */
-  relative: string | null;
-  /** "3 Aug - 16 Aug". Null only when the sprint carries no dates at all. */
-  dates: string | null;
+  /**
+   * The one thing worth saying about this sprint's timing. One string, not
+   * a date range plus a phrase restating it -- see sprint_timing below.
+   */
+  line: string;
 }
 
 /**
- * Past this many days a relative phrase stops helping and starts being
- * noise: "Due in 312 days" tells a student nothing the date beside it did
- * not. The row keeps its absolute dates either way.
+ * Past this many days a countdown stops helping and starts being noise:
+ * "Due in 312 days" tells a student nothing "Due 22 Jul" does not, and is
+ * harder to read. Beyond the horizon the line falls back to the date.
  */
 export const RELATIVE_HORIZON_DAYS = 30;
 
@@ -82,11 +83,7 @@ export function format_short_date(iso: string): string {
   });
 }
 
-/**
- * Criterion 2 asks for opens_on and due_on, not only for a paraphrase of
- * them, so this is rendered on every row whatever the relative phrase says
- * -- and it is all a row past the horizon has left.
- */
+/** The window a sprint covered, which is what a finished one is worth saying. */
 export function sprint_dates(sprint: DatedSprint): string | null {
   const { opens_on, due_on } = sprint;
 
@@ -116,67 +113,71 @@ export function gig_dates(starts_on: string | null, ends_on: string | null): str
 }
 
 /**
- * The state a sprint is in and the sentence that says so.
+ * The state a sprint is in, and the ONE line worth saying about it.
+ *
+ * One line, not a date range with a phrase restating it beside. The first
+ * build of this screen rendered both on every row and it read as clutter:
+ * "3 Aug - 16 Aug" followed by "Due 29 days ago" is one fact told twice,
+ * and three of those stacked look like three warnings. The Figma frames
+ * pick exactly one per row (page 5 of docs/06_figma_diary_frames.pdf in
+ * the prototype at ~/projects/alumable-diary), and the reason they are
+ * right is that the useful fact is different in each state:
+ *
+ *   not open   when you can start    "Opens in 6 days"
+ *   open       how long you have     "Due in 3 days"
+ *   past due   which window it was   "3 Aug - 16 Aug"
+ *
+ * A finished sprint's countdown is the least interesting thing about it;
+ * its dates are what place it in the record. A live sprint is the other
+ * way round. Neither form wins outright, so the row picks.
+ *
+ * This is still "opens_on and due_on, worded relatively where it helps"
+ * (CAP-8 criterion 2). The clause doing the work is "where it helps".
  *
  * A null opens_on counts as open rather than as never opening, matching
  * chippable_sprints in diary-scope.ts: the alternative hides a sprint that
  * may well have reflections against it.
  */
 export function sprint_timing(sprint: DatedSprint, today: Date): SprintTiming {
-  const dates = sprint_dates(sprint);
-
   if (!sprint.opens_on && !sprint.due_on) {
-    return { state: 'undated', relative: null, dates: null };
+    return { state: 'undated', line: 'No dates set' };
   }
 
   if (sprint.opens_on) {
     const until_open = days_between(sprint.opens_on, today);
 
     if (until_open > 0) {
-      return { state: 'not_open', relative: opens_phrase(until_open), dates };
+      return { state: 'not_open', line: opens_line(until_open, sprint.opens_on) };
     }
   }
 
+  // Open, with no deadline to count down to. Its start is all there is.
   if (!sprint.due_on) {
-    return { state: 'open', relative: null, dates };
+    return { state: 'open', line: sprint_dates(sprint) ?? 'No dates set' };
   }
 
   const until_due = days_between(sprint.due_on, today);
 
   if (until_due < 0) {
-    return { state: 'past_due', relative: past_due_phrase(-until_due), dates };
+    return { state: 'past_due', line: sprint_dates(sprint) ?? 'No dates set' };
   }
 
-  return { state: 'open', relative: due_phrase(until_due), dates };
+  return { state: 'open', line: due_line(until_due, sprint.due_on) };
 }
 
-/**
- * "Not open yet" survives past the horizon where the two countdowns below
- * do not. That asymmetry is deliberate: not-open is a STATE, and a row
- * showing only a date range with no other mark reads as though it were
- * live. "Due in 312 days" is a countdown, and dropping it loses nothing
- * the dates beside it do not already say.
- */
-function opens_phrase(days: number): string {
-  if (days > RELATIVE_HORIZON_DAYS) return 'Not open yet';
-  if (days === 1) return 'Not open yet, opens tomorrow';
+function opens_line(days: number, opens_on: string): string {
+  if (days > RELATIVE_HORIZON_DAYS) return `Opens ${format_short_date(opens_on)}`;
+  if (days === 1) return 'Opens tomorrow';
 
-  return `Not open yet, opens in ${days} days`;
+  return `Opens in ${days} days`;
 }
 
-function due_phrase(days: number): string | null {
-  if (days > RELATIVE_HORIZON_DAYS) return null;
+function due_line(days: number, due_on: string): string {
+  if (days > RELATIVE_HORIZON_DAYS) return `Due ${format_short_date(due_on)}`;
   if (days === 0) return 'Due today';
   if (days === 1) return 'Due tomorrow';
 
   return `Due in ${days} days`;
-}
-
-function past_due_phrase(days: number): string | null {
-  if (days > RELATIVE_HORIZON_DAYS) return null;
-  if (days === 1) return 'Due yesterday';
-
-  return `Due ${days} days ago`;
 }
 
 /**
