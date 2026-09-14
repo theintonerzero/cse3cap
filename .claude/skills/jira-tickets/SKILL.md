@@ -59,9 +59,17 @@ If the MCP server is not connected or the credentials are missing, **say so and 
 not fall back to the CSVs and do not infer status from git history — both produce answers
 that look authoritative and are not.
 
-`./run jira` checks the credentials independently of the MCP server, over plain HTTP. When
-Jira behaves oddly, run it: it separates "my token is wrong" from "the MCP server is
-broken", which otherwise look identical.
+`./run jira` checks the credentials over plain HTTP **and** starts the MCP server the way
+`.mcp.json` does, from the inherited environment. When Jira behaves oddly, run it: it
+separates "my token is wrong" from "the server will not start", which otherwise look
+identical.
+
+**If it passes and the server is still not connected, the session is older than the
+setup.** An MCP server gets the environment Claude Code had when it launched, and neither
+`.mcp.json` nor a shell profile is re-read afterwards. Restart Claude Code from a new
+terminal. `JIRA_EMAIL` and `JIRA_API_TOKEN` belong in the shell profile and nowhere else — a
+`.env` file is not read into that environment, so a token there authenticates curl and not
+the server.
 
 ## Jira and git disagree. Report it, do not resolve it
 

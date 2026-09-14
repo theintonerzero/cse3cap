@@ -250,12 +250,88 @@ else
 fi
 
 # --------------------------------------------------------------------------
+say "The path Claude Code actually uses"
+# --------------------------------------------------------------------------
+# Everything above talks to Jira over plain HTTP with curl. That proves your
+# token works. It does NOT prove the MCP server will start, because Claude
+# Code launches it from .mcp.json with the environment IT inherited, which is
+# a different environment from this shell.
+#
+# This section closes that gap: it starts mcp-atlassian exactly as .mcp.json
+# does, from the inherited environment with nothing exported by hand, and
+# asserts the handshake returns a tool list. A pass here means an agent can
+# really use it; without it, "Jira is reachable" and "the MCP is connected"
+# are two different claims and only the first was ever checked.
+# Read straight out of .mcp.json rather than repeating them here. A probe
+# that hardcodes its own copy proves a server starts, not that THIS config
+# starts one -- and a typo in the allowlist would sail past it.
+pinned="$(python3 -c "
+import json; print(json.load(open('.mcp.json'))['mcpServers']['atlassian']['args'][0])" 2>/dev/null)"
+allowed="$(python3 -c "
+import json; print(json.load(open('.mcp.json'))['mcpServers']['atlassian']['env']['ENABLED_TOOLS'])" 2>/dev/null)"
+want="$(printf '%s' "$allowed" | tr ',' '\n' | grep -c .)"
+
+if [ -z "$UVX" ]; then
+    printf '  %s--%s     %s\n' "$yellow" "$off" "skipped, no uvx — see above"
+elif [ -z "$pinned" ] || [ -z "$allowed" ]; then
+    bad "read the atlassian server from .mcp.json" "missing args or ENABLED_TOOLS"
+else
+    probe="$(
+        {
+            printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"check-jira","version":"1"}}}'
+            printf '%s\n' '{"jsonrpc":"2.0","method":"notifications/initialized"}'
+            sleep 3
+            printf '%s\n' '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
+            sleep 5
+        } | JIRA_URL="$SITE" JIRA_USERNAME="$EMAIL" JIRA_API_TOKEN="$TOKEN" \
+            ENABLED_TOOLS="$allowed" \
+            "$UVX" "$pinned" 2>/dev/null \
+          | python3 -c "
+import sys, json
+for line in sys.stdin:
+    try: d = json.loads(line)
+    except Exception: continue
+    if d.get('id') == 2:
+        print(len(d.get('result', {}).get('tools', [])))
+        break
+" 2>/dev/null
+    )"
+
+    if [ "${probe:-0}" = "$want" ] 2>/dev/null; then
+        ok "the MCP server starts and answers" "$probe tools, matching ENABLED_TOOLS"
+    elif [ "${probe:-0}" -gt 0 ] 2>/dev/null; then
+        bad "the MCP server starts and answers" "$probe tools, expected $want"
+        printf '  %sThe server started but ENABLED_TOOLS did not take effect. Check the\n' "$dim"
+        printf '  names in .mcp.json against %s %s --help%s\n' "$UVX" "$pinned" "$off"
+    else
+        bad "the MCP server starts and answers" "no tool list came back"
+        printf '  %sThe credentials above work over HTTP, so this is the server rather\n' "$dim"
+        printf '  than the token. Check uvx runs: %s mcp-atlassian==0.23.1 --help%s\n' "$UVX" "$off"
+    fi
+fi
+
+# --------------------------------------------------------------------------
 printf '\n%s%s passed%s' "$green" "$pass" "$off"
 [ "$fail" -gt 0 ] && printf ', %s%s failed%s' "$red" "$fail" "$off"
 printf '\n'
 
+# Printed on success too, because the success case is where the confusion
+# lives: this script passing in a fresh terminal says nothing about a Claude
+# Code that is already running. An MCP server is handed the environment from
+# the moment Claude Code launched, and neither .mcp.json nor your shell
+# profile is re-read afterwards.
+cat <<'RESTART'
+
+  If Claude Code is already open, restart it -- from a NEW terminal, not a
+  new tab in one that was already running. A session started before you
+  added JIRA_EMAIL and JIRA_API_TOKEN to your shell profile cannot see them,
+  however many times this check passes.
+
+RESTART
+
 if [ "$fail" -eq 0 ]; then
-    printf '%sJira is reachable. Agents can read ticket state and move tickets as you.%s\n' "$dim" "$off"
+    printf '%sJira is reachable and the MCP server starts. Agents can read ticket state\n' "$dim"
+    printf 'and move tickets as you.%s\n' "$off"
     exit 0
 fi
 exit 1
