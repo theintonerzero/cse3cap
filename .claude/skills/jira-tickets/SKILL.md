@@ -38,6 +38,16 @@ project = COA4 AND summary ~ "CAP-20"
 Always confirm the summary you get back really is that ticket before acting on it. `~` is a
 text match: searching `CAP-2` can return CAP-20 through CAP-29 as well.
 
+**The board stops at CAP-20.** CAP-21 to CAP-30 exist in `docs/jira/cap-sprint-5.csv` and
+were never imported, so the four-states audit, the Playwright journey, the security review
+and the deploy have no ticket. Work on them is real and invisible to the board. A search
+returning nothing for CAP-24 means the ticket was never created, not that the work does not
+exist — say which, rather than reporting it as missing.
+
+Jira also carries a Sprint 1 stream, `COA4-1` to `COA4-52`, covering governance, UX,
+technical foundation and the assessment deliverables. None of it is in the repository's
+csv files at all, and several are open and assigned.
+
 ## Before trusting any answer
 
 If the MCP server is not connected or the credentials are missing, **say so and stop**. Do
@@ -72,20 +82,42 @@ the environment, and it is visible to four other people.
 **Move a ticket only when the work is actually observable.** Not when a plan says it will be
 done, not when a branch exists, not when you are about to start.
 
+The workflow has **four** states, not three: To Do, In Progress, In Review, Done.
+
 | Transition | Only when |
 | --- | --- |
 | To Do → In Progress | A branch exists and has a commit on it |
-| In Progress → Done | The pull request is **merged into `dev`**, verified against git, not assumed |
+| In Progress → In Review | A pull request is open and its CI is green |
+| In Review → Done | The pull request is merged into `dev`, **and** every acceptance criterion has been checked |
 | anything → anything else | The person asked for it |
+
+### Merged is not Done
+
+A pull request merging means the code is on `dev`. It does not mean the ticket's criteria
+are met, and on this board those two have come apart more than once.
+
+CAP-19 merged as #17 carrying the criterion "authorisation lives in `api/app/Policies/` and
+nowhere else". Audited afterwards, the reviewer-role list turned out to be written in five
+places, three of them controllers holding the same copied query. The pull request was
+green, reviewed and merged, and the criterion was false.
+
+So before moving anything to Done: **read the acceptance criteria off the Jira ticket and
+check each one against the repository.** Say which you checked and how.
+
+A criterion that cannot be checked yet means the ticket is not Done, and saying so is the
+useful answer. CAP-20 is short a screenshot; one of its criteria concerns a stepper that
+cannot exist while CAP-11 is To Do.
+
+`./run check` is the floor, not the ceiling. It proves the build is sound, not that the
+ticket is finished.
 
 **Never:**
 
 - Move a ticket that is not the one you are working on, unless asked by name.
 - Move someone else's ticket. You are acting as one developer; moving another's work
   misrepresents who did what, on a board that is assessed.
-- Move a ticket to Done because its acceptance criteria "look met". Criteria are met by
-  merged code, and several tickets here have merged with a criterion unverified — CAP-19's
-  row-by-row audit among them.
+- Move a ticket to Done because its acceptance criteria "look met". Check them, one at a
+  time, against the repository. Looking met and being met came apart on CAP-19.
 - Batch-transition. One ticket, one deliberate decision.
 
 **Say what you moved and why**, in the same message as the work. A transition nobody was
@@ -97,7 +129,7 @@ Some tickets are genuinely half-done and the board has no state for it. CAP-24's
 merged while its injection half waits on other screens; CAP-26's design merged while the
 deploy waits on host access.
 
-**Do not move a half-finished ticket to Done.** Leave it In Progress and put the split in a
+**Do not move a half-finished ticket to Done.** Leave it where it is and put the split in a
 comment, or say plainly that the ticket needs splitting. Marking it Done because the part
 you did is finished loses the part nobody did.
 
@@ -118,6 +150,7 @@ copies of all three are a year-zero snapshot.
 | Reading the CSVs for status | A confident, wrong completion figure |
 | Computing COA4 from CAP-n | Wrong ticket, possibly transitioned |
 | `summary ~ "CAP-2"` without checking | Matches CAP-20 to CAP-29 too |
-| Moving a ticket to Done on a green PR | It is Done when merged, not when green |
+| Moving a ticket to Done on a green PR | Green is In Review. Done needs merged **and** criteria checked |
+| Moving to Done because the PR merged | CAP-19 merged with a false criterion. Read the criteria |
 | Resolving a Jira/git disagreement silently | Destroys the finding that mattered |
 | Falling back to git when Jira is unreachable | Looks authoritative, misses reassignments |
