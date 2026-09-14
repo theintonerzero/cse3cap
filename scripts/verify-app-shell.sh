@@ -44,7 +44,6 @@ say "1. One owner for the bearer token"
 
 callers="$(grep -rln 'setAuthToken' web/src --include='*.ts' --include='*.tsx' \
     | grep -v 'web/src/api/client.ts' \
-    | grep -v 'web/src/review-queue-dev.tsx' \
     | sort)"
 
 expected='web/src/session/SessionProvider.tsx'
@@ -55,10 +54,6 @@ else
     bad "only SessionProvider calls setAuthToken" "found: ${callers:-nothing}"
 fi
 
-# review-queue-dev.tsx is excluded above on purpose: it is CAP-10's
-# throwaway dev mount, it predates this shell, and deleting it is CAP-10's
-# follow-up rather than CAP-5's business. When that follow-up lands, delete
-# the exclusion with the file.
 
 # --------------------------------------------------------------------------
 say "2. Every screen has a route"

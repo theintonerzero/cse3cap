@@ -22,6 +22,7 @@ import { Route, Routes } from 'react-router';
 
 import { DiaryHome } from '../screens/DiaryHome.tsx';
 import { AppShell } from './AppShell.tsx';
+import { ReviewQueue } from '../screens/ReviewQueue.tsx';
 import { Placeholder } from './Placeholder.tsx';
 
 export function AppRoutes() {
@@ -58,24 +59,7 @@ export function AppRoutes() {
           element={<Placeholder screen="Submitted" ticket="CAP-12" />}
         />
 
-        {/*
-         * CAP-10 is BUILT. web/src/screens/ReviewQueue.tsx takes no props,
-         * fetches through the typed client and never touches the token, so
-         * mounting it for real is exactly this:
-         *
-         *   import { ReviewQueue } from '../screens/ReviewQueue.tsx';
-         *   <Route path="review-queue" element={<ReviewQueue />} />
-         *
-         * That swap, plus deleting web/review-queue.html and
-         * web/src/review-queue-dev.tsx and dropping the reviewQueueDev entry
-         * from web/vite.config.ts, is the whole of CAP-10's follow-up. It is
-         * deliberately left undone here: CAP-5 is CAP-5, and those files are
-         * Tony's to remove.
-         */}
-        <Route
-          path="review-queue"
-          element={<Placeholder screen="Review queue" ticket="CAP-10 follow-up" />}
-        />
+        <Route path="review-queue" element={<ReviewQueue />} />
 
         <Route
           path="review-queue/entries/:entry_id"
