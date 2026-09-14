@@ -566,6 +566,7 @@ and the reasoning behind the unusual decisions.
 | [`docs/Stack-and-Build-Scope.md`](docs/Stack-and-Build-Scope.md) | What is being built, and the definition of done               |
 | [`docs/adr/`](docs/adr/)                                         | Architecture decision records                                 |
 | [`docs/Security-Review.md`](docs/Security-Review.md)             | Security reviews, appended per change                         |
+| [`.claude/skills/jira-tickets/`](.claude/skills/jira-tickets/)   | How agents read and move COA4 tickets (ADR #38)               |
 | [`docs/erd.png`](docs/erd.png)                                   | Entity relationship diagram, with a legend of hidden constraints |
 | [`docs/superpowers/specs/`](docs/superpowers/specs/)             | Design specs for each build slice                             |
 | [`docs/superpowers/plans/`](docs/superpowers/plans/)             | Implementation plans, and the current sequencing plan          |
