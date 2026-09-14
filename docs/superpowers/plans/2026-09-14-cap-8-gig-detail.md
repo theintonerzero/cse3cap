@@ -1581,6 +1581,62 @@ link on a list row would nest an anchor inside an anchor.
 `DiaryHome.tsx` — passed while the screen was still unreachable, because CAP-7's empty-state
 link satisfied it.
 
+## The design, found late (2026-09-15)
+
+The screen was built from the ticket's three bullets, which are all
+`docs/Stack-and-Build-Scope.md` has too. There is more, and it is not in this
+repository: Patrick's earlier working prototype at `~/projects/alumable-diary`
+carries the Figma exports and a finished implementation of this exact screen.
+Designs stay out of git deliberately, so this is a pointer, not a copy.
+
+| Where | What |
+| --- | --- |
+| `docs/06_figma_diary_frames.pdf` p5 | My Gig → Overview: Gig Details, Timeline, Reflection Diary cards |
+| `docs/05_figma_frames.pdf` p5 | The sprint rows, with a state pill and a chevron each |
+| `docs/02_AI_Assistant_Document_v3.md` §11.4a, §11.5, §6.1 | The prose spec for all of it |
+| `api/resources/views/shell/gig.blade.php` | The working implementation |
+| `api/app/Diary/SprintState.php` | The five states, derived, with split labels |
+
+Three things it settles:
+
+**1. The relative wording replaces the dates; it does not sit beside them.**
+Acted on — commit `8a2c646`. The first build showed `3 Aug – 16 Aug` and a tinted
+"Due 29 days ago" pill on the same row, which is one fact told twice, and with
+every seeded sprint past due it rendered as three identical warnings.
+
+**2. Each sprint row carries a state and is tappable.** NOT acted on. §11.4a:
+"a row per sprint: `SPRINT` / `SELF REFLECTION` / `ASSESSOR REFLECTION`. Same
+states as §6.1, same component as 11.5's sprint rows with the columns split
+out." The five states are `Not open`, `In progress`, `Awaiting assessor`,
+`Scored`, `Closed, no entry`, derived from the reflection's status and the
+sprint's dates. Split into columns they read `In progress` / `Submitted` /
+`No entry` for the student and `Awaiting` / `Scored` for the assessor.
+
+This needs `GET /reflections?gig_id=` — an existing endpoint with an existing
+query parameter, no backend change — and five states CAP-8 does not ask for. It
+was offered on 2026-09-15 and declined as scope: the rows would link into
+CAP-11's stepper route, and the "N sprints need your reflection this week"
+banner from the same frames is already a CAP-7 follow-up. Those three belong to
+one story — *surface diary state where the student already is* — and a third of
+it smuggled into CAP-8 makes the rest harder to pick up.
+
+One caution for whoever takes it: the prototype's fifth state is worded
+"Closed, no entry" and this build has no such thing, because nothing in
+`api/app/Services/` reads `opens_on` or `due_on`. The split label is `No entry`,
+which is a statement about what is there rather than about what is permitted,
+and that one is safe to port.
+
+**3. There is no participant roster anywhere in the design.** All 45 frames
+checked. The screen called "Participants" is the host's scoring worklist —
+names with Score / Done / Waiting pills — which is CAP-10 and CAP-13 territory.
+Criterion 1's "participant roles" came from whoever wrote the ticket, not from
+the design. It is built and it meets the criterion; it is also the one block on
+the screen with no design behind it.
+
+Also unbuilt and specified: a **Gig Details** card and a **Timeline** card
+(`START | END | DURATION`, weeks computed) above the diary card, in place of the
+current `org · dates` subtitle. Small, cosmetic, and nobody asked for it.
+
 ## What this ticket does not touch
 
 `api/`, `db/`, `docs/openapi.yaml`, the seeders, `web/src/api/client.ts`,
