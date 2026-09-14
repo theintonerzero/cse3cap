@@ -93,8 +93,23 @@ say "The MCP server's runtime"
 # server uses npx, so uv is the one new prerequisite this adds. Checked here
 # rather than left to fail inside Claude Code, where a server that will not
 # start looks like a server that has nothing to say.
-if command -v uvx >/dev/null 2>&1; then
-    ok "uvx" "$(uvx --version 2>/dev/null | head -1)"
+# Looked for on PATH and then in the places Homebrew and uv's own installer
+# put it. A plain non-interactive shell does not source a login profile, so
+# /opt/homebrew/bin is frequently absent from PATH even on a machine where
+# uv is installed and working -- which reported a missing prerequisite that
+# was not missing, the first time this ran.
+UVX=''
+for candidate in uvx "$HOME/.local/bin/uvx" /opt/homebrew/bin/uvx /usr/local/bin/uvx; do
+    if command -v "$candidate" >/dev/null 2>&1; then UVX="$candidate"; break; fi
+done
+
+if [ -n "$UVX" ]; then
+    ok "uvx" "$("$UVX" --version 2>/dev/null | head -1)"
+    case ":$PATH:" in
+        *":$(dirname "$(command -v "$UVX")"):"*) ;;
+        *) printf '  %snote%s   %s\n' "$dim" "$off" \
+             "found at $UVX but not on PATH; Claude Code may not see it. Add its directory to PATH in your shell profile." ;;
+    esac
 else
     bad "uvx" "not on PATH — the atlassian MCP server cannot start"
     cat <<UV

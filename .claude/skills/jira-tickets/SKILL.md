@@ -11,6 +11,11 @@ regularly and neither is automatically right.
 Project **COA4** on `latrobecomsci.atlassian.net`, board 2395, maintained each sprint.
 Reached through the `atlassian` MCP server in `.mcp.json`, which authenticates as **you**.
 
+The server is given eleven tools, not its default sixty-three: read an issue, search, read
+a project's or board's or sprint's issues, list and perform transitions, comment, and
+create. **Deleting an issue is deliberately not among them.** If you need something outside
+that list, that is a change to `.mcp.json` and a conversation, not a workaround.
+
 ## Never read docs/jira/*.csv for status
 
 Those are the import files the tickets were created from. They have no status column and no
