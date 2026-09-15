@@ -25,6 +25,14 @@
   color: var(--color-text);
 }
 
+/* "Nobody is on this gig yet." --color-text rather than muted: muted on
+   the lavender card is another of the tinted-fill AA failures recorded in
+   the CAP-8 plan, and this is ordinary body copy. */
+.none {
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+
 .people {
   display: flex;
   flex-wrap: wrap;
@@ -117,107 +125,100 @@
   color: var(--color-text);
 }
 
-/* The frame's SPRINT / SELF REFLECTION / ASSESSOR REFLECTION table. The
-   columns are the content here, not decoration, so this is a real table
-   with a real header row and a row header per sprint. */
-.table {
-  width: 100%;
-  margin: 0 0 var(--space-16);
-  border-collapse: collapse;
-  font-size: var(--font-size-sm);
-  text-align: left;
+/* The frame's SPRINT / SELF REFLECTION / ASSESSOR REFLECTION rows.
+   A grid rather than a table because the whole row is one Link, matching
+   DiaryHome's entry list: a <tr> cannot be a link, and splitting a row
+   across three links makes a screen reader read it three times. One shared
+   template on the header and every row is what keeps the columns aligned,
+   so it still reads as the frame draws it. */
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  margin-bottom: var(--space-16);
 }
 
-.table th,
-.table td {
-  padding: var(--space-8) var(--space-8) var(--space-8) 0;
-  vertical-align: top;
-  color: var(--color-text);
+.rows_head,
+.row,
+.row_flat {
+  display: grid;
+  grid-template-columns: 1fr auto auto var(--space-16);
+  align-items: center;
+  gap: var(--space-12);
 }
 
-.table thead th {
+.rows_head {
+  margin: 0;
+  padding: 0 var(--space-16);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
   text-transform: uppercase;
-  border-bottom: var(--border-width-sm) solid var(--color-border);
-}
-
-.table tbody tr + tr th,
-.table tbody tr + tr td {
-  border-top: var(--border-width-sm) solid var(--color-border);
-}
-
-.table tbody th {
-  font-weight: var(--font-weight-medium);
-}
-
-.col_sprint {
-  width: 30%;
-}
-
-/* The ordinal is the tappable part when a reflection exists, matching the
-   frame's chevron. --color-primary is this product's link colour; see the
-   note on .diary_link below, which is the same open finding. */
-.sprint_link {
-  font-weight: var(--font-weight-medium);
-  color: var(--color-primary);
-}
-
-/* A column with nothing to say. The frame draws an em dash.
-   --color-text, not --color-text-muted: muted measures 4.02:1 on
-   --color-accent-pink in light mode and fails AA, and the dash carries
-   meaning here -- it is the difference between "nothing yet" and a value
-   that failed to load. The character is light enough on its own. */
-.none {
   color: var(--color-text);
 }
 
-.sprints {
+.rows_list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-12);
+  gap: var(--space-8);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.sprint {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-8) var(--space-16);
+/* Same treatment as DiaryHome's .row -- a bordered card on --color-surface
+   that is the tap target in full. Deliberately identical: one product, one
+   way to pick a sprint. */
+.row,
+.row_flat {
   padding: var(--space-16);
   border: var(--border-width-sm) solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
+  text-decoration: none;
 }
 
-.sprint_title {
+.row_sprint {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.row_title {
   font-size: var(--font-size-base);
   font-weight: var(--font-weight-medium);
   color: var(--color-text);
 }
 
-/* Plain muted text, deliberately not a tinted pill. The first build gave
-   each state its own accent tint, which meant inventing a status vocabulary
-   out of dates alone -- and the three seeded sprints all landed on the same
-   one, so the screen showed three identical warnings. Status belongs in a
-   Badge, from the reflection, which is the follow-up SprintList names. */
-.sprint_when {
-  display: block;
-  margin-top: var(--space-4);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-regular);
+.row_meta {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.row_state {
+  font-size: var(--font-size-sm);
   color: var(--color-text);
 }
 
-/* The same line on the non-student calendar list, where it sits at the
-   end of a flex row rather than under the ordinal. */
-.sprint .sprint_when {
-  display: inline;
-  margin-top: 0;
-  margin-left: auto;
-  font-size: var(--font-size-sm);
+.chevron {
+  font-size: var(--font-size-lg);
+  color: var(--color-text-muted);
+}
+
+/* Visually hidden, not display:none -- a screen reader still announces it.
+   The header line is aria-hidden, so these carry the column names instead.
+   Written in rem because check-tokens.sh rejects the conventional pixel
+   value; same as Skeleton's own .sr_only. */
+.sr_only {
+  position: absolute;
+  width: 0.0625rem;
+  height: 0.0625rem;
+  padding: 0;
+  margin: -0.0625rem;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 .diary_body {
@@ -225,23 +226,6 @@
   font-size: var(--font-size-sm);
   line-height: var(--line-height-relaxed);
   color: var(--color-text);
-}
-
-.counts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-8) var(--space-16);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-size: var(--font-size-sm);
-  color: var(--color-text);
-}
-
-.counts li {
-  display: flex;
-  align-items: center;
-  gap: var(--space-8);
 }
 
 /* Matches .empty_link and .about_link on the diary home: a link in this

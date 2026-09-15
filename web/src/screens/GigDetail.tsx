@@ -10,6 +10,10 @@
  * as a second diary list. See "The design, found late" in the CAP-8 plan,
  * and §11.4a of the prose spec in the prototype at ~/projects/alumable-diary.
  *
+ * The sprint rows are rows, not a table: the whole row is the target,
+ * the way DiaryHome's entry list works. Selecting a sprint should not be
+ * a different gesture on two screens of the same product.
+ *
  * Two calls for a student, one for everybody else. GET /gigs/{gig_id}
  * carries the gig, its sprints, its framework, its participants and the
  * reflection counts. The per-sprint SELF / ASSESSOR columns need each
@@ -29,7 +33,7 @@ import { Link, useParams } from 'react-router';
 
 import { api, ApiError } from '../api/client.ts';
 import type { components } from '../api/schema.ts';
-import { Badge, Card, ErrorNotice, Skeleton, SkeletonGroup } from '../components/index.ts';
+import { Card, ErrorNotice, Skeleton, SkeletonGroup } from '../components/index.ts';
 import { useSession } from '../session/useSession.ts';
 import {
   by_ordinal,
@@ -290,17 +294,20 @@ function TimelineCard({ gig }: { gig: Gig }) {
  * The frame's third card, and criterion 3's way into the diary scoped to
  * this gig.
  *
- * For a student it is the frame's table: a row per sprint, SPRINT / SELF
- * REFLECTION / ASSESSOR REFLECTION, the two columns being §6.1's five
- * states split rather than a second vocabulary (see sprint_progress). A
- * row whose reflection exists is a link to it; one that does not is plain
- * text, because there is nothing yet to address -- creating a reflection
- * is the stepper's job, not this screen's.
+ * For a student it is the frame's SPRINT / SELF REFLECTION / ASSESSOR
+ * REFLECTION rows, the two columns being the reflection states split
+ * rather than a second vocabulary (see sprint_progress).
  *
- * For everybody else the same card shows the sprint calendar with its
- * dates and the counts the server already scoped, because GET /reflections
- * returns every student's rows to them and a single-student table cannot
- * be built out of that.
+ * The counts that used to sit at the bottom are gone. They said in three
+ * numbers what the rows now say sprint by sprint, and a card that states
+ * the same fact twice in two vocabularies is the thing that made this
+ * screen read as over-built. The prose line went with them for a student,
+ * and stayed for everybody else, where it is load-bearing: it is what
+ * explains why they are not offered a link.
+ *
+ * For a non-student the card shows the sprint calendar with its dates,
+ * because GET /reflections returns them every student's rows and a
+ * single-student table cannot be built out of that.
  */
 function DiaryCard({
   gig,
@@ -311,8 +318,6 @@ function DiaryCard({
   reflections: Reflection[];
   today: Date;
 }) {
-  const counts = gig.reflection_summary;
-  const total = counts.draft + counts.submitted + counts.assessed;
   const is_student = gig.my_role === 'student';
 
   return (
@@ -339,27 +344,12 @@ function DiaryCard({
             </p>
           </div>
         ) : is_student ? (
-          <SprintTable sprints={gig.sprints} reflections={reflections} today={today} />
+          <SprintRows sprints={gig.sprints} reflections={reflections} today={today} />
         ) : (
           <SprintCalendar sprints={gig.sprints} today={today} />
         )}
 
-        <ul className={styles.counts}>
-          <li>
-            {counts.assessed} assessed
-            <Badge status="assessed" />
-          </li>
-          <li>
-            {counts.submitted} submitted
-            <Badge status="submitted" />
-          </li>
-          <li>
-            {counts.draft} draft
-            <Badge status="draft" />
-          </li>
-        </ul>
-
-        <p className={styles.diary_body}>{diary_copy(gig.my_role, total)}</p>
+        {!is_student && <p className={styles.diary_body}>{NOT_YOUR_DIARY}</p>}
 
         {is_student && (
           <Link className={styles.diary_link} to={`/?gig_id=${gig.id}`}>
@@ -372,11 +362,32 @@ function DiaryCard({
 }
 
 /**
- * The frame's table. Three columns on a phone is the one place this screen
- * is allowed to be a table rather than a list: the columns are the point,
- * and the header row is what says whose half is whose.
+ * Why a supervisor, assessor or employer is shown the gig's sprints but is
+ * not offered a way into the diary: it is somebody else's record, and their
+ * own work on it is in the review queue.
  */
-function SprintTable({
+const NOT_YOUR_DIARY =
+  'Reflections on this gig that you can see. The diary itself is each ' +
+  'student\u2019s own record; your work on it is in the review queue.';
+
+/**
+ * A row per sprint, and the row is the target -- not a link buried inside
+ * it. This is the same idiom DiaryHome's entry list uses: the whole row is
+ * one Link, the state sits at the right edge, and a chevron says so. The
+ * first build of this made the sprint NUMBER a hyperlink inside a table
+ * cell, which is a second way of selecting a sprint in a product that
+ * already had one, and a much smaller tap target.
+ *
+ * The frame's three columns survive as a grid rather than a table, because
+ * a <tr> cannot be a link and splitting one row across several links is
+ * exactly the thing that makes a screen reader read it three times. The
+ * header line above carries the column names, and every row shares its
+ * grid template, so they line up as the frame draws them.
+ *
+ * A sprint with no reflection is not a link: there is nothing yet to
+ * address, and creating one is the stepper's job, not this screen's.
+ */
+function SprintRows({
   sprints,
   reflections,
   today,
@@ -394,41 +405,64 @@ function SprintTable({
   );
 
   return (
-    <table className={styles.table}>
-      <thead>
-        <tr>
-          <th scope="col" className={styles.col_sprint}>
-            Sprint
-          </th>
-          <th scope="col">Self reflection</th>
-          <th scope="col">Assessor reflection</th>
-        </tr>
-      </thead>
-      <tbody>
+    <div className={styles.rows}>
+      <p className={styles.rows_head} aria-hidden="true">
+        <span>Sprint</span>
+        <span>Self reflection</span>
+        <span>Assessor reflection</span>
+      </p>
+
+      <ul className={styles.rows_list}>
         {by_ordinal(sprints).map((sprint) => {
           const reflection = by_sprint.get(sprint.id) ?? null;
           const progress = sprint_progress(sprint, reflection?.status ?? null, today);
           const timing = sprint_timing(sprint, today);
 
+          // The header row is decorative (aria-hidden), so each cell says
+          // what it is to a screen reader instead. Sighted readers get the
+          // column; everyone else gets the label.
+          const body = (
+            <>
+              <span className={styles.row_sprint}>
+                <span className={styles.row_title}>Sprint {sprint.ordinal}</span>
+                <span className={styles.row_meta}>{timing.line}</span>
+              </span>
+              <span className={styles.row_state}>
+                <span className={styles.sr_only}>Self reflection: </span>
+                {progress.self ?? <span aria-hidden="true">{'\u2014'}</span>}
+                {progress.self === null && <span className={styles.sr_only}>none</span>}
+              </span>
+              <span className={styles.row_state}>
+                <span className={styles.sr_only}>Assessor reflection: </span>
+                {progress.assessor ?? <span aria-hidden="true">{'\u2014'}</span>}
+                {progress.assessor === null && <span className={styles.sr_only}>none</span>}
+              </span>
+              {/*
+               * The character itself rather than a numeric HTML entity:
+               * check-tokens.sh reads one as a raw hex colour and fails
+               * the build, which its own header lists as a known false
+               * positive. Same note as DiaryHome's row.
+               */}
+              <span className={styles.chevron} aria-hidden="true">
+                {reflection ? '\u203a' : ''}
+              </span>
+            </>
+          );
+
           return (
-            <tr key={sprint.id}>
-              <th scope="row" className={styles.col_sprint}>
-                {reflection ? (
-                  <Link className={styles.sprint_link} to={`/reflections/${reflection.id}`}>
-                    {sprint.ordinal}
-                  </Link>
-                ) : (
-                  sprint.ordinal
-                )}
-                <span className={styles.sprint_when}>{timing.line}</span>
-              </th>
-              <td>{progress.self ?? <span className={styles.none}>&mdash;</span>}</td>
-              <td>{progress.assessor ?? <span className={styles.none}>&mdash;</span>}</td>
-            </tr>
+            <li key={sprint.id}>
+              {reflection ? (
+                <Link className={styles.row} to={`/reflections/${reflection.id}`}>
+                  {body}
+                </Link>
+              ) : (
+                <div className={styles.row_flat}>{body}</div>
+              )}
+            </li>
           );
         })}
-      </tbody>
-    </table>
+      </ul>
+    </div>
   );
 }
 
@@ -440,35 +474,19 @@ function SprintTable({
  */
 function SprintCalendar({ sprints, today }: { sprints: Sprint[]; today: Date }) {
   return (
-    <ul className={styles.sprints}>
+    <ul className={styles.rows_list}>
       {by_ordinal(sprints).map((sprint) => (
-        <li key={sprint.id} className={styles.sprint}>
-          <span className={styles.sprint_title}>Sprint {sprint.ordinal}</span>
-          <span className={styles.sprint_when}>{sprint_timing(sprint, today).line}</span>
+        <li key={sprint.id}>
+          <div className={styles.row_flat}>
+            <span className={styles.row_sprint}>
+              <span className={styles.row_title}>Sprint {sprint.ordinal}</span>
+            </span>
+            <span className={styles.row_meta}>{sprint_timing(sprint, today).line}</span>
+          </div>
         </li>
       ))}
     </ul>
   );
-}
-
-/**
- * What the card says, which depends on the role and on whether anything has
- * been written. Pulled out of the JSX because a nested ternary in the middle
- * of a paragraph is unreadable at prettier's 92 columns.
- */
-function diary_copy(my_role: Role, total: number): string {
-  if (my_role !== 'student') {
-    return (
-      'Reflections on this gig that you can see. The diary itself is each ' +
-      'student’s own record; your work on it is in the review queue.'
-    );
-  }
-
-  if (total === 0) {
-    return 'Nothing written on this gig yet. Your diary is where a reflection starts.';
-  }
-
-  return 'Your reflections on this gig, and the radar for them.';
 }
 
 /** Shaped like the loaded screen: a header and the three cards. */

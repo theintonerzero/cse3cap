@@ -1759,3 +1759,48 @@ either way.
   machine, and minting a demo token to run the live half of `verify-gig` was
   refused by the sandbox as credential materialisation. The static checks, the
   compiler and the executed date and state modules are what have run.
+
+
+## Corrections after review (2026-09-15)
+
+Three things the re-shape got wrong, all of them the same mistake: reaching
+for a new pattern where the codebase already had one. Patrick: *"now it seems
+over engineered... make sure we are keeping in line with the design standards
+that were already outlined in previous caps otherwise we are going to keep
+getting design discrepancies."* He is right, and this is the general rule
+rather than three separate fixes.
+
+**1. The counts strip under the sprint rows is gone.** `3 assessed / 2
+submitted / 1 draft` with three Badges said in three numbers what the rows
+above now say sprint by sprint. Two vocabularies for one fact on one card is
+what made the screen read as over-built. The prose line went with it for a
+student; it stayed for everybody else, where it is load-bearing — it explains
+why they are not offered a link into the diary.
+
+**2. The row is the target, not a link inside it.** The first build made the
+sprint *number* a hyperlink in a table cell. `DiaryHome`'s entry list has made
+the whole row one `Link` — with the state at the right edge and a chevron —
+since CAP-7, so the gig detail had invented a second way to pick a sprint, with
+a much smaller tap target. The frame's three columns survive as a CSS grid
+sharing one template with the header line, because a `<tr>` cannot be a link
+and splitting a row across three links makes a screen reader read it three
+times. The visible header is `aria-hidden` and each cell carries its own label
+through `.sr_only`, which matches `Skeleton`'s existing spelling rather than
+introducing `visually_hidden` as a second one.
+
+**3. "Sprints and people on this gig" is now a `Gig details` Button.**
+CAP-3's `Button`, `variant="secondary"`, the same control the export button
+beside it already uses — not an anchor restyled to look like one, which would
+be a second button in the codebase and is how two drift. It navigates through
+`useNavigate`, so the cost is that it cannot be opened in a new tab; the
+export Button already pays that cost, so the screen is at least consistent
+with itself. `.about_link` is deleted rather than left dead.
+
+`verify-gig` grew four assertions for these — the row is the link, both
+columns label themselves, no count strip, and the diary home uses `Button` —
+and now runs **20 passed, 0 failed**. `verify-diary` is unaffected at 8/0.
+
+The lesson worth carrying to CAP-11 and CAP-14: check what the previous CAP
+already established *before* reading the frame, not after. The frame says what
+a screen shows; the component library and the screens already built say how it
+behaves. Both bind.

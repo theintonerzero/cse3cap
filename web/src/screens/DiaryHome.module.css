@@ -112,15 +112,6 @@
   margin: 0 0 var(--space-12);
 }
 
-/* Same treatment as .empty_link above. A link on this screen is
-   --color-primary; the new one matches rather than inventing a second
-   look. */
-.about_link {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-primary);
-}
-
 .radar_block {
   /* The chart's own radius is bounded by its height, so on a wide screen
      an unbounded card leaves the polygon marooned in empty surface. */

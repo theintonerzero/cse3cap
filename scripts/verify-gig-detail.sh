@@ -76,15 +76,27 @@ say "2. Reachable from the diary, and scoped on the way back"
 # nav cannot carry one because /gigs/:gig_id needs an id and the nav has
 # no single gig to name.
 #
-# Checked as the about_link specifically, NOT as any link to /gigs/. The
-# diary home has carried one since CAP-7, inside NothingWritten, which only
-# renders for a student who has written nothing -- so a bare grep for
-# '/gigs/' passes while every student with a reflection still has no way
-# through. This is the always-visible one.
-if grep -q 'styles.about_link' "$DIARY" && grep -q 'to={`/gigs/' "$DIARY"; then
-    ok "the diary home links to /gigs/:gig_id" "beside the scope chips"
+# Checked as the always-visible control in .about_gig, NOT as any link to
+# /gigs/. The diary home has carried one since CAP-7, inside NothingWritten,
+# which only renders for a student who has written nothing -- so a bare grep
+# for '/gigs/' passes while every student with a reflection still has no way
+# through. This is the one beside the scope chips.
+#
+# It is a Button that navigates, not an anchor, so the assertion is on the
+# navigate() call rather than on a `to=` prop.
+if grep -q 'styles.about_gig' "$DIARY" && grep -q 'navigate(`/gigs/' "$DIARY"; then
+    ok "the diary home reaches /gigs/:gig_id" "a Button beside the scope chips"
 else
-    bad "the diary home links to /gigs/:gig_id" "the screen would be URL-only"
+    bad "the diary home reaches /gigs/:gig_id" "the screen would be URL-only"
+fi
+
+# ...and it is CAP-3's Button, not a re-styled anchor. Two buttons in one
+# codebase is how the two drift, which is the whole reason the component
+# library exists.
+if grep -q '<Button' "$DIARY"; then
+    ok "it uses CAP-3's Button" "same control as the export button"
+else
+    bad "it uses CAP-3's Button"
 fi
 
 if grep -q '/?gig_id=' "$SCREEN"; then
@@ -175,15 +187,33 @@ else
     bad "each card carries an accent" "want 3 accented Cards"
 fi
 
-# The SELF / ASSESSOR split is a real table with a real header row: the
-# columns carry the meaning, so a div grid would leave a screen reader
-# reading two labels with nothing tying them to a sprint.
-if grep -q '<th scope="col">Self reflection</th>' "$SCREEN" \
-   && grep -q '<th scope="col">Assessor reflection</th>' "$SCREEN" \
-   && grep -q '<th scope="row"' "$SCREEN"; then
-    ok "the sprint table is a table, with scoped headers"
+# The SELF / ASSESSOR split is there, and the visible header line is
+# aria-hidden with each cell carrying its own label instead -- a grid of
+# links cannot use <th scope>, so the label has to travel with the value or
+# a screen reader reads two bare words per row.
+if grep -q 'Self reflection' "$SCREEN" \
+   && grep -q 'Assessor reflection' "$SCREEN" \
+   && grep -q 'styles.sr_only' "$SCREEN"; then
+    ok "both columns, and each cell says which it is"
 else
-    bad "the sprint table is a table, with scoped headers"
+    bad "both columns, and each cell says which it is"
+fi
+
+# The ROW is the target, the way DiaryHome's entry list works. A link on
+# the sprint number inside a row is a second way to pick a sprint, and a
+# much smaller tap target -- it is what the first build of this did.
+if grep -q 'className={styles.row} to={`/reflections/' "$SCREEN"; then
+    ok "the whole row is the link" "same idiom as the diary home"
+else
+    bad "the whole row is the link" "a link inside the row is not the pattern"
+fi
+
+# The counts that used to sit under the rows are gone: they said in three
+# numbers what the rows say sprint by sprint.
+if ! grep -q 'styles.counts' "$SCREEN"; then
+    ok "no duplicate count strip under the rows"
+else
+    bad "no duplicate count strip under the rows" "the rows already say this"
 fi
 
 # GET /reflections is what fills those columns, and it is asked for ONLY
