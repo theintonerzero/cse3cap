@@ -33,38 +33,39 @@
   color: var(--color-text);
 }
 
+/* One wrapped line rather than a row of pills. Six participants as
+   bordered chips ran to three rows of card and made the roster look like
+   the subject of the screen, which it is not -- the sprints are. */
 .people {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-8);
-  margin: 0;
+  display: block;
+  margin: var(--space-4) 0 0;
   padding: 0;
+  font-size: var(--font-size-sm);
   list-style: none;
 }
 
 .person {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-8);
-  padding: var(--space-4) var(--space-12);
-  border: var(--border-width-sm) solid var(--color-border);
-  border-radius: var(--radius-full);
-  background: var(--color-surface);
+  display: inline;
+}
+
+.person:not(:last-child)::after {
+  content: ' · ';
+  color: var(--color-text-muted);
 }
 
 .person_name {
-  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   color: var(--color-text);
 }
 
 .you {
+  margin-left: var(--space-4);
   font-weight: var(--font-weight-regular);
-  color: var(--color-text-muted);
+  color: var(--color-text);
 }
 
 .person_role {
-  font-size: var(--font-size-xs);
+  margin-left: var(--space-4);
   color: var(--color-text-muted);
 }
 
@@ -81,27 +82,11 @@
   color: var(--color-text);
 }
 
-/* A labelled fact list: the frame's GIG TITLE / HOST rows, and the
-   Timeline cells. The label is small and uppercase, the value ordinary
-   body text under it. */
-.facts {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-12);
-  margin: 0;
-}
-
 .fact_label {
   margin: 0;
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
   text-transform: uppercase;
-  color: var(--color-text);
-}
-
-.fact_value {
-  margin: var(--space-4) 0 0;
-  font-size: var(--font-size-base);
   color: var(--color-text);
 }
 

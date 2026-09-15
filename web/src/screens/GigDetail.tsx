@@ -158,8 +158,7 @@ export function GigDetail() {
 
   return (
     <section>
-      <GigHeader gig={gig} />
-      <GigDetailsCard gig={gig} me_id={me?.id ?? null} />
+      <GigHeader gig={gig} me_id={me?.id ?? null} />
       <TimelineCard gig={gig} />
       <DiaryCard gig={gig} reflections={reflections} today={new Date()} />
     </section>
@@ -172,54 +171,31 @@ export function GigDetail() {
  * build has no application or offer state to render, and a pill that
  * always says the same word is decoration.
  */
-function GigHeader({ gig }: { gig: Gig }) {
+function GigHeader({ gig, me_id }: { gig: Gig; me_id: string | null }) {
   const when = gig_dates(gig.starts_on, gig.ends_on);
+  const meta = [gig.org_name, when].filter((part): part is string => part !== null);
 
   return (
     <header className={styles.header}>
       <h1 className={styles.heading}>{gig.title}</h1>
-      {gig.org_name && <p className={styles.sub}>{gig.org_name}</p>}
-      {when && <p className={styles.sub}>{when}</p>}
+      {meta.length > 0 && <p className={styles.sub}>{meta.join(' \u00b7 ')}</p>}
+      <ParticipantList participants={gig.participants} me_id={me_id} />
     </header>
-  );
-}
-
-/**
- * The frame's first card: GIG TITLE and HOST as a labelled fact list.
- *
- * The participants sit here too, and they are the one block on this screen
- * with no design behind it -- all 45 frames were checked and none carries a
- * roster. CAP-8's criterion 1 asks for "the participant roles", so it is
- * built, but as a row of this card rather than as a section of its own:
- * the criterion is met and the screen still reads as the frame's three
- * cards. The only roster in the design is the host's scoring worklist,
- * which is CAP-10 and CAP-13 territory.
- */
-function GigDetailsCard({ gig, me_id }: { gig: Gig; me_id: string | null }) {
-  return (
-    <section className={styles.block}>
-      <Card accent="lavender">
-        <h2 className={styles.card_heading}>Gig details</h2>
-        <dl className={styles.facts}>
-          <dt className={styles.fact_label}>Gig title</dt>
-          <dd className={styles.fact_value}>{gig.title}</dd>
-
-          <dt className={styles.fact_label}>Host</dt>
-          <dd className={styles.fact_value}>{gig.org_name ?? 'Not recorded'}</dd>
-
-          <dt className={styles.fact_label}>People</dt>
-          <dd className={styles.fact_value}>
-            <ParticipantList participants={gig.participants} me_id={me_id} />
-          </dd>
-        </dl>
-      </Card>
-    </section>
   );
 }
 
 /**
  * Everyone on the gig and what they are on it. Roles come from the server,
  * resolved from gig_participants; the client never decides one.
+ *
+ * In the header, as one wrapped row, because criterion 1 asks for the
+ * participant roles in the header and because there is no design for them
+ * anywhere -- all 45 frames were checked and none carries a roster. The
+ * frame's Gig Details card is NOT built: it holds GIG TITLE and HOST, both
+ * of which the header above already says, so on a screen that is not part
+ * of the host app it is a card whose whole content is a repeat. That
+ * redundancy is in the frame itself; reproducing it faithfully cost a
+ * third of the screen's height to say the title twice.
  *
  * The caller is marked rather than hidden. On a gig the point is who else
  * is here, and a list that silently omits you reads as though the API
@@ -240,10 +216,8 @@ function ParticipantList({
     <ul className={styles.people}>
       {participants.map((person) => (
         <li key={`${person.id}:${person.role}`} className={styles.person}>
-          <span className={styles.person_name}>
-            {person.display_name}
-            {person.id === me_id && <span className={styles.you}> (you)</span>}
-          </span>
+          <span className={styles.person_name}>{person.display_name}</span>
+          {person.id === me_id && <span className={styles.you}>(you)</span>}
           <span className={styles.person_role}>{ROLE_LABEL[person.role]}</span>
         </li>
       ))}

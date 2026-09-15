@@ -162,29 +162,47 @@ else
 fi
 
 # --------------------------------------------------------------------------
-# The screen's shape is the whole point of the CAP-8 re-shape: the design
-# draws My Gig -> Overview as three cards, and a flat list of sections is
-# what it looked like when it was built from the ticket's bullets alone.
-# Grepped rather than rendered because web/ has no test runner (CLAUDE.md).
-say "4a. The frame's three cards"
+# The screen's shape: the design draws My Gig -> Overview as cards, and a
+# flat list of sections is what it looked like when it was built from the
+# ticket's bullets alone. Grepped rather than rendered because web/ has no
+# test runner (CLAUDE.md).
+say "4a. The cards"
 
 cards_missing=""
-grep -q 'Gig details' "$SCREEN"       || cards_missing="$cards_missing gig-details"
 grep -q 'Timeline' "$SCREEN"          || cards_missing="$cards_missing timeline"
 grep -q 'Reflection diary' "$SCREEN"  || cards_missing="$cards_missing reflection-diary"
 
 if [ -z "$cards_missing" ]; then
-    ok "Gig details, Timeline and Reflection diary" "docs/06_figma_diary_frames.pdf p5"
+    ok "Timeline and Reflection diary" "docs/06_figma_diary_frames.pdf p5"
 else
-    bad "Gig details, Timeline and Reflection diary" "missing:$cards_missing"
+    bad "Timeline and Reflection diary" "missing:$cards_missing"
 fi
 
-# Each card is a Card with one of CAP-1's accents, which is what makes the
-# three read as three. The frame tints them purple, blue and pink.
-if [ "$(grep -c '<Card accent=' "$SCREEN")" -ge 3 ]; then
+# The frame's third card, Gig Details, is deliberately NOT built: it holds
+# GIG TITLE and HOST, both of which the header already says, so on a screen
+# outside the host app it is a card whose whole content is a repeat. If it
+# comes back, it should come back for a reason -- so the absence is
+# asserted rather than left to drift.
+if ! grep -q 'Gig details' "$SCREEN"; then
+    ok "no Gig details card" "the header already says the title and the host"
+else
+    bad "no Gig details card" "it repeats the header"
+fi
+
+# Each card is a Card with one of CAP-1's accents, which is what makes them
+# read as cards rather than as sections. The frame tints them blue and pink.
+if [ "$(grep -c '<Card accent=' "$SCREEN")" -ge 2 ]; then
     ok "each card carries an accent"
 else
-    bad "each card carries an accent" "want 3 accented Cards"
+    bad "each card carries an accent" "want 2 accented Cards"
+fi
+
+# Criterion 1 asks for the participant roles in the HEADER, which is also
+# the only place they can go: no frame anywhere carries a roster.
+if sed -n '/function GigHeader/,/^}/p' "$SCREEN" | grep -q 'ParticipantList'; then
+    ok "the participants are in the header" "criterion 1, and no card for them"
+else
+    bad "the participants are in the header"
 fi
 
 # The SELF / ASSESSOR split is there, and the visible header line is

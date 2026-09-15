@@ -1804,3 +1804,39 @@ The lesson worth carrying to CAP-11 and CAP-14: check what the previous CAP
 already established *before* reading the frame, not after. The frame says what
 a screen shows; the component library and the screens already built say how it
 behaves. Both bind.
+
+
+## The Gig Details card is not built (2026-09-15)
+
+Patrick, on the re-shaped screen: *"like Gig title, gig details all these weird
+headers that aren't really necessary? like we are repeating the gig title twice
+on this page and using a lot of vertical space for other details."*
+
+Correct, and the redundancy is **in the frame**. Page 5 of
+`docs/06_figma_diary_frames.pdf` draws the title and the host in the page head
+and then repeats both inside a Gig Details card — `GIG TITLE` /
+`Develop AI Use Case Recommendations`, `HOST` / `Alumly Pty Limited`. In the
+host app that card earns its place: it sits under `Overview` beside
+`Application` and `Offer` tabs, where a reader may have scrolled or switched
+tab away from the head. Here there are no tabs and nothing to scroll past, so
+it was a card whose entire content was a repeat, plus three labels to announce
+it.
+
+It cost more than it looked. The participants had been put inside it as a third
+`People` row, as six bordered chips, so a card that said nothing new was also
+the tallest block above the sprints — on a screen whose subject is the sprints.
+
+**Now:** no Gig Details card. The header carries the title, then `org · dates`
+on one line, then the participants as a single wrapped line — `Jane N (you)
+Student · Sam O Assessor · Dr Lee Supervisor · …`. Criterion 1 asks for the
+participant roles "in the header", which is where they now are, and which is
+also the only place they can go given no frame carries a roster at all. Two
+cards remain, Timeline and Reflection Diary, both of which Patrick kept.
+
+A side effect worth recording: the roster moved off `--color-accent-lavender`
+onto `--color-bg`, where `--color-text-muted` measures **4.55:1** and passes
+AA. On the tinted card it would have been another of the recorded failures.
+
+`verify-gig` asserts the absence as well as the presence — 22 passed, 0 failed
+— because a card that was removed for a reason should come back only for a
+reason.
