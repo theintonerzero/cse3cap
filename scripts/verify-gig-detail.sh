@@ -150,6 +150,53 @@ else
 fi
 
 # --------------------------------------------------------------------------
+# The screen's shape is the whole point of the CAP-8 re-shape: the design
+# draws My Gig -> Overview as three cards, and a flat list of sections is
+# what it looked like when it was built from the ticket's bullets alone.
+# Grepped rather than rendered because web/ has no test runner (CLAUDE.md).
+say "4a. The frame's three cards"
+
+cards_missing=""
+grep -q 'Gig details' "$SCREEN"       || cards_missing="$cards_missing gig-details"
+grep -q 'Timeline' "$SCREEN"          || cards_missing="$cards_missing timeline"
+grep -q 'Reflection diary' "$SCREEN"  || cards_missing="$cards_missing reflection-diary"
+
+if [ -z "$cards_missing" ]; then
+    ok "Gig details, Timeline and Reflection diary" "docs/06_figma_diary_frames.pdf p5"
+else
+    bad "Gig details, Timeline and Reflection diary" "missing:$cards_missing"
+fi
+
+# Each card is a Card with one of CAP-1's accents, which is what makes the
+# three read as three. The frame tints them purple, blue and pink.
+if [ "$(grep -c '<Card accent=' "$SCREEN")" -ge 3 ]; then
+    ok "each card carries an accent"
+else
+    bad "each card carries an accent" "want 3 accented Cards"
+fi
+
+# The SELF / ASSESSOR split is a real table with a real header row: the
+# columns carry the meaning, so a div grid would leave a screen reader
+# reading two labels with nothing tying them to a sprint.
+if grep -q '<th scope="col">Self reflection</th>' "$SCREEN" \
+   && grep -q '<th scope="col">Assessor reflection</th>' "$SCREEN" \
+   && grep -q '<th scope="row"' "$SCREEN"; then
+    ok "the sprint table is a table, with scoped headers"
+else
+    bad "the sprint table is a table, with scoped headers"
+fi
+
+# GET /reflections is what fills those columns, and it is asked for ONLY
+# for a student: it returns every student's rows to an assessor, so a
+# one-student table built from it for anybody else would be wrong.
+if grep -q "api.get('/reflections'" "$SCREEN" \
+   && grep -q "my_role !== 'student'" "$SCREEN"; then
+    ok "the second call is made, and only for a student"
+else
+    bad "the second call is made, and only for a student"
+fi
+
+# --------------------------------------------------------------------------
 say "5. The relative wording, actually executed"
 
 TSC="web/node_modules/.bin/tsc"
@@ -173,7 +220,10 @@ else
     # Every case the acceptance criterion names, plus the boundaries and
     # the timezone trap. "today" is fixed, so this cannot drift.
     cat > "$OUT/check.mjs" <<'JS'
-import { sprint_timing, days_between, format_short_date, gig_dates } from './gig-timing.js';
+import {
+  sprint_timing, days_between, format_short_date, gig_dates,
+  sprint_progress, gig_duration_weeks,
+} from './gig-timing.js';
 
 const today = new Date(2026, 8, 14);
 
@@ -254,13 +304,83 @@ if (!gig_dates('2026-08-03', '2026-10-26')?.includes('26')) {
   failed++;
 }
 
+// --------------------------------------------------------------------- //
+// The frame's two columns: SELF REFLECTION and ASSESSOR REFLECTION.
+//
+// These are the design's five sprint states split in two, not a second
+// vocabulary (see sprint_progress). Executed rather than grepped for the
+// same reason the wording above is: every seeded sprint is past due, so
+// the not-open and open rows cannot be produced by looking at the app.
+const OPEN = { opens_on: '2026-09-01', due_on: '2026-09-17' };
+const PAST = { opens_on: '2026-08-03', due_on: '2026-08-16' };
+const FUTURE = { opens_on: '2026-09-20', due_on: '2026-10-03' };
+
+const progress_cases = [
+  // a reflection exists -- its status decides, whatever the calendar says
+  [OPEN,   'assessed',  'Submitted',   'Scored'],
+  [PAST,   'assessed',  'Submitted',   'Scored'],
+  [OPEN,   'submitted', 'Submitted',   'Awaiting'],
+  [PAST,   'submitted', 'Submitted',   'Awaiting'],
+  [OPEN,   'draft',     'In progress', null],
+  // A draft behind a past due date is still "In progress" HERE, where the
+  // prototype says "Closed, no entry". Nothing in api/app/Services/ reads
+  // due_on, so this build lets it still be submitted, and a label claiming
+  // otherwise would claim a gate the API does not enforce.
+  [PAST,   'draft',     'In progress', null],
+  // no row at all -- now it is a question about the calendar
+  [FUTURE, null,        null,          null],
+  [OPEN,   null,        'In progress', null],
+  [PAST,   null,        'No entry',    null],
+];
+
+for (const [sprint, status, self_label, assessor_label] of progress_cases) {
+  const got = sprint_progress(sprint, status, today);
+  if (got.self !== self_label || got.assessor !== assessor_label) {
+    console.log(`  MISMATCH progress ${sprint.opens_on}..${sprint.due_on} ${status}: `
+      + `want ${self_label}/${assessor_label}, got ${got.self}/${got.assessor}`);
+    failed++;
+  }
+}
+
+// An assessor column never fills in before the student's does: every state
+// that says something on the right says "Submitted" on the left. This is
+// the invariant the split exists to protect -- a screen free to invent its
+// own labels could show a counter-score against a sprint the diary still
+// calls a draft.
+for (const [sprint, status] of progress_cases) {
+  const got = sprint_progress(sprint, status, today);
+  if (got.assessor !== null && got.self !== 'Submitted') {
+    console.log(`  MISMATCH ${status}: assessor "${got.assessor}" with self "${got.self}"`);
+    failed++;
+  }
+}
+
+// The Timeline card's DURATION cell. The frame prints "13 weeks" against
+// 03/08/2026 -> 31/10/2026, so that exact pair is the case to hold.
+const duration_cases = [
+  ['2026-08-03', '2026-10-31', 13],
+  ['2026-08-03', '2026-08-10', 1],
+  ['2026-08-03', '2026-08-03', 0],
+  ['2026-08-03', null,         null],
+  [null,         '2026-10-31', null],
+  ['2026-10-31', '2026-08-03', null],   // ends before it starts
+];
+
+for (const [starts, ends, weeks] of duration_cases) {
+  const got = gig_duration_weeks(starts, ends);
+  if (got !== weeks) {
+    console.log(`  MISMATCH duration ${starts}..${ends}: want ${weeks}, got ${got}`);
+    failed++;
+  }
+}
+
 process.exit(failed === 0 ? 0 : 1);
 JS
 
     if TZ=Pacific/Auckland node "$OUT/check.mjs" && TZ=America/Los_Angeles node "$OUT/check.mjs"; then
-        ok "sprint wording, 11 cases + 6 shape assertions" "east and west of UTC"
+        ok "wording 11, states 9, duration 6, shape 6" "east and west of UTC"
     else
-        bad "sprint wording, 11 cases + 6 shape assertions" "see mismatches above"
+        bad "wording 11, states 9, duration 6, shape 6" "see mismatches above"
     fi
 fi
 

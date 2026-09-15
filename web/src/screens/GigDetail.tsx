@@ -1,20 +1,28 @@
 /**
- * One gig: who is on it, what rubric it is scored against, when its
- * sprints open and are due, and the way into the diary scoped to it.
+ * One gig: what it is, how long it runs, and where its reflections are up
+ * to -- the three cards the design draws on My Gig -> Overview.
  *
- * One call. GET /gigs/{gig_id} returns GigDetail, which carries every
- * field all four criteria need -- including reflection_summary, already
- * counted and already role-scoped by the server
- * (GigController::visibleReflections gives a student their own and an
- * assessor, supervisor or employer every one on the gig), and
- * participants, which only this endpoint returns. Fetching reflections
- * again to count them here would be that rule implemented twice.
+ * This screen is not a diary screen. In the design it belongs to the host
+ * app: Earn -> My Gigs -> a gig, with tabs Overview / Application / Offer,
+ * and the diary appears on it as one card of three. Alumable's own Earn
+ * section is not in this build, so the screen is reached from the diary
+ * instead -- the arrow is reversed, and the cards are what stop it reading
+ * as a second diary list. See "The design, found late" in the CAP-8 plan,
+ * and §11.4a of the prose spec in the prototype at ~/projects/alumable-diary.
  *
- * The relative date wording is all in gig-timing.ts, which imports
- * nothing, so scripts/verify-gig-detail.sh can compile it and call it with
- * dates the seed does not contain. Every seeded sprint is already past
- * due, so "not open yet" and "due in 3 days" are unreachable by looking at
- * the app.
+ * Two calls for a student, one for everybody else. GET /gigs/{gig_id}
+ * carries the gig, its sprints, its framework, its participants and the
+ * reflection counts. The per-sprint SELF / ASSESSOR columns need each
+ * sprint's reflection status, which only GET /reflections?gig_id= returns
+ * -- and that endpoint gives a student their own rows but an assessor
+ * every student's on the gig, so a single-student table cannot be built
+ * from it for a non-student. They get the sprint list with its dates
+ * instead, which is the question they can actually be answered.
+ *
+ * The relative date wording and the sprint states are both in
+ * gig-timing.ts, which imports nothing, so scripts/verify-gig-detail.sh
+ * can compile it and call it with dates the seed does not contain. Every
+ * seeded sprint is already past due.
  */
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
@@ -23,17 +31,26 @@ import { api, ApiError } from '../api/client.ts';
 import type { components } from '../api/schema.ts';
 import { Badge, Card, ErrorNotice, Skeleton, SkeletonGroup } from '../components/index.ts';
 import { useSession } from '../session/useSession.ts';
-import { by_ordinal, gig_dates, sprint_timing } from './gig-timing.ts';
+import {
+  by_ordinal,
+  format_full_date,
+  gig_dates,
+  gig_duration_weeks,
+  sprint_progress,
+  sprint_timing,
+} from './gig-timing.ts';
 import styles from './GigDetail.module.css';
 
 type Gig = components['schemas']['GigDetail'];
+type Sprint = Gig['sprints'][number];
 type Participant = Gig['participants'][number];
+type Reflection = components['schemas']['ReflectionSummary'];
 type Role = components['schemas']['Role'];
 
 type Load =
   | { status: 'loading' }
   | { status: 'error'; error: ApiError }
-  | { status: 'loaded'; gig: Gig };
+  | { status: 'loaded'; gig: Gig; reflections: Reflection[] };
 
 /**
  * The route pattern guarantees a gig_id, the type does not. A missing one
@@ -66,10 +83,24 @@ export function GigDetail() {
     if (!gig_id) return;
 
     const controller = new AbortController();
+    const signal = controller.signal;
 
     api
-      .get('/gigs/{gig_id}', { path: { gig_id }, signal: controller.signal })
-      .then((gig) => setLoad({ status: 'loaded', gig }))
+      .get('/gigs/{gig_id}', { path: { gig_id }, signal })
+      .then(async (gig): Promise<{ gig: Gig; reflections: Reflection[] }> => {
+        // Only a student's rows describe one person's progress, so only a
+        // student's are asked for. The role comes from the payload the
+        // server just resolved, never from the client.
+        if (gig.my_role !== 'student') return { gig, reflections: [] };
+
+        const reflections = await api.get('/reflections', {
+          query: { gig_id },
+          signal,
+        });
+
+        return { gig, reflections };
+      })
+      .then(({ gig, reflections }) => setLoad({ status: 'loaded', gig, reflections }))
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === 'AbortError') return;
         setLoad({
@@ -119,47 +150,66 @@ export function GigDetail() {
     );
   }
 
-  const { gig } = load;
+  const { gig, reflections } = load;
 
   return (
     <section>
-      <GigHeader gig={gig} me_id={me?.id ?? null} />
-      <SprintList sprints={gig.sprints} today={new Date()} />
-      <DiaryCard gig={gig} />
+      <GigHeader gig={gig} />
+      <GigDetailsCard gig={gig} me_id={me?.id ?? null} />
+      <TimelineCard gig={gig} />
+      <DiaryCard gig={gig} reflections={reflections} today={new Date()} />
     </section>
   );
 }
 
 /**
- * Criterion 1: the gig, the assigned framework, and the participant roles.
- *
- * The framework line names the rubric and its version because a score is
- * only ever read against the rubric it was given under, and neither the
- * axes nor the scale are fixed -- that is the whole point of the framework
- * engine. Null is a real state: GigFramework is nullable in the contract
- * and a gig with no assignment yet cannot be reflected on at all.
+ * The frame's page head: the title, the host, and the span underneath.
+ * The status pill beside it ("Applied" / "Accepted") is not here -- this
+ * build has no application or offer state to render, and a pill that
+ * always says the same word is decoration.
  */
-function GigHeader({ gig, me_id }: { gig: Gig; me_id: string | null }) {
+function GigHeader({ gig }: { gig: Gig }) {
   const when = gig_dates(gig.starts_on, gig.ends_on);
-  const where = [gig.org_name, when].filter((part): part is string => part !== null);
 
   return (
     <header className={styles.header}>
       <h1 className={styles.heading}>{gig.title}</h1>
-      {where.length > 0 && <p className={styles.sub}>{where.join(' · ')}</p>}
-
-      <p className={styles.framework}>
-        {gig.framework ? (
-          <>
-            Scored against <strong>{gig.framework.name}</strong> ({gig.framework.version})
-          </>
-        ) : (
-          'No rubric assigned to this gig yet.'
-        )}
-      </p>
-
-      <ParticipantList participants={gig.participants} me_id={me_id} />
+      {gig.org_name && <p className={styles.sub}>{gig.org_name}</p>}
+      {when && <p className={styles.sub}>{when}</p>}
     </header>
+  );
+}
+
+/**
+ * The frame's first card: GIG TITLE and HOST as a labelled fact list.
+ *
+ * The participants sit here too, and they are the one block on this screen
+ * with no design behind it -- all 45 frames were checked and none carries a
+ * roster. CAP-8's criterion 1 asks for "the participant roles", so it is
+ * built, but as a row of this card rather than as a section of its own:
+ * the criterion is met and the screen still reads as the frame's three
+ * cards. The only roster in the design is the host's scoring worklist,
+ * which is CAP-10 and CAP-13 territory.
+ */
+function GigDetailsCard({ gig, me_id }: { gig: Gig; me_id: string | null }) {
+  return (
+    <section className={styles.block}>
+      <Card accent="lavender">
+        <h2 className={styles.card_heading}>Gig details</h2>
+        <dl className={styles.facts}>
+          <dt className={styles.fact_label}>Gig title</dt>
+          <dd className={styles.fact_value}>{gig.title}</dd>
+
+          <dt className={styles.fact_label}>Host</dt>
+          <dd className={styles.fact_value}>{gig.org_name ?? 'Not recorded'}</dd>
+
+          <dt className={styles.fact_label}>People</dt>
+          <dd className={styles.fact_value}>
+            <ParticipantList participants={gig.participants} me_id={me_id} />
+          </dd>
+        </dl>
+      </Card>
+    </section>
   );
 }
 
@@ -179,7 +229,7 @@ function ParticipantList({
   me_id: string | null;
 }) {
   if (participants.length === 0) {
-    return <p className={styles.sub}>Nobody is on this gig yet.</p>;
+    return <span className={styles.none}>Nobody is on this gig yet.</span>;
   }
 
   return (
@@ -198,106 +248,206 @@ function ParticipantList({
 }
 
 /**
- * Criterion 2. One line per sprint, saying the single most useful thing
- * about its timing -- when it opens, how long is left, or which window it
- * was. gig_timing picks; the reasoning is on sprint_timing.
+ * The frame's second card: START | END | DURATION, the weeks computed.
  *
- * The rows are not links. A sprint has no screen of its own -- CAP-11's
- * stepper addresses a reflection, and this screen cannot know whether one
- * exists for a sprint without asking for it. The way into the diary is the
- * card below, which is what criterion 3 asks for.
- *
- * The Figma frames put a state pill on each row (Scored / Awaiting
- * assessor / In progress / Not open) and make the row tappable. That is
- * real and wanted and is NOT here: it needs the reflections for this gig,
- * which is a second call and five states CAP-8 does not ask for. Recorded
- * as a follow-up in the CAP-8 plan with the frame and the prototype's own
- * implementation named, so whoever picks it up is not starting from a
- * screenshot.
+ * Rendered only when both ends are known. A timeline with one date is not
+ * a timeline, and the frame has no drawing for that case -- the gig's span
+ * is already in the header line, so nothing is lost by dropping the card.
  */
-function SprintList({ sprints, today }: { sprints: Gig['sprints']; today: Date }) {
-  if (sprints.length === 0) {
-    return (
-      <section className={styles.block}>
-        <h2 className={styles.block_heading}>Sprints</h2>
-        <div className={styles.empty}>
-          <p className={styles.empty_title}>No sprints on this gig yet.</p>
-          <p className={styles.empty_body}>
-            A reflection belongs to a sprint, so nothing can be written here until someone
-            adds one.
-          </p>
-        </div>
-      </section>
-    );
-  }
+function TimelineCard({ gig }: { gig: Gig }) {
+  const weeks = gig_duration_weeks(gig.starts_on, gig.ends_on);
+
+  if (!gig.starts_on || !gig.ends_on) return null;
 
   return (
     <section className={styles.block}>
-      <h2 className={styles.block_heading}>Sprints</h2>
-      <ul className={styles.sprints}>
-        {by_ordinal(sprints).map((sprint) => {
-          const timing = sprint_timing(sprint, today);
-
-          return (
-            <li key={sprint.id} className={styles.sprint}>
-              <span className={styles.sprint_title}>Sprint {sprint.ordinal}</span>
-              <span className={styles.sprint_when}>{timing.line}</span>
-            </li>
-          );
-        })}
-      </ul>
+      <Card accent="evidence">
+        <h2 className={styles.card_heading}>Timeline</h2>
+        <dl className={styles.timeline}>
+          <div className={styles.timeline_cell}>
+            <dt className={styles.fact_label}>Start</dt>
+            <dd className={styles.timeline_value}>{format_full_date(gig.starts_on)}</dd>
+          </div>
+          <div className={styles.timeline_cell}>
+            <dt className={styles.fact_label}>End</dt>
+            <dd className={styles.timeline_value}>{format_full_date(gig.ends_on)}</dd>
+          </div>
+          {weeks !== null && (
+            <div className={styles.timeline_cell}>
+              <dt className={styles.fact_label}>Duration</dt>
+              <dd className={styles.timeline_value}>
+                {weeks} {weeks === 1 ? 'week' : 'weeks'}
+              </dd>
+            </div>
+          )}
+        </dl>
+      </Card>
     </section>
   );
 }
 
 /**
- * Criterion 3: into the diary home, already scoped to this gig.
+ * The frame's third card, and criterion 3's way into the diary scoped to
+ * this gig.
  *
- * CAP-7 put scope in the URL as ?gig_id= for exactly this (its Decision 1
- * names this ticket), so the link is a query string and nothing more.
+ * For a student it is the frame's table: a row per sprint, SPRINT / SELF
+ * REFLECTION / ASSESSOR REFLECTION, the two columns being §6.1's five
+ * states split rather than a second vocabulary (see sprint_progress). A
+ * row whose reflection exists is a link to it; one that does not is plain
+ * text, because there is nothing yet to address -- creating a reflection
+ * is the stepper's job, not this screen's.
  *
- * The counts are the server's, role-scoped, and shown to everyone. The
- * link is not: the diary home is the student's own record and tells
- * anybody else so, and sending a supervisor there would be a link to a
- * dead end. /review-queue is not offered as the alternative because that
- * route is still CAP-10's placeholder, and a link to a placeholder is
- * worse than a sentence.
+ * For everybody else the same card shows the sprint calendar with its
+ * dates and the counts the server already scoped, because GET /reflections
+ * returns every student's rows to them and a single-student table cannot
+ * be built out of that.
  */
-function DiaryCard({ gig }: { gig: Gig }) {
+function DiaryCard({
+  gig,
+  reflections,
+  today,
+}: {
+  gig: Gig;
+  reflections: Reflection[];
+  today: Date;
+}) {
   const counts = gig.reflection_summary;
   const total = counts.draft + counts.submitted + counts.assessed;
   const is_student = gig.my_role === 'student';
 
   return (
     <section className={styles.block}>
-      <h2 className={styles.block_heading}>Diary</h2>
-      <Card accent="lavender">
-        <div className={styles.diary}>
-          <p className={styles.diary_body}>{diary_copy(gig.my_role, total)}</p>
+      <Card accent="pink">
+        <h2 className={styles.card_heading}>Reflection diary</h2>
 
-          <ul className={styles.counts}>
-            <li>
-              {counts.assessed} assessed
-              <Badge status="assessed" />
-            </li>
-            <li>
-              {counts.submitted} submitted
-              <Badge status="submitted" />
-            </li>
-            <li>
-              {counts.draft} draft
-              <Badge status="draft" />
-            </li>
-          </ul>
-
-          {is_student && (
-            <Link className={styles.diary_link} to={`/?gig_id=${gig.id}`}>
-              Open your diary for this gig
-            </Link>
+        <p className={styles.framework}>
+          {gig.framework ? (
+            <>
+              Scored against <strong>{gig.framework.name}</strong> ({gig.framework.version})
+            </>
+          ) : (
+            'No rubric assigned to this gig yet.'
           )}
-        </div>
+        </p>
+
+        {gig.sprints.length === 0 ? (
+          <div className={styles.empty}>
+            <p className={styles.empty_title}>No sprints on this gig yet.</p>
+            <p className={styles.empty_body}>
+              A reflection belongs to a sprint, so nothing can be written here until someone
+              adds one.
+            </p>
+          </div>
+        ) : is_student ? (
+          <SprintTable sprints={gig.sprints} reflections={reflections} today={today} />
+        ) : (
+          <SprintCalendar sprints={gig.sprints} today={today} />
+        )}
+
+        <ul className={styles.counts}>
+          <li>
+            {counts.assessed} assessed
+            <Badge status="assessed" />
+          </li>
+          <li>
+            {counts.submitted} submitted
+            <Badge status="submitted" />
+          </li>
+          <li>
+            {counts.draft} draft
+            <Badge status="draft" />
+          </li>
+        </ul>
+
+        <p className={styles.diary_body}>{diary_copy(gig.my_role, total)}</p>
+
+        {is_student && (
+          <Link className={styles.diary_link} to={`/?gig_id=${gig.id}`}>
+            Open your diary for this gig
+          </Link>
+        )}
       </Card>
     </section>
+  );
+}
+
+/**
+ * The frame's table. Three columns on a phone is the one place this screen
+ * is allowed to be a table rather than a list: the columns are the point,
+ * and the header row is what says whose half is whose.
+ */
+function SprintTable({
+  sprints,
+  reflections,
+  today,
+}: {
+  sprints: Sprint[];
+  reflections: Reflection[];
+  today: Date;
+}) {
+  // One reflection per student per sprint -- the (user_id, gig_key,
+  // sprint_key) unique index is what guarantees it, so a Map is safe.
+  const by_sprint = new Map(
+    reflections
+      .filter((reflection) => reflection.sprint_id !== null)
+      .map((reflection) => [reflection.sprint_id as string, reflection]),
+  );
+
+  return (
+    <table className={styles.table}>
+      <thead>
+        <tr>
+          <th scope="col" className={styles.col_sprint}>
+            Sprint
+          </th>
+          <th scope="col">Self reflection</th>
+          <th scope="col">Assessor reflection</th>
+        </tr>
+      </thead>
+      <tbody>
+        {by_ordinal(sprints).map((sprint) => {
+          const reflection = by_sprint.get(sprint.id) ?? null;
+          const progress = sprint_progress(sprint, reflection?.status ?? null, today);
+          const timing = sprint_timing(sprint, today);
+
+          return (
+            <tr key={sprint.id}>
+              <th scope="row" className={styles.col_sprint}>
+                {reflection ? (
+                  <Link className={styles.sprint_link} to={`/reflections/${reflection.id}`}>
+                    {sprint.ordinal}
+                  </Link>
+                ) : (
+                  sprint.ordinal
+                )}
+                <span className={styles.sprint_when}>{timing.line}</span>
+              </th>
+              <td>{progress.self ?? <span className={styles.none}>&mdash;</span>}</td>
+              <td>{progress.assessor ?? <span className={styles.none}>&mdash;</span>}</td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+}
+
+/**
+ * Criterion 2 for a reader who is not the student: one line per sprint,
+ * saying the single most useful thing about its timing -- when it opens,
+ * how long is left, or which window it was. gig_timing picks; the
+ * reasoning is on sprint_timing.
+ */
+function SprintCalendar({ sprints, today }: { sprints: Sprint[]; today: Date }) {
+  return (
+    <ul className={styles.sprints}>
+      {by_ordinal(sprints).map((sprint) => (
+        <li key={sprint.id} className={styles.sprint}>
+          <span className={styles.sprint_title}>Sprint {sprint.ordinal}</span>
+          <span className={styles.sprint_when}>{sprint_timing(sprint, today).line}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -321,25 +471,19 @@ function diary_copy(my_role: Role, total: number): string {
   return 'Your reflections on this gig, and the radar for them.';
 }
 
-/** Shaped like the loaded screen: a header, three sprint rows, a card. */
+/** Shaped like the loaded screen: a header and the three cards. */
 function LoadingState() {
   return (
     <SkeletonGroup label="Loading this gig">
       <div className={styles.header}>
         <Skeleton variant="text" width="50%" />
         <Skeleton variant="text" width="30%" />
-        <Skeleton variant="text" lines={2} width="70%" />
       </div>
-      <ul className={styles.sprints}>
-        {[0, 1, 2].map((row) => (
-          <li key={row} className={styles.sprint}>
-            <Skeleton variant="text" lines={2} width="45%" />
-          </li>
-        ))}
-      </ul>
-      <div className={styles.block}>
-        <Skeleton variant="block" height="var(--space-64)" />
-      </div>
+      {[0, 1, 2].map((card) => (
+        <div key={card} className={styles.block}>
+          <Skeleton variant="block" height="var(--space-64)" />
+        </div>
+      ))}
     </SkeletonGroup>
   );
 }

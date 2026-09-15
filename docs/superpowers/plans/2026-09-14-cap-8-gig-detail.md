@@ -1643,3 +1643,119 @@ current `org · dates` subtitle. Small, cosmetic, and nobody asked for it.
 `web/src/api/schema.ts`, and every component under `web/src/components/`. If any of them
 needs to change, that is a finding worth raising before changing it, not a detail of this
 ticket.
+
+## Re-shaped to the frame (2026-09-15)
+
+The screen above was built from CAP-8's four bullets, which are all the ticket
+carries. The design was found afterwards, and the section before this one
+recorded three things it settled — one acted on, two not. Patrick then asked
+the question the ticket never answers: *what is this screen actually for?*
+
+The answer is in the prototype, and it changes the shape rather than the
+content. **The gig detail is not a diary screen.** In the design it belongs to
+the host app — `Earn → My Gigs → a gig`, tabs `Overview / Application / Offer`
+— and the diary appears on its Overview tab as **one card of three**, below
+Gig Details and Timeline. §4.1 is the decision that explains it: the diary has
+no nav tab at all, and is reached from a Reflection Diary card on Home, Learn
+and Earn, "scoped by context". The prototype's own `bottom-nav.blade.php` says
+why in as many words — a sixth tab "would make the diary a section sitting
+beside the app instead of part of the work the student is already doing".
+
+cse3cap has what that decision refused, and not by mistake: the team scoped ten
+screens covering the diary feature alone, so there is no Earn section for this
+screen to hang off. `AppShell.tsx` gives a student one nav item, `Diary`, and
+the diary list is the root route. **The arrow is therefore reversed** — in the
+design you reach the diary from a gig; here you reach the gig from the diary.
+That is why the screen read as contextless: its job was to be where a gig's
+work and its reflections meet, and with Earn, Gigs, Home and Learn all absent,
+only the reflection half arrived.
+
+Access is left as it is. Building a host app shell to restore the original
+direction is a different project, and `e8e5503`'s link from the diary is a
+real way in. What changed is the screen itself, so that it reads as the gig's
+own page rather than as a second diary list.
+
+### What changed
+
+| Frame | Before | Now |
+| --- | --- | --- |
+| Gig Details card | an `org · dates` subtitle | a card, `GIG TITLE` / `HOST` |
+| Timeline card | — | a card, `START` / `END` / `DURATION` in weeks |
+| Reflection Diary card | a "Diary" block with counts | a card: framework, the sprint table, counts, the link |
+| Sprint rows | one line of relative date text | `SPRINT` / `SELF REFLECTION` / `ASSESSOR REFLECTION` |
+| Tappable rows | not links | the ordinal links to `/reflections/{id}` where one exists |
+
+### Decisions taken here
+
+**1. The two columns are §6.1's five states split, not a new vocabulary.**
+`sprint_progress` in `gig-timing.ts` derives them, so there is one
+implementation and the check can execute it. The prototype splits them the
+same way in `SprintState::selfLabel()` and `assessorLabel()`.
+
+**2. A draft behind a past due date still reads "In progress".** The prototype
+calls it "Closed, no entry", and the earlier section of this plan already
+flagged why that does not port: nothing in `api/app/Services/` reads `opens_on`
+or `due_on`, so this build enforces no deadline and such a draft is genuinely
+still submittable. A label claiming otherwise would claim a gate the API does
+not have. The only date-derived label kept is `No entry`, which is a statement
+about what exists rather than about what is permitted. The check asserts both.
+
+**3. The sprint table is a student view; everybody else gets the calendar.**
+`GET /reflections?gig_id=` returns a student their own rows but returns an
+assessor, supervisor or employer *every* student's rows on the gig
+(`ReflectionController::index`). A single-student SELF/ASSESSOR table cannot be
+built out of that, so a non-student sees the sprint list with its dates and the
+server's own counts. This also means the second call is made only for a
+student.
+
+**4. The participants stay, as a row of the Gig Details card.** Criterion 1
+asks for "the participant roles" and no frame anywhere carries a roster, so it
+is built but subordinated: the criterion is met and the screen still reads as
+three cards. Recorded again because it remains the one block with no design
+behind it.
+
+**5. Rows link to `/reflections/{id}`, which is CAP-11's placeholder.** The
+frame draws a chevron per row. CAP-7's entry list already links to that same
+placeholder, so this follows the precedent rather than inventing a second
+answer. A sprint with no reflection is not a link: creating one is the
+stepper's job.
+
+### Restoring the previous shape
+
+Tagged before the re-shape, so it is one command rather than an archaeology
+exercise:
+
+```bash
+git checkout cap-8-pre-frame -- web/src/screens/GigDetail.tsx web/src/screens/GigDetail.module.css
+```
+
+`cap-8-pre-frame` is `c0d52da`. The tag is local; the commits are on the branch
+either way.
+
+### Still not done
+
+- **The History chip and sheet** are on this frame, top right, and are filed as
+  **CAP-14**. The backlog split one screen into two tickets without saying so.
+  Whoever takes CAP-14 should know its home is here, and that the prototype
+  builds it from what the `events` table returns rather than from a list of
+  event types (§11.4a).
+- **The `Overview / Application / Offer` tabs** are not built. Application and
+  Offer are out of scope in the design too — the prototype draws both tabs and
+  fills them with "not part of this build" — so a single-tab screen is the
+  honest rendering here, not a gap.
+- **The status pill** (`Applied` / `Accepted`) is not built: this product has no
+  application state, and a pill that always says one word is decoration.
+- **`.sprint_link` is the link-colour finding again, one shade worse.**
+  `--color-primary` as normal-size link text measures **3.79:1** on
+  `--color-accent-pink`, against 3.93:1 on lavender and 4.07:1 on
+  `--color-surface-alt`. Same family, same cause, same resolution: it stays
+  `--color-primary` and consistent with every other link in the product,
+  because the link treatment belongs to whoever owns the palette and five
+  people fixing it locally produces five link styles and no fix. Measured and
+  recorded, not fixed here. `scripts/check-contrast.mjs` does not catch it
+  because `PAIRS` is hand-kept -- and adding a failing row would turn a
+  recorded team finding into a red build, which is also not one person's call.
+- **Still never rendered in a browser.** Chromium is not installed on this
+  machine, and minting a demo token to run the live half of `verify-gig` was
+  refused by the sandbox as credential materialisation. The static checks, the
+  compiler and the executed date and state modules are what have run.

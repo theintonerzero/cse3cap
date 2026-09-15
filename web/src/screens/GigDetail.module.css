@@ -29,7 +29,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-8);
-  margin: var(--space-4) 0 0;
+  margin: 0;
   padding: 0;
   list-style: none;
 }
@@ -64,10 +64,111 @@
   margin-top: var(--space-24);
 }
 
-.block_heading {
+/* The heading inside one of the frame's three cards. Sits on an accent
+   tint, so it is --color-text rather than anything muted. */
+.card_heading {
   margin: 0 0 var(--space-12);
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+/* A labelled fact list: the frame's GIG TITLE / HOST rows, and the
+   Timeline cells. The label is small and uppercase, the value ordinary
+   body text under it. */
+.facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  margin: 0;
+}
+
+.fact_label {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  color: var(--color-text);
+}
+
+.fact_value {
+  margin: var(--space-4) 0 0;
+  font-size: var(--font-size-base);
+  color: var(--color-text);
+}
+
+/* START | END | DURATION. Wraps rather than squeezing three dates across
+   the width of a narrow phone. */
+.timeline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-16) var(--space-24);
+  margin: 0;
+}
+
+.timeline_cell {
+  min-width: var(--space-64);
+}
+
+.timeline_value {
+  margin: var(--space-4) 0 0;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+/* The frame's SPRINT / SELF REFLECTION / ASSESSOR REFLECTION table. The
+   columns are the content here, not decoration, so this is a real table
+   with a real header row and a row header per sprint. */
+.table {
+  width: 100%;
+  margin: 0 0 var(--space-16);
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+  text-align: left;
+}
+
+.table th,
+.table td {
+  padding: var(--space-8) var(--space-8) var(--space-8) 0;
+  vertical-align: top;
+  color: var(--color-text);
+}
+
+.table thead th {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  border-bottom: var(--border-width-sm) solid var(--color-border);
+}
+
+.table tbody tr + tr th,
+.table tbody tr + tr td {
+  border-top: var(--border-width-sm) solid var(--color-border);
+}
+
+.table tbody th {
+  font-weight: var(--font-weight-medium);
+}
+
+.col_sprint {
+  width: 30%;
+}
+
+/* The ordinal is the tappable part when a reflection exists, matching the
+   frame's chevron. --color-primary is this product's link colour; see the
+   note on .diary_link below, which is the same open finding. */
+.sprint_link {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-primary);
+}
+
+/* A column with nothing to say. The frame draws an em dash.
+   --color-text, not --color-text-muted: muted measures 4.02:1 on
+   --color-accent-pink in light mode and fails AA, and the dash carries
+   meaning here -- it is the difference between "nothing yet" and a value
+   that failed to load. The character is light enough on its own. */
+.none {
   color: var(--color-text);
 }
 
@@ -103,15 +204,20 @@
    one, so the screen showed three identical warnings. Status belongs in a
    Badge, from the reflection, which is the follow-up SprintList names. */
 .sprint_when {
-  margin-left: auto;
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
+  display: block;
+  margin-top: var(--space-4);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text);
 }
 
-.diary {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-12);
+/* The same line on the non-student calendar list, where it sits at the
+   end of a flex row rather than under the ordinal. */
+.sprint .sprint_when {
+  display: inline;
+  margin-top: 0;
+  margin-left: auto;
+  font-size: var(--font-size-sm);
 }
 
 .diary_body {

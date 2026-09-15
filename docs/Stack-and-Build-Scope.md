@@ -160,10 +160,17 @@ README.md                setup, connection details, the three tokens
       a caption that changes with scope, entry list with status badges, export link.
       Scope lives in the URL (ADR #27) so a scoped diary is linkable, and the export link
       opens the sheet CAP-18 fills in. `./run verify-diary` checks it
-- [x] Gig detail: header, sprint list with dates, diary card linking in scoped to that gig.
-      Sprint dates are worded relatively where it helps ("due in 3 days", "not open yet");
-      that wording is a pure module a check compiles and executes, because every seeded
-      sprint is already past due. `./run verify-gig` checks it
+- [x] Gig detail: the design's three Overview cards -- Gig Details, Timeline
+      (start/end/duration), and a Reflection Diary card carrying the framework, a row per
+      sprint as `SPRINT / SELF REFLECTION / ASSESSOR REFLECTION`, and the link into the
+      diary scoped to that gig. The two columns are the reflection states split, not a
+      second vocabulary. Sprint dates are worded relatively where it helps ("due in 3
+      days", "not open yet"); that wording and the state derivation are both a pure module
+      a check compiles and executes, because every seeded sprint is already past due.
+      A student sees the table; an assessor sees the sprint calendar, because
+      `GET /reflections` returns them every student's rows. `./run verify-gig` checks it.
+      This screen is the host app's gig page in the design, not a diary screen; the
+      History sheet on the same frame is CAP-14
 - [ ] Entry stepper: one component, N states from the framework payload: competency name,
       tappable level descriptors, narrative with debounced autosave, evidence row,
       "Competency 3 of 6" progress, Back/Next, Submit on last with gate errors mapped to

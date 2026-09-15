@@ -188,3 +188,102 @@ function due_line(days: number, due_on: string): string {
 export function by_ordinal<T extends { ordinal: number }>(sprints: readonly T[]): T[] {
   return [...sprints].sort((a, b) => a.ordinal - b.ordinal);
 }
+
+/**
+ * A reflection's status, structurally. The contract's ReflectionStatus is
+ * this exact union; it is spelled out rather than imported for the reason
+ * in the header -- this module imports nothing so the check can compile it.
+ */
+export type ReflectionStatus = 'draft' | 'submitted' | 'assessed';
+
+/**
+ * One sprint row's two columns, SELF REFLECTION and ASSESSOR REFLECTION.
+ * Null is a column with nothing to say, rendered as a dash.
+ */
+export interface SprintProgress {
+  self: string | null;
+  assessor: string | null;
+}
+
+/**
+ * The sprint states of the design's §6.1, split into the two columns the
+ * gig detail frame draws (docs/06_figma_diary_frames.pdf p5 in the
+ * prototype at ~/projects/alumable-diary, and §11.4a of its prose spec).
+ *
+ * These are §6.1's states split, NOT a second vocabulary. Deriving them
+ * here rather than in the screen is what keeps it that way: a component
+ * free to invent its own column labels is free to say "Submitted" about a
+ * sprint the diary list still badges "draft".
+ *
+ * One deliberate departure from the prototype, and it is the one its own
+ * author flagged. §6.1's fifth state is worded "Closed, no entry", which
+ * claims the window is shut and nothing further may be written. Nothing in
+ * api/app/Services/ reads opens_on or due_on -- the submit gate is about
+ * evidence and narrative, not the calendar -- so this build enforces no
+ * such thing, and a draft behind a past due date is still genuinely
+ * writable. So a draft reads "In progress" whatever the date says, and the
+ * only date-derived label here is "No entry", which is a statement about
+ * what exists rather than about what is permitted. That distinction is
+ * what makes it safe to port; see the CAP-8 plan.
+ */
+export function sprint_progress(
+  sprint: DatedSprint,
+  status: ReflectionStatus | null,
+  today: Date,
+): SprintProgress {
+  if (status === 'assessed') return { self: 'Submitted', assessor: 'Scored' };
+  if (status === 'submitted') return { self: 'Submitted', assessor: 'Awaiting' };
+  if (status === 'draft') return { self: 'In progress', assessor: null };
+
+  // No reflection row at all. A reflection is created when a student
+  // starts one, so everything below is a question about the calendar.
+  if (sprint_timing(sprint, today).state === 'not_open') {
+    return { self: null, assessor: null };
+  }
+
+  // Open and unstarted is "In progress" in §6.1 -- the sprint is live and
+  // the entry is the student's to write, whether or not they have begun.
+  // Past its window with nothing written is the other one.
+  if (sprint.due_on && days_between(sprint.due_on, today) < 0) {
+    return { self: 'No entry', assessor: null };
+  }
+
+  return { self: 'In progress', assessor: null };
+}
+
+/**
+ * The gig's length in whole weeks, for the Timeline card's DURATION cell.
+ * The frame prints "13 weeks" beside a 03/08 - 31/10 span, which is
+ * 89 days and rounds to 13. Null when either end is missing: a duration
+ * from one date is a guess, and the card drops the cell rather than print
+ * one.
+ */
+export function gig_duration_weeks(
+  starts_on: string | null,
+  ends_on: string | null,
+): number | null {
+  if (!starts_on || !ends_on) return null;
+
+  const [sy, sm, sd] = starts_on.split('-').map(Number);
+  const [ey, em, ed] = ends_on.split('-').map(Number);
+  // Both sides reduced to UTC midnight and subtracted directly. NOT via
+  // days_between: that one reads its second argument as a LOCAL calendar
+  // day, which is right for "today" and wrong for a date-only value --
+  // a UTC-constructed midnight reads as the previous day west of
+  // Greenwich, and everyone building this is east of it.
+  const days = (Date.UTC(ey, em - 1, ed) - Date.UTC(sy, sm - 1, sd)) / MS_PER_DAY;
+
+  return days < 0 ? null : Math.round(days / 7);
+}
+
+/** The full date a Timeline cell prints, e.g. "3 August 2026". */
+export function format_full_date(iso: string): string {
+  const [year, month, day] = iso.split('-').map(Number);
+
+  return new Date(Date.UTC(year, month - 1, day)).toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+}
