@@ -14,7 +14,7 @@
  * means is in diary-scope.ts, deliberately free of React.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 
 import { api, ApiError } from '../api/client.ts';
 import type { paths } from '../api/schema.ts';
@@ -349,6 +349,7 @@ function ScopeChips({
   scope: Scope;
   on_select: (next: Scope) => void;
 }) {
+  const navigate = useNavigate();
   const gig = gigs.find((candidate) => candidate.id === scope.gig_id);
   const sprints = gig ? chippable_sprints(gig, new Date()) : [];
 
@@ -387,6 +388,42 @@ function ScopeChips({
             </Chip>
           ))}
         </div>
+      )}
+
+      {/*
+       * The only way into the gig detail screen (CAP-8) from anywhere a
+       * student actually goes. It cannot live on a list row: the row is
+       * already a Link to a reflection, and a link inside a link is
+       * invalid markup and unusable with a screen reader. It cannot live
+       * in the nav either, because /gigs/:gig_id needs an id and the nav
+       * has no single gig to name. It belongs here because this is where
+       * "one gig is in scope" becomes true, and it closes the loop -- the
+       * gig screen links into the scoped diary, this comes back.
+       *
+       * CAP-3's Button rather than a styled link, and "Gig details"
+       * rather than a sentence: it is a destination the student chooses,
+       * and it sits beside the export Button, which is the same kind of
+       * control. Styling an anchor to look like a button would be a
+       * second button in the codebase, which is how the two drift. The
+       * cost is that it cannot be opened in a new tab -- the same cost
+       * the export Button already pays.
+       *
+       * Absent under "All gigs", which addresses no single gig. A brand
+       * new student with nothing written reaches the same screen through
+       * NothingWritten below, which has linked there since CAP-7 -- but
+       * only while they have written nothing, which is why that link is
+       * not enough on its own.
+       */}
+      {gig && (
+        <p className={styles.about_gig}>
+          <Button
+            variant="secondary"
+            full_width={false}
+            on_click={() => navigate(`/gigs/${gig.id}`)}
+          >
+            Gig details
+          </Button>
+        </p>
       )}
     </div>
   );

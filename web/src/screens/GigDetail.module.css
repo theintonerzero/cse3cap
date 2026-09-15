@@ -1,0 +1,252 @@
+.heading {
+  margin: 0 0 var(--space-4);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  margin-bottom: var(--space-24);
+}
+
+.sub {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.framework {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text);
+}
+
+/* "Nobody is on this gig yet." --color-text rather than muted: muted on
+   the lavender card is another of the tinted-fill AA failures recorded in
+   the CAP-8 plan, and this is ordinary body copy. */
+.none {
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+
+/* One wrapped line rather than a row of pills. Six participants as
+   bordered chips ran to three rows of card and made the roster look like
+   the subject of the screen, which it is not -- the sprints are. */
+.people {
+  display: block;
+  margin: var(--space-4) 0 0;
+  padding: 0;
+  font-size: var(--font-size-sm);
+  list-style: none;
+}
+
+.person {
+  display: inline;
+}
+
+.person:not(:last-child)::after {
+  content: ' · ';
+  color: var(--color-text-muted);
+}
+
+.person_name {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.you {
+  margin-left: var(--space-4);
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text);
+}
+
+.person_role {
+  margin-left: var(--space-4);
+  color: var(--color-text-muted);
+}
+
+.block {
+  margin-top: var(--space-24);
+}
+
+/* The heading inside one of the frame's three cards. Sits on an accent
+   tint, so it is --color-text rather than anything muted. */
+.card_heading {
+  margin: 0 0 var(--space-12);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.fact_label {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  color: var(--color-text);
+}
+
+/* START | END | DURATION. Wraps rather than squeezing three dates across
+   the width of a narrow phone. */
+.timeline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-16) var(--space-24);
+  margin: 0;
+}
+
+.timeline_cell {
+  min-width: var(--space-64);
+}
+
+.timeline_value {
+  margin: var(--space-4) 0 0;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+/* The frame's SPRINT / SELF REFLECTION / ASSESSOR REFLECTION rows.
+   A grid rather than a table because the whole row is one Link, matching
+   DiaryHome's entry list: a <tr> cannot be a link, and splitting a row
+   across three links makes a screen reader read it three times. One shared
+   template on the header and every row is what keeps the columns aligned,
+   so it still reads as the frame draws it. */
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  margin-bottom: var(--space-16);
+}
+
+.rows_head,
+.row,
+.row_flat {
+  display: grid;
+  grid-template-columns: 1fr auto auto var(--space-16);
+  align-items: center;
+  gap: var(--space-12);
+}
+
+.rows_head {
+  margin: 0;
+  padding: 0 var(--space-16);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  color: var(--color-text);
+}
+
+.rows_list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Same treatment as DiaryHome's .row -- a bordered card on --color-surface
+   that is the tap target in full. Deliberately identical: one product, one
+   way to pick a sprint. */
+.row,
+.row_flat {
+  padding: var(--space-16);
+  border: var(--border-width-sm) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  text-decoration: none;
+}
+
+.row_sprint {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.row_title {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.row_meta {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.row_state {
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+
+.chevron {
+  font-size: var(--font-size-lg);
+  color: var(--color-text-muted);
+}
+
+/* Visually hidden, not display:none -- a screen reader still announces it.
+   The header line is aria-hidden, so these carry the column names instead.
+   Written in rem because check-tokens.sh rejects the conventional pixel
+   value; same as Skeleton's own .sr_only. */
+.sr_only {
+  position: absolute;
+  width: 0.0625rem;
+  height: 0.0625rem;
+  padding: 0;
+  margin: -0.0625rem;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.diary_body {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text);
+}
+
+/* Matches .empty_link and .about_link on the diary home: a link in this
+   product is --color-primary. Measured at 3.93:1 on this tint, which is
+   below AA for normal text -- recorded as a finding for the team in the
+   CAP-8 plan rather than fixed here, because the link treatment is a
+   design decision for whoever owns the palette, not something one screen
+   changes on its own. */
+.diary_link {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-primary);
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-32) var(--space-16);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-alt);
+  text-align: center;
+}
+
+.empty_title {
+  margin: 0;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+/* --color-text-muted on --color-surface-alt is 4.32:1 in light mode and fails
+   AA, so the body copy in a tinted empty state stays --color-text. */
+.empty_body {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text);
+}

@@ -1,7 +1,7 @@
 /**
  * Every screen in docs/Stack-and-Build-Scope.md 4.3 has a route here, each
- * rendering a placeholder until its own ticket lands. The diary home is the
- * first one that is no longer a placeholder (CAP-7).
+ * rendering a placeholder until its own ticket lands. Two are no longer
+ * placeholders: the diary home (CAP-7) and the gig detail screen (CAP-8).
  *
  * Nested per ADR #27 so gig-then-sprint-then-entry stays linkable and
  * back-button-correct: an assessor working a queue moves in and out of
@@ -21,6 +21,7 @@
 import { Route, Routes } from 'react-router';
 
 import { DiaryHome } from '../screens/DiaryHome.tsx';
+import { GigDetail } from '../screens/GigDetail.tsx';
 import { AppShell } from './AppShell.tsx';
 import { ReviewQueue } from '../screens/ReviewQueue.tsx';
 import { Placeholder } from './Placeholder.tsx';
@@ -31,10 +32,7 @@ export function AppRoutes() {
       <Route element={<AppShell />}>
         <Route index element={<DiaryHome />} />
 
-        <Route
-          path="gigs/:gig_id"
-          element={<Placeholder screen="Gig detail" ticket="CAP-8" />}
-        />
+        <Route path="gigs/:gig_id" element={<GigDetail />} />
 
         <Route
           path="entries/:entry_id"

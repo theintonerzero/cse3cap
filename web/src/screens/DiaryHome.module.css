@@ -108,6 +108,10 @@
   color: var(--color-primary);
 }
 
+.about_gig {
+  margin: 0 0 var(--space-12);
+}
+
 .radar_block {
   /* The chart's own radius is bounded by its height, so on a wide screen
      an unbounded card leaves the polygon marooned in empty surface. */

@@ -1753,6 +1753,7 @@ Recorded here rather than done, because CAP-7 is CAP-7.
   (`reflections.sprint_id` is nullable).
 - **The empty state links to `/gigs/:gig_id`**, which is CAP-8's placeholder until CAP-8
   lands. The link is correct; its destination is not built.
+  *Closed 2026-09-14: CAP-8 mounted the gig detail screen at that route.*
 
 ## What this ticket does not touch
 

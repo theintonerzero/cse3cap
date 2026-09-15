@@ -28,9 +28,9 @@ screen can be built against `prism mock docs/openapi.yaml` without waiting for a
 
 The frontend foundation is complete: `tokens.css`, the ten core components with a gallery at
 `web/gallery.html`, the typed client generated from the contract, and the app shell every
-screen mounts into. Of the twelve screens, the student's diary home is built and mounted at
-`/`, and the assessor review queue is built but still waiting on the one-line route swap
-that is CAP-10's follow-up.
+screen mounts into. Of the twelve screens, two are built and mounted: the student's diary
+home at `/` and the gig detail screen at `/gigs/:gig_id`. The assessor review queue is
+built but still waiting on the one-line route swap that is CAP-10's follow-up.
 
 Not built on the backend: PDF export, which needs dompdf and is a package decision for the
 team.
