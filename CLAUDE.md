@@ -26,8 +26,14 @@ In this order. If they disagree, the higher one wins and the lower one is a bug.
 1. `db/01-schema.sql`, the schema
 2. `docs/openapi.yaml`, the API contract
 3. `docs/adr/`, why decisions were made
-4. `docs/PROJECT-CONTEXT.md`, background
-5. This file
+4. Jira project **COA4**, for ticket state, assignment, sprint and points (ADR #38)
+5. `docs/PROJECT-CONTEXT.md`, background
+6. This file
+
+**Never read `docs/jira/*.csv` for ticket status.** They are the import files the tickets
+were created from and have no status column. They are a record of what was imported, not of
+what is happening. Jira is reached through the `atlassian` MCP server; `/jira-tickets`
+carries the rules, including when an agent may move a ticket.
 
 `docs/Frontend-and-Backend.md` is the seam between `api/` and `web/`: what crosses it, what
 is generated from what, and what drifts without anyone noticing. Read it before your first
@@ -157,6 +163,7 @@ chance one applies, load it. Announce which one and follow it.
 | Any schema, migration or view change | `/add-migration` |
 | Any seeder or demo data | `/seed-data` |
 | Any decision worth recording | `/write-adr` |
+| Any question about a ticket's state, or finishing one | `/jira-tickets` |
 
 ### The superpowers workflow
 

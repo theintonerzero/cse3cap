@@ -162,6 +162,12 @@ case "${1:-help}" in
     # The live half needs a server and a token; it skips rather than fails.
     verify-gig) step ./scripts/verify-gig-detail.sh ;;
 
+    # Proves your Jira credentials work, over plain HTTP, independently of
+    # the atlassian MCP server. Run it when Jira misbehaves: it separates a
+    # wrong token from a broken MCP server, which look identical otherwise.
+    # Prints how to get a token when you do not have one.
+    jira) step ./scripts/check-jira.sh ;;
+
     # Reads the deploy host and reports what is actually on it. Read-only:
     # writes nothing, reloads nothing, which matters because that box also
     # carries the shared database. A check, like verify and smoke.
@@ -195,6 +201,11 @@ case "${1:-help}" in
     # API client.
     bundle-secrets) need_web_deps; step ./scripts/check-bundle-secrets.sh ;;
 
+    # CLAUDE.md says a business rule has exactly one implementation.
+    # Greps the rules that are a literal somebody could retype: CAP-19's
+    # audit found the reviewer roles written out five times.
+    one-rule) step ./scripts/check-one-rule.sh ;;
+
     lint)
         need_api
         in_dir api ./vendor/bin/pint --test
@@ -224,6 +235,7 @@ case "${1:-help}" in
         say "Guards"
         step python3 scripts/guard-shared-db.test.py
         step python3 scripts/guard-docs-location.test.py
+        step ./scripts/check-one-rule.sh
         say "Backend"
         need_api
         in_dir api ./vendor/bin/pint --test
@@ -254,6 +266,7 @@ ${BLUE}Alumable Reflection Diary${RESET}
 
   ${GREEN}./run test${RESET}     backend test suite, against your own test database
   ${GREEN}./run smoke${RESET}    end-to-end over HTTP. Needs a server already running
+  ${GREEN}./run one-rule${RESET}  no business rule implemented twice
   ${GREEN}./run verify${RESET}   the typed API client, against both servers and the compiler
   ${GREEN}./run verify-shell${RESET}  the app shell: token ownership, routes, /auth/me
   ${GREEN}./run verify-diary${RESET}  the diary home: mounted, linked, four states
@@ -267,6 +280,7 @@ ${BLUE}Alumable Reflection Diary${RESET}
 
   ${GREEN}./run setup${RESET}    first-time setup. Writes env files, installs dependencies
   ${GREEN}./run check-host${RESET} [user@vps]  read the deploy host. Writes nothing
+  ${GREEN}./run jira${RESET}     check your Jira API access, and how to get it
 
 ${DIM}api/ and web/ are separate applications. This saves the cd, nothing more:
 every command is printed before it runs. Windows: use run.ps1.

@@ -321,6 +321,34 @@ npx -y @stoplight/prism-cli mock docs/openapi.yaml    # http://localhost:4010
 [`docs/Frontend-and-Backend.md`](docs/Frontend-and-Backend.md) is the seam between the two
 folders: what crosses it, what generates what, and the drift that does not announce itself.
 
+### Jira, for agents
+
+Ticket state lives in Jira, not in `docs/jira/*.csv`, which are the import files the tickets
+were created from and carry no status column at all (ADR #38). Agents reach it through the
+`atlassian` server in `.mcp.json`. Three steps, once per person:
+
+1. Create an API token: your avatar → **Account settings → Security → API tokens → Create
+   API token**, or go straight to
+   [id.atlassian.com](https://id.atlassian.com/manage-profile/security/api-tokens).
+   Atlassian shows it once.
+2. Export both values in your **shell profile**, next to `DB_READONLY_PASSWORD`:
+
+   ```bash
+   # ~/.zshrc
+   export JIRA_EMAIL="you@students.latrobe.edu.au"
+   export JIRA_API_TOKEN="paste-the-token"
+   ```
+
+   It has to be the profile. An MCP server is handed the environment Claude Code inherited
+   when it launched, and nothing loads a `.env` into that.
+3. `./run jira` to check, then **restart Claude Code from a new terminal**. A session that
+   started before you added those exports cannot see them, however many times the check
+   passes.
+
+`./run jira` verifies the token over HTTP and starts the MCP server from your real
+environment, so a pass means an agent can actually use it. `uv` is needed for the server;
+the check prints the install line if it is missing.
+
 ### Shared database
 
 MySQL 9.7 LTS is self-hosted on a shared Oracle Cloud VPS rather than on each machine, so
@@ -566,10 +594,11 @@ and the reasoning behind the unusual decisions.
 | [`docs/Stack-and-Build-Scope.md`](docs/Stack-and-Build-Scope.md) | What is being built, and the definition of done               |
 | [`docs/adr/`](docs/adr/)                                         | Architecture decision records                                 |
 | [`docs/Security-Review.md`](docs/Security-Review.md)             | Security reviews, appended per change                         |
+| [`.claude/skills/jira-tickets/`](.claude/skills/jira-tickets/)   | How agents read and move COA4 tickets (ADR #38)               |
 | [`docs/erd.png`](docs/erd.png)                                   | Entity relationship diagram, with a legend of hidden constraints |
 | [`docs/superpowers/specs/`](docs/superpowers/specs/)             | Design specs for each build slice                             |
 | [`docs/superpowers/plans/`](docs/superpowers/plans/)             | Implementation plans, and the current sequencing plan          |
-| [`docs/jira/`](docs/jira/)                                       | Jira CSV imports: the epics and the sprint 3 to 5 backlogs    |
+| [`docs/jira/`](docs/jira/)                                       | The Jira CSV **imports**, historical. Ticket status lives in Jira, not here (ADR #38) |
 | [`db/01-schema.sql`](db/01-schema.sql)                           | The schema, with inline reasoning                             |
 
 ## Team

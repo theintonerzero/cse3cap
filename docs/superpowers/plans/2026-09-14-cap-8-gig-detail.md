@@ -1521,9 +1521,12 @@ Recorded here rather than done, because CAP-8 is CAP-8.
 - **`GigController` eager-loads `sprints` with no `orderBy`.** The frontend sorts by
   ordinal in `by_ordinal` and in `chippable_sprints`, so nothing is broken, but two screens
   now compensate for the same missing clause. One line in `api/`.
-- **`/review-queue` is still CAP-10's placeholder** while `web/src/screens/ReviewQueue.tsx`
-  sits built and unmounted. CAP-5 and CAP-7 both recorded this; it is Tony's. It is why the
-  diary card does not offer a non-student a link anywhere.
+- ~~**`/review-queue` is still CAP-10's placeholder**~~ **Resolved on `dev`** by `2efc00b`
+  (CAP-10 follow-up), merged into this branch on 2026-09-15: `ReviewQueue` is mounted. The
+  consequence for this screen is now a live opportunity rather than a constraint — the
+  diary card tells a non-student "your work on it is in the review queue" and still does not
+  link there, because it could not when the sentence was written. Two lines, and worth
+  doing; not done here because this PR is already open and reviewed.
 - **The link colour is an open accessibility finding for the team, not a fix anyone should
   make alone.** `--color-primary` as normal-size link text measures 4.07:1 on
   `--color-surface-alt` (`.empty_link`), 4.29:1 on `--color-bg` (`.about_link`) and 3.93:1
@@ -1703,7 +1706,8 @@ about what exists rather than about what is permitted. The check asserts both.
 **3. The sprint table is a student view; everybody else gets the calendar.**
 `GET /reflections?gig_id=` returns a student their own rows but returns an
 assessor, supervisor or employer *every* student's rows on the gig
-(`ReflectionController::index`). A single-student SELF/ASSESSOR table cannot be
+(`Reflection::scopeVisibleTo`, via `RoleResolver::REVIEWER_ROLES`). A single-student
+SELF/ASSESSOR table cannot be
 built out of that, so a non-student sees the sprint list with its dates and the
 server's own counts. This also means the second call is made only for a
 student.

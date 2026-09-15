@@ -37,7 +37,7 @@ The rejected alternative was a split `diary` / `rdapi` pair of subdomains, which
 how Alumable would really run this and which an aside in the 2026-08-11 API spec anticipated.
 It is rejected for the demo because the API origin would be baked into the bundle at build
 time, and every mistake in it surfaces as an opaque CORS error in front of the client. That
-aside was a note in a spec rather than an ADR, so nothing is superseded; ADR #38 records the
+aside was a note in a spec rather than an ADR, so nothing is superseded; the deploy ADR records the
 choice.
 
 **Deploys are triggered by hand, over SSH, and built on the box.** `scripts/deploy.sh`
@@ -175,10 +175,12 @@ read a server they have no account on. It is also what CAP-29 and the report nee
 permitted under the CLAUDE.md documentation rule, which allows a README next to what it
 describes.
 
-**ADR #38** records the decisions above that had a live alternative: one origin over split
-subdomains, a deploy triggered by hand over one triggered by CI, and no containers for the
-application. That the demo shares the box with MySQL is not among them — the ticket asks for
-the VPS and there was no second host in contention. The highest existing record is #37.
+**An ADR**, numbered when it is written rather than reserved now, records the decisions
+above that had a live alternative: one origin over split subdomains, a deploy triggered by
+hand over one triggered by CI, and no containers for the application. That the demo shares
+the box with MySQL is not among them — the ticket asks for the VPS and there was no second
+host in contention. (#38 was claimed by the Jira decision on 2026-09-14; reserving a number
+for an unwritten record is how two documents end up naming the same one.)
 
 ## Testing and verification
 

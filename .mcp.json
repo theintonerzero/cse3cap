@@ -14,6 +14,16 @@
         "ALLOW_UPDATE_OPERATION": "false",
         "ALLOW_DELETE_OPERATION": "false"
       }
+    },
+    "atlassian": {
+      "command": "uvx",
+      "args": ["mcp-atlassian==0.23.1"],
+      "env": {
+        "JIRA_URL": "${JIRA_SITE:-https://latrobecomsci.atlassian.net}",
+        "JIRA_USERNAME": "${JIRA_EMAIL}",
+        "JIRA_API_TOKEN": "${JIRA_API_TOKEN}",
+        "ENABLED_TOOLS": "jira_get_issue,jira_search,jira_get_project_issues,jira_get_transitions,jira_get_agile_boards,jira_get_board_issues,jira_get_sprints_from_board,jira_get_sprint_issues,jira_create_issue,jira_add_comment,jira_transition_issue"
+      }
     }
   }
 }

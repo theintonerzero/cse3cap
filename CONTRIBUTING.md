@@ -87,3 +87,10 @@ takes out everyone's environment rather than just yours. Say so in the channel f
 
 **New screens ship four states.** Loaded, loading, empty and error. A PR with only the
 happy path is not finished.
+
+**A plan somebody else will execute gets a comment on its ticket.** Plans live in
+`docs/superpowers/plans/`, which nobody browses. Until CAP-15 every plan here was written and
+executed by the same person, so this never mattered; the moment one is handed over, the Jira
+comment linking to it is the only thing connecting the two. Include how to start -- the
+branch name and the first command -- because the reader has none of the context the writer
+had.

@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Reflection;
-use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Http\Request;
 
 class ReviewQueueController extends Controller
@@ -26,12 +25,7 @@ class ReviewQueueController extends Controller
 
         $reflections = Reflection::query()
             ->where('status', 'submitted')
-            ->whereExists(fn (Builder $sub) => $sub
-                ->selectRaw('1')
-                ->from('gig_participants')
-                ->whereColumn('gig_participants.gig_id', 'reflections.gig_id')
-                ->where('gig_participants.user_id', $user->id)
-                ->whereIn('gig_participants.role', ['assessor', 'supervisor', 'employer']))
+            ->reviewableBy($user)
             ->whereHas('entries', fn ($q) => $q->whereDoesntHave(
                 'scores',
                 fn ($s) => $s->where('scorer_user_id', $user->id),
