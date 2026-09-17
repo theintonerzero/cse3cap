@@ -669,11 +669,25 @@ these are the places it turned out to be wrong, and the decisions taken where it
 
 ### Corrections to the plan itself
 
-- **The 409 message is one sentence, not two.** The plan quotes *"…Copy the rubric you want
-  and assign it to a new gig."* The real one is `api/bootstrap/app.php:119`: **"This gig
-  already has a rubric, and a gig is scored against one."** Confirmed independently against
-  the prism mock, which serves the contract's own example. A worker following the plan would
-  look for a sentence that never arrives and conclude `ApiError` was not unwrapping.
+- ~~**The 409 message is one sentence, not two.**~~ **Withdrawn — the plan was right.**
+  Retracted on 2026-09-18 after driving the real API. There are *three* messages, and I had
+  found the wrong one:
+
+  | Layer | When | Message |
+  | --- | --- | --- |
+  | `FrameworkAssigner` | the gig has a *different* rubric — the common path | "This gig already has a rubric, and a gig is scored against one. **Copy the rubric you want and assign it to a new gig.**" |
+  | `FrameworkAssigner` | the *same* rubric assigned twice | "That framework is already assigned to this gig." |
+  | `bootstrap/app.php:119` | MySQL 1062, i.e. two writers racing past the service check | "This gig already has a rubric, and a gig is scored against one." |
+
+  I read the 1062 fallback and took it for the only message. The prism mock agreed with me
+  because **the contract's example is the short one**, so the two wrong sources corroborated
+  each other. The real API returns the plan's sentence, verified in the browser against
+  Laravel on 2026-09-18.
+
+  **Follow-up, not fixed here:** `docs/openapi.yaml`'s 409 example for
+  `POST /framework-assignments` matches the race-condition fallback rather than the message
+  a supervisor will actually see. It is not wrong, but it is the least likely of the three.
+  The screen is unaffected either way — it renders `error.message` verbatim.
 - **The type import form was wrong.** The plan indexes `paths['/frameworks']['get']…`;
   `components['schemas']['Framework']` exists and is what every other screen uses.
 - **`retry` was passed as `on_assigned`.** That flips the whole screen back to `loading`
