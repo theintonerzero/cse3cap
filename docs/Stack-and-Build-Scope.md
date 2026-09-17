@@ -176,7 +176,12 @@ README.md                setup, connection details, the three tokens
       "Competency 3 of 6" progress, Back/Next, Submit on last with gate errors mapped to
       the offending entries
 - [ ] Submitted confirmation: assessor notified, next sprint date, back to diary
-- [ ] Export sheet: PDF/JSON selector, includes summary, request → poll → download
+- [x] Export sheet: PDF/JSON selector with a line on what each format is, the record's
+      counts by status, request → 202 → poll `GET /exports/{id}` on a 1/2/4/8s backoff
+      that gives up after ten polls with words rather than a spinner → download through
+      `api.blob`. Five states, the in-progress one its own block and not the skeleton.
+      The backoff is a pure module the check compiles and runs, because on the sync queue
+      every export is complete before the 202 arrives. `./run verify-export` checks it
 - [ ] History sheet: event timeline
 
 *Assessor*
