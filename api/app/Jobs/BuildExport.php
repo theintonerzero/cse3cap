@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Exports\PdfRenderer;
 use App\Models\Export;
 use App\Models\Reflection;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -35,12 +36,17 @@ class BuildExport implements ShouldQueue
 
         try {
             $payload = $this->assemble($export);
-            $path = "exports/{$export->user_id}/{$export->id}.json";
+            $path = "exports/{$export->user_id}/{$export->id}.{$export->format}";
 
-            Storage::disk('local')->put(
-                $path,
-                json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
-            );
+            // One payload, two writers. The formats are the same record,
+            // so they cannot drift from each other.
+            Storage::disk('local')->put($path, match ($export->format) {
+                'pdf' => app(PdfRenderer::class)->render($payload),
+                default => json_encode(
+                    $payload,
+                    JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+                ),
+            });
 
             $export->update([
                 'status' => 'complete',

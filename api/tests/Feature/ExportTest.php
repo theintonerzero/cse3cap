@@ -238,6 +238,60 @@ class ExportTest extends TestCase
             ->assertJsonPath('format', 'pdf');
     }
 
+    public function test_a_pdf_export_renders_a_pdf_with_the_record_in_it(): void
+    {
+        $reflection = $this->assessedReflection();
+        $id = $this->postJson('/api/v1/exports', ['format' => 'pdf'])->json('id');
+
+        $export = Export::findOrFail($id);
+        $this->assertSame('complete', $export->status);
+        $this->assertSame("exports/{$export->user_id}/{$id}.pdf", $export->uri);
+
+        $bytes = Storage::disk('local')->get($export->uri);
+        $this->assertStringStartsWith('%PDF', $bytes);
+
+        // The summary is the same count the JSON export would have given.
+        $this->assertSame(1, $export->summary['reflections']);
+        $this->assertSame($reflection->entries()->count() * 2, $export->summary['scores']);
+    }
+
+    public function test_the_pdf_page_carries_the_record_not_just_a_title(): void
+    {
+        $reflection = $this->assessedReflection();
+        $payload = (new \ReflectionClass(BuildExport::class))
+            ->getMethod('assemble')
+            ->invoke(new BuildExport('unused'), Export::create([
+                'user_id' => $reflection->user_id, 'format' => 'pdf', 'status' => 'pending',
+            ]));
+
+        // Assert on the HTML the PDF is rendered from; dompdf's byte
+        // stream is compressed and not greppable.
+        $html = view('exports.pdf', $payload)->render();
+
+        $this->assertStringContainsString('Develop AI use cases', $html);
+        $this->assertStringContainsString('Paired on the importer.', $html);
+        $this->assertStringContainsString('Good, with more to do on testing.', $html);
+        $this->assertStringContainsString('https://example.org/pr/4', $html);
+        $this->assertStringContainsString($reflection->framework_version, $html);
+        // The radar rides inside the page as an SVG data URI, and the
+        // SVG itself draws polygons rather than just labelling axes.
+        $this->assertStringContainsString('data:image/svg+xml;base64,', $html);
+        $svg = view('exports.radar', ['radar' => $payload['reflections'][0]['radar']])->render();
+        $this->assertStringContainsString('<svg', $svg);
+        $this->assertSame(2, substr_count($svg, 'stroke-width="1.5"'), 'one polygon per score class');
+    }
+
+    public function test_the_pdf_downloads_as_a_pdf(): void
+    {
+        $this->assessedReflection();
+        $id = $this->postJson('/api/v1/exports', ['format' => 'pdf'])->json('id');
+
+        $this->get("/api/v1/exports/{$id}/download")
+            ->assertOk()
+            ->assertDownload("reflection-diary-{$id}.pdf")
+            ->assertHeader('content-type', 'application/pdf');
+    }
+
     public function test_an_unknown_format_is_refused(): void
     {
         Sanctum::actingAs($this->user('Jane N'));
