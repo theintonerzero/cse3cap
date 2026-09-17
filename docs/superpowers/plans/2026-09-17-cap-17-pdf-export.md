@@ -35,7 +35,7 @@ git worktree add ../cse3cap-worktrees/CAP-17 -b feat/CAP-17-pdf-export origin/de
 cd ../cse3cap-worktrees/CAP-17
 cp ../../cse3cap/api/.env api/.env    # your own env, gitignored; carries DB_TEST_DATABASE
 cd api && composer install && cd ..
-./run test                            # 110 green before you start; if not, stop and say so
+./run test                            # 117 green + 2 GD errors (local php-gd missing) before you start; anything else, stop and say so
 ```
 
 ## File map
@@ -86,7 +86,7 @@ Expected output: `%PDF`
 ```bash
 ./run test
 ```
-Expected: same green count as before (110).
+Expected: same count as before (117 passing, 2 GD errors).
 
 - [ ] **Step 4: Commit**
 
