@@ -110,6 +110,7 @@ export async function probe() {
     path: { entry_id: 'x' },
     body: new FormData(),
   });
+  await api.post('/exports', { body: { format: 'pdf' } });
   const file: Blob = await api.blob('/exports/{export_id}/download', {
     path: { export_id: 'x' },
   });
@@ -129,8 +130,8 @@ export async function probe() {
   await api.post('/reflections', { body: { sprintId: 'x' } });
   // @ts-expect-error GET /gigs takes no body
   await api.get('/gigs', { body: {} });
-  // @ts-expect-error format is enum [json]. PDF is CAP-17
-  await api.post('/exports', { body: { format: 'pdf' } });
+  // @ts-expect-error format is enum [json, pdf], not any string
+  await api.post('/exports', { body: { format: 'docx' } });
 
   const error = new ApiError(409, 'FRAMEWORK_IN_USE', 'x');
   switch (error.code) {

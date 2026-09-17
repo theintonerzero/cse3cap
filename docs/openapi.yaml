@@ -1032,12 +1032,13 @@ paths:
               properties:
                 format:
                   type: string
-                  enum: [json]
+                  enum: [json, pdf]
                   description: >
-                    JSON only for now. The schema allows pdf and the product
-                    intends it, but rendering one needs a package the project
-                    has not adopted, so asking for it is refused rather than
-                    quietly answered with JSON.
+                    json is the record as data. pdf is the same record laid
+                    out to stand alone: narratives, evidence, both score
+                    sets, the framework version each was scored against and
+                    a radar per reflection. Neither needs the application to
+                    read. See ADR #39.
                 reflection_id:
                   type: [string, 'null']
                   format: uuid
@@ -1081,9 +1082,11 @@ paths:
         - $ref: '#/components/parameters/ExportId'
       responses:
         '200':
-          description: The file
+          description: The file, in the format the export was requested in
           content:
             application/json:
+              schema: { type: string, format: binary }
+            application/pdf:
               schema: { type: string, format: binary }
         '401': { $ref: '#/components/responses/Unauthenticated' }
         '404':

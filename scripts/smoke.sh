@@ -297,11 +297,15 @@ call "an assessor has no gaps"        200 "$SAM"  GET "/me/coverage?framework_id
 say "Export"
 call "request the record"             202 "$JANE" POST /exports '{"format":"json"}'
 EXPORT="$(jq_get '["id"]')"
-call "pdf is refused, not faked"      400 "$JANE" POST /exports '{"format":"pdf"}'
+call "request it as a pdf"            202 "$JANE" POST /exports '{"format":"pdf"}'
+PDF="$(jq_get '["id"]')"
+call "an unknown format is refused"   400 "$JANE" POST /exports '{"format":"docx"}'
 call "poll it"                        200 "$JANE" GET "/exports/$EXPORT"
 printf '       %ssummary %s%s\n' "$dim" "$(jq_get '["summary"]')" "$off"
 call "download it"                    200 "$JANE" GET "/exports/$EXPORT/download"
 call "nobody else can"                404 "$LEE"  GET "/exports/$EXPORT/download"
+call "download the pdf"               200 "$JANE" GET "/exports/$PDF/download"
+call "nobody else can, pdf either"    404 "$LEE"  GET "/exports/$PDF/download"
 call "the export history"             200 "$JANE" GET /exports
 
 # --------------------------------------------------------------------------

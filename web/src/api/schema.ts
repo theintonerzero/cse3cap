@@ -2013,10 +2013,10 @@ export interface operations {
             content: {
                 "application/json": {
                     /**
-                     * @description JSON only for now. The schema allows pdf and the product intends it, but rendering one needs a package the project has not adopted, so asking for it is refused rather than quietly answered with JSON.
+                     * @description json is the record as data. pdf is the same record laid out to stand alone: narratives, evidence, both score sets, the framework version each was scored against and a radar per reflection. Neither needs the application to read. See ADR #39.
                      * @enum {string}
                      */
-                    format: "json";
+                    format: "json" | "pdf";
                     /**
                      * Format: uuid
                      * @description Null exports the whole record.
@@ -2075,13 +2075,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The file */
+            /** @description The file, in the format the export was requested in */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": string;
+                    "application/pdf": string;
                 };
             };
             401: components["responses"]["Unauthenticated"];
