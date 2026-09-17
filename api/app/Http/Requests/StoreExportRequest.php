@@ -12,19 +12,21 @@ class StoreExportRequest extends FormRequest
     }
 
     /**
-     * JSON only for now. The schema and the exports.format constraint
-     * both allow pdf, and the contract describes it, but rendering one
-     * needs dompdf and adding a package is the team's call rather than
-     * something to slip in. Asking for pdf is refused clearly instead of
-     * being accepted and quietly producing JSON.
+     * Both formats the schema allows, pdf per ADR #39.
+     *
+     * reflection_id is checked for shape only. Whether it exists and
+     * whether it is the caller's are both the controller's 404, so a
+     * made-up id and someone else's id read the same from outside.
+     * An `exists` rule here would answer one with a 400 and the other
+     * with a 404, which tells a stranger which ids are real.
      *
      * @return array<string, mixed>
      */
     public function rules(): array
     {
         return [
-            'format' => ['required', 'in:json'],
-            'reflection_id' => ['nullable', 'uuid', 'exists:reflections,id'],
+            'format' => ['required', 'in:json,pdf'],
+            'reflection_id' => ['nullable', 'uuid'],
         ];
     }
 
@@ -34,7 +36,7 @@ class StoreExportRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'format.in' => 'Only json exports are available yet. PDF needs a renderer the project has not added.',
+            'format.in' => 'Exports are json or pdf.',
         ];
     }
 }

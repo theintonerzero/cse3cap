@@ -48,6 +48,7 @@ Index
 #36 The type generator runs through npx .......... Accepted
 #37 Demo reflections are a second seeder ......... Accepted
 #38 Jira is the truth about tickets .............. Accepted
+#39 PDF export renders with dompdf ............... Accepted
 
 ===============================================================
 
@@ -1817,3 +1818,91 @@ far for no gain the summary search does not already give.
 Atlassian's OAuth remote MCP instead of API tokens. Rejected because it cannot be checked
 from a script. A developer who cannot tell whether their access works falls back to
 guessing, which is the habit being removed.
+
+
+ADR #39: PDF export renders with dompdf, and the radar is server-side SVG
+
+Status: Accepted
+Date: 2026-09-17
+
+Context:
+ADR #30 shipped the export pipeline: a queued job, the row as the record, JSON produced
+and pdf refused rather than faked. The renderer was left as a team decision, deliberately.
+The schema's CHECK on exports.format, the Export response type and the download route all
+permitted pdf already, so nothing about the contract was waiting on it. Only the request
+rule was narrowed to json.
+
+The team named dompdf and agreed it on 2026-09-17 (COA4-75).
+
+The record leaves the system. It has to read in ten years with nothing but a PDF viewer:
+the narratives, the evidence references, both sides of every score, the framework version
+each was scored against, and the radar the student saw on screen. The screen draws that
+radar with recharts, which is JavaScript. dompdf runs none, so the chart cannot be reused
+and has to be drawn again on the server.
+
+Decision:
+dompdf/dompdf, the plain package, pinned ^3.1. No Laravel wrapper. Remote assets disabled,
+so nothing is fetched at render time.
+
+BuildExport::assemble() gains a radar block per reflection, read from v_radar and
+v_framework_scale, and the writer switches on format: json encodes the payload, pdf hands
+it to a Blade view and dompdf. Everything else in ADR #30 stands. Status is still stored,
+the row is still the record, download still runs the policy on every fetch.
+
+The radar is inline SVG built by App\Exports\RadarPolygon from the same axes and scale the
+screen uses. Twelve o'clock, clockwise, one polygon per score class. dompdf 3 lays an
+inline <svg> element out as text, so the partial is handed to <img> as a data URI, which it
+draws.
+
+The JSON export carries the radar block too. The two formats are the same record.
+
+Consequences:
+Positive:
+The export stands alone. Nothing in it depends on the application, the frontend bundle or
+a browser having been open.
+
+One payload feeds both writers, so the JSON and the PDF cannot say different things.
+
+The radar reads through the same views as the screen, so the chart in the file is the
+chart the student saw, and the geometry is unit-tested on its own.
+
+No browser binary on the VPS and no new service. A pure-PHP renderer is one composer line.
+
+Negative:
+dompdf is pure PHP and single-threaded. A long record renders slowly, which is why the job
+is queued and why the row says pending until it is not.
+
+The SVG radar is a second drawing of the chart. It shares the views and the scale with
+recharts but no code, so a change to one has to be made to the other by hand. The geometry
+test and the shared data path are what keep them honest.
+
+dompdf's CSS support is partial. :first-of-type is ignored and inline SVG is not drawn.
+Layout is checked by looking at the file, not by an assertion, and the tests assert on the
+HTML the PDF is rendered from rather than the byte stream.
+
+The Blade views carry raw hex. The no-hex rule belongs to web/ and its tokens.css. A PDF
+has no stylesheet to inherit from.
+
+The two radars differ on one point. recharts joins the neighbours of an unscored axis
+across the gap; the PDF pins it to the centre, because a record on paper should show the
+gap. A score class with nothing in it draws no polygon in either.
+
+The bundled font is DejaVu Sans. It has no CJK or emoji glyphs, so a narrative written in
+them prints as boxes. Adding a font is a config line and a file, but it is not done.
+
+Alternatives:
+barryvdh/laravel-dompdf. Rejected: a facade over four lines of code, and one more package
+to keep in step with Laravel majors.
+
+mpdf. Comparable and would have done the job. Rejected because it has no deciding
+advantage, and the team named dompdf.
+
+Browsershot or headless Chromium. It would render the recharts radar exactly. Rejected: a
+browser binary on a shared VPS for one feature, and the record would then depend on the
+frontend bundle to render.
+
+TCPDF. Rejected: a draw-by-coordinates API, so every layout change is code rather than a
+template.
+
+A PNG of the chart posted by the client with the export request. Rejected: the export would
+depend on a browser having been open at the time, and the record would not stand alone.

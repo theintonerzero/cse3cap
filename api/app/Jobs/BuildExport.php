@@ -2,10 +2,12 @@
 
 namespace App\Jobs;
 
+use App\Exports\PdfRenderer;
 use App\Models\Export;
 use App\Models\Reflection;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
 
@@ -34,12 +36,17 @@ class BuildExport implements ShouldQueue
 
         try {
             $payload = $this->assemble($export);
-            $path = "exports/{$export->user_id}/{$export->id}.json";
+            $path = "exports/{$export->user_id}/{$export->id}.{$export->format}";
 
-            Storage::disk('local')->put(
-                $path,
-                json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
-            );
+            // One payload, two writers. The formats are the same record,
+            // so they cannot drift from each other.
+            Storage::disk('local')->put($path, match ($export->format) {
+                'pdf' => app(PdfRenderer::class)->render($payload),
+                default => json_encode(
+                    $payload,
+                    JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+                ),
+            });
 
             $export->update([
                 'status' => 'complete',
@@ -93,6 +100,7 @@ class BuildExport implements ShouldQueue
                     'name' => $reflection->framework->name,
                 ],
                 'submitted_at' => $reflection->submitted_at?->toIso8601ZuluString(),
+                'radar' => $this->radar($reflection),
                 'entries' => $reflection->entries->sortBy(fn ($e) => $e->competency->position)
                     ->map(function ($entry) use (&$scores, &$files) {
                         $scores += $entry->scores->count();
@@ -130,6 +138,48 @@ class BuildExport implements ShouldQueue
                 'files' => $files,
             ],
             'reflections' => $body,
+        ];
+    }
+
+    /**
+     * One axis per competency in the reflection's framework, scored or not,
+     * read through v_radar so the export draws the same chart the screen
+     * does. The counter value is already the one v_entry_score chose.
+     *
+     * @return array<string, mixed>
+     */
+    private function radar(Reflection $reflection): array
+    {
+        $scale = DB::table('v_framework_scale')
+            ->where('framework_id', $reflection->framework_id)
+            ->first();
+
+        $scored = [];
+        foreach (DB::table('v_radar')->where('reflection_id', $reflection->id)->get() as $row) {
+            if ($row->scorer_class !== null) {
+                $scored[$row->competency_code][$row->scorer_class] = $row;
+            }
+        }
+
+        $axes = $reflection->entries
+            ->sortBy(fn ($e) => $e->competency->position)
+            ->map(function ($entry) use ($scored) {
+                $code = $entry->competency->code;
+
+                return [
+                    'code' => $code,
+                    'short_label' => $entry->competency->short_label,
+                    'position' => $entry->competency->position,
+                    'self' => isset($scored[$code]['self']) ? (int) $scored[$code]['self']->level_value : null,
+                    'counter' => isset($scored[$code]['counter']) ? (int) $scored[$code]['counter']->level_value : null,
+                    'counter_role' => $scored[$code]['counter']->scorer_role ?? null,
+                ];
+            })->values()->all();
+
+        return [
+            'scale_min' => (int) ($scale->scale_min ?? 0),
+            'scale_max' => (int) ($scale->scale_max ?? 0),
+            'axes' => $axes,
         ];
     }
 }

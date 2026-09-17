@@ -101,6 +101,7 @@ class ExportController extends Controller
         return $disk->download(
             $export->uri,
             "reflection-diary-{$export->id}.{$export->format}",
+            ['Content-Type' => $export->format === 'pdf' ? 'application/pdf' : 'application/json'],
         );
     }
 
