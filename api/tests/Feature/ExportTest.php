@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Exports\PdfRenderer;
 use App\Jobs\BuildExport;
 use App\Models\Export;
 use App\Models\Gig;
@@ -290,6 +291,54 @@ class ExportTest extends TestCase
             ->assertOk()
             ->assertDownload("reflection-diary-{$id}.pdf")
             ->assertHeader('content-type', 'application/pdf');
+    }
+
+    public function test_another_persons_pdf_is_not_found_not_forbidden(): void
+    {
+        $this->assessedReflection();
+        $id = $this->postJson('/api/v1/exports', ['format' => 'pdf'])->json('id');
+
+        // A supervisor on Jane's own gig, so someone who can legitimately
+        // see her reflection. Still 404: the export is "own" for every
+        // role, and the answer never distinguishes "not yours" from
+        // "does not exist".
+        Sanctum::actingAs($this->user('Dr Lee'));
+        $this->getJson("/api/v1/exports/{$id}")
+            ->assertStatus(404)
+            ->assertJsonPath('error.code', 'NOT_FOUND');
+        $this->get("/api/v1/exports/{$id}/download")->assertStatus(404);
+    }
+
+    public function test_a_render_that_throws_marks_the_pdf_row_failed(): void
+    {
+        $this->assessedReflection();
+
+        $export = Export::create([
+            'user_id' => $this->user('Jane N')->id,
+            'format' => 'pdf',
+            'status' => 'pending',
+        ]);
+
+        $this->app->bind(PdfRenderer::class, function () {
+            $renderer = $this->createMock(PdfRenderer::class);
+            $renderer->method('render')->willThrowException(new \RuntimeException('font table corrupt'));
+
+            return $renderer;
+        });
+
+        try {
+            (new BuildExport($export->id))->handle();
+        } catch (\Throwable) {
+            // Rethrown for the queue; the row is what the student sees.
+        }
+
+        $this->assertSame('failed', $export->fresh()->status);
+        $this->assertNull($export->fresh()->uri);
+
+        Sanctum::actingAs($this->user('Jane N'));
+        $this->get("/api/v1/exports/{$export->id}/download")
+            ->assertStatus(404)
+            ->assertJsonPath('error.details.status', 'failed');
     }
 
     public function test_an_unknown_format_is_refused(): void
