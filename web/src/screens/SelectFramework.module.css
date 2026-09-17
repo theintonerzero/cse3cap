@@ -128,3 +128,39 @@
   border-radius: var(--radius-sm);
   padding: var(--space-4);
 }
+
+/* The expanded gig picker, under the row it belongs to. Separated by a
+   rule rather than a tint: the row is already a Card, and a second fill
+   inside it reads as a second card. */
+.picker {
+  margin-top: var(--space-12);
+  padding-top: var(--space-12);
+  border-top: var(--border-width-sm) solid var(--color-border);
+}
+
+.picker_label {
+  margin: 0 0 var(--space-8);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.picker_options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+}
+
+/* Both sit on a Card, so --color-surface: a pairing check-contrast.mjs
+   already covers for --color-danger and --color-success. */
+.refused {
+  margin: var(--space-12) 0 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-danger);
+}
+
+.assigned {
+  margin: var(--space-12) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-success);
+}

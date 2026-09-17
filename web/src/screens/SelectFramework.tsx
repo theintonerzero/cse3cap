@@ -26,8 +26,16 @@ import { Link } from 'react-router';
 
 import { api, ApiError } from '../api/client.ts';
 import { Button, Card, ErrorNotice, Skeleton, SkeletonGroup } from '../components/index.ts';
-import { group_frameworks, is_editable, type Framework } from './framework-groups.ts';
+import { useSession, type SessionUser } from '../session/useSession.ts';
+import {
+  assignable_gigs,
+  group_frameworks,
+  is_editable,
+  type Framework,
+} from './framework-groups.ts';
 import styles from './SelectFramework.module.css';
+
+type Participation = SessionUser['participations'][number];
 
 type State =
   | { status: 'loading' }
@@ -35,6 +43,7 @@ type State =
   | { status: 'loaded'; frameworks: Framework[] };
 
 export function SelectFramework() {
+  const { me } = useSession();
   const [state, setState] = useState<State>({ status: 'loading' });
   const [reload_key, setReloadKey] = useState(0);
 
@@ -66,16 +75,24 @@ export function SelectFramework() {
     setReloadKey((key) => key + 1);
   }, []);
 
+  // Resolved once here rather than per row: it is the same answer for every
+  // rubric on the screen, and it decides the line under the heading.
+  const assignable = assignable_gigs(me?.participations ?? []);
+
   return (
     <section>
       <h1 className={styles.heading}>Frameworks</h1>
       <p className={styles.sub}>
-        The rubrics a gig can be scored against. Copy a template to change one.
+        {assignable.length > 0
+          ? 'The rubrics a gig can be scored against. Copy a template to change one.'
+          : 'The rubrics a gig can be scored against. Assigning one needs a gig you supervise.'}
       </p>
 
       {state.status === 'loading' && <LoadingState />}
       {state.status === 'error' && <ErrorNotice error={state.error} on_retry={retry} />}
-      {state.status === 'loaded' && <LoadedState frameworks={state.frameworks} />}
+      {state.status === 'loaded' && (
+        <LoadedState frameworks={state.frameworks} assignable={assignable} />
+      )}
     </section>
   );
 }
@@ -86,7 +103,13 @@ export function SelectFramework() {
  * at all means nothing has been seeded. An empty *copies* group is an
  * ordinary Tuesday and is said inside the group instead.
  */
-function LoadedState({ frameworks }: { frameworks: Framework[] }) {
+function LoadedState({
+  frameworks,
+  assignable,
+}: {
+  frameworks: Framework[];
+  assignable: Participation[];
+}) {
   const { templates, copies } = group_frameworks(frameworks);
 
   if (templates.length === 0 && copies.length === 0) {
@@ -107,12 +130,14 @@ function LoadedState({ frameworks }: { frameworks: Framework[] }) {
         title="Templates"
         hint="Shipped with the product. Copy one to edit it."
         frameworks={templates}
+        assignable={assignable}
         when_empty="No templates. The database has not been seeded."
       />
       <Group
         title="Saved copies"
         hint="Copies made by a supervisor."
         frameworks={copies}
+        assignable={assignable}
         when_empty="Nothing copied yet."
       />
     </>
@@ -123,11 +148,13 @@ function Group({
   title,
   hint,
   frameworks,
+  assignable,
   when_empty,
 }: {
   title: string;
   hint: string;
   frameworks: Framework[];
+  assignable: Participation[];
   when_empty: string;
 }) {
   return (
@@ -141,7 +168,7 @@ function Group({
         <ul className={styles.list}>
           {frameworks.map((framework) => (
             <li key={framework.id}>
-              <FrameworkRow framework={framework} />
+              <FrameworkRow framework={framework} assignable={assignable} />
             </li>
           ))}
         </ul>
@@ -150,9 +177,27 @@ function Group({
   );
 }
 
+type AssignState =
+  | { status: 'idle' }
+  | { status: 'picking' }
+  | { status: 'saving' }
+  | { status: 'refused'; message: string }
+  | { status: 'assigned'; gig_title: string };
+
 /**
- * One rubric. Assigning it to a gig is CAP-15's Task 3; until then the row
- * says what the rubric is and offers Edit when editing is still possible.
+ * One rubric, and putting it on a gig.
+ *
+ * The picker expands rather than rendering a button per gig. The shared
+ * database grows a smoke-test-copy-* framework on every run of smoke.sh, so
+ * this list runs to a dozen rows against real data; a button per gig per
+ * row is two dozen primary buttons on one screen. One gig is the common
+ * case and skips the picking step entirely.
+ *
+ * Nothing is refetched after a successful assign. The Framework payload is
+ * id, fw_key, version, name, is_active, created_by and in_use, and an
+ * assignment changes none of them -- in_use means "a reflection references
+ * this", not "this is on a gig". A reload here would cost a round trip to
+ * redraw identical rows and would throw away the confirmation.
  *
  * "In use" is a plain span, not Badge and not Chip. Badge takes a
  * BadgeStatus, which is the contract's ReflectionStatus generated from
@@ -167,7 +212,44 @@ function Group({
  * framework_assignments. GET /frameworks does not carry that fact and this
  * screen does not invent it.
  */
-function FrameworkRow({ framework }: { framework: Framework }) {
+function FrameworkRow({
+  framework,
+  assignable,
+}: {
+  framework: Framework;
+  assignable: Participation[];
+}) {
+  const [assign, setAssign] = useState<AssignState>({ status: 'idle' });
+
+  async function assign_to(gig_id: string, gig_title: string) {
+    setAssign({ status: 'saving' });
+
+    try {
+      await api.post('/framework-assignments', {
+        body: { framework_id: framework.id, gig_id },
+      });
+      setAssign({ status: 'assigned', gig_title });
+    } catch (error: unknown) {
+      if (!(error instanceof ApiError)) throw error;
+
+      // DUPLICATE_ASSIGNMENT is the common path on the seeded data: both
+      // gigs already carry a rubric. Every other code that can arrive here
+      // -- ROLE_FORBIDDEN, NOT_FOUND, a validation failure -- is equally a
+      // considered answer about this one row, so all of them are shown the
+      // same way, in place, rather than replacing the screen.
+      setAssign({ status: 'refused', message: error.message });
+    }
+  }
+
+  function begin() {
+    if (assignable.length === 1) {
+      const only = assignable[0];
+      void assign_to(only.gig_id, only.gig_title);
+      return;
+    }
+    setAssign({ status: 'picking' });
+  }
+
   return (
     <Card>
       <div className={styles.row}>
@@ -184,6 +266,7 @@ function FrameworkRow({ framework }: { framework: Framework }) {
               In use
             </span>
           )}
+
           {is_editable(framework) && (
             <Link className={styles.edit} to={`/frameworks/${framework.id}/edit`}>
               <Button variant="secondary" full_width={false}>
@@ -191,8 +274,62 @@ function FrameworkRow({ framework }: { framework: Framework }) {
               </Button>
             </Link>
           )}
+
+          {assignable.length > 0 && assign.status !== 'picking' && (
+            <Button
+              full_width={false}
+              disabled={assign.status === 'saving'}
+              on_click={begin}
+            >
+              {assign.status === 'saving'
+                ? 'Assigning…'
+                : assignable.length === 1
+                  ? `Assign to ${assignable[0].gig_title}`
+                  : 'Assign to a gig'}
+            </Button>
+          )}
         </div>
       </div>
+
+      {assign.status === 'picking' && (
+        <div className={styles.picker}>
+          <p className={styles.picker_label} id={`pick-${framework.id}`}>
+            Assign {framework.name} to:
+          </p>
+          <div className={styles.picker_options} aria-labelledby={`pick-${framework.id}`}>
+            {assignable.map((gig) => (
+              <Button
+                key={gig.gig_id}
+                full_width={false}
+                on_click={() => void assign_to(gig.gig_id, gig.gig_title)}
+              >
+                {gig.gig_title}
+              </Button>
+            ))}
+            <Button
+              variant="secondary"
+              full_width={false}
+              on_click={() => setAssign({ status: 'idle' })}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Announced, because the outcome of pressing a button is not on the
+          button: the row is where it lands and a screen reader is not
+          looking at it. */}
+      {assign.status === 'refused' && (
+        <p className={styles.refused} role="status">
+          {assign.message}
+        </p>
+      )}
+      {assign.status === 'assigned' && (
+        <p className={styles.assigned} role="status">
+          Assigned to {assign.gig_title}.
+        </p>
+      )}
     </Card>
   );
 }
