@@ -4,6 +4,7 @@ namespace App\Exports;
 
 use Dompdf\Dompdf;
 use Dompdf\Options;
+use Illuminate\Support\Facades\File;
 
 /**
  * Turns the assembled export payload into PDF bytes.
@@ -31,10 +32,11 @@ class PdfRenderer
         // dompdf caches parsed font metrics next to the fonts, which is
         // inside vendor/ by default. A deploy that ships vendor/ read-only
         // would fail the first render, so the cache lives under storage/.
+        // ensureDirectoryExists rather than a bare mkdir: two workers
+        // rendering their first pdf at once would both see no directory,
+        // and the loser's mkdir warning would mark its export failed.
         $cache = storage_path('app/dompdf');
-        if (! is_dir($cache)) {
-            mkdir($cache, 0755, true);
-        }
+        File::ensureDirectoryExists($cache);
         $options->set('fontCache', $cache);
 
         $dompdf = new Dompdf($options);
