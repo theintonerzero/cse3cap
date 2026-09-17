@@ -126,6 +126,32 @@ class ExportTest extends TestCase
         $this->assertSame('v1', $payload['reflections'][0]['framework']['version']);
     }
 
+    public function test_the_file_carries_a_radar_per_reflection_from_the_view(): void
+    {
+        $reflection = $this->assessedReflection();
+        $id = $this->postJson('/api/v1/exports', ['format' => 'json'])->json('id');
+
+        $file = json_decode(Storage::disk('local')->get(Export::findOrFail($id)->uri), true);
+        $radar = $file['reflections'][0]['radar'];
+
+        $this->assertSame(1, $radar['scale_min']);
+        $this->assertSame(4, $radar['scale_max']);
+        $this->assertCount($reflection->entries()->count(), $radar['axes']);
+
+        // Every axis was self-scored 3 and counter-scored 2 by Sam, an assessor.
+        foreach ($radar['axes'] as $axis) {
+            $this->assertSame(3, $axis['self']);
+            $this->assertSame(2, $axis['counter']);
+            $this->assertSame('assessor', $axis['counter_role']);
+        }
+
+        // Ordered by position, so the chart's shape is stable.
+        $positions = array_column($radar['axes'], 'position');
+        $sorted = $positions;
+        sort($sorted);
+        $this->assertSame($sorted, $positions);
+    }
+
     public function test_one_reflection_can_be_exported_on_its_own(): void
     {
         $reflection = $this->assessedReflection();
