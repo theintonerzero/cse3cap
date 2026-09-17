@@ -32,7 +32,7 @@ class FrameworkAssigner
                 'DUPLICATE_ASSIGNMENT',
                 $existing->framework_id === $framework->id
                     ? 'That framework is already assigned to this gig.'
-                    : 'This gig already has a rubric, and a gig is scored against one. Copy the rubric you want and assign it to a new gig.',
+                    : 'This gig already has a rubric, and a gig is scored against one. A gig\'s rubric cannot be changed, so assign this one to a gig that does not have a rubric yet.',
                 ['framework_id' => $existing->framework_id],
                 409,
             );

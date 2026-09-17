@@ -684,7 +684,23 @@ these are the places it turned out to be wrong, and the decisions taken where it
   each other. The real API returns the plan's sentence, verified in the browser against
   Laravel on 2026-09-18.
 
-  **Follow-up, not fixed here:** `docs/openapi.yaml`'s 409 example for
+  **And then the message turned out to give wrong advice,** which is a separate finding from
+  my misquoting it. *"Copy the rubric you want and assign it to a new gig"* tells a supervisor
+  to do something unnecessary and harmful: `ak_fw_assignments` is unique on `gig_id` alone, so
+  one rubric already serves any number of gigs. Verified by assigning SFIA 9 — already in force
+  on Data migration audit — to a second gig and getting a 201. Copying would leave a duplicate
+  rubric row behind, which is exactly the clutter the eight `smoke-test-copy-*` rows are.
+
+  Reworded on 2026-09-18, at Patrick's request, to say what a supervisor can actually do:
+
+  > This gig already has a rubric, and a gig is scored against one. A gig's rubric cannot be
+  > changed, so assign this one to a gig that does not have a rubric yet.
+
+  No test asserted the old string; `FrameworkMutationTest` and `ErrorEnvelopeTest` assert the
+  code. Both refusal paths were exercised through `FrameworkAssigner` directly to confirm the
+  wording, and the same-rubric message is unchanged.
+
+  **Still a follow-up, not fixed here:** `docs/openapi.yaml`'s 409 example for
   `POST /framework-assignments` matches the race-condition fallback rather than the message
   a supervisor will actually see. It is not wrong, but it is the least likely of the three.
   The screen is unaffected either way — it renders `error.message` verbatim.
