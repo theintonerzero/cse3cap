@@ -1,0 +1,145 @@
+.sheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+.lead {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.counts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+
+.counts li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+
+.empty {
+  margin: 0;
+  padding: var(--space-12);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-alt);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.formats {
+  display: flex;
+  gap: var(--space-8);
+}
+
+.format_copy {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+/*
+ * In progress is its own thing, not the loading skeleton: the record is
+ * loaded, the file is what is being made. A pulsing dot and a sentence
+ * that changes as the polls go by, so a slow queue reads as slow rather
+ * than stuck.
+ */
+.building {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  padding: var(--space-12);
+  border-radius: var(--radius-md);
+  background: var(--color-accent-lavender);
+  color: var(--color-text);
+}
+
+.pulse {
+  flex: 0 0 auto;
+  width: var(--space-12);
+  height: var(--space-12);
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+/* 1.4s matches Skeleton's pulse; there is no duration scale in tokens.css. */
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse {
+    animation: none;
+  }
+}
+
+.building_title,
+.ready_title {
+  margin: 0;
+  font-weight: var(--font-weight-medium);
+}
+
+.building_detail {
+  margin: var(--space-4) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.ready {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  padding: var(--space-12);
+  border-radius: var(--radius-md);
+  background: var(--color-success-bg);
+}
+
+.job_summary {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.link {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--font-size-sm);
+  color: var(--color-primary);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.failed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+.failed_message {
+  margin: 0;
+  padding: var(--space-12);
+  border-radius: var(--radius-md);
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  font-size: var(--font-size-sm);
+}

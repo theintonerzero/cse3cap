@@ -43,6 +43,7 @@ import {
   type Scope,
 } from './diary-scope.ts';
 import styles from './DiaryHome.module.css';
+import { ExportSheet } from './ExportSheet.tsx';
 
 type Load =
   | { status: 'loading' }
@@ -181,59 +182,9 @@ export function DiaryHome() {
         title="Export your record"
         onClose={() => setExportOpen(false)}
       >
-        <ExportSheet reflections={whole_record} />
+        <ExportSheet reflections={whole_record} open={export_open} />
       </BottomSheet>
     </section>
-  );
-}
-
-/**
- * What the export will contain, and nothing that requests one.
- *
- * CAP-18 owns the format selector, POST /exports, the poll loop with its
- * backoff, and the download -- five states of its own, not four. CAP-7's
- * criterion is that the link opens the sheet, so the button is here and
- * disabled with the ticket on it, the same way ReviewQueue's "Score this"
- * waits for CAP-13.
- *
- * The counts are of the whole record rather than the scope in view: the
- * export is the record, and a sheet that silently exported only the sprint
- * you happened to be filtered to would be the wrong kind of surprise.
- */
-function ExportSheet({ reflections }: { reflections: ReflectionSummary[] }) {
-  const counted = {
-    draft: reflections.filter((row) => row.status === 'draft').length,
-    submitted: reflections.filter((row) => row.status === 'submitted').length,
-    assessed: reflections.filter((row) => row.status === 'assessed').length,
-  };
-
-  return (
-    <div className={styles.sheet}>
-      <p className={styles.empty_body}>
-        Your whole record, every gig and every sprint, as one file. It is yours: it outlives
-        the gig, the subject and the degree.
-      </p>
-
-      <ul className={styles.sheet_counts}>
-        <li>
-          {counted.assessed} assessed
-          <Badge status="assessed" />
-        </li>
-        <li>
-          {counted.submitted} submitted
-          <Badge status="submitted" />
-        </li>
-        <li>
-          {counted.draft} draft
-          <Badge status="draft" />
-        </li>
-      </ul>
-
-      <Button disabled>Request a JSON export</Button>
-      <p className={styles.footnote}>
-        CAP-18 wires this up, including the poll and the download.
-      </p>
-    </div>
   );
 }
 
