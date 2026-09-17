@@ -82,6 +82,8 @@ function failed_job(): Job {
 export function ExportSheet({ reflections }: ExportSheetProps) {
   const [format, setFormat] = useState<Format>('pdf');
   const [job, setJob] = useState<Job>(IDLE);
+  const request_button = useRef<HTMLButtonElement>(null);
+  const building_block = useRef<HTMLDivElement>(null);
   const download_button = useRef<HTMLButtonElement>(null);
   const again_button = useRef<HTMLButtonElement>(null);
 
@@ -89,12 +91,24 @@ export function ExportSheet({ reflections }: ExportSheetProps) {
   const busy = job.status !== 'idle' || job.requesting;
 
   // A state change swaps the block under the pointer, and with it the
-  // focused button. Put focus on the new block's action so keyboard focus
-  // stays inside the sheet rather than falling through to the page.
+  // focused control: the old button unmounts, or is disabled, and the
+  // browser drops focus to <body>, where BottomSheet's Tab trap cannot
+  // see it. So every state names where focus lives, and it is put there
+  // whenever the job changes. The building block is focusable itself
+  // because it has no control of its own.
   useEffect(() => {
-    if (job.status === 'ready') download_button.current?.focus();
-    if (job.status === 'failed') again_button.current?.focus();
-  }, [job.status]);
+    const target =
+      job.status === 'idle' && !job.requesting
+        ? request_button.current
+        : job.status === 'building'
+          ? building_block.current
+          : job.status === 'ready' && !job.downloading
+            ? download_button.current
+            : job.status === 'failed'
+              ? again_button.current
+              : null;
+    if (target && document.activeElement !== target) target.focus();
+  }, [job]);
 
   async function request() {
     if (job.status !== 'idle' || job.requesting) return;
@@ -232,13 +246,13 @@ export function ExportSheet({ reflections }: ExportSheetProps) {
       )}
 
       {!empty && job.status === 'idle' && (
-        <Button on_click={request} disabled={job.requesting}>
+        <Button ref={request_button} on_click={request} disabled={job.requesting}>
           {job.requesting ? 'Requesting' : `Request a ${format.toUpperCase()} export`}
         </Button>
       )}
 
       {job.status === 'building' && (
-        <div className={styles.building} role="status">
+        <div className={styles.building} role="status" tabIndex={-1} ref={building_block}>
           <span className={styles.pulse} aria-hidden="true" />
           <div>
             <p className={styles.building_title}>

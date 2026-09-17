@@ -129,6 +129,21 @@
   cursor: pointer;
 }
 
+.link:disabled {
+  color: var(--color-text-muted);
+  text-decoration: none;
+  cursor: default;
+}
+
+.building:focus {
+  outline: none;
+}
+
+.building:focus-visible {
+  outline: 0.125rem solid var(--color-focus-ring);
+  outline-offset: 0.0625rem;
+}
+
 .failed {
   display: flex;
   flex-direction: column;
