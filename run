@@ -171,6 +171,17 @@ case "${1:-help}" in
     # half needs a server and a token; it skips rather than fails.
     verify-export) step ./scripts/verify-export-sheet.sh ;;
 
+    # The select framework screen's own invariants: mounted in place of the
+    # CAP-15 placeholder, reachable from the nav a supervisor sees, Edit
+    # gated on in_use and pointed at a route the router actually declares,
+    # four states, and no replace flow -- a gig takes one rubric (ADR #33,
+    # #35). The templates-from-copies split is compiled and executed rather
+    # than grepped for: the shared database holds two stock templates and a
+    # pile of smoke-test copies, so an empty list and an all-stock list
+    # cannot be produced by looking at the app. The live half needs a
+    # server and Dr Lee's token; it skips rather than fails.
+    verify-frameworks) step ./scripts/verify-select-framework.sh ;;
+
     # Proves your Jira credentials work, over plain HTTP, independently of
     # the atlassian MCP server. Run it when Jira misbehaves: it separates a
     # wrong token from a broken MCP server, which look identical otherwise.
@@ -280,6 +291,7 @@ ${BLUE}Alumable Reflection Diary${RESET}
   ${GREEN}./run verify-shell${RESET}  the app shell: token ownership, routes, /auth/me
   ${GREEN}./run verify-diary${RESET}  the diary home: mounted, linked, four states
   ${GREEN}./run verify-gig${RESET}    the gig detail: mounted, linked, four states, dates
+  ${GREEN}./run verify-frameworks${RESET}  the select framework screen: groups, in_use, the 409
   ${GREEN}./run swap${RESET}     the framework swap: SFIA against La Trobe, over HTTP
   ${GREEN}./run bundle-secrets${RESET}  proves a production build carries no token
   ${GREEN}./run lint${RESET}     pint, oxlint and prettier, checking only
