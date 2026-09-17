@@ -12,7 +12,7 @@ class StoreExportRequest extends FormRequest
     }
 
     /**
-     * Both formats the schema allows. A named reflection has to exist;
+     * Both formats the schema allows, pdf per ADR #39. A named reflection has to exist;
      * whether it is the caller's is the controller's 404, not this
      * request's 400, so the two stay indistinguishable from outside.
      *
