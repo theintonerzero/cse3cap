@@ -50,7 +50,9 @@ call() {
 
     local got
     got="$(curl "${args[@]}" "$BASE$path")"
-    BODY="$(cat /tmp/smoke.$$ 2>/dev/null)"
+    # A pdf download is binary; bash drops nul bytes from a substitution
+    # with a warning, so strip them first and keep the output quiet.
+    BODY="$(tr -d '\0' < /tmp/smoke.$$ 2>/dev/null)"
     rm -f /tmp/smoke.$$
 
     if [ "$got" = "$want" ]; then
