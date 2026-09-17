@@ -28,6 +28,15 @@ class PdfRenderer
         $options->set('isHtml5ParserEnabled', true);
         $options->set('defaultFont', 'DejaVu Sans');
 
+        // dompdf caches parsed font metrics next to the fonts, which is
+        // inside vendor/ by default. A deploy that ships vendor/ read-only
+        // would fail the first render, so the cache lives under storage/.
+        $cache = storage_path('app/dompdf');
+        if (! is_dir($cache)) {
+            mkdir($cache, 0755, true);
+        }
+        $options->set('fontCache', $cache);
+
         $dompdf = new Dompdf($options);
         $dompdf->setPaper('A4', 'portrait');
         $dompdf->loadHtml(view('exports.pdf', $payload)->render());

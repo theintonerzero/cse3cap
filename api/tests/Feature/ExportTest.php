@@ -11,6 +11,7 @@ use App\Models\User;
 use Database\Seeders\DemoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -259,11 +260,7 @@ class ExportTest extends TestCase
     public function test_the_pdf_page_carries_the_record_not_just_a_title(): void
     {
         $reflection = $this->assessedReflection();
-        $payload = (new \ReflectionClass(BuildExport::class))
-            ->getMethod('assemble')
-            ->invoke(new BuildExport('unused'), Export::create([
-                'user_id' => $reflection->user_id, 'format' => 'pdf', 'status' => 'pending',
-            ]));
+        $payload = $this->assembled($reflection);
 
         // Assert on the HTML the PDF is rendered from; dompdf's byte
         // stream is compressed and not greppable.
@@ -273,7 +270,7 @@ class ExportTest extends TestCase
         $this->assertStringContainsString('Paired on the importer.', $html);
         $this->assertStringContainsString('Good, with more to do on testing.', $html);
         $this->assertStringContainsString('https://example.org/pr/4', $html);
-        $this->assertStringContainsString($reflection->framework_version, $html);
+        $this->assertStringContainsString("version {$reflection->framework_version})", $html);
         // The radar rides inside the page as an SVG data URI, and the
         // SVG itself draws polygons rather than just labelling axes.
         $this->assertStringContainsString('data:image/svg+xml;base64,', $html);
@@ -369,5 +366,58 @@ class ExportTest extends TestCase
         Sanctum::actingAs($this->user('Sam O'));
         $this->postJson('/api/v1/exports', ['format' => 'json', 'reflection_id' => $reflection->id])
             ->assertStatus(404);
+
+        // A made-up id gets the same answer, so the endpoint does not
+        // say which ids exist.
+        $this->postJson('/api/v1/exports', ['format' => 'json', 'reflection_id' => Str::uuid()->toString()])
+            ->assertStatus(404)
+            ->assertJsonPath('error.code', 'NOT_FOUND');
+    }
+
+    public function test_the_pdf_radar_draws_only_the_score_classes_that_exist(): void
+    {
+        // A draft in a whole-record export: no scores on either side.
+        Sanctum::actingAs($this->user('Jane N'));
+        $gig = Gig::where('title', 'Develop AI use cases')->firstOrFail();
+        $draft = Reflection::findOrFail(
+            $this->postJson('/api/v1/reflections', [
+                'sprint_id' => $gig->sprints()->where('ordinal', 1)->firstOrFail()->id,
+            ])->json('id')
+        );
+
+        $radar = fn () => view('exports.radar', [
+            'radar' => $this->assembled($draft)['reflections'][0]['radar'],
+        ])->render();
+
+        $this->assertSame(0, substr_count($radar(), 'stroke-width="1.5"'), 'nothing scored, no polygon');
+
+        // One self-score: the self polygon appears, the counter one still not.
+        $entry = $draft->entries()->with('competency.levels')->firstOrFail();
+        $this->putJson("/api/v1/entries/{$entry->id}/scores/self", [
+            'level_id' => $entry->competency->levels->firstWhere('level_value', 4)->id,
+        ])->assertOk();
+
+        $svg = $radar();
+        $this->assertSame(1, substr_count($svg, 'stroke-width="1.5"'), 'self only');
+        // The other five axes are unscored and sit at the centre.
+        $this->assertSame(5, substr_count($svg, '150,150'));
+    }
+
+    /**
+     * The payload BuildExport would write for one reflection, without
+     * going through the queue or the disk.
+     *
+     * @return array<string, mixed>
+     */
+    private function assembled(Reflection $reflection): array
+    {
+        return (new \ReflectionClass(BuildExport::class))
+            ->getMethod('assemble')
+            ->invoke(new BuildExport('unused'), Export::create([
+                'user_id' => $reflection->user_id,
+                'reflection_id' => $reflection->id,
+                'format' => 'pdf',
+                'status' => 'pending',
+            ]));
     }
 }

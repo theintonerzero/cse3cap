@@ -68,7 +68,7 @@
 
     @foreach ($reflection['entries'] as $entry)
         <h3>{{ $entry['competency_code'] }} · {{ $entry['competency_name'] }}</h3>
-        <p class="narrative">{{ $entry['narrative'] ?: 'No narrative written.' }}</p>
+        <p class="narrative">{{ ($entry['narrative'] ?? '') === '' ? 'No narrative written.' : $entry['narrative'] }}</p>
 
         @if (count($entry['evidence']))
             <ul>

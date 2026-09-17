@@ -1883,6 +1883,13 @@ HTML the PDF is rendered from rather than the byte stream.
 The Blade views carry raw hex. The no-hex rule belongs to web/ and its tokens.css. A PDF
 has no stylesheet to inherit from.
 
+The two radars differ on one point. recharts joins the neighbours of an unscored axis
+across the gap; the PDF pins it to the centre, because a record on paper should show the
+gap. A score class with nothing in it draws no polygon in either.
+
+The bundled font is DejaVu Sans. It has no CJK or emoji glyphs, so a narrative written in
+them prints as boxes. Adding a font is a config line and a file, but it is not done.
+
 Alternatives:
 barryvdh/laravel-dompdf. Rejected: a facade over four lines of code, and one more package
 to keep in step with Laravel majors.
