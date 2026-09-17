@@ -182,7 +182,7 @@ export function DiaryHome() {
         title="Export your record"
         onClose={() => setExportOpen(false)}
       >
-        <ExportSheet reflections={whole_record} open={export_open} />
+        <ExportSheet reflections={whole_record} />
       </BottomSheet>
     </section>
   );

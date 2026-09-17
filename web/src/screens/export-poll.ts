@@ -24,7 +24,7 @@ export function should_give_up(attempt: number): boolean {
 }
 
 export const GIVE_UP_MESSAGE =
-  'This is taking longer than usual. The export may still finish on its own; close this and try again in a few minutes.';
+  'This is taking longer than usual. Start again to request a fresh export, or come back and try again in a few minutes.';
 
 export function download_name(export_id: string, format: 'json' | 'pdf'): string {
   return `reflection-diary-${export_id}.${format}`;

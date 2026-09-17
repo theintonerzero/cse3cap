@@ -13,6 +13,11 @@
  *   failed    an ApiError, a job the server marked failed, or a poll that
  *             gave up. Each says why in words, and offers to start again
  *
+ * BottomSheet unmounts its children when it closes, so closing mid-build
+ * drops the poll and the job with it: there is no export list to find it
+ * in again, and resuming a poll after a reload is out of scope. Reopening
+ * starts from idle.
+ *
  * Every call goes through client.ts. The schedule that decides when to
  * poll next and when to stop lives in export-poll.ts, which is React-free
  * so verify-export-sheet.sh can compile and run it.
@@ -21,7 +26,7 @@
  * export is the record, and a sheet that silently exported only the sprint
  * you happened to be filtered to would be the wrong kind of surprise.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { api, ApiError } from '../api/client.ts';
 import type { paths } from '../api/schema.ts';
@@ -39,15 +44,13 @@ type Export = paths['/exports']['post']['responses']['202']['content']['applicat
 type Format = Export['format'];
 
 type Job =
-  | { status: 'idle' }
+  | { status: 'idle'; requesting: boolean }
   | { status: 'building'; export_id: string; format: Format; polls: number }
   | { status: 'ready'; job: Export; downloading: boolean }
   | { status: 'failed'; error: ApiError | null; message: string };
 
 export interface ExportSheetProps {
   reflections: ReflectionSummary[];
-  /** Polling stops the moment the sheet closes. */
-  open: boolean;
 }
 
 const FORMAT_COPY: Record<Format, string> = {
@@ -66,14 +69,36 @@ function count(summary: Export['summary'], key: string): number | null {
   return typeof value === 'number' ? value : null;
 }
 
-export function ExportSheet({ reflections, open }: ExportSheetProps) {
+const IDLE: Job = { status: 'idle', requesting: false };
+
+function failed_job(): Job {
+  return {
+    status: 'failed',
+    error: null,
+    message: 'The export failed to build. No file was produced; request another.',
+  };
+}
+
+export function ExportSheet({ reflections }: ExportSheetProps) {
   const [format, setFormat] = useState<Format>('pdf');
-  const [job, setJob] = useState<Job>({ status: 'idle' });
+  const [job, setJob] = useState<Job>(IDLE);
+  const download_button = useRef<HTMLButtonElement>(null);
+  const again_button = useRef<HTMLButtonElement>(null);
 
   const empty = reflections.length === 0;
-  const busy = job.status === 'building' || (job.status === 'ready' && job.downloading);
+  const busy = job.status !== 'idle' || job.requesting;
+
+  // A state change swaps the block under the pointer, and with it the
+  // focused button. Put focus on the new block's action so keyboard focus
+  // stays inside the sheet rather than falling through to the page.
+  useEffect(() => {
+    if (job.status === 'ready') download_button.current?.focus();
+    if (job.status === 'failed') again_button.current?.focus();
+  }, [job.status]);
 
   async function request() {
+    if (job.status !== 'idle' || job.requesting) return;
+    setJob({ status: 'idle', requesting: true });
     try {
       const created = await api.post('/exports', { body: { format } });
       // On a sync queue the job has already run and the 202 says so.
@@ -96,7 +121,7 @@ export function ExportSheet({ reflections, open }: ExportSheetProps) {
   // The poll. One timer per attempt; the effect re-runs as `polls` climbs,
   // so each delay is decided by export-poll.ts rather than a fixed interval.
   useEffect(() => {
-    if (job.status !== 'building' || !open) return;
+    if (job.status !== 'building') return;
 
     const attempt = job.polls + 1;
     let cancelled = false;
@@ -118,11 +143,19 @@ export function ExportSheet({ reflections, open }: ExportSheetProps) {
         }
       } catch (error) {
         if (cancelled) return;
-        setJob({
-          status: 'failed',
-          error: as_api_error(error, 'Lost track of the export.'),
-          message: '',
-        });
+        const failure = as_api_error(error, 'Lost track of the export.');
+        // The request never arrived, or the server broke: the job is most
+        // likely still building, so this is a spent attempt rather than
+        // the end. A 4xx is a considered answer and ends it now.
+        if (failure.status === 0 || failure.status >= 500) {
+          setJob(
+            should_give_up(attempt + 1)
+              ? { status: 'failed', error: null, message: GIVE_UP_MESSAGE }
+              : { ...job, polls: attempt },
+          );
+        } else {
+          setJob({ status: 'failed', error: failure, message: '' });
+        }
       }
     }, next_delay_ms(attempt));
 
@@ -130,28 +163,34 @@ export function ExportSheet({ reflections, open }: ExportSheetProps) {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [job, open]);
+  }, [job]);
 
   async function download() {
     if (job.status !== 'ready') return;
-    setJob({ ...job, downloading: true });
+    const { id, format: file_format } = job.job;
+    // Functional updates, keyed on the id: the state is only touched if it
+    // is still this export's ready block, so a download that resolves
+    // after the user has moved on cannot clobber what replaced it.
+    const still_this = (prev: Job) => prev.status === 'ready' && prev.job.id === id;
+    setJob((prev) => (still_this(prev) ? { ...prev, downloading: true } : prev));
     try {
       const file = await api.blob('/exports/{export_id}/download', {
-        path: { export_id: job.job.id },
+        path: { export_id: id },
       });
       const url = URL.createObjectURL(file);
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = download_name(job.job.id, job.job.format);
+      anchor.download = download_name(id, file_format);
       anchor.click();
-      URL.revokeObjectURL(url);
-      setJob({ ...job, downloading: false });
+      // Revoked on the next task, not synchronously: some WebViews drop a
+      // download whose URL went away in the same tick as the click.
+      window.setTimeout(() => URL.revokeObjectURL(url), 0);
+      setJob((prev) => (still_this(prev) ? { ...prev, downloading: false } : prev));
     } catch (error) {
-      setJob({
-        status: 'failed',
-        error: as_api_error(error, 'The file could not be downloaded.'),
-        message: '',
-      });
+      const failure = as_api_error(error, 'The file could not be downloaded.');
+      setJob((prev) =>
+        still_this(prev) ? { status: 'failed', error: failure, message: '' } : prev,
+      );
     }
   }
 
@@ -193,11 +232,13 @@ export function ExportSheet({ reflections, open }: ExportSheetProps) {
       )}
 
       {!empty && job.status === 'idle' && (
-        <Button on_click={request}>Request a {format.toUpperCase()} export</Button>
+        <Button on_click={request} disabled={job.requesting}>
+          {job.requesting ? 'Requesting' : `Request a ${format.toUpperCase()} export`}
+        </Button>
       )}
 
       {job.status === 'building' && (
-        <div className={styles.building} role="status" aria-live="polite">
+        <div className={styles.building} role="status">
           <span className={styles.pulse} aria-hidden="true" />
           <div>
             <p className={styles.building_title}>
@@ -216,13 +257,14 @@ export function ExportSheet({ reflections, open }: ExportSheetProps) {
         <div className={styles.ready}>
           <p className={styles.ready_title}>Your {job.job.format.toUpperCase()} is ready</p>
           <JobSummary job={job.job} />
-          <Button on_click={download} disabled={job.downloading}>
+          <Button ref={download_button} on_click={download} disabled={job.downloading}>
             {job.downloading ? 'Downloading' : 'Download'}
           </Button>
           <button
             type="button"
             className={styles.link}
-            onClick={() => setJob({ status: 'idle' })}
+            disabled={job.downloading}
+            onClick={() => setJob(IDLE)}
           >
             Request another
           </button>
@@ -238,21 +280,13 @@ export function ExportSheet({ reflections, open }: ExportSheetProps) {
               {job.message}
             </p>
           )}
-          <Button variant="secondary" on_click={() => setJob({ status: 'idle' })}>
+          <Button ref={again_button} variant="secondary" on_click={() => setJob(IDLE)}>
             Start again
           </Button>
         </div>
       )}
     </div>
   );
-}
-
-function failed_job(): Job {
-  return {
-    status: 'failed',
-    error: null,
-    message: 'The export failed to build. Nothing was saved; request another.',
-  };
 }
 
 /** What the export will hold: the record's counts by status. */

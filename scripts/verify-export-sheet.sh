@@ -61,10 +61,12 @@ else
     ok "the CAP-7 stub is gone"
 fi
 
-if grep -q 'open={export_open}' "$DIARY"; then
-    ok "the sheet is told when it closes" "so the poll stops"
+# BottomSheet unmounts its children when it closes, so the poll's timer has
+# to die in the effect's cleanup or it fires against an unmounted sheet.
+if grep -q 'clearTimeout' "$SHEET"; then
+    ok "the poll timer is cleared on cleanup" "closing the sheet stops it"
 else
-    bad "the sheet is told when it closes" "a closed sheet would keep polling"
+    bad "the poll timer is cleared on cleanup" "a closed sheet would keep polling"
 fi
 
 # --------------------------------------------------------------------------
@@ -117,13 +119,13 @@ else
     bad "idle, empty, building, ready and failed all present" "missing:$states_missing"
 fi
 
-if grep -q 'Skeleton' "$SHEET"; then
+if grep -qE "<Skeleton|Skeleton[, ].*from '../components" "$SHEET"; then
     bad "in-progress is its own state, not a skeleton" "Skeleton is imported"
 else
     ok "in-progress is its own state, not a skeleton"
 fi
 
-if grep -q 'role="status"' "$SHEET" && grep -q 'aria-live' "$SHEET"; then
+if grep -q 'role="status"' "$SHEET"; then
     ok "the building state is a live region"
 else
     bad "the building state is a live region"
@@ -133,6 +135,21 @@ if grep -q 'GIVE_UP_MESSAGE' "$SHEET"; then
     ok "giving up has words" "criterion 3"
 else
     bad "giving up has words" "criterion 3"
+fi
+
+# A poll that never reaches the server, or that the server fumbles, is a
+# spent attempt and not the end: the job is most likely still building.
+if grep -q 'failure.status === 0 || failure.status >= 500' "$SHEET"; then
+    ok "a transport blip spends an attempt rather than ending the poll"
+else
+    bad "a transport blip spends an attempt rather than ending the poll"
+fi
+
+# Two clicks are two server jobs unless the first disables the button.
+if grep -q 'requesting: true' "$SHEET" && grep -q 'disabled={job.requesting}' "$SHEET"; then
+    ok "Request is disabled while the request is in flight"
+else
+    bad "Request is disabled while the request is in flight" "a double click makes two exports"
 fi
 
 # Both selectable formats, and only those. The contract enumerates them, so
