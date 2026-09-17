@@ -171,8 +171,8 @@ class BuildExport implements ShouldQueue
             })->values()->all();
 
         return [
-            'scale_min' => (int) $scale->scale_min,
-            'scale_max' => (int) $scale->scale_max,
+            'scale_min' => (int) ($scale->scale_min ?? 0),
+            'scale_max' => (int) ($scale->scale_max ?? 0),
             'axes' => $axes,
         ];
     }
