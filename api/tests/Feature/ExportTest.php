@@ -229,11 +229,20 @@ class ExportTest extends TestCase
         $this->assertSame('failed', $export->fresh()->status);
     }
 
-    public function test_pdf_is_refused_clearly_rather_than_quietly_producing_json(): void
+    public function test_pdf_is_accepted_and_the_row_says_so(): void
+    {
+        $this->assessedReflection();
+
+        $this->postJson('/api/v1/exports', ['format' => 'pdf'])
+            ->assertStatus(202)
+            ->assertJsonPath('format', 'pdf');
+    }
+
+    public function test_an_unknown_format_is_refused(): void
     {
         Sanctum::actingAs($this->user('Jane N'));
 
-        $this->postJson('/api/v1/exports', ['format' => 'pdf'])
+        $this->postJson('/api/v1/exports', ['format' => 'docx'])
             ->assertStatus(400)
             ->assertJsonPath('error.code', 'VALIDATION_FAILED');
     }
