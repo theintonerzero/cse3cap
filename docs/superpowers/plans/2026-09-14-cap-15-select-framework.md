@@ -659,3 +659,84 @@ Then move COA4-73 to In Review, not Done, and say in the comment which criteria 
 ## One thing this plan does not decide
 
 Whether a supervisor with **no** assignable gig should see the Assign buttons at all. The filter in Task 3 hides them, which means a student loading `/frameworks` — and the API does return 200 to a student, verified — sees a read-only list. That is reasonable, but it is a product choice nobody has made. Raise it rather than assume it; it is one line either way.
+
+---
+
+## What building it found — 2026-09-18
+
+Built by Patrick. The plan was written to hand over and says to treat it as a proposal;
+these are the places it turned out to be wrong, and the decisions taken where it was silent.
+
+### Corrections to the plan itself
+
+- **The 409 message is one sentence, not two.** The plan quotes *"…Copy the rubric you want
+  and assign it to a new gig."* The real one is `api/bootstrap/app.php:119`: **"This gig
+  already has a rubric, and a gig is scored against one."** Confirmed independently against
+  the prism mock, which serves the contract's own example. A worker following the plan would
+  look for a sentence that never arrives and conclude `ApiError` was not unwrapping.
+- **The type import form was wrong.** The plan indexes `paths['/frameworks']['get']…`;
+  `components['schemas']['Framework']` exists and is what every other screen uses.
+- **`retry` was passed as `on_assigned`.** That flips the whole screen back to `loading`
+  after a successful assign and throws the confirmation away. There is no refetch at all
+  now: an assignment changes no field of the `Framework` payload, because `in_use` means "a
+  reflection references this", not "this is on a gig".
+- **`retry` did not reset to `loading`**, leaving the error notice up during the refetch.
+- **A button per gig per row does not survive the real data.** The plan's own note says the
+  database holds a dozen `smoke-test-copy-*` frameworks; two gigs across twelve rows is
+  twenty-four primary buttons. The picker expands instead, and one assignable gig skips it.
+- **Two bugs in the plan's verify script.** Its response-type check is
+  `grep && grep && ok || ok` — `ok` on both branches, so it cannot fail. And its typed-client
+  check greps `api.get(`, which prettier breaks across lines as `api` then `.get(...)`; an
+  assertion that depends on the formatter fails the next time someone runs prettier.
+
+### The design says this screen should not assign
+
+`§11.20` of the prose spec in the prototype (`~/projects/alumable-diary/docs/`) specs this
+exact screen and **deliberately removes the frame's Assign button**, with a written reason: a
+template is reusable across many subjects and gigs, so *which* one is in force is a fact
+about the gig you are standing in, not about the template. Assignment belongs on the
+Change-framework sheet at `§11.24`, and the library carries one line saying so. It is listed
+as one of the nine places a frame implies behaviour it could not perform.
+
+**Kept anyway, deliberately.** That reasoning does not transfer to this build:
+
+- There is no Change-framework sheet here and there will not be one. ADR #33, extended by
+  #35, makes a gig's rubric permanent and singular, enforced by a unique key.
+- CAP-8's gig detail renders *"No rubric assigned to this gig yet."* and offers no way to fix
+  it. **If this screen does not assign, nothing in the product assigns.**
+- `useSession()` supplies exactly the context §11.20 says the library lacks.
+
+Recorded here and in the header comment of `SelectFramework.tsx` so it is not rediscovered as
+a bug. If the team disagrees, it is a one-line removal and an ADR.
+
+### Two other places the spec and this build differ
+
+- **Two lists, not three.** `§11.20` draws Available / Saved / **Drafts**. This build's
+  `Framework` schema has no draft state, so a third list would be permanently empty.
+- **"In use", not "Active".** The v3 divergence table prefers *"Active"*, derived from
+  `framework_assignments`. That is a different fact from this API's `in_use` ("a reflection
+  references this, so it is permanently read-only"), and it is not derivable from
+  `GET /frameworks` at all. The screen does not invent it.
+
+### The plan's open question, answered
+
+*Should a supervisor with no assignable gig see the Assign buttons?* `AppShell.tsx:62` already
+gates the nav item to a supervisor, so a student reaches `/frameworks` only by typing the URL
+and the API returns 200 to them. The participation filter stays; with no assignable gig the
+line under the heading says so rather than leaving a gap.
+
+### Not fixed here
+
+- **The screen has not been rendered in a browser.** Playwright's Chromium is installed now —
+  it was not when CAP-8 shipped unlooked-at — but both binaries fail with
+  `error while loading shared libraries: libasound.so.2`. The fix is
+  `sudo npx playwright install-deps chromium`, or `sudo apt-get install -y libasound2t64`,
+  neither of which an agent should run unprompted. The four states were instead rendered as
+  far as the DOM: the contract's own payloads were served through the prism mock and the
+  screen's own checks executed. Said out loud rather than left as an implied "looks fine".
+- **`scripts/check-tokens.sh` still has no execute bit** (`100644`, while every `verify-*.sh`
+  beside it is `100755`). Flagged while building CAP-8, still open. One `chmod +x`.
+- **`./run verify-export` has no help line**, unlike every other verify target. CAP-18's, not
+  this ticket's.
+- **Two backend tests error with `GD extension is not installed`** on this machine —
+  `ReflectionWritePathTest` lines 247 and 267. Environmental; CAP-15 changes no PHP.
