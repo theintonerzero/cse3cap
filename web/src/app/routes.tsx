@@ -24,6 +24,7 @@ import { DiaryHome } from '../screens/DiaryHome.tsx';
 import { GigDetail } from '../screens/GigDetail.tsx';
 import { AppShell } from './AppShell.tsx';
 import { ReviewQueue } from '../screens/ReviewQueue.tsx';
+import { SelectFramework } from '../screens/SelectFramework.tsx';
 import { Placeholder } from './Placeholder.tsx';
 
 export function AppRoutes() {
@@ -64,10 +65,7 @@ export function AppRoutes() {
           element={<Placeholder screen="Assessor stepper" ticket="CAP-13" />}
         />
 
-        <Route
-          path="frameworks"
-          element={<Placeholder screen="Select framework" ticket="CAP-15" />}
-        />
+        <Route path="frameworks" element={<SelectFramework />} />
 
         <Route
           path="frameworks/:framework_id/edit"

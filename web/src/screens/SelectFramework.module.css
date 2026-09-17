@@ -1,0 +1,130 @@
+.heading {
+  margin: 0 0 var(--space-4);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+}
+
+.sub {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.block {
+  margin-top: var(--space-24);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.group_heading {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.list {
+  margin: var(--space-8) 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+/* An empty group, which is ordinary -- said in place rather than as the
+   screen's empty state. Sits on --color-bg, a pairing check-contrast.mjs
+   already covers. */
+.none {
+  margin: var(--space-8) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+/* The row wraps rather than squeezing: at phone width the actions drop
+   under the name instead of crushing it to one word per line. */
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-12);
+}
+
+.identity {
+  min-width: 0;
+}
+
+.name {
+  margin: 0;
+  color: var(--color-text);
+  font-weight: var(--font-weight-medium);
+}
+
+.meta {
+  margin: var(--space-4) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+/* Not a Badge and not a Chip -- see the note on FrameworkRow. A plain
+   marker, so it is bordered rather than filled: a tinted fill here would
+   read as a status the way Badge's do. */
+.in_use {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  border: var(--border-width-sm) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-4) var(--space-8);
+  white-space: nowrap;
+}
+
+/* The Link wrapping a Button, so the anchor does not add its own
+   underline or colour on top of the button's. */
+.edit {
+  text-decoration: none;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  margin-top: var(--space-24);
+  padding: var(--space-32) var(--space-16);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-alt);
+  text-align: center;
+}
+
+.empty_title {
+  margin: 0;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+/* --color-text-muted on --color-surface-alt is 4.32:1 in light mode and fails
+   AA, so the body copy in a tinted empty state stays --color-text. Same
+   reasoning as GigDetail.module.css. */
+.empty_body {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text);
+}
+
+.empty_body code {
+  font-size: var(--font-size-xs);
+  background: var(--color-surface);
+  border-radius: var(--radius-sm);
+  padding: var(--space-4);
+}
