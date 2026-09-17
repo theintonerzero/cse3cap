@@ -162,6 +162,15 @@ case "${1:-help}" in
     # The live half needs a server and a token; it skips rather than fails.
     verify-gig) step ./scripts/verify-gig-detail.sh ;;
 
+    # The export sheet's own invariants: the real sheet replaced CAP-7's
+    # stub, every call goes through client.ts and the file through
+    # api.blob, five states by name with in-progress its own block rather
+    # than a skeleton, and the poll backoff is compiled and executed --
+    # on a sync queue every export is complete before the 202 arrives,
+    # so backing off and giving up cannot be seen by clicking. The live
+    # half needs a server and a token; it skips rather than fails.
+    verify-export) step ./scripts/verify-export-sheet.sh ;;
+
     # Proves your Jira credentials work, over plain HTTP, independently of
     # the atlassian MCP server. Run it when Jira misbehaves: it separates a
     # wrong token from a broken MCP server, which look identical otherwise.
