@@ -32,6 +32,29 @@ class GigPolicy
     }
 
     /**
+     * Writing a reflection on this gig. The matrix row is "create own
+     * reflection": student only. Every other participant can see the gig,
+     * so they get 403. A reflection is a student's account of their own
+     * work, and an assessor on the gig has none to write.
+     *
+     * On the gig rather than on Reflection, because the reflection does not
+     * exist yet. The gig is resolved from the sprint first when only a
+     * sprint is sent; see ReflectionCreator::resolveContext.
+     */
+    public function createReflection(User $user, Gig $gig): Response
+    {
+        $role = $this->roles->for($user, $gig);
+
+        if ($role === null) {
+            return Response::denyAsNotFound();
+        }
+
+        return $role === 'student'
+            ? Response::allow()
+            : Response::deny('Only a student on this gig can write a reflection on it.');
+    }
+
+    /**
      * Which rubric this gig is scored against. Supervisor or employer,
      * same as the matrix row -- a student or an assessor can see the gig
      * but has no business changing what it is scored against.

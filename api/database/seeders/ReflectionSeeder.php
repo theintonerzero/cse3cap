@@ -235,7 +235,7 @@ class ReflectionSeeder extends Seeder
      */
     private function write(array $spec, User $student, Gig $gig, Sprint $sprint): void
     {
-        $reflection = app(ReflectionCreator::class)->create($student, null, $sprint->id);
+        $reflection = app(ReflectionCreator::class)->create($student, $gig, $sprint);
 
         // ReflectionCreator creates one entry per competency; sorting by
         // rubric position is what lines them up with the ability arrays.

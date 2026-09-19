@@ -21,17 +21,13 @@ class ReflectionCreator
 {
     public function __construct(private EventLog $events) {}
 
-    public function create(User $student, ?string $gigId, ?string $sprintId): Reflection
+    /**
+     * Whether this user may write on this gig is not decided here. That is
+     * GigPolicy::createReflection, which the controller asks between
+     * resolveContext() and this, so authorisation lives in one place.
+     */
+    public function create(User $student, Gig $gig, ?Sprint $sprint): Reflection
     {
-        [$gig, $sprint] = $this->resolveContext($gigId, $sprintId);
-
-        $role = app(RoleResolver::class)->for($student, $gig);
-
-        // A reflection is a student's account of their own work. An
-        // assessor on the gig has no reflection to write.
-        abort_if($role === null, 404);
-        abort_if($role !== 'student', 403);
-
         $framework = $this->frameworkFor($gig);
 
         return DB::transaction(function () use ($student, $gig, $sprint, $framework) {
@@ -69,9 +65,13 @@ class ReflectionCreator
     }
 
     /**
+     * The gig and sprint a request names. Public because the policy needs
+     * the gig before create() runs, and a sprint-only request does not
+     * know it until this has looked.
+     *
      * @return array{Gig, Sprint|null}
      */
-    private function resolveContext(?string $gigId, ?string $sprintId): array
+    public function resolveContext(?string $gigId, ?string $sprintId): array
     {
         if ($gigId === null && $sprintId === null) {
             throw new ApiException(
