@@ -199,11 +199,13 @@ README.md                setup, connection details, the three tokens
 ### 4.4 Security and infrastructure
 
 - [x] Sanctum configuration and token handling
-- [~] Policies covering every permission-matrix row, resolved from `gig_participants`.
-      `GigPolicy`, `ReflectionPolicy`, `FrameworkPolicy` and `ExportPolicy` are in place;
-      the rows they do not cover belong to resources that do not exist yet
+- [x] Policies covering every permission-matrix row, resolved from `gig_participants`.
+      Single records through `GigPolicy`, `ReflectionPolicy`, `FrameworkPolicy` and
+      `ExportPolicy`; lists through named query scopes, per ADR #40. `./run one-rule` fails
+      on a 403 or 404 decided outside a policy (CAP-19)
 - [x] Evidence upload: type and size validation against framework policy, storage wiring
-- [~] Export pipeline: queued jobs, JSON, download authorisation. PDF still to come
+- [x] Export pipeline: queued jobs, JSON and PDF, download authorisation. PDF per ADR #39
+      (CAP-17)
 - [x] VPS access control, `.env.example`, nothing secret committed
 - [~] Security review on every PR touching scoring, submit, or framework mutation. Done
       once, on the backend PR, which touches all three: it found a counter-score accepted
