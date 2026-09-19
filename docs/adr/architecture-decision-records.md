@@ -49,7 +49,7 @@ Index
 #37 Demo reflections are a second seeder ......... Accepted
 #38 Jira is the truth about tickets .............. Accepted
 #39 PDF export renders with dompdf ............... Accepted
-#40 Policies for records, query scopes for lists .. Proposed
+#40 Policies for records, query scopes for lists .. Accepted
 
 ===============================================================
 
@@ -1911,7 +1911,7 @@ depend on a browser having been open at the time, and the record would not stand
 
 ADR #40: Policies decide single records, query scopes filter lists
 
-Status: Proposed
+Status: Accepted
 Date: 2026-09-19
 
 Context:
