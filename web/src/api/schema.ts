@@ -1582,7 +1582,10 @@ export interface operations {
                     /** @enum {string} */
                     kind: "link";
                     label: string;
-                    /** Format: uri */
+                    /**
+                     * Format: uri
+                     * @description An http or https link. Any other scheme is refused with 400 VALIDATION_FAILED.
+                     */
                     uri: string;
                 };
                 "multipart/form-data": {
@@ -1602,7 +1605,7 @@ export interface operations {
                     "application/json": components["schemas"]["Evidence"];
                 };
             };
-            /** @description FILE_TYPE_NOT_ACCEPTED or FILE_TOO_LARGE, per the rubric */
+            /** @description VALIDATION_FAILED for a malformed body or a link that is not http or https. FILE_TYPE_NOT_ACCEPTED or FILE_TOO_LARGE, per the rubric */
             400: {
                 headers: {
                     [name: string]: unknown;
