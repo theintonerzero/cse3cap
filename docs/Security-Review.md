@@ -53,7 +53,12 @@ rather than read wherever the answer could be tested:
 
 ### Findings
 
-#### F6 · dompdf's PDF JavaScript is on by default — Low
+#### F6 · dompdf's PDF JavaScript is on by default — Low. **Fixed 2026-09-19**
+
+> **Fixed in CAP-33, PR #48.** `PdfRenderer` sets `isJavascriptEnabled` to false, and
+> `api/tests/Feature/PdfRendererTest.php` feeds dompdf a raw `text/javascript` script and
+> asserts no `/JavaScript` action reaches the file. It was red against the default and is
+> green with the option off.
 
 `api/app/Exports/PdfRenderer.php` turns remote assets off, correctly, and leaves
 `isJavascriptEnabled` at dompdf's default of `true`. With it on, a
