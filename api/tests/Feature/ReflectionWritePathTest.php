@@ -111,6 +111,25 @@ class ReflectionWritePathTest extends TestCase
             ->assertStatus(404)->assertJsonPath('error.code', 'NOT_FOUND');
     }
 
+    /**
+     * The gig comes from the sprint before the policy sees it, so a
+     * sprint_id-only request has to be authorised against that gig too.
+     */
+    public function test_only_a_student_may_write_one_from_a_sprint_alone(): void
+    {
+        $sprint = $this->gig()->sprints()->orderBy('ordinal')->firstOrFail();
+
+        Sanctum::actingAs($this->user('Sam O'));
+        $this->postJson('/api/v1/reflections', ['sprint_id' => $sprint->id])
+            ->assertStatus(403)->assertJsonPath('error.code', 'ROLE_FORBIDDEN');
+
+        Sanctum::actingAs(User::create(['display_name' => 'Nobody']));
+        $this->postJson('/api/v1/reflections', ['sprint_id' => $sprint->id])
+            ->assertStatus(404)->assertJsonPath('error.code', 'NOT_FOUND');
+
+        $this->assertSame(0, Reflection::where('sprint_id', $sprint->id)->count());
+    }
+
     public function test_a_gig_with_no_rubric_cannot_be_reflected_on(): void
     {
         $gig = $this->gig();

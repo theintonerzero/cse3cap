@@ -57,6 +57,27 @@ check() {
     printf '  %sok%s     %-44s only in %s\n' "$green" "$off" "$what" "$home"
 }
 
+# absent <description> <extended-regex>
+#
+# For a rule whose one home is a directory rather than a file. Every hit in
+# api/app is a copy outside it.
+absent() {
+    local what="$1" pattern="$2"
+    local hits
+
+    hits="$(grep -rnE -- "$pattern" api/app 2>/dev/null)"
+
+    if [ -n "$hits" ]; then
+        printf '  %sFAIL%s   %-44s decided outside api/app/Policies:\n' "$red" "$off" "$what"
+        printf '%s\n' "$hits" | sed 's/^/           /'
+        printf '           %sput it in a policy method and call Gate::authorize%s\n' "$dim" "$off"
+        fail=$((fail + 1))
+        return
+    fi
+
+    printf '  %sok%s     %-44s only in api/app/Policies\n' "$green" "$off" "$what"
+}
+
 check "the reviewer roles" \
       "api/app/Services/RoleResolver.php" \
       "'assessor', 'supervisor', 'employer'"
@@ -64,6 +85,14 @@ check "the reviewer roles" \
 check "the reflections-you-review join" \
       "api/app/Models/Reflection.php" \
       "whereColumn('gig_participants.gig_id'"
+
+# CAP-19: "authorisation lives in api/app/Policies/ and nowhere else". The
+# audit found the create-reflection role check as abort_if(403) in
+# ReflectionCreator and the export ownership check as abort(404) in
+# ExportController. A 403 or 404 decided by hand is authorisation that
+# skipped the policy.
+absent "a 403 or 404 decided by abort()" \
+       "abort(_if|_unless)?\(.*\b40[34]\b"
 
 printf '\n'
 if [ "$fail" -gt 0 ]; then

@@ -53,11 +53,14 @@ class ReflectionController extends Controller
 
     public function store(StoreReflectionRequest $request): JsonResponse
     {
-        $reflection = $this->creator->create(
-            $request->user(),
+        [$gig, $sprint] = $this->creator->resolveContext(
             $request->validated('gig_id'),
             $request->validated('sprint_id'),
         );
+
+        Gate::authorize('createReflection', $gig);
+
+        $reflection = $this->creator->create($request->user(), $gig, $sprint);
 
         return (new ReflectionDetailResource($this->loadDetail($reflection)))
             ->response()->setStatusCode(201);

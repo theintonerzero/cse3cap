@@ -79,4 +79,44 @@ class GigPolicyTest extends TestCase
         $this->assertTrue($response->denied());
         $this->assertSame(404, $response->status());
     }
+
+    /**
+     * The matrix row "create own reflection": student only. Jane is a
+     * student on both gigs, so she may write on either.
+     */
+    public function test_a_student_may_create_a_reflection_on_their_gig(): void
+    {
+        foreach (['Develop AI use cases', 'Data migration audit'] as $title) {
+            $this->assertTrue(
+                Gate::forUser($this->user('Jane N'))->allows('createReflection', $this->gig($title)),
+                "Jane is a student on {$title}",
+            );
+        }
+    }
+
+    /**
+     * Every other role on the gig can see it, so the denial is forbidden
+     * rather than not-found. An assessor has no reflection of their own to
+     * write.
+     */
+    public function test_every_other_role_on_the_gig_is_forbidden_from_creating_one(): void
+    {
+        $gig = $this->gig('Develop AI use cases');
+
+        foreach (['Sam O' => 'assessor', 'Dr Lee' => 'supervisor'] as $name => $role) {
+            $response = Gate::forUser($this->user($name))->inspect('createReflection', $gig);
+
+            $this->assertTrue($response->denied(), "a {$role} must not create a reflection");
+            $this->assertNotSame(404, $response->status(), "a {$role} can see the gig, so this is a 403");
+        }
+    }
+
+    public function test_a_non_participant_creating_one_gets_not_found(): void
+    {
+        $response = Gate::forUser($this->user('Sam O'))
+            ->inspect('createReflection', $this->gig('Data migration audit'));
+
+        $this->assertTrue($response->denied());
+        $this->assertSame(404, $response->status());
+    }
 }
