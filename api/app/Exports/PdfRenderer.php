@@ -24,8 +24,23 @@ class PdfRenderer
      */
     public function render(array $payload): string
     {
+        return $this->fromHtml(view('exports.pdf', $payload)->render());
+    }
+
+    /**
+     * Public so the renderer's own settings can be tested with raw HTML,
+     * which no template can produce: they escape everything.
+     */
+    public function fromHtml(string $html): string
+    {
         $options = new Options;
         $options->set('isRemoteEnabled', false);
+        // Off, not dompdf's default. A <script type="text/javascript"> in the
+        // HTML would otherwise be embedded as document JavaScript that some
+        // readers run on open. The templates escape everything, so this is
+        // the second layer, for the day one of them does not. See F6 in
+        // docs/Security-Review.md.
+        $options->set('isJavascriptEnabled', false);
         $options->set('isHtml5ParserEnabled', true);
         $options->set('defaultFont', 'DejaVu Sans');
 
@@ -41,7 +56,7 @@ class PdfRenderer
 
         $dompdf = new Dompdf($options);
         $dompdf->setPaper('A4', 'portrait');
-        $dompdf->loadHtml(view('exports.pdf', $payload)->render());
+        $dompdf->loadHtml($html);
         $dompdf->render();
 
         return $dompdf->output();
