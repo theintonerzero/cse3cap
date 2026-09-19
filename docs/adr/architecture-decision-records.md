@@ -49,6 +49,7 @@ Index
 #37 Demo reflections are a second seeder ......... Accepted
 #38 Jira is the truth about tickets .............. Accepted
 #39 PDF export renders with dompdf ............... Accepted
+#40 Policies for records, query scopes for lists .. Proposed
 
 ===============================================================
 
@@ -1906,3 +1907,106 @@ template.
 
 A PNG of the chart posted by the client with the export request. Rejected: the export would
 depend on a browser having been open at the time, and the record would not stand alone.
+
+
+ADR #40: Policies decide single records, query scopes filter lists
+
+Status: Proposed
+Date: 2026-09-19
+
+Context:
+CAP-19 has two acceptance criteria that pull against each other once lists are involved.
+"Every row of the permission matrix has a policy method behind it." And "authorisation
+lives in api/app/Policies/ and nowhere else."
+
+A Laravel policy answers yes or no about one model: may this user view this reflection.
+It cannot answer "which reflections may this user see", because that is a filter over a
+table, not a verdict on a row. The endpoints that return lists already answer it in the
+query, which is the only place it can be answered without loading every row and throwing
+most of them away.
+
+What that looks like today, at dev e21ba21:
+
+- GET /reflections uses Reflection::scopeVisibleTo. Own reflections, plus those on gigs
+  where the caller holds a reviewer role.
+- GET /review-queue uses Reflection::scopeReviewableBy, then narrows to submitted work
+  that still lacks the caller's own score.
+- GET /gigs keeps gigs the caller participates in.
+- GET /exports keeps the caller's own rows.
+- The four analytics endpoints under /me filter the views by the caller's own user id,
+  radar and progress in raw SQL, calibration and coverage through the query builder. Each
+  reads the caller's own record and nothing else.
+
+Two of these share a join, and scripts/check-one-rule.sh already holds that join to one
+home in the Reflection model. Every single-record endpoint goes through a policy. The two
+that did not were fixed in CAP-19's own branch: creating a reflection (GigPolicy) and
+exporting a named one (ReflectionPolicy). The same branch made one-rule fail on any 403
+or 404 decided by abort() outside the policies.
+
+What is left is a question of reading, not of code. Does filtering a list in a query count
+as authorisation living in the policies, or does every list need a policy method of its
+own?
+
+Decision:
+Authorisation has two forms here, and each has one home.
+
+A decision about one record is a policy method in api/app/Policies, called through
+Gate::authorize. Not a controller check, not a service check, not an abort().
+
+A filter over a list is a named query scope on the model. The scope is the authorisation,
+and a controller that lists a resource the matrix restricts must go through its scope
+rather than writing its own where clause. The analytics endpoints are the exception in
+form, not in substance: they filter by the caller's own id in SQL because they read the
+views directly, which CLAUDE.md requires of analytics controllers.
+
+Read that way, CAP-19's "authorisation lives in Policies and nowhere else" holds for single
+records, and the matrix's list-shaped rows (view a reflection, review queue, analytics and
+export as "own record") are met by the scopes above.
+
+GET /frameworks is unfiltered and stays so. Every authenticated user can list every
+framework, templates and supervisors' copies alike. The matrix has no row for reading a
+framework, a rubric is not personal data, and a student has to see the one they are scored
+against. Editing is where the matrix draws its line, and FrameworkPolicy holds that.
+
+Consequences:
+Positive:
+The rule is one a reviewer can check. A policy for every single-record decision, a named
+scope for every restricted list, and one-rule failing on the hand-written kind. CAP-19 can
+be closed against written text rather than a judgement call made at a standup and
+forgotten.
+
+Nothing has to be built to comply. The scopes exist, they are tested through their
+endpoints, and the list endpoints already use them.
+
+Negative:
+Authorisation now has two homes, not one. Policies/ is no longer the complete answer to
+"who can see what", and someone reading only that directory will miss the list half. The
+comment at the top of each scope has to say so, and a new list endpoint has to be written
+knowing it.
+
+Nothing enforces the scope half the way one-rule enforces the policy half. A controller
+that lists reflections with its own where('user_id', ...) instead of visibleTo would pass
+every check this project runs. The feature tests catch it only if someone writes the
+negative case for that endpoint, which is what CAP-19's per-row tests were for.
+
+The analytics exception is real. Four endpoints filter the views by the caller's user id,
+and the only thing that makes them safe is that each one does. A fifth that forgot would
+return someone else's record.
+
+Alternatives:
+A viewAny-style policy method in front of every list. The textbook Laravel answer, and it
+would make Policies/ look complete. Rejected because it decides nothing here. Every
+authenticated user may call every list endpoint, so each method would return true, and the
+filtering would still live in the query. It adds a gate that cannot fail in front of the
+thing that actually decides.
+
+Move the filtering into the policies, as methods that return a query. It would put
+everything in one directory. Rejected because a policy that returns a builder is not a
+policy any more, Laravel's Gate cannot call it, and every controller would have to know to
+fetch the scope from the policy class rather than the model. That makes the code less
+ordinary for the sake of a directory listing.
+
+Leave CAP-19 open until someone decides. Rejected because the code is finished and the
+only thing missing is a sentence about how to read the criterion. A ticket that stays In
+Review for want of a sentence is the board saying something false.
+
