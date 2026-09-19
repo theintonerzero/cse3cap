@@ -68,7 +68,13 @@ that. So this is defence in depth, one line, and it removes the consequence of t
 $options->set('isJavascriptEnabled', false);
 ```
 
-#### F7 · The evidence link allowlist is Laravel's, not ours — Low
+#### F7 · The evidence link allowlist is Laravel's, not ours — Low. **Fixed 2026-09-19**
+
+> **Fixed in CAP-34, PR #49.** The rule is `url:http,https`, and the contract says so.
+> `ReflectionWritePathTest::test_an_evidence_link_must_be_http_or_https` refuses
+> `javascript:`, `data:` and `ftp://` with a 400. It was red before the change, and the
+> scheme that got through was `ftp://`, which Laravel's default list accepts. The `rel`
+> on the rendered link is still CAP-11's, and is noted on that ticket.
 
 `StoreEvidenceRequest` validates `uri` with the bare `url` rule. That rejects `javascript:`
 today because Laravel's built-in protocol list does not include it, which is a property of
