@@ -10,6 +10,150 @@ fixes what it finds leaves no record that the class of problem existed.
 
 ---
 
+## 2026-09-19 · The merged screens and the PDF export
+
+**Reviewer:** Tony To · **Ticket:** CAP-24 · **Commit reviewed:** `c661b5c`
+
+### Scope
+
+Since the token review, five screens and a new server-side renderer have merged: the app
+shell (CAP-5, #30), diary home (CAP-7, #32), gig detail (CAP-8, #43), the export sheet
+(CAP-18, #45) and select framework (CAP-15, #46), plus the PDF export (CAP-17, #44). CAP-13
+and CAP-16 have not started, so this is still not the whole of CAP-24, but it is most of
+the frontend the ticket will ever cover, and the PDF export is a surface the ticket did not
+anticipate.
+
+| Criterion | State |
+| --- | --- |
+| Token storage and exposure | Re-checked against the five screens. Holds |
+| Narrative, comment and evidence text rendered without injection | **PDF export: reviewed and tested.** Screens: none of the merged ones render that text; still deferred to CAP-11 and CAP-13 |
+| No client-side role trust | Reviewed across all five screens and the shell. Holds |
+| Findings raised as tickets, sign-off recorded | F6 to F8 below; this entry |
+
+### Method
+
+Read every file under `web/src/screens/`, `web/src/session/` and `web/src/app/`, the two
+export templates, `PdfRenderer`, `BuildExport` and the evidence write path. Then tested
+rather than read wherever the answer could be tested:
+
+- **The PDF templates were rendered with hostile text in every person-typed field** — gig
+  title, framework name, competency name, narrative, evidence label and link, scorer name,
+  comment, radar axis label — each carrying a `<script>`, an `<img onerror>` and a
+  `javascript:` anchor. No markup survived, all of it arrived as escaped text, and the
+  rendered PDF carries no `/JavaScript` or `/URI` action. That probe is now
+  `api/tests/Feature/ExportRenderingTest.php`. It was confirmed to fail when the narrative
+  line is switched to `{!! !!}`: two of its three tests go red, and the PDF test catches it
+  independently because the injected anchor becomes a live `/URI` link in the file.
+- **The evidence link validation was fed dangerous schemes.** `javascript:alert(1)`,
+  `javascript://%0aalert(1)`, `data:text/html,…`, `vbscript://` and `file:///` are all
+  rejected by `StoreEvidenceRequest`; `https://` is accepted. See F7 for why that is less
+  settled than it looks.
+- **`./run bundle-secrets` re-run at `c661b5c`**, now that four screens import `api`
+  rather than the one that triggered F1. Passes.
+
+### Findings
+
+#### F6 · dompdf's PDF JavaScript is on by default — Low
+
+`api/app/Exports/PdfRenderer.php` turns remote assets off, correctly, and leaves
+`isJavascriptEnabled` at dompdf's default of `true`. With it on, a
+`<script type="text/javascript">` element in the rendered HTML is embedded in the PDF as
+document JavaScript, which some readers execute on open.
+
+It is not reachable today: every value in both templates is escaped, and the new test holds
+that. So this is defence in depth, one line, and it removes the consequence of the one
+`{!! !!}` someone eventually adds to keep a narrative's line breaks:
+
+```php
+$options->set('isJavascriptEnabled', false);
+```
+
+#### F7 · The evidence link allowlist is Laravel's, not ours — Low
+
+`StoreEvidenceRequest` validates `uri` with the bare `url` rule. That rejects `javascript:`
+today because Laravel's built-in protocol list does not include it, which is a property of
+the framework version rather than a decision this codebase made. CAP-11 and CAP-13 will
+render that value as a link, and a `javascript:` href on a student's evidence, opened by an
+assessor, is stored XSS against the assessor's token.
+
+React 19 refuses `javascript:` URLs in `href`, so there are two layers, and neither is
+ours. Make it explicit:
+
+```php
+'uri' => ['required_if:kind,link', 'nullable', 'url:http,https', 'max:2048'],
+```
+
+with a feature test that posts `javascript:alert(1)` and expects a 400. Whoever builds the
+evidence link in CAP-11 should also render it with `rel="noopener noreferrer"`.
+
+#### F8 · Evidence files: any type, and no rule yet for serving them — Low today, High the day a download lands
+
+`EvidenceController::storeFile` accepts any extension when the rubric's
+`accepted_file_types` is null, which it is for the seeded rubrics, so an `.html` or `.svg`
+upload is stored. That is harmless now for one reason only: **no endpoint serves an evidence
+file.** They sit on the private `local` disk under a random name and nothing reads them
+back.
+
+The first endpoint that does — CAP-11 or CAP-13 showing an assessor the student's file is
+the obvious candidate — turns a stored `.html` or `.svg` into script running on the API
+origin, if it is served inline with its own content type. So this is a condition on that
+ticket rather than a defect now: the download must send
+`Content-Disposition: attachment`, `X-Content-Type-Options: nosniff`, and a
+`Content-Type` decided by the server rather than taken from the upload.
+
+Related and minor: `BuildExport` puts a file's storage path
+(`evidence/<entry-id>/<random>.pdf`) into the student's PDF as its "uri". That is not a
+secret, but it means nothing to a reader and exposes the disk layout. The label and size
+would serve the reader better.
+
+### What is already right
+
+- **Every piece of person-typed text in the PDF is escaped**, in both the page and the SVG
+  radar, and a test now holds it. Remote assets are off, so a crafted value cannot make the
+  renderer fetch anything, and dompdf's PHP evaluation is off by default and not enabled.
+- **No unsafe rendering sink in `web/src`.** Still no `dangerouslySetInnerHTML`,
+  `innerHTML`, `eval` or `new Function`. The text the screens render — gig titles, display
+  names, framework names, competency labels in the radar — all goes through JSX, which
+  escapes it.
+- **Every link is built from server-issued UUIDs**, never from free text:
+  `/gigs/${gig.id}`, `/reflections/${row.id}`, `/frameworks/${framework.id}/edit`. The one
+  value read from the URL, `?gig_id=` and `?sprint_id=` on the diary home, is only ever
+  matched against the user's own gigs and dropped if it does not match
+  (`diary-scope.ts`'s `scope_from_params`).
+- **The export download keeps the token out of the URL.** `ExportSheet` fetches the file
+  through `api.blob` with the `Authorization` header and hands the browser an object URL.
+  The download name comes from the server's id, not from anything a person typed, and the
+  API sends it as an attachment with a fixed content type.
+- **No client-side role trust.** Four places read a role and all four are conveniences with
+  the server behind them:
+
+  | Client | Decides | Server enforcement |
+  | --- | --- | --- |
+  | `AppShell` `nav_items_for` | which nav items show | every route stays reachable by URL, by design |
+  | `framework-groups.ts` `assignable_gigs` | which gigs the assign picker lists | `GigPolicy::assignFramework`, 404 off the gig, 403 for the wrong role |
+  | `framework-groups.ts` `is_editable` | whether Edit shows | `FrameworkEditing`, 409 `FRAMEWORK_IN_USE` |
+  | `GigDetail` `is_student` | sprint rows or calendar | `GET /reflections` applies `Reflection::visibleTo($user)` before any filter |
+
+  Every one of those roles is the `my_role` or `participations` that `/auth/me` and
+  `/gigs/{id}` resolve through `RoleResolver`. Nothing reads the token slot labels in
+  `session/tokens.ts` as roles, and the file says in capitals that nothing may.
+- **Tokens are in `sessionStorage`, per tab**, and a 401 empties the slot rather than just
+  deselecting it. No `console` call anywhere in `web/src`. `localStorage` still holds only
+  the theme.
+
+### Sign-off
+
+The token and role-trust criteria are reviewed against everything built so far and hold.
+The injection criterion is reviewed for the PDF export and held by a test. It is **not**
+reviewed for the screens that will render narratives, comments and evidence, because those
+are CAP-11 and CAP-13 and neither exists. F7 and F8 are written for exactly those two
+tickets, and they are cheaper to act on before the screens are built than after.
+
+CAP-24 stays open. What remains is CAP-11, CAP-13 and CAP-16 once they land, plus F6 to F8
+raised as tickets.
+
+---
+
 ## 2026-09-08 · Token handling across the frontend and the API seam
 
 **Reviewer:** Tony To · **Ticket:** CAP-24 · **Commit reviewed:** `4a60b2c`, plus PR #19
