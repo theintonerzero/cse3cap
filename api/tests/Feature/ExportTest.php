@@ -10,6 +10,7 @@ use App\Models\Reflection;
 use App\Models\User;
 use Database\Seeders\DemoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
@@ -372,6 +373,24 @@ class ExportTest extends TestCase
         $this->postJson('/api/v1/exports', ['format' => 'json', 'reflection_id' => Str::uuid()->toString()])
             ->assertStatus(404)
             ->assertJsonPath('error.code', 'NOT_FOUND');
+    }
+
+    /**
+     * The matrix row "analytics + export: own record", held by a policy
+     * rather than a check in the controller. Every non-owner is not-found,
+     * including an assessor who may view the reflection: exporting it is
+     * taking the student's record away, which is the student's alone.
+     */
+    public function test_exporting_a_reflection_is_its_owners_alone(): void
+    {
+        $reflection = $this->assessedReflection();
+
+        $this->assertTrue(Gate::forUser($this->user('Jane N'))->allows('export', $reflection));
+
+        $response = Gate::forUser($this->user('Sam O'))->inspect('export', $reflection);
+        $this->assertTrue(Gate::forUser($this->user('Sam O'))->allows('view', $reflection), 'Sam can see it');
+        $this->assertTrue($response->denied(), 'but may not export it');
+        $this->assertSame(404, $response->status());
     }
 
     public function test_the_pdf_radar_draws_only_the_score_classes_that_exist(): void

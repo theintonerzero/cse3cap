@@ -107,4 +107,20 @@ class ReflectionPolicy
     {
         return $this->update($user, $reflection);
     }
+
+    /**
+     * Exporting one reflection on its own. The matrix gives export to "own
+     * record" for every role, so this is the owner and nobody else.
+     *
+     * Not-found for everyone else, including a reviewer who may view it.
+     * Exporting is taking the record away, which is the student's alone,
+     * and a made-up id gets the same answer, so the endpoint does not say
+     * which ids exist.
+     */
+    public function export(User $user, Reflection $reflection): Response
+    {
+        return $reflection->user_id === $user->id
+            ? Response::allow()
+            : Response::denyAsNotFound();
+    }
 }

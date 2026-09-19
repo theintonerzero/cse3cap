@@ -26,14 +26,9 @@ class ExportController extends Controller
         $reflectionId = $request->validated('reflection_id');
 
         // Null means the whole record. A named reflection has to be the
-        // caller's own, and saying "not found" rather than "not yours"
-        // keeps the two indistinguishable.
+        // caller's own; ReflectionPolicy::export decides that.
         if ($reflectionId !== null) {
-            $reflection = Reflection::findOrFail($reflectionId);
-
-            if ($reflection->user_id !== $request->user()->id) {
-                abort(404);
-            }
+            Gate::authorize('export', Reflection::findOrFail($reflectionId));
         }
 
         $export = Export::create([
