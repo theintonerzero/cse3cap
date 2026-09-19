@@ -25,7 +25,9 @@ class StoreEvidenceRequest extends FormRequest
         return [
             'kind' => ['required_without:file', 'in:link'],
             'label' => ['required', 'string', 'max:255'],
-            'uri' => ['required_if:kind,link', 'nullable', 'url', 'max:2048'],
+            // Web schemes only, by our list rather than Laravel's default:
+            // an assessor clicks this. F7 in docs/Security-Review.md.
+            'uri' => ['required_if:kind,link', 'nullable', 'url:http,https', 'max:2048'],
             'file' => ['required_without:kind', 'file'],
         ];
     }

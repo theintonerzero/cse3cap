@@ -282,6 +282,35 @@ class ReflectionWritePathTest extends TestCase
         ])->assertStatus(400)->assertJsonPath('error.code', 'FILE_TOO_LARGE');
     }
 
+    /**
+     * An evidence link is rendered as a link an assessor clicks, so only
+     * web schemes are accepted, by our list rather than Laravel's default
+     * one. CAP-34, and F7 in docs/Security-Review.md.
+     */
+    public function test_an_evidence_link_must_be_http_or_https(): void
+    {
+        $reflection = $this->draftForJane();
+        $entry = $reflection->entries()->firstOrFail();
+
+        foreach ([
+            'javascript:alert(1)',
+            'data:text/html,<script>alert(1)</script>',
+            'ftp://example.org/notes.txt',
+        ] as $uri) {
+            $this->postJson("/api/v1/entries/{$entry->id}/evidence", [
+                'kind' => 'link', 'label' => 'A link', 'uri' => $uri,
+            ])->assertStatus(400)
+                ->assertJsonPath('error.code', 'VALIDATION_FAILED')
+                ->assertJsonStructure(['error' => ['details' => ['uri']]]);
+        }
+
+        $this->postJson("/api/v1/entries/{$entry->id}/evidence", [
+            'kind' => 'link', 'label' => 'A link', 'uri' => 'http://example.org/x',
+        ])->assertStatus(201);
+
+        $this->assertSame(1, $entry->evidence()->count());
+    }
+
     public function test_evidence_can_be_removed_while_the_reflection_is_a_draft(): void
     {
         $reflection = $this->draftForJane();
