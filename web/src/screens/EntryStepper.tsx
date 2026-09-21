@@ -58,6 +58,14 @@ function as_api_error(error: unknown, fallback: string): ApiError {
   return error instanceof ApiError ? error : new ApiError(0, null, fallback);
 }
 
+// Defence in depth: StoreEvidenceRequest already enforces `url:http,https`
+// server-side on the only path that creates a `link` evidence row (CAP-34,
+// closing F7 in docs/Security-Review.md). This render-time check means a
+// `link` item that somehow carries a non-http(s) uri -- a seed, a bulk
+// import, a future bug -- still renders as plain text here rather than a
+// clickable href, instead of trusting that guarantee unconditionally.
+const HREF_SCHEME = /^https?:\/\//i;
+
 export function EntryStepper() {
   const { reflection_id } = useParams<{ reflection_id: string }>();
   const navigate = useNavigate();
@@ -396,7 +404,7 @@ function EvidenceList({
         <ul className={styles.evidence_list}>
           {entry.evidence.map((item) => (
             <li key={item.id} className={styles.evidence_row}>
-              {item.kind === 'link' ? (
+              {item.kind === 'link' && HREF_SCHEME.test(item.uri) ? (
                 <a href={item.uri} target="_blank" rel="noopener noreferrer">
                   {item.label}
                 </a>

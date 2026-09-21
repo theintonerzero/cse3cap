@@ -75,6 +75,25 @@
   color: var(--color-danger);
 }
 
+.levels {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.evidence {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.evidence_add {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  margin-top: var(--space-8);
+}
+
 .level_row {
   display: flex;
   flex-wrap: wrap;
