@@ -42,7 +42,10 @@ import {
 } from '../components/index.ts';
 import {
   accepted_types_hint,
+  counter_scores_of,
+  first_offending_index,
   format_bytes,
+  is_offending,
   levels_for,
   self_score_of,
 } from './entry-stepper-logic.ts';
@@ -69,13 +72,12 @@ const HREF_SCHEME = /^https?:\/\//i;
 export function EntryStepper() {
   const { reflection_id } = useParams<{ reflection_id: string }>();
   const navigate = useNavigate();
-  // Not read yet: Task 4's submit flow navigates to the confirmation screen
-  // with it. Declared here so this task's own tree matches the brief;
-  // `noUnusedLocals` otherwise fails the build on a variable with no reader.
-  void navigate;
   const [load, setLoad] = useState<Load>({ status: 'loading' });
   const [reload_key, setReloadKey] = useState(0);
   const [step, setStep] = useState(0);
+  const [offending, setOffending] = useState<readonly string[] | null>(null);
+  const [submit_error, setSubmitError] = useState<ApiError | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!reflection_id) return;
@@ -124,6 +126,30 @@ export function EntryStepper() {
       };
     });
   }, []);
+
+  const submit = useCallback(async () => {
+    if (!reflection_id || load.status !== 'loaded') return;
+    setSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      await api.post('/reflections/{reflection_id}/submit', { path: { reflection_id } });
+      navigate(`/reflections/${reflection_id}/submitted`);
+    } catch (error) {
+      const api_error = as_api_error(error, 'Could not submit this reflection.');
+      setSubmitError(api_error);
+
+      const raw_ids = api_error.details.entry_ids;
+      if (Array.isArray(raw_ids)) {
+        const ids = raw_ids.filter((id): id is string => typeof id === 'string');
+        setOffending(ids);
+        const index = first_offending_index(load.reflection.entries, ids);
+        if (index !== null) setStep(index);
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }, [reflection_id, navigate, load]);
 
   if (load.status === 'loading') {
     return (
@@ -182,8 +208,15 @@ export function EntryStepper() {
         entry={current}
         framework={load.framework}
         read_only={read_only}
+        offending={is_offending(current, offending)}
         on_change={update_entry}
       />
+
+      {submit_error && (
+        <p className={styles.submit_error} role="alert">
+          {submit_error.message}
+        </p>
+      )}
 
       <div className={styles.nav}>
         <Button
@@ -195,10 +228,16 @@ export function EntryStepper() {
           Back
         </Button>
 
-        {current_index < entries.length - 1 && (
+        {current_index < entries.length - 1 ? (
           <Button full_width={false} on_click={() => setStep((s) => s + 1)}>
             Next
           </Button>
+        ) : (
+          !read_only && (
+            <Button full_width={false} disabled={submitting} on_click={submit}>
+              {submitting ? 'Submitting…' : 'Submit'}
+            </Button>
+          )
         )}
       </div>
     </section>
@@ -226,11 +265,13 @@ function EntryCard({
   entry,
   framework,
   read_only,
+  offending = false,
   on_change,
 }: {
   entry: ReflectionEntry;
   framework: FrameworkDetail;
   read_only: boolean;
+  offending?: boolean;
   on_change: (next: ReflectionEntry) => void;
 }) {
   const [narrative_error, setNarrativeError] = useState<string | null>(null);
@@ -274,7 +315,7 @@ function EntryCard({
   );
 
   return (
-    <div className={styles.card}>
+    <div className={offending ? `${styles.card} ${styles.card_offending}` : styles.card}>
       <p className={styles.competency_name}>{entry.competency_name}</p>
 
       <TextArea
@@ -310,6 +351,13 @@ function EntryCard({
             {score_error}
           </p>
         )}
+        {read_only &&
+          counter_scores_of(entry).map((score) => (
+            <p key={score.id} className={styles.counter_score}>
+              {score.scorer?.display_name ?? 'Counter-score'}: level {score.level_value}
+              {score.comment && <> &mdash; &ldquo;{score.comment}&rdquo;</>}
+            </p>
+          ))}
       </div>
 
       <EvidenceList entry={entry} framework={framework} read_only={read_only} on_change={on_change} />

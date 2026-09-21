@@ -13,6 +13,12 @@ export type Level = components['schemas']['Level'];
 export type Evidence = components['schemas']['Evidence'];
 export type Score = components['schemas']['Score'];
 
+/** The richer shape a score actually has when it arrives embedded on an entry
+ *  (ReflectionEntry.scores), which carries `scorer` — the bare `Score` type
+ *  above does not, because it's also the response shape for endpoints that
+ *  return a score on its own (e.g. PUT .../scores/self). */
+export type ReflectionScore = ReflectionEntry['scores'][number];
+
 /**
  * The levels for one competency, in level_value order -- what the stepper
  * taps through. ReflectionEntry carries its own competency_name and
@@ -27,12 +33,12 @@ export function levels_for(framework: FrameworkDetail, competency_id: string): L
 }
 
 /** This entry's own score, if the student has set one yet. */
-export function self_score_of(entry: ReflectionEntry): Score | null {
+export function self_score_of(entry: ReflectionEntry): ReflectionScore | null {
   return entry.scores.find((score) => score.scorer_class === 'self') ?? null;
 }
 
 /** Every counter-score on this entry. Already oldest-first per the contract. */
-export function counter_scores_of(entry: ReflectionEntry): Score[] {
+export function counter_scores_of(entry: ReflectionEntry): ReflectionScore[] {
   return entry.scores.filter((score) => score.scorer_class === 'counter');
 }
 

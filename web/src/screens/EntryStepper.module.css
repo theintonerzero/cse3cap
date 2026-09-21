@@ -163,3 +163,21 @@
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
 }
+
+.card_offending {
+  border-color: var(--color-danger);
+  background: var(--color-danger-bg);
+}
+
+.submit_error {
+  margin: var(--space-16) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-danger);
+  text-align: right;
+}
+
+.counter_score {
+  margin: var(--space-8) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
