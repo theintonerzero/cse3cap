@@ -51,3 +51,96 @@
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
 }
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  padding: var(--space-16);
+  border: var(--border-width-sm) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.field_label {
+  margin: 0 0 var(--space-8);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.field_error {
+  margin: var(--space-4) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-danger);
+}
+
+.level_row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+}
+
+.evidence_list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  margin: 0 0 var(--space-8);
+  padding: 0;
+  list-style: none;
+}
+
+.evidence_row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  font-size: var(--font-size-sm);
+}
+
+.evidence_size {
+  color: var(--color-text-muted);
+}
+
+.evidence_actions {
+  display: flex;
+  gap: var(--space-8);
+}
+
+.evidence_form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+}
+
+.evidence_input {
+  flex: 1 1 12rem;
+  padding: var(--space-8);
+  border: var(--border-width-sm) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.file_button {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-8) var(--space-16);
+  border: var(--border-width-sm) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.file_input {
+  /* Visually hidden, not display:none -- a screen reader still needs it. */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.evidence_hint {
+  margin: var(--space-4) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
