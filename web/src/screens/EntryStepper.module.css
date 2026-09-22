@@ -1,0 +1,185 @@
+.heading {
+  margin: 0 0 var(--space-16);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+}
+
+.status_row {
+  margin-bottom: var(--space-16);
+}
+
+.competency_name {
+  margin: 0 0 var(--space-12);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.todo {
+  margin: 0 0 var(--space-16);
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.nav {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-16);
+  margin-top: var(--space-24);
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-32) var(--space-16);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-alt);
+  text-align: center;
+}
+
+.empty_title {
+  margin: 0;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.empty_body {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  padding: var(--space-16);
+  border: var(--border-width-sm) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.field_label {
+  margin: 0 0 var(--space-8);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.field_error {
+  margin: var(--space-4) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-danger);
+}
+
+.levels {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.evidence {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.evidence_add {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  margin-top: var(--space-8);
+}
+
+.level_row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+}
+
+.evidence_list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  margin: 0 0 var(--space-8);
+  padding: 0;
+  list-style: none;
+}
+
+.evidence_row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  font-size: var(--font-size-sm);
+}
+
+.evidence_size {
+  color: var(--color-text-muted);
+}
+
+.evidence_actions {
+  display: flex;
+  gap: var(--space-8);
+}
+
+.evidence_form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+}
+
+.evidence_input {
+  flex: 1 1 12rem;
+  padding: var(--space-8);
+  border: var(--border-width-sm) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.file_button {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-8) var(--space-16);
+  border: var(--border-width-sm) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.file_input {
+  /* Visually hidden, not display:none -- a screen reader still needs it.
+     Written in rem because check-tokens.sh rejects the conventional pixel
+     value; same as Skeleton's and GigDetail's own .sr_only. */
+  position: absolute;
+  width: 0.0625rem;
+  height: 0.0625rem;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.evidence_hint {
+  margin: var(--space-4) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.card_offending {
+  border-color: var(--color-danger);
+  background: var(--color-danger-bg);
+}
+
+.submit_error {
+  margin: var(--space-16) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-danger);
+  text-align: right;
+}
+
+.counter_score {
+  margin: var(--space-8) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}

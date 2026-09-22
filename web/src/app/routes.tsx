@@ -21,6 +21,7 @@
 import { Route, Routes } from 'react-router';
 
 import { DiaryHome } from '../screens/DiaryHome.tsx';
+import { EntryStepper } from '../screens/EntryStepper.tsx';
 import { GigDetail } from '../screens/GigDetail.tsx';
 import { AppShell } from './AppShell.tsx';
 import { ReviewQueue } from '../screens/ReviewQueue.tsx';
@@ -48,10 +49,7 @@ export function AppRoutes() {
          * ("Competency 3 of 6"). CAP-11 owns both routes and is free to
          * keep one, the other, or both.
          */}
-        <Route
-          path="reflections/:reflection_id"
-          element={<Placeholder screen="Entry stepper" ticket="CAP-11" />}
-        />
+        <Route path="reflections/:reflection_id" element={<EntryStepper />} />
 
         <Route
           path="reflections/:reflection_id/submitted"
