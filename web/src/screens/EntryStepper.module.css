@@ -150,10 +150,12 @@
 }
 
 .file_input {
-  /* Visually hidden, not display:none -- a screen reader still needs it. */
+  /* Visually hidden, not display:none -- a screen reader still needs it.
+     Written in rem because check-tokens.sh rejects the conventional pixel
+     value; same as Skeleton's and GigDetail's own .sr_only. */
   position: absolute;
-  width: 1px;
-  height: 1px;
+  width: 0.0625rem;
+  height: 0.0625rem;
   overflow: hidden;
   clip: rect(0 0 0 0);
 }

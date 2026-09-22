@@ -27,7 +27,9 @@ export type ReflectionScore = ReflectionEntry['scores'][number];
  * against a specific snapshotted version, never the framework "as it is now."
  */
 export function levels_for(framework: FrameworkDetail, competency_id: string): Level[] {
-  const competency = framework.competencies.find((candidate) => candidate.id === competency_id);
+  const competency = framework.competencies.find(
+    (candidate) => candidate.id === competency_id,
+  );
   if (!competency) return [];
   return [...competency.levels].sort((a, b) => a.level_value - b.level_value);
 }
@@ -61,7 +63,10 @@ export function first_offending_index(
 }
 
 /** Whether this one entry is named in a submit failure's entry_ids. */
-export function is_offending(entry: ReflectionEntry, entry_ids: readonly string[] | null): boolean {
+export function is_offending(
+  entry: ReflectionEntry,
+  entry_ids: readonly string[] | null,
+): boolean {
   return entry_ids !== null && entry_ids.includes(entry.id);
 }
 
@@ -73,7 +78,9 @@ export function format_bytes(bytes: number): string {
 }
 
 /** ".pdf, .png, .jpg" for the file input's accept attribute and the hint text. Null means no file restriction stated. */
-export function accepted_types_hint(accepted_file_types: readonly string[] | null): string | null {
+export function accepted_types_hint(
+  accepted_file_types: readonly string[] | null,
+): string | null {
   if (!accepted_file_types || accepted_file_types.length === 0) return null;
   return accepted_file_types.map((type) => `.${type}`).join(', ');
 }

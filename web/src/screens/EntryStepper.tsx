@@ -49,7 +49,11 @@ import {
   levels_for,
   self_score_of,
 } from './entry-stepper-logic.ts';
-import type { FrameworkDetail, ReflectionDetail, ReflectionEntry } from './entry-stepper-logic.ts';
+import type {
+  FrameworkDetail,
+  ReflectionDetail,
+  ReflectionEntry,
+} from './entry-stepper-logic.ts';
 import styles from './EntryStepper.module.css';
 
 type Load =
@@ -360,7 +364,12 @@ function EntryCard({
           ))}
       </div>
 
-      <EvidenceList entry={entry} framework={framework} read_only={read_only} on_change={on_change} />
+      <EvidenceList
+        entry={entry}
+        framework={framework}
+        read_only={read_only}
+        on_change={on_change}
+      />
     </div>
   );
 }
@@ -394,7 +403,10 @@ function EvidenceList({
       setError(null);
       try {
         await api.delete('/evidence/{evidence_id}', { path: { evidence_id } });
-        on_change({ ...entry, evidence: entry.evidence.filter((e) => e.id !== evidence_id) });
+        on_change({
+          ...entry,
+          evidence: entry.evidence.filter((e) => e.id !== evidence_id),
+        });
       } catch (deleteError) {
         setError(as_api_error(deleteError, 'Could not remove that.').message);
       }
@@ -460,10 +472,16 @@ function EvidenceList({
                 <span>{item.label}</span>
               )}
               {item.size_bytes !== null && (
-                <span className={styles.evidence_size}>{format_bytes(item.size_bytes)}</span>
+                <span className={styles.evidence_size}>
+                  {format_bytes(item.size_bytes)}
+                </span>
               )}
               {!read_only && (
-                <Button variant="secondary" full_width={false} on_click={() => remove(item.id)}>
+                <Button
+                  variant="secondary"
+                  full_width={false}
+                  on_click={() => remove(item.id)}
+                >
                   Remove
                 </Button>
               )}
@@ -494,7 +512,11 @@ function EvidenceList({
             </form>
           ) : (
             <div className={styles.evidence_actions}>
-              <Button variant="secondary" full_width={false} on_click={() => setAddingLink(true)}>
+              <Button
+                variant="secondary"
+                full_width={false}
+                on_click={() => setAddingLink(true)}
+              >
                 Add a link
               </Button>
               <label className={styles.file_button}>
