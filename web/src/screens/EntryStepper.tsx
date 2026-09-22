@@ -209,6 +209,7 @@ export function EntryStepper() {
       <ProgressBar current={current_index + 1} total={entries.length} label="Competency" />
 
       <EntryCard
+        key={current.id}
         entry={current}
         framework={load.framework}
         read_only={read_only}
@@ -287,18 +288,21 @@ function EntryCard({
     async (value: string) => {
       setNarrativeError(null);
       try {
-        const updated = await api.patch('/entries/{entry_id}', {
+        // The saved value is not echoed back into state: the TextArea's own
+        // onChange already wrote the student's keystrokes there as they
+        // typed, and that is authoritative. Echoing this response would
+        // revert an edit typed during this request's own round trip.
+        await api.patch('/entries/{entry_id}', {
           path: { entry_id: entry.id },
           body: { narrative: value },
         });
-        on_change({ ...entry, narrative: updated.narrative });
       } catch (error) {
         const api_error = as_api_error(error, 'Could not save that.');
         setNarrativeError(api_error.message);
         throw api_error; // TextArea's own status turns "failed" on a rejection.
       }
     },
-    [entry, on_change],
+    [entry.id],
   );
 
   const choose_level = useCallback(
@@ -496,12 +500,15 @@ function EvidenceList({
             <form className={styles.evidence_form} onSubmit={add_link}>
               <input
                 className={styles.evidence_input}
+                aria-label="Evidence label"
                 placeholder="Label"
                 value={label}
                 onChange={(event) => setLabel(event.target.value)}
               />
               <input
                 className={styles.evidence_input}
+                type="url"
+                aria-label="Link URL"
                 placeholder="https://..."
                 value={uri}
                 onChange={(event) => setUri(event.target.value)}
