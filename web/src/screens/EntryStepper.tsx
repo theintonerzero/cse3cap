@@ -351,6 +351,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
         on_change={update_entry}
         mode={mode}
         owner_name={reflection.owner.display_name}
+        viewer_id={me_id}
       >
         {mode === 'assessor' && me && (
           <CounterScorePanel
@@ -437,6 +438,7 @@ function EntryCard({
   on_change,
   mode,
   owner_name,
+  viewer_id = null,
   children,
 }: {
   entry: ReflectionEntry;
@@ -446,6 +448,8 @@ function EntryCard({
   on_change: (next: ReflectionEntry) => void;
   mode: StepperMode;
   owner_name: string;
+  /** Who is looking, so assessor mode can leave their own score to the panel. */
+  viewer_id?: string | null;
   /** The assessor's own score, last in the card so it reads after the evidence. */
   children?: ReactNode;
 }) {
@@ -531,12 +535,16 @@ function EntryCard({
           </p>
         )}
         {read_only &&
-          counter_scores_of(entry).map((score) => (
-            <p key={score.id} className={styles.counter_score}>
-              {score.scorer?.display_name ?? 'Counter-score'}: level {score.level_value}
-              {score.comment && <> &mdash; &ldquo;{score.comment}&rdquo;</>}
-            </p>
-          ))}
+          counter_scores_of(entry)
+            // In assessor mode the viewer's own score is shown by the panel
+            // as greyed chips, so it is not repeated here as a text line.
+            .filter((score) => mode !== 'assessor' || score.scorer?.id !== viewer_id)
+            .map((score) => (
+              <p key={score.id} className={styles.counter_score}>
+                {score.scorer?.display_name ?? 'Counter-score'}: level {score.level_value}
+                {score.comment && <> &mdash; &ldquo;{score.comment}&rdquo;</>}
+              </p>
+            ))}
       </div>
 
       <EvidenceList
@@ -847,6 +855,31 @@ function CounterScorePanel({
     <div className={styles.levels}>
       {mine ? (
         <>
+          {/* Presented exactly as the student's self-score row above: the
+              same chips, greyed, with the chosen level selected, and the
+              comment kept in its box, read-only. */}
+          <p className={styles.field_label}>Your score</p>
+          <div className={styles.level_row} role="group" aria-label="Your score">
+            {levels.map((level) => (
+              <Chip key={level.id} selected={mine.level_id === level.id} disabled>
+                {level.level_value} &middot; {level.descriptor}
+              </Chip>
+            ))}
+          </div>
+          {mine.comment && (
+            <div className={text_area_styles.field}>
+              <label className={text_area_styles.label} htmlFor={comment_id}>
+                Why this score
+              </label>
+              <textarea
+                id={comment_id}
+                className={text_area_styles.textarea}
+                value={mine.comment}
+                disabled
+                readOnly
+              />
+            </div>
+          )}
           <p className={styles.counter_score}>
             You scored this competency. A score, once given, stands.
           </p>
