@@ -18,7 +18,7 @@
  * Every route is reachable by URL regardless of what the nav shows. That is
  * on purpose. Hiding a nav item is a convenience; the 403 is the rule.
  */
-import { Route, Routes } from 'react-router';
+import { Navigate, Route, Routes } from 'react-router';
 
 import { DiaryHome } from '../screens/DiaryHome.tsx';
 import { EntryStepper } from '../screens/EntryStepper.tsx';
@@ -26,13 +26,31 @@ import { GigDetail } from '../screens/GigDetail.tsx';
 import { AppShell } from './AppShell.tsx';
 import { ReviewQueue } from '../screens/ReviewQueue.tsx';
 import { SelectFramework } from '../screens/SelectFramework.tsx';
+import { useSession } from '../session/useSession.ts';
 import { Placeholder } from './Placeholder.tsx';
+
+/**
+ * Where "/" lands. The diary is the student's own record, so someone who
+ * is not a student on any gig but reviews on one (an assessor, supervisor
+ * or employer) is sent to their review queue rather than an empty diary.
+ * Anyone who is a student anywhere keeps the diary. Only the landing page
+ * changes: the diary stays reachable by URL, and the server still decides
+ * what anyone may see.
+ */
+function Home() {
+  const { me } = useSession();
+  const roles = new Set(me?.participations.map((participation) => participation.role));
+  if (!roles.has('student') && roles.size > 0) {
+    return <Navigate to="/review-queue" replace />;
+  }
+  return <DiaryHome />;
+}
 
 export function AppRoutes() {
   return (
     <Routes>
       <Route element={<AppShell />}>
-        <Route index element={<DiaryHome />} />
+        <Route index element={<Home />} />
 
         <Route path="gigs/:gig_id" element={<GigDetail />} />
 
