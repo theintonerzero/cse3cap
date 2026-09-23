@@ -161,6 +161,12 @@ case "${1:-help}" in
     # kind === 'link', so a file or image item never gets a clickable URL.
     verify-entry-stepper) step ./scripts/verify-entry-stepper.sh ;;
 
+    # The same stepper in assessor mode (CAP-13): one component rather than
+    # two, reached from the review queue, POST and never PUT because there
+    # is no re-scoring (ADR #34), each error handled by its code, and the
+    # flip to assessed read from the response rather than made by the client.
+    verify-assessor-stepper) step ./scripts/verify-assessor-stepper.sh ;;
+
     # The gig detail screen's own invariants: the screen is mounted, its
     # diary card links into a scope the diary home actually reads back, it
     # ships four states, and the relative sprint wording is compiled and
@@ -298,6 +304,7 @@ ${BLUE}Alumable Reflection Diary${RESET}
   ${GREEN}./run verify-shell${RESET}  the app shell: token ownership, routes, /auth/me
   ${GREEN}./run verify-diary${RESET}  the diary home: mounted, linked, four states
   ${GREEN}./run verify-entry-stepper${RESET}  the entry stepper: mounted, four states, evidence-link security
+  ${GREEN}./run verify-assessor-stepper${RESET}  the assessor stepper: one component, POST only, errors by code
   ${GREEN}./run verify-gig${RESET}    the gig detail: mounted, linked, four states, dates
   ${GREEN}./run verify-frameworks${RESET}  the select framework screen: groups, in_use, the 409
   ${GREEN}./run swap${RESET}     the framework swap: SFIA against La Trobe, over HTTP
