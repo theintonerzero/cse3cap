@@ -117,6 +117,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
   // The flip itself is the server's (Scoring::flipIfComplete); this only
   // decides which notice to show.
   const [completed_here, setCompletedHere] = useState(false);
+  const [counter_saving, setCounterSaving] = useState(false);
   const heading = mode === 'assessor' ? 'Score reflection' : 'Reflection';
 
   useEffect(() => {
@@ -357,8 +358,10 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
             framework={load.framework}
             me={me}
             open={reflection.status === 'submitted'}
+            completed={completed_here}
             on_scored={record_counter_score}
             on_stale={refresh}
+            on_saving={setCounterSaving}
           />
         )}
       </EntryCard>
@@ -369,22 +372,32 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
         </p>
       )}
 
+      {/* Navigation waits for an in-flight counter-score: stepping away
+          would unmount the panel and lose the error it is about to show. */}
       <div className={styles.nav}>
         <Button
           variant="secondary"
           full_width={false}
-          disabled={current_index === 0}
+          disabled={current_index === 0 || counter_saving}
           on_click={() => setStep((s) => Math.max(0, s - 1))}
         >
           Back
         </Button>
 
         {current_index < entries.length - 1 ? (
-          <Button full_width={false} on_click={() => setStep((s) => s + 1)}>
+          <Button
+            full_width={false}
+            disabled={counter_saving}
+            on_click={() => setStep((s) => s + 1)}
+          >
             Next
           </Button>
         ) : mode === 'assessor' ? (
-          <Button full_width={false} on_click={() => navigate('/review-queue')}>
+          <Button
+            full_width={false}
+            disabled={counter_saving}
+            on_click={() => navigate('/review-queue')}
+          >
             Back to the queue
           </Button>
         ) : (
@@ -736,15 +749,21 @@ function CounterScorePanel({
   framework,
   me,
   open,
+  completed,
   on_scored,
   on_stale,
+  on_saving,
 }: {
   entry: ReflectionEntry;
   framework: FrameworkDetail;
   me: SessionUser;
   open: boolean;
+  /** This session's own save just flipped the reflection to assessed. */
+  completed: boolean;
   on_scored: (next: ReflectionEntry, status: ReflectionStatus, completed: boolean) => void;
   on_stale: () => void;
+  /** Tells the stepper a POST is in flight, so it can hold navigation. */
+  on_saving: (saving: boolean) => void;
 }) {
   const [level_id, setLevelId] = useState<string | null>(null);
   const [comment, setComment] = useState('');
@@ -773,6 +792,7 @@ function CounterScorePanel({
     event.preventDefault();
     if (!chosen) return;
     setSaving(true);
+    on_saving(true);
     setError(null);
 
     try {
@@ -813,17 +833,31 @@ function CounterScorePanel({
       }
     } finally {
       setSaving(false);
+      on_saving(false);
     }
   };
 
   const comment_id = `comment-${entry.id}`;
 
+  // Closed, not ours, nothing to say: render nothing at all, so the card's
+  // spacing is exactly the student view's rather than gaining an empty row.
+  if (!mine && !open && !error) return null;
+
   return (
     <div className={styles.levels}>
       {mine ? (
-        <p className={styles.counter_score}>
-          You scored this competency. A score, once given, stands.
-        </p>
+        <>
+          <p className={styles.counter_score}>
+            You scored this competency. A score, once given, stands.
+          </p>
+          {/* Said here as well as in the notice above the progress bar,
+              which is off-screen on a phone by the time Save is pressed. */}
+          {completed && (
+            <p className={styles.counter_score} role="status">
+              That was the last one, so the reflection is now assessed.
+            </p>
+          )}
+        </>
       ) : (
         open && (
           <form className={styles.levels} onSubmit={save}>
