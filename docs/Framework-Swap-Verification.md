@@ -125,7 +125,31 @@ on screen at once. The same component now also renders live in the diary home
 (`DiaryHome.tsx:317`), which passes `scale_min` and `scale_max` straight from `/me/radar`
 with nothing hardcoded.
 
+## The stepper
+
+![The entry stepper on an SFIA 9 reflection](cap-20-stepper-sfia.png)
+
+Taken 2026-09-23 from `localhost:5173/reflections/01a03737-637d-739e-b4ae-2f82bfcb6976`,
+Jane's sprint 2 reflection on the "Data migration audit" gig, against `dev` at `3c1c02e`
+(CAP-11 merged as #54). It is submitted, so it renders read-only; the chips are the same
+ones a draft taps through, disabled. No row was created or changed to take it.
+
+The competency is SFIA's `PROG`, "Programming / software development", and the chips run
+**1 · Follow** to **7 · Set strategy / inspire**: seven levels and SFIA's own descriptors,
+where a La Trobe reflection shows four. Next moves to "Competency 2 of 6", `DESN`, "Systems
+design", with its own seven chips. `EntryStepper.tsx` names none of this. The competency name
+comes from the reflection entry, and the levels from `GET /frameworks/{framework_id}` for the
+framework the reflection was snapshotted against (`levels_for` in
+`entry-stepper-logic.ts`), so the rubric reaches the stepper as data, the same way it
+reaches the radar.
+
+One qualification, which is finding 2 again. The descriptors are SFIA's generic levels of
+responsibility and read the same for every skill, because the seed gives every skill all
+seven levels. The stepper would show a narrower range for a skill that had one, since it
+renders whatever levels the payload carries for that competency. The seed just has no such
+skill to demonstrate it with.
+
 ## Still outstanding
 
-Nothing on the radar. The remaining criterion is the stepper half of "the stepper renders
-SFIA's competencies and descriptors", which cannot be met until CAP-11 exists.
+Nothing against the ticket. Findings 1 to 3 above stand, and are for a team decision and
+Alumable's SFIA mapping rather than for CAP-20.
