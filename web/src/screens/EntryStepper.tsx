@@ -24,6 +24,8 @@
  * reflects what the POST returns, including the flip to assessed, and
  * never triggers anything itself. It adds no styles of its own: every
  * class it uses already existed for CAP-11, so both modes look the same.
+ * The one visual difference is the assessor's chips, which use Chip's
+ * tone="counter" (the radar's counter-score green).
  *
  * Evidence files are never given a link here. The contract's
  * /evidence/{evidence_id} only deletes -- there is no endpoint that serves
@@ -59,16 +61,19 @@ import {
   comment_expected,
   counter_score_failure,
   counter_scores_of,
+  EMPTY_DRAFT,
   first_offending_index,
   first_unscored_index,
   format_bytes,
   is_offending,
   levels_for,
+  missing_before_save_all,
   my_counter_score_of,
   scored_by_count,
   self_score_of,
 } from './entry-stepper-logic.ts';
 import type {
+  CounterDraft,
   FrameworkDetail,
   ReflectionDetail,
   ReflectionEntry,
@@ -118,6 +123,13 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
   // decides which notice to show.
   const [completed_here, setCompletedHere] = useState(false);
   const [counter_saving, setCounterSaving] = useState(false);
+  const [saving_all, setSavingAll] = useState(false);
+  // The assessor's unsaved picks, per entry id (see CounterDraft). Held
+  // here, not in the panel, so skipping a step does not throw them away.
+  const [drafts, setDrafts] = useState<Record<string, CounterDraft>>({});
+  // Set once "Save all scores" has been pressed: from then the list of what
+  // is still missing shows, and stays current as the assessor fills it in.
+  const [save_all_tried, setSaveAllTried] = useState(false);
   const heading = mode === 'assessor' ? 'Score reflection' : 'Reflection';
 
   useEffect(() => {
@@ -214,6 +226,108 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
       .catch(() => undefined);
   }, [reflection_id]);
 
+  const update_draft = useCallback((entry_id: string, patch: Partial<CounterDraft>) => {
+    setDrafts((current) => ({
+      ...current,
+      [entry_id]: { ...(current[entry_id] ?? EMPTY_DRAFT), ...patch },
+    }));
+  }, []);
+
+  // One counter-score, POSTed. The single Save and "Save all scores" both
+  // come through here, so a score is sent from one place only. Resolves
+  // true when the server took it; on failure the message goes into that
+  // entry's draft, where the panel shows it.
+  const save_entry = async (
+    entry: ReflectionEntry,
+    draft: CounterDraft,
+  ): Promise<boolean> => {
+    if (!me || !draft.level_id) return false;
+    update_draft(entry.id, { error: null });
+
+    try {
+      const { reflection_status, completed_the_reflection, ...score } = await api.post(
+        '/entries/{entry_id}/scores',
+        {
+          path: { entry_id: entry.id },
+          body: {
+            level_id: draft.level_id,
+            comment: draft.comment.trim() !== '' ? draft.comment : null,
+          },
+        },
+      );
+      // The 201 is a bare Score; the entry's embedded scores also carry
+      // the scorer. It is the caller, so the session already knows who.
+      record_counter_score(
+        {
+          ...entry,
+          scores: [
+            ...entry.scores,
+            { ...score, scorer: { id: me.id, display_name: me.display_name } },
+          ],
+        },
+        reflection_status,
+        completed_the_reflection,
+      );
+      setDrafts((current) => {
+        const next = { ...current };
+        delete next[entry.id];
+        return next;
+      });
+      return true;
+    } catch (caught) {
+      const api_error = as_api_error(caught, 'Could not save that score.');
+      const failure = counter_score_failure(api_error.code);
+      update_draft(entry.id, {
+        error: api_error.message,
+        comment_forced: draft.comment_forced || failure === 'comment',
+      });
+      if (failure === 'closed' || failure === 'already_scored') refresh();
+      return false;
+    }
+  };
+
+  const save_one = async (entry: ReflectionEntry) => {
+    setCounterSaving(true);
+    try {
+      await save_entry(entry, drafts[entry.id] ?? EMPTY_DRAFT);
+    } finally {
+      setCounterSaving(false);
+    }
+  };
+
+  // "Save all scores": nothing is sent until every competency the caller
+  // has not scored has what it needs (missing_before_save_all). Then each
+  // is POSTed in rubric order, one at a time. The first failure stops the
+  // run on that competency, with its message. Scores already sent stay
+  // sent, because a score cannot be taken back (ADR #34).
+  const save_all = async () => {
+    if (load.status !== 'loaded' || !me) return;
+    const { reflection: current_reflection, framework } = load;
+    setSaveAllTried(true);
+    if (
+      missing_before_save_all(current_reflection.entries, framework, drafts, me.id).length >
+      0
+    ) {
+      return;
+    }
+
+    setCounterSaving(true);
+    setSavingAll(true);
+    try {
+      for (const [index, entry] of current_reflection.entries.entries()) {
+        if (my_counter_score_of(entry, me.id) !== null) continue;
+        const saved = await save_entry(entry, drafts[entry.id] ?? EMPTY_DRAFT);
+        if (!saved) {
+          setStep(index);
+          return;
+        }
+      }
+    } finally {
+      setCounterSaving(false);
+      setSavingAll(false);
+    }
+  };
+
   const submit = useCallback(async () => {
     if (!reflection_id || load.status !== 'loaded') return;
     setSubmitting(true);
@@ -282,6 +396,12 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
   const read_only = mode === 'assessor' || reflection.status !== 'draft';
   const current_index = Math.min(step, entries.length - 1);
   const current = entries[current_index];
+  const scoring_open = mode === 'assessor' && reflection.status === 'submitted';
+  const left_to_score = me_id ? entries.length - scored_by_count(entries, me_id) : 0;
+  const save_all_gaps =
+    scoring_open && save_all_tried && me_id
+      ? missing_before_save_all(entries, load.framework, drafts, me_id)
+      : [];
 
   return (
     <section>
@@ -360,9 +480,10 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
             me={me}
             open={reflection.status === 'submitted'}
             completed={completed_here}
-            on_scored={record_counter_score}
-            on_stale={refresh}
-            on_saving={setCounterSaving}
+            draft={drafts[current.id] ?? EMPTY_DRAFT}
+            saving={counter_saving}
+            on_draft={(patch) => update_draft(current.id, patch)}
+            on_save={() => void save_one(current)}
           />
         )}
       </EntryCard>
@@ -371,6 +492,42 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
         <p className={styles.submit_error} role="alert">
           {submit_error.message}
         </p>
+      )}
+
+      {/* What "Save all scores" is still waiting on, next to the button
+          that asked, in the screen's own notice block. It stays current as
+          the assessor fills things in, and disappears once nothing is
+          missing. */}
+      {save_all_gaps.length > 0 && (
+        <div className={styles.evidence_add}>
+          <div className={styles.empty} role="alert">
+            <p className={styles.empty_title}>Nearly there.</p>
+            <p className={styles.empty_body}>
+              {save_all_gaps.length === 1
+                ? 'Save all is waiting on one competency, so nothing was sent:'
+                : `Save all is waiting on ${save_all_gaps.length} competencies, so nothing was sent:`}
+            </p>
+            <ul className={styles.evidence_list}>
+              {save_all_gaps.map((gap) => (
+                <li key={gap.entry.id} className={styles.evidence_row}>
+                  <span>
+                    {gap.entry.competency_name} ({gap.index + 1} of {entries.length}){' '}
+                    {gap.needs === 'score'
+                      ? 'still needs a score.'
+                      : 'needs a comment to go with its score.'}
+                  </span>
+                  <Button
+                    variant="secondary"
+                    full_width={false}
+                    on_click={() => setStep(gap.index)}
+                  >
+                    Go to {gap.entry.competency_name}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
       )}
 
       {/* Navigation waits for an in-flight counter-score: stepping away
@@ -392,6 +549,14 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
             on_click={() => setStep((s) => s + 1)}
           >
             Next
+          </Button>
+        ) : scoring_open && left_to_score > 0 ? (
+          <Button
+            full_width={false}
+            disabled={counter_saving}
+            on_click={() => void save_all()}
+          >
+            {saving_all ? 'Saving all…' : 'Save all scores'}
           </Button>
         ) : mode === 'assessor' ? (
           <Button
@@ -740,17 +905,22 @@ function EvidenceList({
  *
  * POST, not PUT: a second attempt is an error, not an update, and there is
  * no way to change a score once given (ADR #34). So this renders one of
- * three things: the form, a note that the caller has already scored this
- * entry, or nothing when the reflection is not open for scoring. Any error
- * message shows under all three, because a 409 changes which of them is
- * showing and the reason must not disappear with the form.
+ * three things: the form, the caller's saved score (the same chips and
+ * text box, greyed, the way the student's self-score reads), or nothing
+ * when the reflection is not open for scoring.
+ *
+ * Controlled: the level, comment and last error live in the stepper's
+ * per-entry draft, so stepping away and back keeps them, and the stepper
+ * sends the score (save_entry) whether it came from this Save or from
+ * "Save all scores". Any error shows under all three states, because a 409
+ * changes which one is showing and the reason must not go with it.
  *
  * The comment hint (comment_expected) only disables the button early. The
  * rule is Scoring.php's, and a 400 COMMENT_REQUIRED marks the box required
  * whatever the hint said.
  *
- * Laid out like the self-score block above it, with the same classes, so
- * the card reads as one thing: what they said, then what you say.
+ * Chips use tone="counter", the radar's counter-score green, so the
+ * assessor's row reads apart from the student's purple one above it.
  */
 function CounterScorePanel({
   entry,
@@ -758,9 +928,10 @@ function CounterScorePanel({
   me,
   open,
   completed,
-  on_scored,
-  on_stale,
-  on_saving,
+  draft,
+  saving,
+  on_draft,
+  on_save,
 }: {
   entry: ReflectionEntry;
   framework: FrameworkDetail;
@@ -768,88 +939,31 @@ function CounterScorePanel({
   open: boolean;
   /** This session's own save just flipped the reflection to assessed. */
   completed: boolean;
-  on_scored: (next: ReflectionEntry, status: ReflectionStatus, completed: boolean) => void;
-  on_stale: () => void;
-  /** Tells the stepper a POST is in flight, so it can hold navigation. */
-  on_saving: (saving: boolean) => void;
+  draft: CounterDraft;
+  /** A counter-score is in flight, from this Save or from Save all. */
+  saving: boolean;
+  on_draft: (patch: Partial<CounterDraft>) => void;
+  on_save: () => void;
 }) {
-  const [level_id, setLevelId] = useState<string | null>(null);
-  const [comment, setComment] = useState('');
-  const [comment_forced, setCommentForced] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
   const levels = levels_for(framework, entry.competency_id);
   const self_score = self_score_of(entry);
   const mine = my_counter_score_of(entry, me.id);
-  const chosen = levels.find((level) => level.id === level_id) ?? null;
+  const chosen = levels.find((level) => level.id === draft.level_id) ?? null;
 
   const comment_required =
-    comment_forced ||
+    draft.comment_forced ||
     comment_expected(
       framework,
       self_score?.level_value ?? null,
       chosen?.level_value ?? null,
     );
-  const has_comment = comment.trim() !== '';
+  const has_comment = draft.comment.trim() !== '';
   const can_save = chosen !== null && !saving && (!comment_required || has_comment);
-
-  // A plain handler, not useCallback: nothing below memoises on it, and the
-  // React Compiler cannot preserve a manual memo over this many inputs.
-  const save = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!chosen) return;
-    setSaving(true);
-    on_saving(true);
-    setError(null);
-
-    try {
-      const { reflection_status, completed_the_reflection, ...score } = await api.post(
-        '/entries/{entry_id}/scores',
-        {
-          path: { entry_id: entry.id },
-          body: { level_id: chosen.id, comment: has_comment ? comment : null },
-        },
-      );
-      // The 201 is a bare Score; the entry's embedded scores also carry
-      // the scorer. It is the caller, so the session already knows who.
-      on_scored(
-        {
-          ...entry,
-          scores: [
-            ...entry.scores,
-            { ...score, scorer: { id: me.id, display_name: me.display_name } },
-          ],
-        },
-        reflection_status,
-        completed_the_reflection,
-      );
-    } catch (caught) {
-      const api_error = as_api_error(caught, 'Could not save that score.');
-      setError(api_error.message);
-
-      switch (counter_score_failure(api_error.code)) {
-        case 'comment':
-          setCommentForced(true);
-          break;
-        case 'closed':
-        case 'already_scored':
-          on_stale();
-          break;
-        case 'other':
-          break;
-      }
-    } finally {
-      setSaving(false);
-      on_saving(false);
-    }
-  };
-
   const comment_id = `comment-${entry.id}`;
 
   // Closed, not ours, nothing to say: render nothing at all, so the card's
   // spacing is exactly the student view's rather than gaining an empty row.
-  if (!mine && !open && !error) return null;
+  if (!mine && !open && !draft.error) return null;
 
   return (
     <div className={styles.levels}>
@@ -861,7 +975,12 @@ function CounterScorePanel({
           <p className={styles.field_label}>Your score</p>
           <div className={styles.level_row} role="group" aria-label="Your score">
             {levels.map((level) => (
-              <Chip key={level.id} selected={mine.level_id === level.id} disabled>
+              <Chip
+                key={level.id}
+                tone="counter"
+                selected={mine.level_id === level.id}
+                disabled
+              >
                 {level.level_value} &middot; {level.descriptor}
               </Chip>
             ))}
@@ -893,15 +1012,22 @@ function CounterScorePanel({
         </>
       ) : (
         open && (
-          <form className={styles.levels} onSubmit={save}>
+          <form
+            className={styles.levels}
+            onSubmit={(event: FormEvent) => {
+              event.preventDefault();
+              on_save();
+            }}
+          >
             <p className={styles.field_label}>Your score</p>
             <div className={styles.level_row} role="group" aria-label="Your score">
               {levels.map((level) => (
                 <Chip
                   key={level.id}
-                  selected={level_id === level.id}
+                  tone="counter"
+                  selected={draft.level_id === level.id}
                   disabled={saving}
-                  on_click={() => setLevelId(level.id)}
+                  on_click={() => on_draft({ level_id: level.id })}
                 >
                   {level.level_value} &middot; {level.descriptor}
                 </Chip>
@@ -916,10 +1042,10 @@ function CounterScorePanel({
                 id={comment_id}
                 className={text_area_styles.textarea}
                 maxLength={4000}
-                value={comment}
+                value={draft.comment}
                 aria-required={comment_required}
                 disabled={saving}
-                onChange={(event) => setComment(event.target.value)}
+                onChange={(event) => on_draft({ comment: event.target.value })}
               />
             </div>
 
@@ -932,9 +1058,9 @@ function CounterScorePanel({
         )
       )}
 
-      {error && (
+      {draft.error && (
         <p className={styles.field_error} role="alert">
-          {error}
+          {draft.error}
         </p>
       )}
     </div>

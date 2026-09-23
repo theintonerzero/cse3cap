@@ -88,5 +88,15 @@ has "reads the rubric's own flag" "$LOGIC" 'framework.comment_required'
 has "names the rule it mirrors"   "$LOGIC" 'api/app/Services/Scoring.php'
 
 # --------------------------------------------------------------------------
+say "6. Review round 1: drafts, Save all, green chips, landing"
+
+has   "drafts are held per entry by the stepper"      "$SCREEN" 'drafts[current.id]'
+has   "Save all decides what is missing in pure logic" "$LOGIC"  'export function missing_before_save_all('
+has   "Save all goes through the same single save"     "$SCREEN" 'await save_entry('
+lacks "Save all never batches into a new endpoint"     "$SCREEN" "'/reflections/\{reflection_id\}/scores'"
+has   "assessor chips use the counter tone"            "$SCREEN" 'tone="counter"'
+has   "a reviewer with no student role lands on the queue" "$ROUTES" '<Navigate to="/review-queue" replace />'
+
+# --------------------------------------------------------------------------
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

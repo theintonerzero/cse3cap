@@ -165,3 +165,64 @@ export function counter_score_failure(code: string | null): CounterScoreFailure 
       return 'other';
   }
 }
+
+/**
+ * An assessor's unsaved work on one competency. Held by the stepper per
+ * entry id rather than inside the panel, so stepping away and back keeps it
+ * and an error outlives the panel that showed it.
+ */
+export interface CounterDraft {
+  level_id: string | null;
+  comment: string;
+  /** The server said COMMENT_REQUIRED; required from then on, whatever the hint says. */
+  comment_forced: boolean;
+  /** The last save's error message, if it failed. */
+  error: string | null;
+}
+
+export const EMPTY_DRAFT: CounterDraft = {
+  level_id: null,
+  comment: '',
+  comment_forced: false,
+  error: null,
+};
+
+/** One competency that stops a Save all, and what it still needs. */
+export interface SaveAllGap {
+  index: number;
+  entry: ReflectionEntry;
+  needs: 'score' | 'comment';
+}
+
+/**
+ * Which competencies stop "Save all scores" from sending anything, in
+ * rubric order. Ones the caller has already scored never count. A draft
+ * with no level needs a score; one whose level makes a comment expected
+ * (comment_expected, the same hint the single Save uses) needs a comment.
+ * An empty result means every remaining draft is ready to send.
+ */
+export function missing_before_save_all(
+  entries: readonly ReflectionEntry[],
+  framework: FrameworkDetail,
+  drafts: Readonly<Record<string, CounterDraft>>,
+  user_id: string,
+): SaveAllGap[] {
+  return entries.flatMap((entry, index): SaveAllGap[] => {
+    if (my_counter_score_of(entry, user_id) !== null) return [];
+    const draft = drafts[entry.id] ?? EMPTY_DRAFT;
+    const level = levels_for(framework, entry.competency_id).find(
+      (candidate) => candidate.id === draft.level_id,
+    );
+    if (!level) return [{ index, entry, needs: 'score' }];
+    const needs_comment =
+      draft.comment_forced ||
+      comment_expected(
+        framework,
+        self_score_of(entry)?.level_value ?? null,
+        level.level_value,
+      );
+    return needs_comment && draft.comment.trim() === ''
+      ? [{ index, entry, needs: 'comment' }]
+      : [];
+  });
+}
