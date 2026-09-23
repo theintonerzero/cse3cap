@@ -99,6 +99,12 @@ what the scale means, or per-competency ranges should reach the radar — a chan
 `v_radar`, the contract and the frontend, which is an ADR and a ticket of its own, not
 something to slip into this one.
 
+That ticket is CAP-35, and ADR #41 proposes keeping the shared scale. SFIA's levels are
+levels of responsibility and mean the same in every skill, so a floor score of 5 plotting at
+five sevenths is accurate rather than misleading. What the chart cannot show is that 5 is
+that skill's floor. The ADR records that cost and defers shading each axis's missing levels
+until the mapping exists.
+
 **Someone should chase Alumable for the SFIA skill-to-level mapping.** The schema has been
 waiting on it since it was written, and findings 2 and 3 both stay theoretical until it
 arrives. Once it does, the corrected framework is a new one, seeded alongside the existing

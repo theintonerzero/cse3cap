@@ -50,6 +50,7 @@ Index
 #38 Jira is the truth about tickets .............. Accepted
 #39 PDF export renders with dompdf ............... Accepted
 #40 Policies for records, query scopes for lists .. Accepted
+#41 The radar keeps one scale per framework ...... Proposed
 
 ===============================================================
 
@@ -2010,3 +2011,92 @@ Leave CAP-19 open until someone decides. Rejected because the code is finished a
 only thing missing is a sentence about how to read the criterion. A ticket that stays In
 Review for want of a sentence is the board saying something false.
 
+
+===============================================================
+
+ADR #41: The radar keeps one scale per framework
+
+Status: Proposed
+Date: 2026-09-24
+
+Context:
+CAP-20 set out to prove the framework swap and had one criterion it could not meet. It
+assumed each SFIA skill is valid over only part of the seven levels, so the ranges are
+uneven per competency and the radar has to cope. Two things stood in the way, both written
+up in docs/Framework-Swap-Verification.md as findings 2 and 3.
+
+The seed has nothing uneven. db/01-schema.sql gives every SFIA skill all seven levels with a
+CROSS JOIN, and says real SFIA restricts each skill to a subrange once Alumable supplies the
+mapping. Nobody has asked them for it yet.
+
+And the radar could not show an uneven range if one existed. v_framework_scale groups by
+framework_id, so it returns one scale_min and scale_max for the whole framework. v_radar
+joins that, the /me/radar contract carries the one pair, and RadarPanel sets a single
+PolarRadiusAxis domain from it. The same pair feeds the PDF radar in BuildExport (#39) and
+the caption under the chart, which reads "Levels 1–7 on SFIA 9 (9.0)." The verification
+note said a skill valid only over 5 to 7, scored at its floor, would plot at five sevenths
+of the radius and read as mediocre. CAP-35 exists to decide what to do about that.
+
+That framing needs one correction before deciding. SFIA's seven levels are levels of
+responsibility, and they mean the same thing in every skill. The seed's own comment calls
+them "seven generic responsibility levels, shared across skills". Level 5 is "Ensure /
+advise" whether the skill is programming or testing. A skill that starts at 5 does so
+because nobody does it at a lower level of responsibility, not because its 5 is a
+different 5. So plotting that score at five sevenths is accurate in SFIA's own terms. What
+the chart cannot show is that 5 is also that skill's floor.
+
+La Trobe's rubric has four levels on every competency, so none of this touches it.
+
+Decision:
+The radar keeps one scale per framework, read from v_framework_scale as it is today. The
+radius means the framework's level, the same level on every axis, and the caption keeps
+naming that range. No change to the schema, the contract, RadarPanel or the PDF radar.
+
+Per-competency ranges stay where they already arrive, in GET /frameworks/{id}. The stepper
+reads them from there and will show a narrowed skill only its valid chips, so what a student
+can score is right regardless of the chart.
+
+If Alumable's mapping arrives and the team wants each axis to mark its own floor and
+ceiling, that is a new record superseding this one. The corrected SFIA is a new framework in
+any case, because the seeded one is referenced by reflections and cannot be edited (#16).
+
+Consequences:
+Positive:
+Nothing to build, migrate or regenerate, on a shared db, in the last weeks of semester, for
+a case the seed cannot produce.
+
+Every axis is read the same way. A point further out is a higher level of responsibility,
+on any skill. A radar whose axes each had their own range could not say that.
+
+The screen, the PDF and the JSON export keep drawing from the same pair through the same
+views, so the file still matches what the student saw (#39).
+
+Negative:
+Once real SFIA ranges land, a student at the floor of a high-starting skill gets no signal
+on the chart that it is the floor. Their polygon dips on that axis and the chart does not
+explain why. A supervisor reading it quickly could take it as a weakness.
+
+The chart also cannot show which levels an axis does not have. A skill that stops at 6
+looks, on the radar, like it could reach 7.
+
+This settles the question for SFIA's model specifically. A future rubric whose levels do
+not mean the same thing from one competency to the next would get a chart that compares
+things that do not compare. That rubric would need this revisited, and nothing enforces
+that anyone notices.
+
+Alternatives:
+Normalise each axis to its own range, so every competency's floor sits at the centre and
+its ceiling at the edge. This is the direct fix for "a floor score reads as mediocre", and
+it is genuinely reasonable. It needs a per-competency scale view, two more fields per axis
+in the /me/radar contract, RadarPanel plotting fractions on a unitless axis, and the same
+change in RadarPolygon for the PDF. Rejected because the rings would stop meaning a level.
+A 5 on a 5–7 skill and a 3 on a 1–7 skill would plot at the same radius, which misstates
+SFIA, where the 5 is two levels of responsibility above the 3. It also builds for data
+that does not exist yet.
+
+Keep the shared scale but shade each axis's missing levels, so a 5–7 skill shows 1 to 4
+greyed out. This keeps the rings meaning a level and answers the negative above, which
+makes it the likely shape of any successor to this record. It needs the same
+per-competency contract fields as normalising, and recharts has no per-axis shading, so
+both the screen and the PDF would need custom SVG. Deferred rather than rejected, until
+the mapping gives it something to shade.
