@@ -132,6 +132,24 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
   const [save_all_tried, setSaveAllTried] = useState(false);
   const heading = mode === 'assessor' ? 'Score reflection' : 'Reflection';
 
+  // An obvious way out of the assessor screen from any step, and from its
+  // error and empty states, without saving or stepping back through every
+  // competency (Patrick, PR #56). Held while a save is in flight, so that
+  // save's error is not lost with the screen.
+  const exit_to_queue =
+    mode === 'assessor' ? (
+      <div className={styles.status_row}>
+        <Button
+          variant="secondary"
+          full_width={false}
+          disabled={counter_saving}
+          on_click={() => navigate('/review-queue')}
+        >
+          ← Back to the review queue
+        </Button>
+      </div>
+    ) : null;
+
   useEffect(() => {
     if (!reflection_id) return;
     const controller = new AbortController();
@@ -355,6 +373,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
   if (load.status === 'loading') {
     return (
       <section>
+        {exit_to_queue}
         <h1 className={styles.heading}>{heading}</h1>
         <LoadingState />
       </section>
@@ -364,6 +383,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
   if (load.status === 'error') {
     return (
       <section>
+        {exit_to_queue}
         <h1 className={styles.heading}>{heading}</h1>
         <ErrorNotice error={load.error} on_retry={retry} />
       </section>
@@ -380,6 +400,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
     // this screen's four states rather than a blank crash.
     return (
       <section>
+        {exit_to_queue}
         <h1 className={styles.heading}>{heading}</h1>
         <div className={styles.empty}>
           <p className={styles.empty_title}>Nothing to reflect on.</p>
@@ -405,6 +426,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
 
   return (
     <section>
+      {exit_to_queue}
       <h1 className={styles.heading}>{heading}</h1>
       <div className={styles.status_row}>
         <Badge status={reflection.status} />
@@ -662,10 +684,8 @@ function EntryCard({
     [entry, on_change],
   );
 
-  return (
-    <div className={offending ? `${styles.card} ${styles.card_offending}` : styles.card}>
-      <p className={styles.competency_name}>{entry.competency_name}</p>
-
+  const narrative = (
+    <>
       <TextArea
         label={mode === 'assessor' ? `${owner_name} wrote` : 'Your reflection'}
         value={entry.narrative ?? ''}
@@ -679,38 +699,62 @@ function EntryCard({
           {narrative_error}
         </p>
       )}
+    </>
+  );
 
-      <div className={styles.levels}>
-        <p className={styles.field_label}>{self_label}</p>
-        <div className={styles.level_row} role="group" aria-label={self_label}>
-          {levels.map((level) => (
-            <Chip
-              key={level.id}
-              selected={self_score?.level_id === level.id}
-              disabled={read_only}
-              on_click={() => choose_level(level.id)}
-            >
-              {level.level_value} &middot; {level.descriptor}
-            </Chip>
-          ))}
-        </div>
-        {score_error && (
-          <p className={styles.field_error} role="alert">
-            {score_error}
-          </p>
-        )}
-        {read_only &&
-          counter_scores_of(entry)
-            // In assessor mode the viewer's own score is shown by the panel
-            // as greyed chips, so it is not repeated here as a text line.
-            .filter((score) => mode !== 'assessor' || score.scorer?.id !== viewer_id)
-            .map((score) => (
-              <p key={score.id} className={styles.counter_score}>
-                {score.scorer?.display_name ?? 'Counter-score'}: level {score.level_value}
-                {score.comment && <> &mdash; &ldquo;{score.comment}&rdquo;</>}
-              </p>
-            ))}
+  const self_score_row = (
+    <div className={styles.levels}>
+      <p className={styles.field_label}>{self_label}</p>
+      <div className={styles.level_row} role="group" aria-label={self_label}>
+        {levels.map((level) => (
+          <Chip
+            key={level.id}
+            selected={self_score?.level_id === level.id}
+            disabled={read_only}
+            on_click={() => choose_level(level.id)}
+          >
+            {level.level_value} &middot; {level.descriptor}
+          </Chip>
+        ))}
       </div>
+      {score_error && (
+        <p className={styles.field_error} role="alert">
+          {score_error}
+        </p>
+      )}
+      {read_only &&
+        counter_scores_of(entry)
+          // In assessor mode the viewer's own score is shown by the panel
+          // as greyed chips, so it is not repeated here as a text line.
+          .filter((score) => mode !== 'assessor' || score.scorer?.id !== viewer_id)
+          .map((score) => (
+            <p key={score.id} className={styles.counter_score}>
+              {score.scorer?.display_name ?? 'Counter-score'}: level {score.level_value}
+              {score.comment && <> &mdash; &ldquo;{score.comment}&rdquo;</>}
+            </p>
+          ))}
+    </div>
+  );
+
+  return (
+    <div className={offending ? `${styles.card} ${styles.card_offending}` : styles.card}>
+      <p className={styles.competency_name}>{entry.competency_name}</p>
+
+      {/* A student writes before they score, so their own screen leads with
+          the narrative (CAP-11). An assessor reads both answers the same
+          way -- score chips, then the words behind them -- so the student's
+          half matches the assessor's half below it (Patrick, PR #56). */}
+      {mode === 'assessor' ? (
+        <>
+          {self_score_row}
+          {narrative}
+        </>
+      ) : (
+        <>
+          {narrative}
+          {self_score_row}
+        </>
+      )}
 
       <EvidenceList
         entry={entry}

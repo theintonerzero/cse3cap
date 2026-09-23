@@ -1244,6 +1244,14 @@ still no re-scoring, the comment rule still enforced by the server.
    This runs only after Patrick confirms the team has had a heads-up. It is data, not code, so
    nothing about it goes in the branch.
 
+7. **Same reading order for both halves (round 2, 2026-09-24).** In assessor mode the
+   student's half now leads with their score chips and then their text box, then evidence,
+   then the assessor's own chips and text box. The student's own writing screen keeps
+   CAP-11's order (narrative first), because there the narrative is written before the score.
+8. **An obvious way out (round 2).** A secondary "← Back to the review queue" button sits
+   above the heading on every step of the assessor screen, and on its error and empty states.
+   It is disabled only while a save is in flight, so that save's error is not lost.
+
 ---
 
 ## Follow-ups, not in this plan
