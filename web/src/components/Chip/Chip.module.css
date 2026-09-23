@@ -23,6 +23,14 @@
   color: var(--color-text-inverse);
 }
 
+/* The assessor's own answer (CAP-13): the radar's counter-score colour, so
+   green means the assessor everywhere. Added beside .selected, which is
+   unchanged; approved by Patrick on PR #56. */
+.selected_counter {
+  background: var(--color-success);
+  color: var(--color-text-inverse);
+}
+
 .chip:disabled {
   opacity: 0.6;
   cursor: default;

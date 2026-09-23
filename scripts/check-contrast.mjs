@@ -35,6 +35,8 @@ const PAIRS = [
   ['--color-text-muted', '--color-bg', 'normal'],
   ['--color-text-muted', '--color-surface', 'normal'],
   ['--color-text-inverse', '--color-primary', 'normal'],
+  // The assessor's selected chip (Chip tone="counter", CAP-13).
+  ['--color-text-inverse', '--color-success', 'normal'],
   // CAP-3 Badge: every status is a tinted fill with a --color-text label.
   ['--color-text', '--color-surface-alt', 'normal'],
   ['--color-text', '--color-danger-bg', 'normal'],
