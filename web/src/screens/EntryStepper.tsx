@@ -34,7 +34,7 @@
  * comment.
  */
 import { useCallback, useEffect, useState } from 'react';
-import type { ChangeEvent, FormEvent } from 'react';
+import type { ChangeEvent, FormEvent, ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router';
 
 import { api, ApiError } from '../api/client.ts';
@@ -48,15 +48,23 @@ import {
   SkeletonGroup,
   TextArea,
 } from '../components/index.ts';
+// The design system's own text box, borrowed by class rather than by
+// component: TextArea autosaves, and a counter-score comment must travel
+// once, with its level, in the POST. Same look, no new styles.
+import text_area_styles from '../components/TextArea/TextArea.module.css';
 import { useSession } from '../session/useSession.ts';
+import type { SessionUser } from '../session/useSession.ts';
 import {
   accepted_types_hint,
+  comment_expected,
+  counter_score_failure,
   counter_scores_of,
   first_offending_index,
   first_unscored_index,
   format_bytes,
   is_offending,
   levels_for,
+  my_counter_score_of,
   scored_by_count,
   self_score_of,
 } from './entry-stepper-logic.ts';
@@ -64,6 +72,7 @@ import type {
   FrameworkDetail,
   ReflectionDetail,
   ReflectionEntry,
+  ReflectionStatus,
 } from './entry-stepper-logic.ts';
 import styles from './EntryStepper.module.css';
 
@@ -104,6 +113,10 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
   const [offending, setOffending] = useState<readonly string[] | null>(null);
   const [submit_error, setSubmitError] = useState<ApiError | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // Set only when this session's own POST reported completed_the_reflection.
+  // The flip itself is the server's (Scoring::flipIfComplete); this only
+  // decides which notice to show.
+  const [completed_here, setCompletedHere] = useState(false);
   const heading = mode === 'assessor' ? 'Score reflection' : 'Reflection';
 
   useEffect(() => {
@@ -160,6 +173,45 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
       };
     });
   }, []);
+
+  // A 201 from POST /entries/{id}/scores: the entry gains the score, and the
+  // reflection takes whatever status the server says it now has.
+  const record_counter_score = useCallback(
+    (next: ReflectionEntry, status: ReflectionStatus, completed: boolean) => {
+      setLoad((current) => {
+        if (current.status !== 'loaded') return current;
+        return {
+          ...current,
+          reflection: {
+            ...current.reflection,
+            status,
+            entries: current.reflection.entries.map((entry) =>
+              entry.id === next.id ? next : entry,
+            ),
+          },
+        };
+      });
+      if (completed) setCompletedHere(true);
+    },
+    [],
+  );
+
+  // After a 409 the page is stale: someone else closed the reflection, or
+  // this entry already carries our score from another tab. Refetch without
+  // a skeleton so the panel's message stays on screen while the stored
+  // state replaces the stale one. A failure here is not reported a second
+  // time: the panel is already showing why the save did not happen.
+  const refresh = useCallback(() => {
+    if (!reflection_id) return;
+    api
+      .get('/reflections/{reflection_id}', { path: { reflection_id } })
+      .then((reflection) =>
+        setLoad((current) =>
+          current.status === 'loaded' ? { ...current, reflection } : current,
+        ),
+      )
+      .catch(() => undefined);
+  }, [reflection_id]);
 
   const submit = useCallback(async () => {
     if (!reflection_id || load.status !== 'loaded') return;
@@ -266,11 +318,23 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
       {mode === 'assessor' && reflection.status === 'assessed' && (
         <div className={styles.status_row}>
           <div className={styles.empty} role="status">
-            <p className={styles.empty_title}>Assessed.</p>
-            <p className={styles.empty_body}>
-              Every competency has a counter-score. Counter-scores close with the
-              reflection, so this is a read-only record of what was scored.
-            </p>
+            {completed_here ? (
+              <>
+                <p className={styles.empty_title}>That was the last one.</p>
+                <p className={styles.empty_body}>
+                  Every competency now has a counter-score, so this reflection is assessed
+                  and has left the review queue.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className={styles.empty_title}>Assessed.</p>
+                <p className={styles.empty_body}>
+                  Every competency has a counter-score. Counter-scores close with the
+                  reflection, so this is a read-only record of what was scored.
+                </p>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -286,7 +350,18 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
         on_change={update_entry}
         mode={mode}
         owner_name={reflection.owner.display_name}
-      />
+      >
+        {mode === 'assessor' && me && (
+          <CounterScorePanel
+            entry={current}
+            framework={load.framework}
+            me={me}
+            open={reflection.status === 'submitted'}
+            on_scored={record_counter_score}
+            on_stale={refresh}
+          />
+        )}
+      </EntryCard>
 
       {submit_error && (
         <p className={styles.submit_error} role="alert">
@@ -349,6 +424,7 @@ function EntryCard({
   on_change,
   mode,
   owner_name,
+  children,
 }: {
   entry: ReflectionEntry;
   framework: FrameworkDetail;
@@ -357,6 +433,8 @@ function EntryCard({
   on_change: (next: ReflectionEntry) => void;
   mode: StepperMode;
   owner_name: string;
+  /** The assessor's own score, last in the card so it reads after the evidence. */
+  children?: ReactNode;
 }) {
   const self_label = mode === 'assessor' ? `${owner_name}'s self-score` : 'Self-score';
   const [narrative_error, setNarrativeError] = useState<string | null>(null);
@@ -454,6 +532,8 @@ function EntryCard({
         read_only={read_only}
         on_change={on_change}
       />
+
+      {children}
     </div>
   );
 }
@@ -623,6 +703,166 @@ function EvidenceList({
             </p>
           )}
         </div>
+      )}
+
+      {error && (
+        <p className={styles.field_error} role="alert">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The scorer's own counter-score for one entry (CAP-13).
+ *
+ * POST, not PUT: a second attempt is an error, not an update, and there is
+ * no way to change a score once given (ADR #34). So this renders one of
+ * three things: the form, a note that the caller has already scored this
+ * entry, or nothing when the reflection is not open for scoring. Any error
+ * message shows under all three, because a 409 changes which of them is
+ * showing and the reason must not disappear with the form.
+ *
+ * The comment hint (comment_expected) only disables the button early. The
+ * rule is Scoring.php's, and a 400 COMMENT_REQUIRED marks the box required
+ * whatever the hint said.
+ *
+ * Laid out like the self-score block above it, with the same classes, so
+ * the card reads as one thing: what they said, then what you say.
+ */
+function CounterScorePanel({
+  entry,
+  framework,
+  me,
+  open,
+  on_scored,
+  on_stale,
+}: {
+  entry: ReflectionEntry;
+  framework: FrameworkDetail;
+  me: SessionUser;
+  open: boolean;
+  on_scored: (next: ReflectionEntry, status: ReflectionStatus, completed: boolean) => void;
+  on_stale: () => void;
+}) {
+  const [level_id, setLevelId] = useState<string | null>(null);
+  const [comment, setComment] = useState('');
+  const [comment_forced, setCommentForced] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const levels = levels_for(framework, entry.competency_id);
+  const self_score = self_score_of(entry);
+  const mine = my_counter_score_of(entry, me.id);
+  const chosen = levels.find((level) => level.id === level_id) ?? null;
+
+  const comment_required =
+    comment_forced ||
+    comment_expected(
+      framework,
+      self_score?.level_value ?? null,
+      chosen?.level_value ?? null,
+    );
+  const has_comment = comment.trim() !== '';
+  const can_save = chosen !== null && !saving && (!comment_required || has_comment);
+
+  // A plain handler, not useCallback: nothing below memoises on it, and the
+  // React Compiler cannot preserve a manual memo over this many inputs.
+  const save = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!chosen) return;
+    setSaving(true);
+    setError(null);
+
+    try {
+      const { reflection_status, completed_the_reflection, ...score } = await api.post(
+        '/entries/{entry_id}/scores',
+        {
+          path: { entry_id: entry.id },
+          body: { level_id: chosen.id, comment: has_comment ? comment : null },
+        },
+      );
+      // The 201 is a bare Score; the entry's embedded scores also carry
+      // the scorer. It is the caller, so the session already knows who.
+      on_scored(
+        {
+          ...entry,
+          scores: [
+            ...entry.scores,
+            { ...score, scorer: { id: me.id, display_name: me.display_name } },
+          ],
+        },
+        reflection_status,
+        completed_the_reflection,
+      );
+    } catch (caught) {
+      const api_error = as_api_error(caught, 'Could not save that score.');
+      setError(api_error.message);
+
+      switch (counter_score_failure(api_error.code)) {
+        case 'comment':
+          setCommentForced(true);
+          break;
+        case 'closed':
+        case 'already_scored':
+          on_stale();
+          break;
+        case 'other':
+          break;
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const comment_id = `comment-${entry.id}`;
+
+  return (
+    <div className={styles.levels}>
+      {mine ? (
+        <p className={styles.counter_score}>
+          You scored this competency. A score, once given, stands.
+        </p>
+      ) : (
+        open && (
+          <form className={styles.levels} onSubmit={save}>
+            <p className={styles.field_label}>Your score</p>
+            <div className={styles.level_row} role="group" aria-label="Your score">
+              {levels.map((level) => (
+                <Chip
+                  key={level.id}
+                  selected={level_id === level.id}
+                  disabled={saving}
+                  on_click={() => setLevelId(level.id)}
+                >
+                  {level.level_value} &middot; {level.descriptor}
+                </Chip>
+              ))}
+            </div>
+
+            <div className={text_area_styles.field}>
+              <label className={text_area_styles.label} htmlFor={comment_id}>
+                Why this score{comment_required ? ' (required)' : ' (optional)'}
+              </label>
+              <textarea
+                id={comment_id}
+                className={text_area_styles.textarea}
+                maxLength={4000}
+                value={comment}
+                aria-required={comment_required}
+                disabled={saving}
+                onChange={(event) => setComment(event.target.value)}
+              />
+            </div>
+
+            <div className={styles.evidence_actions}>
+              <Button type="submit" full_width={false} disabled={!can_save}>
+                {saving ? 'Saving…' : 'Save score'}
+              </Button>
+            </div>
+          </form>
+        )
       )}
 
       {error && (
