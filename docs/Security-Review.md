@@ -10,6 +10,132 @@ fixes what it finds leaves no record that the class of problem existed.
 
 ---
 
+## 2026-09-24 · The two entry steppers
+
+**Reviewer:** Tony To · **Ticket:** CAP-24 · **Commit reviewed:** `809274a`
+
+### Scope
+
+The two screens the injection criterion was waiting on: the student's entry stepper (CAP-11,
+#54) and the assessor's mode of the same screen (CAP-13, #56). They are the first screens
+that render what a person typed at length: the narrative, the counter-score comment, the
+evidence label and link, and the other person's display name. #56 also changed the routes,
+the review queue and `Chip`. CAP-16, the edit-framework screen, has not started, so this
+still is not the whole of CAP-24.
+
+| Criterion | State |
+| --- | --- |
+| Token storage and exposure | Re-checked at `809274a`. Holds |
+| Narrative, comment and evidence text rendered without injection | **Both steppers reviewed. Holds.** Read, not tested with hostile text on screen. See Method |
+| No client-side role trust | Reviewed across both modes and the new landing redirect. Holds. F9 is the UI offering what the server refuses |
+| Findings raised as tickets, sign-off recorded | F9 and F10 below. This entry |
+
+### Method
+
+Read `EntryStepper.tsx` in full as it stands after #56, with `entry-stepper-logic.ts`,
+`routes.tsx`, `ReviewQueue.tsx` and `Chip.tsx`. Then followed every write the screen can make
+to the policy that decides it: `ReflectionPolicy::update` for the narrative, evidence,
+self-score and submit, and `ReflectionPolicy::counterScore` for the counter-score. Then read
+the feature tests that hold those policies. Then ran:
+
+- `scripts/verify-entry-stepper.sh`, 13 of 13, and `scripts/verify-assessor-stepper.sh`,
+  23 of 23.
+- `./run bundle-secrets` at `809274a`. Passes.
+- A sweep of `web/src` for `dangerouslySetInnerHTML`, `innerHTML`, `eval`, `new Function`,
+  `document.write`, `window.open`, `console.` and both storage APIs.
+
+**What was not done.** The 09-19 review put hostile text through the PDF and kept it as a
+test. Doing the same on screen means writing `<script>` narratives into a reflection on the
+shared db, which is five people's demo data, and `web/` has no test runner to do it in
+isolation. So the injection result for the screens rests on reading: every value below
+reaches the DOM as a JSX text child, which React escapes. That is a strong mechanism, but it
+is a read, and a later `dangerouslySetInnerHTML` would not be caught by anything except the
+sweep above being run again.
+
+### Findings
+
+#### F9 · The student route offers a reviewer edit controls the server will refuse — Low
+
+> **Raised as CAP-36 (COA4-94).**
+
+`EntryStepper` decides `read_only` from the mode and the status alone:
+
+```ts
+const read_only = mode === 'assessor' || reflection.status !== 'draft';
+```
+
+The permission matrix lets every reviewer on a gig read a reflection on it, drafts included
+(`API-Specification.md`, "view a reflection"). So an assessor who opens
+`/reflections/{id}` on a student's draft, by URL or by a link that lands there, gets the
+student's mode: an editable narrative, self-score chips, and Add and Remove on the evidence.
+
+Nothing gets through. Every one of those writes goes to `ReflectionPolicy::update`, which is
+owner-only and answers a reviewer with 403 `ROLE_FORBIDDEN`. That is the design working: the
+client is not trusted. But the assessor sees a box that looks like theirs to edit, types,
+and gets an autosave error on every pause. It also contradicts the screen's own comment that
+"an assessor never edits what the student wrote".
+
+Fix in `web/`: add ownership to the condition, from the `owner` the reflection already
+carries and the session's `me`. A student mode opened by someone who is not the owner then
+renders read-only, the same as the assessor mode does.
+
+#### F10 · A reviewer's refusal is tested on the narrative only — Low
+
+> **Raised as CAP-37 (COA4-95).**
+
+`ReflectionWritePathTest::test_nobody_else_writes_on_someone_elses_reflection` has Sam, an
+assessor, PATCH Jane's narrative and asserts 403. The self-score PUT, evidence POST and
+DELETE, and submit reach the same policy, and reading the controllers confirms they call
+`Gate::authorize('update', …)` or `('submit', …)`. But no test holds any of them. A
+controller that later drops its `authorize` line would pass every test that exists, and F9
+means the UI now sends exactly those requests as a reviewer.
+
+Fix in `api/tests/`: the same two-actor shape as the existing test (an assessor gets 403,
+a stranger gets 404), once for each of those four writes.
+
+### What is already right
+
+- **Every piece of typed text in both modes is rendered as text.** The narrative is a
+  textarea value. The counter-score comment, the evidence label, the scorer's and the
+  owner's display names, the competency name and each level descriptor are JSX text
+  children. Descriptors and competency names are also typed text, by whoever copies and
+  edits a framework (CAP-16), and they are escaped here the same way.
+- **One `href` in the whole screen, and it is guarded twice.** A `link` evidence item gets an
+  `<a>` only if its uri matches `^https?://`, on top of the server's `url:http,https` (F7).
+  It carries `rel="noopener noreferrer"` and `target="_blank"`. A file or image item's label
+  is plain text with no link at all.
+- **F8's condition holds.** Neither ticket added an endpoint that serves an evidence file.
+  #56 touched only `web/`, `scripts/` and `run`. So an uploaded `.html` or `.svg` still has
+  no way back to a browser. F8 stays open for the day a download is built.
+- **Mode is a route, not a role, and the server does not care which one was picked.**
+  Anyone can load `/review-queue/reflections/{id}`. A student doing so on their own
+  reflection gets a counter-score panel whose POST `counterScore` refuses with 403, held by
+  `ScoringTest::test_a_student_cannot_counter_score_even_their_own`.
+- **The new landing redirect is a convenience.** `Home` sends a user with no student role to
+  the review queue. The diary stays reachable by URL, and the analytics behind it filter to
+  the caller's own id.
+- **The comment hint is a hint.** `comment_expected` only disables Save early. The rule is
+  `Scoring.php`'s, which answers 400 `COMMENT_REQUIRED`, and the screen switches on that code
+  rather than on its own guess (`verify-assessor-stepper.sh` §3).
+- **The counter-score is never rewritten.** POST only, never PUT or PATCH (ADR #34), and the
+  flip to assessed is read from the 201 body rather than set by the screen.
+- **Tokens and storage are as they were.** Tokens in `sessionStorage` per tab, the theme alone
+  in `localStorage`, no `console` call anywhere in `web/src`, and no token in a production
+  build.
+
+### Sign-off
+
+The injection criterion is now reviewed for both screens that render narratives, comments
+and evidence, and holds, on reading rather than on a hostile-text test. The token and
+role-trust criteria hold across both modes. F9 and F10 are raised as tickets. Neither is a
+way in. One is a UI that offers what the server refuses, and the other is a test that
+should exist.
+
+CAP-24 stays open for CAP-16, the edit-framework screen, which is the last screen to render
+typed text and the one that lets a supervisor author it.
+
+---
+
 ## 2026-09-19 · The merged screens and the PDF export
 
 **Reviewer:** Tony To · **Ticket:** CAP-24 · **Commit reviewed:** `c661b5c`
