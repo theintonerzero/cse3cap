@@ -429,7 +429,11 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
       {exit_to_queue}
       <h1 className={styles.heading}>{heading}</h1>
       <div className={styles.status_row}>
-        <Badge status={reflection.status} />
+        {/* The student's status matters to the student. An assessor only
+            ever scores submitted work, so on their screen the badge would
+            only repeat that; the notices below say it in words when the
+            status is anything else (Patrick, PR #56). */}
+        {mode !== 'assessor' && <Badge status={reflection.status} />}
         {mode === 'assessor' && (
           <p className={styles.counter_score}>
             {reflection.owner.display_name}
