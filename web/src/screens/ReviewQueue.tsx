@@ -5,10 +5,11 @@
  * renders whatever comes back and does not re-derive it.
  *
  * CAP-10, built against CAP-3/CAP-4's real components and mounted on
- * CAP-5's router at `/review-queue`. The link into the assessor stepper
- * stays a disabled placeholder until CAP-13 exists.
+ * CAP-5's router at `/review-queue`. Each row links into the assessor
+ * stepper (CAP-13).
  */
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router';
 import { api, ApiError } from '../api/client.ts';
 import type { paths } from '../api/schema.ts';
 import { ErrorNotice, ProgressBar, Skeleton, SkeletonGroup } from '../components/index.ts';
@@ -123,16 +124,13 @@ function ReviewQueueRow({ entry }: { entry: ReviewQueueEntry }) {
         label="Entries"
       />
 
-      {/*
-       * Becomes a real <Link> once CAP-5's router exists and CAP-13 builds
-       * the assessor stepper it points to. `/review-queue/:reflectionId`
-       * is not documented anywhere — it's this screen's own inference
-       * from the API's `reflection_id` field, and CAP-13's actual route
-       * may differ.
-       */}
-      <span className={styles.scoreLink} aria-disabled="true">
+      {/* The assessor stepper (CAP-13), by reflection: the queue has nothing finer. */}
+      <Link
+        className={styles.scoreLink}
+        to={`/review-queue/reflections/${entry.reflection_id}`}
+      >
         Score this →
-      </span>
+      </Link>
     </li>
   );
 }

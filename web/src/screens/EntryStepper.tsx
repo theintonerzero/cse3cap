@@ -17,6 +17,14 @@
  * renders every entry read-only, including any counter-score already on
  * it, through this same markup rather than a second screen.
  *
+ * Assessor mode (CAP-13) is this same screen with mode="assessor", mounted
+ * at /review-queue/reflections/:reflection_id. Every entry renders
+ * read-only; CounterScorePanel adds the scorer's own level and comment.
+ * Every rule behind it lives in api/app/Services/Scoring.php. The screen
+ * reflects what the POST returns, including the flip to assessed, and
+ * never triggers anything itself. It adds no styles of its own: every
+ * class it uses already existed for CAP-11, so both modes look the same.
+ *
  * Evidence files are never given a link here. The contract's
  * /evidence/{evidence_id} only deletes -- there is no endpoint that serves
  * a file back -- and this ticket's own comment (Tony To, 2026-09-19) flags
@@ -40,13 +48,16 @@ import {
   SkeletonGroup,
   TextArea,
 } from '../components/index.ts';
+import { useSession } from '../session/useSession.ts';
 import {
   accepted_types_hint,
   counter_scores_of,
   first_offending_index,
+  first_unscored_index,
   format_bytes,
   is_offending,
   levels_for,
+  scored_by_count,
   self_score_of,
 } from './entry-stepper-logic.ts';
 import type {
@@ -55,6 +66,15 @@ import type {
   ReflectionEntry,
 } from './entry-stepper-logic.ts';
 import styles from './EntryStepper.module.css';
+
+/**
+ * student  the owner writing a draft (CAP-11). The default, so CAP-11's
+ *          route passes nothing.
+ * assessor a supervisor or assessor reading a submitted reflection and
+ *          counter-scoring it (CAP-13). Everything the student wrote is
+ *          read-only; the level picker is the scorer's own.
+ */
+type StepperMode = 'student' | 'assessor';
 
 type Load =
   | { status: 'loading' }
@@ -73,15 +93,18 @@ function as_api_error(error: unknown, fallback: string): ApiError {
 // clickable href, instead of trusting that guarantee unconditionally.
 const HREF_SCHEME = /^https?:\/\//i;
 
-export function EntryStepper() {
+export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
   const { reflection_id } = useParams<{ reflection_id: string }>();
   const navigate = useNavigate();
+  const { me } = useSession();
+  const me_id = me?.id ?? null;
   const [load, setLoad] = useState<Load>({ status: 'loading' });
   const [reload_key, setReloadKey] = useState(0);
   const [step, setStep] = useState(0);
   const [offending, setOffending] = useState<readonly string[] | null>(null);
   const [submit_error, setSubmitError] = useState<ApiError | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const heading = mode === 'assessor' ? 'Score reflection' : 'Reflection';
 
   useEffect(() => {
     if (!reflection_id) return;
@@ -98,7 +121,14 @@ export function EntryStepper() {
             path: { framework_id: reflection.framework_id },
             signal: controller.signal,
           })
-          .then((framework) => setLoad({ status: 'loaded', reflection, framework })),
+          .then((framework) => {
+            setLoad({ status: 'loaded', reflection, framework });
+            // An assessor lands on the first entry they still owe a score,
+            // so a part-scored reflection does not reopen on finished work.
+            if (mode === 'assessor' && me_id) {
+              setStep(first_unscored_index(reflection.entries, me_id));
+            }
+          }),
       )
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === 'AbortError') return;
@@ -109,7 +139,7 @@ export function EntryStepper() {
       });
 
     return () => controller.abort();
-  }, [reflection_id, reload_key]);
+  }, [reflection_id, reload_key, mode, me_id]);
 
   const retry = useCallback(() => {
     setLoad({ status: 'loading' });
@@ -158,7 +188,7 @@ export function EntryStepper() {
   if (load.status === 'loading') {
     return (
       <section>
-        <h1 className={styles.heading}>Reflection</h1>
+        <h1 className={styles.heading}>{heading}</h1>
         <LoadingState />
       </section>
     );
@@ -167,7 +197,7 @@ export function EntryStepper() {
   if (load.status === 'error') {
     return (
       <section>
-        <h1 className={styles.heading}>Reflection</h1>
+        <h1 className={styles.heading}>{heading}</h1>
         <ErrorNotice error={load.error} on_retry={retry} />
       </section>
     );
@@ -183,7 +213,7 @@ export function EntryStepper() {
     // this screen's four states rather than a blank crash.
     return (
       <section>
-        <h1 className={styles.heading}>Reflection</h1>
+        <h1 className={styles.heading}>{heading}</h1>
         <div className={styles.empty}>
           <p className={styles.empty_title}>Nothing to reflect on.</p>
           <p className={styles.empty_body}>
@@ -195,16 +225,55 @@ export function EntryStepper() {
     );
   }
 
-  const read_only = reflection.status !== 'draft';
+  // An assessor never edits what the student wrote, whatever the status.
+  const read_only = mode === 'assessor' || reflection.status !== 'draft';
   const current_index = Math.min(step, entries.length - 1);
   const current = entries[current_index];
 
   return (
     <section>
-      <h1 className={styles.heading}>Reflection</h1>
+      <h1 className={styles.heading}>{heading}</h1>
       <div className={styles.status_row}>
         <Badge status={reflection.status} />
+        {mode === 'assessor' && (
+          <p className={styles.counter_score}>
+            {reflection.owner.display_name}
+            {me_id && (
+              <>
+                {' '}
+                &middot; you have scored {scored_by_count(entries, me_id)} of{' '}
+                {entries.length}
+              </>
+            )}
+          </p>
+        )}
       </div>
+
+      {/* The screen's own designed notice (the empty state's block), reused
+          so an assessor's "nothing to do here" reads the way a student's
+          does. */}
+      {mode === 'assessor' && reflection.status === 'draft' && (
+        <div className={styles.status_row}>
+          <div className={styles.empty} role="status">
+            <p className={styles.empty_title}>Not submitted yet.</p>
+            <p className={styles.empty_body}>
+              {reflection.owner.display_name} is still writing this reflection, so there is
+              nothing to score.
+            </p>
+          </div>
+        </div>
+      )}
+      {mode === 'assessor' && reflection.status === 'assessed' && (
+        <div className={styles.status_row}>
+          <div className={styles.empty} role="status">
+            <p className={styles.empty_title}>Assessed.</p>
+            <p className={styles.empty_body}>
+              Every competency has a counter-score. Counter-scores close with the
+              reflection, so this is a read-only record of what was scored.
+            </p>
+          </div>
+        </div>
+      )}
 
       <ProgressBar current={current_index + 1} total={entries.length} label="Competency" />
 
@@ -215,6 +284,8 @@ export function EntryStepper() {
         read_only={read_only}
         offending={is_offending(current, offending)}
         on_change={update_entry}
+        mode={mode}
+        owner_name={reflection.owner.display_name}
       />
 
       {submit_error && (
@@ -236,6 +307,10 @@ export function EntryStepper() {
         {current_index < entries.length - 1 ? (
           <Button full_width={false} on_click={() => setStep((s) => s + 1)}>
             Next
+          </Button>
+        ) : mode === 'assessor' ? (
+          <Button full_width={false} on_click={() => navigate('/review-queue')}>
+            Back to the queue
           </Button>
         ) : (
           !read_only && (
@@ -272,13 +347,18 @@ function EntryCard({
   read_only,
   offending = false,
   on_change,
+  mode,
+  owner_name,
 }: {
   entry: ReflectionEntry;
   framework: FrameworkDetail;
   read_only: boolean;
   offending?: boolean;
   on_change: (next: ReflectionEntry) => void;
+  mode: StepperMode;
+  owner_name: string;
 }) {
+  const self_label = mode === 'assessor' ? `${owner_name}'s self-score` : 'Self-score';
   const [narrative_error, setNarrativeError] = useState<string | null>(null);
   const [score_error, setScoreError] = useState<string | null>(null);
   const levels = levels_for(framework, entry.competency_id);
@@ -327,7 +407,7 @@ function EntryCard({
       <p className={styles.competency_name}>{entry.competency_name}</p>
 
       <TextArea
-        label="Your reflection"
+        label={mode === 'assessor' ? `${owner_name} wrote` : 'Your reflection'}
         value={entry.narrative ?? ''}
         onChange={(value) => on_change({ ...entry, narrative: value })}
         onSave={save_narrative}
@@ -341,8 +421,8 @@ function EntryCard({
       )}
 
       <div className={styles.levels}>
-        <p className={styles.field_label}>Self-score</p>
-        <div className={styles.level_row} role="group" aria-label="Self-score">
+        <p className={styles.field_label}>{self_label}</p>
+        <div className={styles.level_row} role="group" aria-label={self_label}>
           {levels.map((level) => (
             <Chip
               key={level.id}

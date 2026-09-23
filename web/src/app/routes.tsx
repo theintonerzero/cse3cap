@@ -58,9 +58,14 @@ export function AppRoutes() {
 
         <Route path="review-queue" element={<ReviewQueue />} />
 
+        {/*
+         * CAP-13: the entry stepper in its second mode. By reflection, not
+         * by entry, for the same reason as reflections/:reflection_id above:
+         * GET /review-queue carries reflection_id and nothing finer.
+         */}
         <Route
-          path="review-queue/entries/:entry_id"
-          element={<Placeholder screen="Assessor stepper" ticket="CAP-13" />}
+          path="review-queue/reflections/:reflection_id"
+          element={<EntryStepper mode="assessor" />}
         />
 
         <Route path="frameworks" element={<SelectFramework />} />
