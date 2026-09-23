@@ -1207,6 +1207,45 @@ same in every task that names them.
 
 ---
 
+## Review round 1 (Patrick, 2026-09-23/24, on PR #56)
+
+What Patrick asked for after using the screen, and how each is built. The acceptance criteria
+above are unchanged, and every item below keeps them true: still one POST per competency,
+still no re-scoring, the comment rule still enforced by the server.
+
+1. **A saved score reads like the self-score.** The chip row stays, greyed, with the chosen
+   level selected, and the comment stays in its box, read-only. Done in `2563358`.
+2. **Skipping a competency loses what was typed on it.** Root cause: the unsaved level and
+   comment lived inside `CounterScorePanel`, which unmounts on every step change. Fix: the
+   stepper holds a draft per entry id (level, comment, forced-required flag, last error), and
+   the panel reads and writes it. Leaving a step keeps its draft, and an error survives the
+   panel unmounting.
+3. **"Save all scores" on the last step, keeping the per-competency Save.** Before sending
+   anything it checks every competency the assessor has not scored yet. A missing level, or
+   a missing comment where `comment_expected` says one is needed, is listed in plain words
+   ("Agile improvement (4 of 6) still needs a score") with a button that jumps there, and
+   nothing is sent. Once everything is ready it POSTs each draft in rubric order, one at a
+   time. The first failure stops the run, jumps to that competency and shows the server's
+   message there. Scores already sent stay sent, because a score cannot be taken back (ADR #34).
+   The check that decides what is missing is a pure function in `entry-stepper-logic.ts`.
+4. **Assessor chips are green.** The radar's counter-score colour (`--color-success`) marks
+   the assessor's own chip row, while the student's stays purple. `Chip` gains
+   `tone?: 'primary' | 'counter'`, and one rule, `.selected_counter`, is added to
+   `Chip.module.css`. No existing rule changes. This is the one CSS addition Patrick
+   approved, and the new pair is added to `scripts/check-contrast.mjs`.
+5. **Assessors land on the diary home.** Root cause: the index route `/` renders
+   `DiaryHome` for everyone. Fix: someone with no `student` participation is redirected
+   from `/` to `/review-queue`. Anyone who is also a student still lands on the diary.
+   Patrick chose to fix it in this PR.
+6. **Tom H's sprint 2 in the shared database** was scored 3–6 during manual testing on
+   2026-09-23 (03:10–03:12 UTC) and flipped to assessed. It is restored by removing exactly
+   those four `scores` rows and their five `events` rows (four `entry_counter_scored` and one
+   `reflection_assessed`), then setting `status` back to `submitted`, through the app's models.
+   This runs only after Patrick confirms the team has had a heads-up. It is data, not code, so
+   nothing about it goes in the branch.
+
+---
+
 ## Follow-ups, not in this plan
 
 - **Jira was unreachable when this was planned.** `JIRA_EMAIL`/`JIRA_API_TOKEN` are not in
