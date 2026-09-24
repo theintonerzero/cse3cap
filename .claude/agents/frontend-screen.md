@@ -73,7 +73,8 @@ the client against the real API, against prism, and against the compiler.
 Read the output and quote it. A command you did not run is not a result.
 
 If the change needs a check of its own, it goes in `scripts/` and gets wired
-into `./run`, never into a scratch file. `web/` has no unit test runner yet and
-adding one is an ADR, not something to slip into a screen.
+into `./run`, never into a scratch file. A screen's behaviour -- what it shows and
+what it sends -- gets a Playwright spec in `web/e2e/` against the fake API, run by
+`./run e2e` (ADR #42). There is no unit runner, and adding one is an ADR.
 Where a change is visual, take a screenshot with Playwright at a phone width and
 a desktop width and describe what you see. Report real command output.

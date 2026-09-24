@@ -50,6 +50,7 @@ Index
 #38 Jira is the truth about tickets .............. Accepted
 #39 PDF export renders with dompdf ............... Accepted
 #40 Policies for records, query scopes for lists .. Accepted
+#42 Browser checks with Playwright, fake API ..... Proposed
 
 ===============================================================
 
@@ -2009,4 +2010,104 @@ ordinary for the sake of a directory listing.
 Leave CAP-19 open until someone decides. Rejected because the code is finished and the
 only thing missing is a sentence about how to read the criterion. A ticket that stays In
 Review for want of a sentence is the board saying something false.
+
+
+ADR #42: Browser checks with Playwright, against a fake API
+
+Status: Proposed
+Date: 2026-09-24
+
+Context:
+web/ has had no way to test a screen. Every screen's check so far is a shell script in
+scripts/ that greps the source and compiles and runs the one pure module beside it. That
+catches a missing state or a raw fetch. It cannot catch a screen that renders the right
+fields and sends the wrong requests, and on the edit framework screen (CAP-16) the requests
+are the feature. A save is a POST and then one PATCH per changed field, and a retry after a
+partial failure has to finish the same copy rather than make another.
+
+Two things made the gap concrete while building CAP-16. A render path that threw blanked the
+whole screen, and an error was labelled "Cannot reach the server" when the server had
+answered. Both were found by a person driving a browser against the prism mock, and neither
+could have been found by the shell check. And the screen could not be looked at against the
+real API by an agent at all, because the app shell needs a seeded token pasted in and moving
+a credential into a browser is exactly what an agent should not do.
+
+CLAUDE.md says choosing a runner for web/ is a decision with an ADR, not something added in
+passing. CAP-22 (COA4-80, Patrick) already names Playwright for the end-to-end student and
+assessor journey, which runs against a real seeded test database. That ticket has not
+started and no record makes the choice.
+
+Decision:
+Playwright, through @playwright/test pinned to an exact version as a devDependency of web/,
+running the real screens in headless Chromium. Specs live in web/e2e/ and are type-checked
+by tsc -b through tsconfig.e2e.json.
+
+Per-screen checks run against a fake API, not a real one. web/e2e/fake-api.ts answers every
+request to /api/v1 from fixtures typed against the generated schema.ts, records what the page
+sent, and fails on purpose when a test asks it to. It reproduces the shape of responses the
+screen depends on, such as a copy keeping its base's codes and level values, and deliberately
+does not reimplement the backend's rules. A refusal is injected by name, with the status and
+code the contract declares. The rule itself stays in its one home and is tested there, in
+api/tests/.
+
+The page signs in with a placeholder string the fake never checks. No seeded token, no
+database and no running backend are involved, so the checks run the same on a laptop, in CI
+and for an agent.
+
+./run e2e runs them, ./run check runs them after the build, and CI runs them in the Frontend
+job and keeps the traces of a failed run for a week.
+
+CAP-22's journey keeps its own design. It is the check that needs a real backend, and it can
+use the same tool against a seeded test database when it is built.
+
+Consequences:
+Positive:
+A screen's behaviour is testable where it happens: what it shows, and what it sends, in
+order, with the exact bodies. The CAP-16 suite asserts that a save sends one POST and only
+the changed fields, that a failed PATCH is finished on the same copy, and that the four
+states render. Deliberately breaking the screen showed the suite catching it: a Save that
+always made a new copy failed two tests, and a disabled "Add competency" button failed one.
+
+States that are hard to reach by hand become ordinary tests. The loading skeleton, a 404,
+an empty rubric and a 409 in the middle of a save were never seen by a person on CAP-16.
+Each is now one test.
+
+Fixtures typed against schema.ts make contract drift a build failure. A field renamed in
+docs/openapi.yaml breaks tsc on the fixture that still carries the old one.
+
+No credential goes anywhere near a browser.
+
+Negative:
+A fake can lie. It returns what the fixtures say the API returns, so a screen can pass here
+and fail against Laravel if the fixture and the backend disagree. Typed fixtures cover the
+shape of each payload, not its behaviour. The behavioural half has to exist in api/tests,
+and a spec that relies on a behaviour with no backend test there is a gap nobody will see.
+
+A second test environment to maintain. Every screen that adopts it needs its endpoints in
+the fake, and a new endpoint needs a new branch there.
+
+CI gets slower and heavier. The Frontend job installs Chromium with its system libraries on
+every run, which adds about a minute. Developers download a browser of about 95 MB once.
+
+It is not the end-to-end test. Nothing here proves the frontend and backend work together.
+CAP-22 still has to.
+
+Alternatives:
+Playwright against the real API with a seeded test database. It proves the whole stack and
+is what CAP-22 asks for. Rejected for per-screen checks because it needs a backend served
+over HTTP against a database of its own, tokens minted and handed to the browser, and
+migrate:fresh per run. CAP-22 names all of that as its scope, and five people share the one
+database server. The fake gets per-screen coverage now without deciding CAP-22's
+infrastructure for it.
+
+Vitest with Testing Library in jsdom. Faster, with no browser to install, and the usual
+choice for component tests. Rejected because jsdom is not a browser. Layout, focus, the
+router and real network behaviour are simulated or absent, and a phone-width overflow check
+cannot be written at all. It would also be a second tool beside the Playwright that CAP-22
+already names.
+
+Keep extending the shell checks in scripts/. No new dependency and nothing new to learn.
+Rejected because the limit is structural. A grep can prove a string is in a file, and a
+compiled module can prove a function's output. Neither can prove what a rendered screen does
+when a button is pressed, which is where both CAP-16 bugs were.
 
