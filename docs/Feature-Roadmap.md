@@ -10,7 +10,8 @@ rather than feasibility.
 
 It is not a commitment. Nothing here gets built until the MVP's own tickets are done: the
 entry stepper (CAP-11), the submitted screen (CAP-12) and the assessor stepper (CAP-13)
-come first, because without them the core loop cannot be demonstrated.
+come first, because without them the core loop cannot be demonstrated. As of 24 September
+both steppers have merged (#54, #56), and the submitted screen is still to come.
 
 ---
 
@@ -125,10 +126,13 @@ schema already supports this, but the seed gives every SFIA skill all seven, bec
 mapping has to come from Alumable. The framework-swap verification
 (`docs/Framework-Swap-Verification.md`) records this gap.
 
-One consequence goes beyond the data. The radar currently scales every axis to the whole
-rubric's range, so a skill valid only at levels 5 to 7, scored at 5, would plot at five
-sevenths of the way out and look mediocre. Real ranges would need the radar to scale per
-skill. That is a design decision as well as a data one.
+What real ranges would change on screen. The entry stepper reads levels per skill, so a
+narrowed skill would offer only its valid levels with no code change. The radar is a design
+question, and ADR #41 (proposed, CAP-35) answers it. It keeps one scale for the whole
+rubric, because SFIA's levels mean the same responsibility in every skill, so a 5 plotted
+at five sevenths is accurate. What the radar cannot show is that 5 is a particular skill's
+floor. Greying out each skill's missing levels is the likely follow-up once the mapping
+exists.
 
 **Question for David:** can Alumable supply the SFIA skill-to-level mapping it uses?
 
@@ -171,5 +175,5 @@ this is about convenience and control.
 ## What the team does next
 
 If the team agrees, the Tier A items become optional tickets that anyone with capacity can
-pick up once CAP-11 and CAP-13 are merged. Tier B items wait for David's answers. Tier C
+pick up once CAP-12 is merged, the last of the three. Tier B items wait for David's answers. Tier C
 stays out unless the client asks and a superseding ADR is written.
