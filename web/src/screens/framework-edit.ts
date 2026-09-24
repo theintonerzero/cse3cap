@@ -69,7 +69,10 @@ export function draft_from(base: FrameworkDetail): FrameworkDraft {
         short_label: competency.short_label ?? '',
         levels: [...competency.levels]
           .sort((a, b) => a.level_value - b.level_value)
-          .map((level) => ({ level_value: level.level_value, descriptor: level.descriptor })),
+          .map((level) => ({
+            level_value: level.level_value,
+            descriptor: level.descriptor,
+          })),
       })),
   };
 }
@@ -142,7 +145,9 @@ export function pending_edits(copy: FrameworkDetail, draft: FrameworkDraft): Edi
   for (const wanted of draft.competencies) {
     const competency = copy.competencies.find((c) => c.code === wanted.code);
     if (!competency) {
-      throw new Error(`The copy has no competency "${wanted.code}", so it cannot take this draft.`);
+      throw new Error(
+        `The copy has no competency "${wanted.code}", so it cannot take this draft.`,
+      );
     }
 
     const body = {
@@ -154,7 +159,9 @@ export function pending_edits(copy: FrameworkDetail, draft: FrameworkDraft): Edi
     }
 
     for (const wanted_level of wanted.levels) {
-      const level = competency.levels.find((l) => l.level_value === wanted_level.level_value);
+      const level = competency.levels.find(
+        (l) => l.level_value === wanted_level.level_value,
+      );
       if (!level) {
         throw new Error(
           `The copy's "${wanted.code}" has no level ${wanted_level.level_value}, so it cannot take this draft.`,
