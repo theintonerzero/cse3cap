@@ -139,8 +139,9 @@ tests in `api/tests/`, run by `./run test`. Anything needing a running server, o
 something a unit test cannot reach, is a script in `scripts/` wired into `./run`:
 `scripts/smoke.sh` walks the product over HTTP, `scripts/verify-client.sh` checks the typed
 API client. Never leave a check in a scratchpad, a home directory or a chat message. A
-check only one person can run is a check the team does not have. `web/` has no unit test
-runner yet; choosing one is a decision with an ADR, not something to add in passing.
+check only one person can run is a check the team does not have. `web/` has browser checks
+and no unit test runner: Playwright specs in `web/e2e/` drive the real screens against a
+fake API, run by `./run e2e` (ADR #42). Choosing a unit runner as well is still an ADR.
 
 ## Skills, agents and plugins
 
@@ -216,11 +217,13 @@ isolated database: every one of them points at the same MySQL on the VPS. Never 
 migrations or seeders from more than one at a time, and never in parallel. Parallel agents
 that only read, or that only touch files, are fine.
 
-**`web/` has no test runner.** `test-driven-development` applies in full to `api/`, which
-has PHPUnit and 110 feature tests, and a failing test comes first there. In `web/` there is
-nothing to write a failing test in yet, so the loop cannot run: put the check in `scripts/`
-instead, wired into `./run`. If you think the frontend should have a runner, that is an ADR
-and a team decision, not something to add in passing.
+**In `web/`, the failing test is a browser check.** `test-driven-development` applies in
+full to `api/`, which has PHPUnit and its feature tests, and a failing test comes first
+there. In `web/` the loop runs through Playwright (ADR #42): a spec in `web/e2e/` that
+drives the screen against the fake API in `web/e2e/fake-api.ts`, failing before the screen
+does the thing. The fake never reimplements a backend rule; a refusal is injected by code,
+and the rule is tested in `api/tests/`. Pure modules beside a screen keep their `scripts/`
+checks. A unit runner is still an ADR and a team decision.
 
 ### The plugins, not just superpowers
 

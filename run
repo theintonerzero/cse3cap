@@ -213,6 +213,18 @@ case "${1:-help}" in
     # fails.
     verify-framework-edit) step ./scripts/verify-edit-framework.sh ;;
 
+    # Browser checks (ADR #42): the real screens in headless Chromium against
+    # a fake API, so no server, database or token is needed. Extra arguments
+    # go to Playwright: ./run e2e -g "partway", ./run e2e --headed.
+    e2e)
+        need_web_deps
+        in_dir web npx playwright install chromium
+        shift
+        # ${@+"$@"}, not "$@": macOS's bash 3.2 calls an empty "$@" unbound
+        # under set -u, which would make a bare ./run e2e fail.
+        in_dir web npx playwright test ${@+"$@"}
+        ;;
+
     # Proves your Jira credentials work, over plain HTTP, independently of
     # the atlassian MCP server. Run it when Jira misbehaves: it separates a
     # wrong token from a broken MCP server, which look identical otherwise.
@@ -300,6 +312,8 @@ case "${1:-help}" in
             step node scripts/check-contrast.mjs
             in_dir web npm run build
             step scripts/check-bundle-secrets.sh
+            in_dir web npx playwright install chromium
+            in_dir web npm run test:e2e
         fi
         printf '\n%sAll checks passed.%s\n' "$GREEN" "$RESET"
         ;;
@@ -327,6 +341,7 @@ ${BLUE}Alumable Reflection Diary${RESET}
   ${GREEN}./run verify-history${RESET}  the history sheet: milestones, order, local time
   ${GREEN}./run verify-frameworks${RESET}  the select framework screen: groups, in_use, the 409
   ${GREEN}./run verify-framework-edit${RESET}  the edit framework screen: copy then edit, scope, retries
+  ${GREEN}./run e2e${RESET}      browser checks in headless Chromium against a fake API (no server)
   ${GREEN}./run swap${RESET}     the framework swap: SFIA against La Trobe, over HTTP
   ${GREEN}./run bundle-secrets${RESET}  proves a production build carries no token
   ${GREEN}./run lint${RESET}     pint, oxlint and prettier, checking only

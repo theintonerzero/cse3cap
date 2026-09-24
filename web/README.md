@@ -54,9 +54,24 @@ npx -y @stoplight/prism-cli mock docs/openapi.yaml    # http://localhost:4010
 | `npm run lint`      | oxlint                                                       |
 | `npm run format`    | Prettier, writing changes                                    |
 | `npm run preview`   | Serve the built `dist/` locally                              |
+| `npm run test:e2e`  | Browser checks in headless Chromium against a fake API       |
 
-CI runs `npm ci`, `npm run lint`, `npx prettier --check .` and `npm run build` on every
-push. All four pass today; keep them passing.
+CI runs `npm ci`, `npm run lint`, `npx prettier --check .`, `npm run build` and
+`npm run test:e2e` on every push. All five pass today; keep them passing.
+
+## Browser checks
+
+`e2e/` holds Playwright specs that drive the real screens in Chromium (ADR #42). They need
+no backend, database or token: `e2e/fake-api.ts` answers every `/api/v1` request from
+fixtures typed against `src/api/schema.ts`, records what the page sent, and fails on purpose
+when a test asks it to. `./run e2e` from the repository root installs Chromium the first
+time and runs them. Arguments go through to Playwright: `./run e2e -g "partway"` runs one
+test, `./run e2e --headed` shows the browser.
+
+The fake reproduces the shape of what the API returns, not its rules. A spec that needs a
+refusal asks for it with `api.fail(...)`, naming the status and code the contract declares,
+and the rule that produces it is tested in `api/tests/`. A failed run keeps a trace in
+`test-results/`: `npx playwright show-trace <path>` replays it step by step.
 
 ## What to build, in order
 
@@ -80,11 +95,12 @@ three. `/add-screen` carries the full checklist.
 `src/screens/<Name>.tsx` beside a colocated `<Name>.module.css`. A screen takes no props,
 fetches through the typed client, and owns its own states.
 
-| Screen        | Route                                                     | Check                |
-| ------------- | --------------------------------------------------------- | -------------------- |
-| `DiaryHome`   | `/`, scoped by `?gig_id=` and `?sprint_id=`               | `./run verify-diary` |
-| `GigDetail`   | `/gigs/:gig_id`                                           | `./run verify-gig`   |
-| `ReviewQueue` | not mounted yet; CAP-10's follow-up swaps the placeholder | —                    |
+| Screen          | Route                                                     | Check                                      |
+| --------------- | --------------------------------------------------------- | ------------------------------------------ |
+| `DiaryHome`     | `/`, scoped by `?gig_id=` and `?sprint_id=`               | `./run verify-diary`                       |
+| `GigDetail`     | `/gigs/:gig_id`                                           | `./run verify-gig`                         |
+| `ReviewQueue`   | not mounted yet; CAP-10's follow-up swaps the placeholder | —                                          |
+| `EditFramework` | `/frameworks/:framework_id/edit`, the id is the base      | `./run e2e`, `./run verify-framework-edit` |
 
 The diary home keeps its scope in the URL rather than in state (ADR #27), so a scoped diary
 is a link somebody can send. What a scope means -- which rows are yours, which sprints can
