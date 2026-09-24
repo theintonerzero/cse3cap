@@ -50,7 +50,7 @@ Index
 #38 Jira is the truth about tickets .............. Accepted
 #39 PDF export renders with dompdf ............... Accepted
 #40 Policies for records, query scopes for lists .. Accepted
-#42 Browser checks with Playwright, fake API ..... Proposed
+#42 Browser checks with Playwright, fake API ..... Accepted
 
 ===============================================================
 
@@ -2014,7 +2014,7 @@ Review for want of a sentence is the board saying something false.
 
 ADR #42: Browser checks with Playwright, against a fake API
 
-Status: Proposed
+Status: Accepted
 Date: 2026-09-24
 
 Context:
@@ -2087,8 +2087,10 @@ A second test environment to maintain. Every screen that adopts it needs its end
 the fake, and a new endpoint needs a new branch there.
 
 CI gets slower and heavier. The Frontend job downloads Chromium and installs its system
-libraries on every run, which it did not before. Locally the checks themselves take about
-two seconds, and the browser is a one-time download of about 95 MB.
+libraries on every run, which it did not before. On the first run, PR #63 on 2026-09-24,
+the install took 42 seconds and the checks 13, and the job went from 16 seconds to 1m17s.
+Locally the checks take about two seconds, and the browser is a one-time download of about
+95 MB.
 
 It is not the end-to-end test. Nothing here proves the frontend and backend work together.
 CAP-22 still has to.
