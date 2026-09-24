@@ -33,7 +33,14 @@ import { Link, useParams } from 'react-router';
 
 import { api, ApiError } from '../api/client.ts';
 import type { components } from '../api/schema.ts';
-import { Card, ErrorNotice, Skeleton, SkeletonGroup } from '../components/index.ts';
+import {
+  BottomSheet,
+  Button,
+  Card,
+  ErrorNotice,
+  Skeleton,
+  SkeletonGroup,
+} from '../components/index.ts';
 import { useSession } from '../session/useSession.ts';
 import {
   by_ordinal,
@@ -44,6 +51,7 @@ import {
   sprint_timing,
 } from './gig-timing.ts';
 import styles from './GigDetail.module.css';
+import { HistorySheet } from './HistorySheet.tsx';
 
 type Gig = components['schemas']['GigDetail'];
 type Sprint = Gig['sprints'][number];
@@ -78,6 +86,7 @@ export function GigDetail() {
   const { me } = useSession();
   const [load, setLoad] = useState<Load>({ status: 'loading' });
   const [reload_key, setReloadKey] = useState(0);
+  const [history_open, setHistoryOpen] = useState(false);
 
   useEffect(() => {
     // Nothing to fetch and nothing to set: the render path below answers
@@ -158,11 +167,30 @@ export function GigDetail() {
 
   return (
     <section>
-      <GigHeader gig={gig} me_id={me?.id ?? null} />
+      <GigHeader
+        gig={gig}
+        me_id={me?.id ?? null}
+        on_history={gig.my_role === 'student' ? () => setHistoryOpen(true) : null}
+      />
       <TimelineCard gig={gig} />
       <DiaryCard gig={gig} reflections={reflections} today={new Date()} />
+
+      <BottomSheet
+        open={history_open}
+        title="History"
+        onClose={() => setHistoryOpen(false)}
+      >
+        <HistorySheet reflections={reflections} />
+      </BottomSheet>
     </section>
   );
+}
+
+interface GigHeaderProps {
+  gig: Gig;
+  me_id: string | null;
+  /** Opens the history sheet; null where there is no history to show. */
+  on_history: (() => void) | null;
 }
 
 /**
@@ -170,13 +198,25 @@ export function GigDetail() {
  * The status pill beside it ("Applied" / "Accepted") is not here -- this
  * build has no application or offer state to render, and a pill that
  * always says the same word is decoration.
+ *
+ * The History button that shares the pill's line in the frame is here
+ * (CAP-14), for a student only: the sheet is one student's milestones,
+ * built from GET /reflections, which gives anyone else every student's
+ * rows -- the same reason DiaryCard splits on role.
  */
-function GigHeader({ gig, me_id }: { gig: Gig; me_id: string | null }) {
+function GigHeader({ gig, me_id, on_history }: GigHeaderProps) {
   const when = gig_dates(gig.starts_on, gig.ends_on);
   const meta = [gig.org_name, when].filter((part): part is string => part !== null);
 
   return (
     <header className={styles.header}>
+      {on_history && (
+        <div className={styles.header_actions}>
+          <Button variant="secondary" full_width={false} on_click={on_history}>
+            History
+          </Button>
+        </div>
+      )}
       <h1 className={styles.heading}>{gig.title}</h1>
       {meta.length > 0 && <p className={styles.sub}>{meta.join(' \u00b7 ')}</p>}
       <ParticipantList participants={gig.participants} me_id={me_id} />

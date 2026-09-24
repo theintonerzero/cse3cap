@@ -184,6 +184,15 @@ case "${1:-help}" in
     # half needs a server and a token; it skips rather than fails.
     verify-export) step ./scripts/verify-export-sheet.sh ;;
 
+    # The history sheet's own invariants: mounted in a BottomSheet on the
+    # gig page for a student only, every call through client.ts, four
+    # states, and the milestone rules compiled and executed -- every
+    # seeded event on a reflection shares one timestamp, so an order that
+    # only reads the clock looks fine on some loads and shuffled on
+    # others. The live half needs a server and tokens; it skips rather
+    # than fails.
+    verify-history) step ./scripts/verify-history-sheet.sh ;;
+
     # The select framework screen's own invariants: mounted in place of the
     # CAP-15 placeholder, reachable from the nav a supervisor sees, Edit
     # gated on in_use and pointed at a route the router actually declares,
@@ -306,6 +315,7 @@ ${BLUE}Alumable Reflection Diary${RESET}
   ${GREEN}./run verify-entry-stepper${RESET}  the entry stepper: mounted, four states, evidence-link security
   ${GREEN}./run verify-assessor-stepper${RESET}  the assessor stepper: one component, POST only, errors by code
   ${GREEN}./run verify-gig${RESET}    the gig detail: mounted, linked, four states, dates
+  ${GREEN}./run verify-history${RESET}  the history sheet: milestones, order, local time
   ${GREEN}./run verify-frameworks${RESET}  the select framework screen: groups, in_use, the 409
   ${GREEN}./run swap${RESET}     the framework swap: SFIA against La Trobe, over HTTP
   ${GREEN}./run bundle-secrets${RESET}  proves a production build carries no token
