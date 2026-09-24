@@ -191,10 +191,14 @@ README.md                setup, connection details, the three tokens
       required when scoring lower
 
 *Educator (supervisor role)*
-- [ ] Select framework: available templates vs saved copies, Edit and Assign actions,
-      Edit hidden when `in_use`
-- [ ] Edit framework: based-on selector, name, competencies with their level descriptors,
-      save as a new copy
+- [ ] Select framework: available templates vs saved copies, Copy and edit and Assign
+      actions. Copy and edit is on every row: CAP-16 lifted the original "Edit hidden when
+      `in_use`", because the editor only ever copies and both seeded templates are in use
+- [x] Edit framework: based-on selector, name, competencies with their level descriptors,
+      save as a new copy. Rename and reword only, with no control for changing shape (ADR
+      #16). Save POSTs the copy, then PATCHes it field by field, and a retry after a partial
+      failure finishes the same copy rather than making another. `./run
+      verify-framework-edit` compiles and runs which PATCHes a save still owes
 
 ### 4.4 Security and infrastructure
 
