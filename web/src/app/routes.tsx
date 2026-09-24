@@ -21,6 +21,7 @@
 import { Navigate, Route, Routes } from 'react-router';
 
 import { DiaryHome } from '../screens/DiaryHome.tsx';
+import { EditFramework } from '../screens/EditFramework.tsx';
 import { EntryStepper } from '../screens/EntryStepper.tsx';
 import { GigDetail } from '../screens/GigDetail.tsx';
 import { AppShell } from './AppShell.tsx';
@@ -88,10 +89,7 @@ export function AppRoutes() {
 
         <Route path="frameworks" element={<SelectFramework />} />
 
-        <Route
-          path="frameworks/:framework_id/edit"
-          element={<Placeholder screen="Edit framework" ticket="CAP-16" />}
-        />
+        <Route path="frameworks/:framework_id/edit" element={<EditFramework />} />
 
         <Route path="*" element={<Placeholder screen="Not found" ticket="No ticket" />} />
       </Route>

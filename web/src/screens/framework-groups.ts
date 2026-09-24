@@ -39,16 +39,6 @@ export function group_frameworks(list: Framework[]): FrameworkGroups {
 }
 
 /**
- * A framework a reflection already references can never be edited: mutating
- * it would silently change what past students were scored against. The API
- * refuses it with 409 FRAMEWORK_IN_USE either way -- hiding Edit is the
- * courtesy, not the rule.
- */
-export function is_editable(framework: Framework): boolean {
-  return !framework.in_use;
-}
-
-/**
  * The gigs this user could put a rubric on.
  *
  * Role is per gig and resolved by the server from gig_participants; this

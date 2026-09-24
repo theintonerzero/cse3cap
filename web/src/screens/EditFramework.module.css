@@ -1,0 +1,187 @@
+.back {
+  display: inline-block;
+  margin-bottom: var(--space-12);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-primary);
+}
+
+.heading {
+  margin: 0 0 var(--space-4);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+}
+
+.sub {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text-muted);
+}
+
+.block {
+  margin-top: var(--space-24);
+}
+
+.form {
+  margin-top: var(--space-24);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+.label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+/* The same field TextArea draws, without its autosave: this screen saves
+   once, explicitly, as a copy. */
+.control {
+  width: 100%;
+  box-sizing: border-box;
+  padding: var(--space-12);
+  border: var(--border-width-sm) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.control:focus-visible {
+  outline: var(--border-width-sm) solid var(--color-focus-ring);
+  outline-offset: var(--border-width-sm);
+}
+
+.control:disabled {
+  opacity: 0.6;
+}
+
+.descriptor {
+  min-height: 4.5em;
+  line-height: var(--line-height-normal);
+  resize: vertical;
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text-muted);
+}
+
+/* The one place the fixed shape is stated. Prose, never a control: ADR #16
+   and the ticket forbid UI for adding, removing or resizing, even disabled. */
+.shape {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text-muted);
+}
+
+.competencies {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+.fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+.legend {
+  padding: 0;
+  margin-bottom: var(--space-12);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Name and radar label side by side where there is room, stacked on a
+   phone. The label is the shorter field, so it takes the smaller share. */
+.pair {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-12);
+}
+
+@media (min-width: 40rem) {
+  .pair {
+    grid-template-columns: 2fr 1fr;
+  }
+}
+
+.footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  padding-top: var(--space-16);
+  border-top: var(--border-width-sm) solid var(--color-border);
+}
+
+.outcome {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-8);
+}
+
+/* Both sit on --color-bg, a pairing check-contrast.mjs already covers for
+   --color-danger and --color-success. */
+.saved {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-success);
+}
+
+.refused {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-danger);
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-32) var(--space-16);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-alt);
+  text-align: center;
+}
+
+.empty_title {
+  margin: 0;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+/* --color-text-muted on --color-surface-alt fails AA in light mode, so the
+   body copy stays --color-text. Same reasoning as SelectFramework. */
+.empty_body {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text);
+}
