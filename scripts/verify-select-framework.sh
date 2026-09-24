@@ -388,7 +388,15 @@ else
 
         # The screen shows error.message verbatim, so the message has to be
         # a sentence a supervisor can act on rather than a code name.
-        if printf '%s' "$DUP" | grep -q 'already has a rubric'; then
+        #
+        # Either of FrameworkAssigner's two sentences. The pair above is the
+        # first rubric by name and the first gig, which on the seeded data
+        # is La Trobe on the La Trobe gig -- the SAME rubric, so the answer
+        # is "already assigned to this gig", not "already has a rubric".
+        # Matching only the second failed live on 2026-09-24. Picking a pair
+        # that avoids it needs the gig's rubric, which GET /gigs/{id} does
+        # not carry, and guessing risks a 201 that writes to the shared DB.
+        if printf '%s' "$DUP" | grep -qE 'already has a rubric|already assigned to this gig'; then
             ok "the refusal explains itself" "shown verbatim on the row"
         else
             bad "the refusal explains itself" "the screen renders this string"

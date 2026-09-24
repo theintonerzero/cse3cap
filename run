@@ -194,8 +194,8 @@ case "${1:-help}" in
     verify-history) step ./scripts/verify-history-sheet.sh ;;
 
     # The select framework screen's own invariants: mounted in place of the
-    # CAP-15 placeholder, reachable from the nav a supervisor sees, Edit
-    # gated on in_use and pointed at a route the router actually declares,
+    # CAP-15 placeholder, reachable from the nav a supervisor sees, Copy and
+    # edit on every row and pointed at a route the router actually declares,
     # four states, and no replace flow -- a gig takes one rubric (ADR #33,
     # #35). The templates-from-copies split is compiled and executed rather
     # than grepped for: the shared database holds two stock templates and a
@@ -203,6 +203,15 @@ case "${1:-help}" in
     # cannot be produced by looking at the app. The live half needs a
     # server and Dr Lee's token; it skips rather than fails.
     verify-frameworks) step ./scripts/verify-select-framework.sh ;;
+
+    # The edit framework screen (CAP-16): mounted, reachable from every
+    # rubric, the four calls the ticket names through the typed client,
+    # four states, and ADR #16's scope -- rename and reword only, no control
+    # for adding or removing anything. Which PATCHes a save still owes, and
+    # what a retry resends, is compiled and executed. The live half is
+    # read-only and needs a server and Dr Lee's token; it skips rather than
+    # fails.
+    verify-framework-edit) step ./scripts/verify-edit-framework.sh ;;
 
     # Proves your Jira credentials work, over plain HTTP, independently of
     # the atlassian MCP server. Run it when Jira misbehaves: it separates a
@@ -317,6 +326,7 @@ ${BLUE}Alumable Reflection Diary${RESET}
   ${GREEN}./run verify-gig${RESET}    the gig detail: mounted, linked, four states, dates
   ${GREEN}./run verify-history${RESET}  the history sheet: milestones, order, local time
   ${GREEN}./run verify-frameworks${RESET}  the select framework screen: groups, in_use, the 409
+  ${GREEN}./run verify-framework-edit${RESET}  the edit framework screen: copy then edit, scope, retries
   ${GREEN}./run swap${RESET}     the framework swap: SFIA against La Trobe, over HTTP
   ${GREEN}./run bundle-secrets${RESET}  proves a production build carries no token
   ${GREEN}./run lint${RESET}     pint, oxlint and prettier, checking only
