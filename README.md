@@ -592,6 +592,7 @@ and the reasoning behind the unusual decisions.
 | [`docs/Framework-Swap-Verification.md`](docs/Framework-Swap-Verification.md) | Proof the rubric is data, and what the seed cannot prove |
 | [`docs/openapi.yaml`](docs/openapi.yaml)                         | Machine-readable contract, source of truth                    |
 | [`docs/Stack-and-Build-Scope.md`](docs/Stack-and-Build-Scope.md) | What is being built, and the definition of done               |
+| [`docs/Feature-Roadmap.md`](docs/Feature-Roadmap.md)             | Possible features beyond the MVP, tiered, with questions for the client |
 | [`docs/adr/`](docs/adr/)                                         | Architecture decision records                                 |
 | [`docs/Security-Review.md`](docs/Security-Review.md)             | Security reviews, appended per change                         |
 | [`.claude/skills/jira-tickets/`](.claude/skills/jira-tickets/)   | How agents read and move COA4 tickets (ADR #38)               |
