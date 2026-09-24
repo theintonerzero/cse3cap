@@ -174,6 +174,76 @@ class ReflectionWritePathTest extends TestCase
             ->assertStatus(404)->assertJsonPath('error.code', 'NOT_FOUND');
     }
 
+    /**
+     * The narrative test above, for every other write on a reflection.
+     * They all reach ReflectionPolicy through their controller's
+     * Gate::authorize, and these hold that line in place: an assessor on
+     * the gig can read the draft but gets a 403, and a stranger gets a 404.
+     * CAP-37, and F10 in docs/Security-Review.md.
+     */
+    private function refusedToAReviewerAndAStranger(callable $request): void
+    {
+        Sanctum::actingAs($this->user('Sam O'));
+        $request()->assertStatus(403)->assertJsonPath('error.code', 'ROLE_FORBIDDEN');
+
+        Sanctum::actingAs(User::create(['display_name' => 'Nobody']));
+        $request()->assertStatus(404)->assertJsonPath('error.code', 'NOT_FOUND');
+    }
+
+    public function test_nobody_else_self_scores_on_someone_elses_reflection(): void
+    {
+        $reflection = $this->draftForJane();
+        $entry = $reflection->entries()->with('competency.levels')->firstOrFail();
+        $level = $entry->competency->levels->first();
+
+        $this->refusedToAReviewerAndAStranger(fn () => $this->putJson(
+            "/api/v1/entries/{$entry->id}/scores/self",
+            ['level_id' => $level->id],
+        ));
+
+        $this->assertSame(0, $entry->scores()->count());
+    }
+
+    public function test_nobody_else_attaches_evidence_to_someone_elses_reflection(): void
+    {
+        $reflection = $this->draftForJane();
+        $entry = $reflection->entries()->firstOrFail();
+
+        $this->refusedToAReviewerAndAStranger(fn () => $this->postJson(
+            "/api/v1/entries/{$entry->id}/evidence",
+            ['kind' => 'link', 'label' => 'Not mine', 'uri' => 'https://example.org/x'],
+        ));
+
+        $this->assertSame(0, $entry->evidence()->count());
+    }
+
+    public function test_nobody_else_removes_evidence_from_someone_elses_reflection(): void
+    {
+        $reflection = $this->draftForJane();
+        $entry = $reflection->entries()->firstOrFail();
+        $id = $this->postJson("/api/v1/entries/{$entry->id}/evidence", [
+            'kind' => 'link', 'label' => 'Jane\'s link', 'uri' => 'https://example.org/x',
+        ])->assertStatus(201)->json('id');
+
+        $this->refusedToAReviewerAndAStranger(fn () => $this->deleteJson("/api/v1/evidence/{$id}"));
+
+        $this->assertSame(1, $entry->evidence()->count());
+    }
+
+    public function test_nobody_else_submits_someone_elses_reflection(): void
+    {
+        // Complete, so the gate would let it through: the refusal has to
+        // come from the policy, not from an empty narrative.
+        $reflection = $this->draftForJane();
+        $this->complete($reflection);
+
+        $this->refusedToAReviewerAndAStranger(fn () => $this->postJson(
+            "/api/v1/reflections/{$reflection->id}/submit",
+        ));
+
+        $this->assertSame('draft', $reflection->fresh()->status);
+    }
+
     public function test_the_gate_refuses_an_empty_narrative_and_names_the_entries(): void
     {
         $reflection = $this->draftForJane();
