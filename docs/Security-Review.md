@@ -79,9 +79,11 @@ Fix in `web/`: add ownership to the condition, from the `owner` the reflection a
 carries and the session's `me`. A student mode opened by someone who is not the owner then
 renders read-only, the same as the assessor mode does.
 
-#### F10 · A reviewer's refusal is tested on the narrative only — Low
+#### F10 · A reviewer's refusal is tested on the narrative only — Low. **Fixed 2026-09-24**
 
-> **Raised as CAP-37 (COA4-95).**
+> **Fixed in CAP-37, PR #60.** `ReflectionWritePathTest` now refuses an assessor (403) and
+> a stranger (404) on the self-score, evidence add and remove, and submit, and checks
+> nothing changed. Each test was red with its controller's `Gate::authorize` line removed.
 
 `ReflectionWritePathTest::test_nobody_else_writes_on_someone_elses_reflection` has Sam, an
 assessor, PATCH Jane's narrative and asserts 403. The self-score PUT, evidence POST and
