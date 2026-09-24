@@ -14,13 +14,13 @@
 # 1. The screen is mounted. A screen left behind a placeholder is a screen
 #    nobody can reach.
 # 2. It is REACHABLE, and the way out of it goes somewhere real. The nav
-#    has addressed /frameworks since CAP-5, gated to a supervisor, and Edit
-#    addresses the CAP-16 route -- a link to a path the router does not
-#    declare lands on the not-found placeholder without saying so.
+#    has addressed /frameworks since CAP-5, gated to a supervisor, and Copy
+#    and edit addresses the CAP-16 route -- a link to a path the router does
+#    not declare lands on the not-found placeholder without saying so.
 # 3. One API client, no hand-written response type.
 # 4. All four states, and skeletons rather than a spinner.
-# 5. The rules this screen must not break: the templates/copies split, the
-#    in_use gate on Edit, no replace flow, and no role read from the client.
+# 5. The rules this screen must not break: the templates/copies split, Copy
+#    and edit on every row, no replace flow, and no role read from the client.
 # 6. The grouping rule, actually EXECUTED. The shared database holds two
 #    seeded templates and a growing pile of smoke-test-copy-* frameworks,
 #    so the interesting inputs -- no copies, no templates, names that sort
@@ -90,18 +90,18 @@ else
     bad "the nav item is gated on supervisor"
 fi
 
-# The way OUT. Edit addresses the CAP-16 route, which exists as a
-# placeholder -- a link to a path the router does not declare would fall
-# through to the not-found placeholder and look like a working link.
+# The way OUT. Copy and edit addresses the CAP-16 route -- a link to a path
+# the router does not declare would fall through to the not-found
+# placeholder and look like a working link.
 if grep -q '/frameworks/\${framework.id}/edit' "$SCREEN" \
    || grep -q 'frameworks/\${framework.id}/edit' "$SCREEN"; then
-    ok "Edit addresses /frameworks/:framework_id/edit"
+    ok "Copy and edit addresses /frameworks/:framework_id/edit"
 else
-    bad "Edit addresses /frameworks/:framework_id/edit"
+    bad "Copy and edit addresses /frameworks/:framework_id/edit"
 fi
 
 if grep -q 'path="frameworks/:framework_id/edit"' "$ROUTES"; then
-    ok "the router declares that path" "CAP-16's placeholder answers it"
+    ok "the router declares that path" "CAP-16's editor answers it"
 else
     bad "the router declares that path" "Edit would hit the not-found route"
 fi
@@ -185,10 +185,15 @@ else
     bad "templates and copies split on created_by"
 fi
 
-if grep -q 'in_use' "$RULE" && grep -q 'is_editable(framework)' "$SCREEN"; then
-    ok "Edit is gated on in_use" "a referenced rubric is permanently read-only"
+# Copy and edit is on EVERY row. The editor copies and never changes the
+# rubric it starts from, so in_use is no reason to hide it -- and both
+# seeded templates are in use, so gating on it left a freshly seeded
+# database with no way into the editor. Changed by CAP-16; in_use still
+# drives the "In use" marker.
+if grep -q 'Copy and edit' "$SCREEN" && ! grep -q 'is_editable' "$SCREEN"; then
+    ok "Copy and edit on every row" "in_use does not gate a copy"
 else
-    bad "Edit is gated on in_use"
+    bad "Copy and edit on every row" "gated on in_use, both seeded templates lose it"
 fi
 
 # ADR #33, extended by #35: a gig takes one rubric and the unique key
@@ -249,7 +254,7 @@ else
     printf '{"type":"module"}' > "$OUT/package.json"
 
     cat > "$OUT/check.mjs" <<'JS'
-import { group_frameworks, is_editable, assignable_gigs }
+import { group_frameworks, assignable_gigs }
   from './screens/framework-groups.js';
 
 const fw = (name, created_by, in_use = false) => ({
@@ -298,13 +303,6 @@ want('all copies has no templates',
 want('nothing lost, nothing duplicated',
   groups.templates.length + groups.copies.length, mixed.length);
 
-// in_use is the read-only gate, and it is independent of created_by: a
-// stock template a reflection references is as frozen as a copy is.
-want('in_use stock is not editable', is_editable(fw('x', null, true)), false);
-want('unused stock is editable', is_editable(fw('x', null, false)), true);
-want('in_use copy is not editable', is_editable(fw('x', 'u', true)), false);
-want('unused copy is editable', is_editable(fw('x', 'u', false)), true);
-
 // Which gigs the picker offers. A student or assessor participation is not
 // one, and the server would 403 it -- this only keeps the picker honest.
 const parts = [
@@ -321,9 +319,9 @@ if (failed > 0) { console.log(`${failed} mismatches`); process.exit(1); }
 JS
 
     if node "$OUT/check.mjs" >"$OUT/run.log" 2>&1; then
-        ok "grouping, sorting, the in_use gate and the role filter" "16 assertions"
+        ok "grouping, sorting and the role filter" "10 assertions"
     else
-        bad "grouping, sorting, the in_use gate and the role filter" "see below"
+        bad "grouping, sorting and the role filter" "see below"
         sed 's/^/    /' "$OUT/run.log"
     fi
 fi
@@ -351,7 +349,7 @@ else
 
     # The split is only real if the data actually has both sides. A seeded
     # database always has at least one stock template; copies arrive from
-    # smoke.sh and from anyone pressing Edit.
+    # smoke.sh and from anyone pressing Copy and edit.
     if printf '%s' "$BODY" | grep -q '"created_by":null'; then
         ok "at least one stock template exists" "created_by null"
     else
