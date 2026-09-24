@@ -319,9 +319,10 @@ function Editor({
           </div>
 
           <p className={styles.shape}>
-            {draft.competencies.length} competencies, scored {base.scale.min} to{' '}
-            {base.scale.max}. The number of competencies and levels stays as it is: a rubric
-            with a different shape is a different rubric.
+            {draft.competencies.length}{' '}
+            {draft.competencies.length === 1 ? 'competency' : 'competencies'}, scored{' '}
+            {base.scale.min} to {base.scale.max}. The number of competencies and levels
+            stays as it is: a rubric with a different shape is a different rubric.
           </p>
 
           <ol className={styles.competencies}>
