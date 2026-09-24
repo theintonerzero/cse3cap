@@ -2086,8 +2086,9 @@ and a spec that relies on a behaviour with no backend test there is a gap nobody
 A second test environment to maintain. Every screen that adopts it needs its endpoints in
 the fake, and a new endpoint needs a new branch there.
 
-CI gets slower and heavier. The Frontend job installs Chromium with its system libraries on
-every run, which adds about a minute. Developers download a browser of about 95 MB once.
+CI gets slower and heavier. The Frontend job downloads Chromium and installs its system
+libraries on every run, which it did not before. Locally the checks themselves take about
+two seconds, and the browser is a one-time download of about 95 MB.
 
 It is not the end-to-end test. Nothing here proves the frontend and backend work together.
 CAP-22 still has to.
