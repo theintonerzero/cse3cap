@@ -250,3 +250,11 @@
   line-height: var(--line-height-relaxed);
   color: var(--color-text);
 }
+
+/* The History button (CAP-14), at the right of its own line above the
+   title, where the frame draws it beside the status pill this build does
+   not have. */
+.header_actions {
+  display: flex;
+  justify-content: flex-end;
+}
