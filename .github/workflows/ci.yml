@@ -178,3 +178,26 @@ jobs:
         if: steps.web.outputs.exists == 'true'
         working-directory: web
         run: npm run build
+
+      # ADR #42. Browser checks against a fake API: no backend, no database
+      # and no token, so they run here exactly as they run locally. The
+      # browser comes from the pinned @playwright/test, not from latest.
+      - name: Install Chromium for the browser checks
+        if: steps.web.outputs.exists == 'true'
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser checks
+        if: steps.web.outputs.exists == 'true'
+        working-directory: web
+        run: npm run test:e2e
+
+      # A failed run's trace is the page, the network and the console at
+      # every step. Kept a week, and only when something failed.
+      - name: Keep the traces of a failed browser check
+        if: failure() && steps.web.outputs.exists == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: web/test-results/
+          retention-days: 7
