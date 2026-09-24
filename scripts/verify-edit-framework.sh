@@ -201,7 +201,7 @@ else
     cat > "$OUT/check.mjs" <<'JS'
 import {
   draft_from, set_competency, set_level, missing_text,
-  pending_edits, apply_edit, is_dirty,
+  pending_edits, owed_by, apply_edit, is_dirty,
 } from './screens/framework-edit.js';
 
 let failed = 0;
@@ -309,6 +309,13 @@ throws('a copy missing a competency throws', () =>
   pending_edits({ ...copy, competencies: copy.competencies.slice(0, 1) }, fresh));
 throws('a copy missing a level throws', () =>
   pending_edits({ ...copy, competencies: copy.competencies.map((c) => ({ ...c, levels: c.levels.slice(0, 1) })) }, fresh));
+
+// The render asks the same question and must NOT throw: a throw in render
+// is a blank page. Found against the prism mock, whose generated POST
+// response has a competency coded "string".
+want('owed_by answers what pending_edits does', owed_by(copy, several), owed);
+want('owed_by is null for a copy of another shape, not a throw',
+  owed_by({ ...copy, competencies: [{ ...copy.competencies[0], code: 'string' }] }, fresh), null);
 
 // --- missing_text
 want('a complete draft is missing nothing', missing_text(fresh), []);

@@ -178,6 +178,20 @@ export function pending_edits(copy: FrameworkDetail, draft: FrameworkDraft): Edi
   return edits;
 }
 
+/**
+ * pending_edits for the render, which must not throw: a throw in render is a
+ * blank page. null means the copy does not have this draft's shape, which the
+ * real API cannot produce (copy() carries every code and level over) but the
+ * prism mock's generated response does.
+ */
+export function owed_by(copy: FrameworkDetail, draft: FrameworkDraft): Edit[] | null {
+  try {
+    return pending_edits(copy, draft);
+  } catch {
+    return null;
+  }
+}
+
 /** The copy as it stands once `edit` has landed. */
 export function apply_edit(copy: FrameworkDetail, edit: Edit): FrameworkDetail {
   switch (edit.kind) {

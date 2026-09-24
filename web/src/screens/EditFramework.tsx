@@ -36,6 +36,7 @@ import {
   draft_from,
   is_dirty,
   missing_text,
+  owed_by,
   pending_edits,
   set_competency,
   set_level,
@@ -130,7 +131,9 @@ export function EditFramework() {
 type Save =
   | { status: 'idle' }
   | { status: 'saving'; done: number; total: number }
-  | { status: 'failed'; error: ApiError }
+  // error is null when nothing came back wrong over HTTP: the copy arrived
+  // but is not this draft's shape. SaveOutcome says that in its own words.
+  | { status: 'failed'; error: ApiError | null }
   | { status: 'frozen'; error: ApiError }
   | { status: 'saved' };
 
@@ -156,10 +159,17 @@ function Editor({
   };
 
   const missing = missing_text(draft);
-  const owed = copy === null ? null : pending_edits(copy, draft);
+  // owed_by, not pending_edits: this runs in render, where a throw is a
+  // blank page. null with a copy means the copy is not this draft's shape.
+  const owed = copy === null ? null : owed_by(copy, draft);
+  const mismatched = copy !== null && owed === null;
   const saving = save.status === 'saving';
   const can_save =
-    !saving && save.status !== 'frozen' && missing.length === 0 && owed?.length !== 0;
+    !saving &&
+    save.status !== 'frozen' &&
+    !mismatched &&
+    missing.length === 0 &&
+    owed?.length !== 0;
 
   async function run(change: Edit) {
     switch (change.kind) {
@@ -209,22 +219,25 @@ function Editor({
 
       setSave({ status: 'saved' });
     } catch (error: unknown) {
-      const api_error =
-        error instanceof ApiError
-          ? error
-          : new ApiError(
-              0,
-              null,
-              error instanceof Error ? error.message : 'Something went wrong saving.',
-            );
+      // Every request above rejects with an ApiError, including one that
+      // never reached the server (status 0). Anything else is pending_edits
+      // refusing a copy of the wrong shape -- not a transport failure, so it
+      // must not be dressed as one: ErrorNotice reads status 0 as "Cannot
+      // reach the server".
+      if (!(error instanceof ApiError)) {
+        setSave({ status: 'failed', error: null });
+        return;
+      }
 
       // The guard firing mid-edit: somebody assigned the new copy to a gig
       // and a reflection was scored against it between the POST and now.
       // It is frozen for good, so retrying against it can never succeed.
-      setSave({
-        status: api_error.code === 'FRAMEWORK_IN_USE' ? 'frozen' : 'failed',
-        error: api_error,
-      });
+      if (error.code === 'FRAMEWORK_IN_USE') {
+        setSave({ status: 'frozen', error });
+        return;
+      }
+
+      setSave({ status: 'failed', error });
     }
   }
 
@@ -468,9 +481,11 @@ function SaveOutcome({
         <p className={styles.hint}>
           {copy === null
             ? 'Nothing was saved.'
-            : `Your copy, ${copy.name}, exists, but ${owed?.length ?? 0} of your edits have not reached it yet. Saving again finishes them on the same copy rather than making another.`}
+            : owed === null
+              ? `A copy, ${copy.name}, was made, but it does not have the competencies of the rubric it was copied from, so your edits cannot be put on it.`
+              : `Your copy, ${copy.name}, exists, but ${owed.length} of your edits have not reached it yet. Saving again finishes them on the same copy rather than making another.`}
         </p>
-        <ErrorNotice error={save.error} />
+        {save.error && <ErrorNotice error={save.error} />}
       </div>
     );
   }
