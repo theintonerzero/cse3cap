@@ -27,6 +27,7 @@ import { GigDetail } from '../screens/GigDetail.tsx';
 import { AppShell } from './AppShell.tsx';
 import { ReviewQueue } from '../screens/ReviewQueue.tsx';
 import { SelectFramework } from '../screens/SelectFramework.tsx';
+import { Submitted } from '../screens/Submitted.tsx';
 import { useSession } from '../session/useSession.ts';
 import { Placeholder } from './Placeholder.tsx';
 
@@ -70,10 +71,7 @@ export function AppRoutes() {
          */}
         <Route path="reflections/:reflection_id" element={<EntryStepper />} />
 
-        <Route
-          path="reflections/:reflection_id/submitted"
-          element={<Placeholder screen="Submitted" ticket="CAP-12" />}
-        />
+        <Route path="reflections/:reflection_id/submitted" element={<Submitted />} />
 
         <Route path="review-queue" element={<ReviewQueue />} />
 
