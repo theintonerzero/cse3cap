@@ -11,21 +11,32 @@
 import { test as base, expect } from '@playwright/test';
 
 import type { components } from '../src/api/schema.ts';
-import { FakeApi, type FrameworkDetail, type GigDetail, type ReflectionSummary } from './fake-api.ts';
+import {
+  FakeApi,
+  type FrameworkDetail,
+  type GigDetail,
+  type ReflectionSummary,
+} from './fake-api.ts';
 
 export const LATROBE = 'aaaa1111-0000-4aaa-8aaa-aaaaaaaaaaaa';
 export const SFIA = 'bbbb2222-0000-4bbb-8bbb-bbbbbbbbbbbb';
 export const EMPTY = 'cccc3333-0000-4ccc-8ccc-cccccccccccc';
 export const NOWHERE = 'ffff9999-0000-4fff-8fff-ffffffffffff';
 
-export const GIG_WITH_NEXT_SPRINT = 'aaaa1111-g001-4aaa-8aaa-aaaaaaaaaaaa';
-export const GIG_LAST_SPRINT = 'aaaa1111-g002-4aaa-8aaa-aaaaaaaaaaaa';
-export const GIG_NO_ASSESSOR = 'aaaa1111-g003-4aaa-8aaa-aaaaaaaaaaaa';
-export const REFLECTION_SUBMITTED = 'aaaa1111-r001-4aaa-8aaa-aaaaaaaaaaaa';
-export const REFLECTION_ON_LAST_SPRINT = 'aaaa1111-r002-4aaa-8aaa-aaaaaaaaaaaa';
-export const REFLECTION_NO_ASSESSOR = 'aaaa1111-r003-4aaa-8aaa-aaaaaaaaaaaa';
-export const REFLECTION_STILL_DRAFT = 'aaaa1111-r004-4aaa-8aaa-aaaaaaaaaaaa';
-export const REFLECTION_NOWHERE = 'ffff9999-r000-4fff-8fff-ffffffffffff';
+// Path-segment ids only (gig_id and reflection_id both appear in a request
+// URL, e.g. GET /reflections/{id}): every hex group must actually BE hex.
+// fake-api.ts's UUID regex generalises a path by matching
+// [0-9a-f]{8}-[0-9a-f]{4}-... verbatim, so a mnemonic-but-non-hex group like
+// "g001" or "r001" fails to match, the route falls through as
+// unexpected, and the fake answers 404 no matter what the test asked for.
+export const GIG_WITH_NEXT_SPRINT = 'aaaa1111-0a01-4aaa-8aaa-aaaaaaaaaaaa';
+export const GIG_LAST_SPRINT = 'aaaa1111-0a02-4aaa-8aaa-aaaaaaaaaaaa';
+export const GIG_NO_ASSESSOR = 'aaaa1111-0a03-4aaa-8aaa-aaaaaaaaaaaa';
+export const REFLECTION_SUBMITTED = 'aaaa1111-0b01-4aaa-8aaa-aaaaaaaaaaaa';
+export const REFLECTION_ON_LAST_SPRINT = 'aaaa1111-0b02-4aaa-8aaa-aaaaaaaaaaaa';
+export const REFLECTION_NO_ASSESSOR = 'aaaa1111-0b03-4aaa-8aaa-aaaaaaaaaaaa';
+export const REFLECTION_STILL_DRAFT = 'aaaa1111-0b04-4aaa-8aaa-aaaaaaaaaaaa';
+export const REFLECTION_NOWHERE = 'ffff9999-0b00-4fff-8fff-ffffffffffff';
 
 const DR_LEE: components['schemas']['Me'] = {
   id: 'dddd4444-0000-4ddd-8ddd-dddddddddddd',
@@ -151,11 +162,31 @@ const GIG_WITH_NEXT_SPRINT_DETAIL: GigDetail = {
   ends_on: '2026-11-01',
   my_role: 'student',
   sprints: [
-    { id: 'aaaa1111-s001-4aaa-8aaa-aaaaaaaaaaaa', ordinal: 1, opens_on: '2026-08-01', due_on: '2026-08-14' },
-    { id: 'aaaa1111-s002-4aaa-8aaa-aaaaaaaaaaaa', ordinal: 2, opens_on: '2026-08-15', due_on: '2026-08-28' },
-    { id: 'aaaa1111-s003-4aaa-8aaa-aaaaaaaaaaaa', ordinal: 3, opens_on: '2026-08-29', due_on: '2026-09-11' },
+    {
+      id: 'aaaa1111-s001-4aaa-8aaa-aaaaaaaaaaaa',
+      ordinal: 1,
+      opens_on: '2026-08-01',
+      due_on: '2026-08-14',
+    },
+    {
+      id: 'aaaa1111-s002-4aaa-8aaa-aaaaaaaaaaaa',
+      ordinal: 2,
+      opens_on: '2026-08-15',
+      due_on: '2026-08-28',
+    },
+    {
+      id: 'aaaa1111-s003-4aaa-8aaa-aaaaaaaaaaaa',
+      ordinal: 3,
+      opens_on: '2026-08-29',
+      due_on: '2026-09-11',
+    },
   ],
-  framework: { id: LATROBE, fw_key: 'latrobe6', name: 'La Trobe six-competency', version: 'v1' },
+  framework: {
+    id: LATROBE,
+    fw_key: 'latrobe6',
+    name: 'La Trobe six-competency',
+    version: 'v1',
+  },
   reflection_summary: { draft: 0, submitted: 1, assessed: 0 },
   participants: [
     { id: 'p-student', display_name: 'You', role: 'student' },
@@ -177,8 +208,18 @@ const GIG_NO_ASSESSOR_DETAIL: GigDetail = {
   ends_on: '2026-11-01',
   my_role: 'student',
   sprints: [
-    { id: 'bbbb2222-s001-4bbb-8bbb-bbbbbbbbbbbb', ordinal: 1, opens_on: '2026-08-01', due_on: '2026-08-14' },
-    { id: 'bbbb2222-s002-4bbb-8bbb-bbbbbbbbbbbb', ordinal: 2, opens_on: '2026-08-15', due_on: '2026-08-28' },
+    {
+      id: 'bbbb2222-s001-4bbb-8bbb-bbbbbbbbbbbb',
+      ordinal: 1,
+      opens_on: '2026-08-01',
+      due_on: '2026-08-14',
+    },
+    {
+      id: 'bbbb2222-s002-4bbb-8bbb-bbbbbbbbbbbb',
+      ordinal: 2,
+      opens_on: '2026-08-15',
+      due_on: '2026-08-28',
+    },
   ],
   framework: { id: SFIA, fw_key: 'sfia9', name: 'SFIA 9', version: '9.0' },
   reflection_summary: { draft: 0, submitted: 1, assessed: 0 },
