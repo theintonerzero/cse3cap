@@ -32,10 +32,13 @@ export const NOWHERE = 'ffff9999-0000-4fff-8fff-ffffffffffff';
 export const GIG_WITH_NEXT_SPRINT = 'aaaa1111-0a01-4aaa-8aaa-aaaaaaaaaaaa';
 export const GIG_LAST_SPRINT = 'aaaa1111-0a02-4aaa-8aaa-aaaaaaaaaaaa';
 export const GIG_NO_ASSESSOR = 'aaaa1111-0a03-4aaa-8aaa-aaaaaaaaaaaa';
+export const GIG_NO_REVIEWER = 'aaaa1111-0a04-4aaa-8aaa-aaaaaaaaaaaa';
 export const REFLECTION_SUBMITTED = 'aaaa1111-0b01-4aaa-8aaa-aaaaaaaaaaaa';
 export const REFLECTION_ON_LAST_SPRINT = 'aaaa1111-0b02-4aaa-8aaa-aaaaaaaaaaaa';
 export const REFLECTION_NO_ASSESSOR = 'aaaa1111-0b03-4aaa-8aaa-aaaaaaaaaaaa';
 export const REFLECTION_STILL_DRAFT = 'aaaa1111-0b04-4aaa-8aaa-aaaaaaaaaaaa';
+export const REFLECTION_ASSESSED = 'aaaa1111-0b05-4aaa-8aaa-aaaaaaaaaaaa';
+export const REFLECTION_NO_REVIEWER = 'aaaa1111-0b06-4aaa-8aaa-aaaaaaaaaaaa';
 export const REFLECTION_NOWHERE = 'ffff9999-0b00-4fff-8fff-ffffffffffff';
 
 const DR_LEE: components['schemas']['Me'] = {
@@ -148,11 +151,13 @@ const EMPTY_DETAIL: FrameworkDetail = {
 };
 
 /**
- * Three gigs, covering the three shapes Submitted.tsx has to handle: a
- * sprint with a next one after it, the last sprint on the gig (no next
- * date), and a gig with no assessor participant at all -- which is a real
- * shape (DemoSeeder's SFIA gig has none; a supervisor counter-scores
- * instead), not an edge case invented for the test.
+ * Four gigs, covering the shapes Submitted.tsx has to handle: a sprint with
+ * a next one after it, the last sprint on the gig (no next date), a gig
+ * with no assessor participant at all -- which is a real shape (DemoSeeder's
+ * SFIA gig has none; a supervisor counter-scores instead), not an edge case
+ * invented for the test -- and a gig with no counter-scoring participant at
+ * all (student only), which is genuinely reachable (a bare gig mid-setup)
+ * and exercises reviewer_of's fully-generic null fallback.
  */
 const GIG_WITH_NEXT_SPRINT_DETAIL: GigDetail = {
   id: GIG_WITH_NEXT_SPRINT,
@@ -229,6 +234,26 @@ const GIG_NO_ASSESSOR_DETAIL: GigDetail = {
   ],
 };
 
+const GIG_NO_REVIEWER_DETAIL: GigDetail = {
+  id: GIG_NO_REVIEWER,
+  title: 'Bare gig mid-setup',
+  org_name: 'Alumable',
+  starts_on: '2026-08-01',
+  ends_on: '2026-11-01',
+  my_role: 'student',
+  sprints: [
+    {
+      id: 'aaaa1111-s901-4aaa-8aaa-aaaaaaaaaaaa',
+      ordinal: 1,
+      opens_on: '2026-08-01',
+      due_on: '2026-08-14',
+    },
+  ],
+  framework: { id: LATROBE, fw_key: 'latrobe6', name: 'La Trobe six-competency', version: 'v1' },
+  reflection_summary: { draft: 0, submitted: 1, assessed: 0 },
+  participants: [{ id: 'p-student', display_name: 'You', role: 'student' }],
+};
+
 const REFLECTION_SUBMITTED_SUMMARY: ReflectionSummary = {
   id: REFLECTION_SUBMITTED,
   status: 'submitted',
@@ -266,6 +291,20 @@ const REFLECTION_STILL_DRAFT_SUMMARY: ReflectionSummary = {
   submitted_at: null,
 };
 
+const REFLECTION_ASSESSED_SUMMARY: ReflectionSummary = {
+  ...structuredClone(REFLECTION_SUBMITTED_SUMMARY),
+  id: REFLECTION_ASSESSED,
+  status: 'assessed',
+};
+
+const REFLECTION_NO_REVIEWER_SUMMARY: ReflectionSummary = {
+  ...structuredClone(REFLECTION_SUBMITTED_SUMMARY),
+  id: REFLECTION_NO_REVIEWER,
+  gig_id: GIG_NO_REVIEWER,
+  sprint_id: 'aaaa1111-s901-4aaa-8aaa-aaaaaaaaaaaa',
+  sprint_ordinal: 1,
+};
+
 /**
  * The fake, installed for EVERY test, and a failure if the page asked for
  * anything it does not serve.
@@ -280,12 +319,19 @@ export const test = base.extend<{ api: FakeApi }>({
       const api = new FakeApi(
         [LA_TROBE_DETAIL, SFIA_DETAIL, EMPTY_DETAIL],
         DR_LEE,
-        [GIG_WITH_NEXT_SPRINT_DETAIL, GIG_LAST_SPRINT_DETAIL, GIG_NO_ASSESSOR_DETAIL],
+        [
+          GIG_WITH_NEXT_SPRINT_DETAIL,
+          GIG_LAST_SPRINT_DETAIL,
+          GIG_NO_ASSESSOR_DETAIL,
+          GIG_NO_REVIEWER_DETAIL,
+        ],
         [
           REFLECTION_SUBMITTED_SUMMARY,
           REFLECTION_ON_LAST_SPRINT_SUMMARY,
           REFLECTION_NO_ASSESSOR_SUMMARY,
           REFLECTION_STILL_DRAFT_SUMMARY,
+          REFLECTION_ASSESSED_SUMMARY,
+          REFLECTION_NO_REVIEWER_SUMMARY,
         ],
       );
       await api.install(page);

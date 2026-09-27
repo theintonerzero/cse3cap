@@ -139,9 +139,13 @@ export function Submitted() {
       <h1 className={styles.heading}>Submitted</h1>
       <Card accent="mint">
         <p className={styles.confirmation}>
-          {reviewer
-            ? `${reviewer.display_name} has been notified and will review your reflection.`
-            : 'Your reflection has been handed in and is waiting on a review.'}
+          {reflection.status === 'assessed'
+            ? reviewer
+              ? `${reviewer.display_name} has reviewed this reflection.`
+              : 'This reflection has been reviewed.'
+            : reviewer
+              ? `${reviewer.display_name} has been notified and will review your reflection.`
+              : 'Your reflection has been handed in and is waiting on a review.'}
         </p>
         {next_sprint?.opens_on && (
           <p className={styles.next_sprint}>

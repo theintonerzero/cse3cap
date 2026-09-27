@@ -3,8 +3,10 @@
  * fake API (ADR #42).
  */
 import {
+  REFLECTION_ASSESSED,
   REFLECTION_NOWHERE,
   REFLECTION_NO_ASSESSOR,
+  REFLECTION_NO_REVIEWER,
   REFLECTION_ON_LAST_SPRINT,
   REFLECTION_STILL_DRAFT,
   REFLECTION_SUBMITTED,
@@ -49,6 +51,26 @@ test('no assessor on the gig: falls back to naming the supervisor', async ({ pag
 
   await expect(
     page.getByText('Dr Lee has been notified and will review your reflection.'),
+  ).toBeVisible();
+});
+
+test('assessed: the reviewer has already reviewed it, not pending', async ({ page }) => {
+  await page.goto(`/reflections/${REFLECTION_ASSESSED}/submitted`);
+
+  await expect(page.getByText('Sam O has reviewed this reflection.')).toBeVisible();
+  await expect(page.getByText(/will review your reflection/)).toHaveCount(0);
+});
+
+// GIG_NO_REVIEWER (fixtures.ts) has a student participant only -- no
+// assessor, supervisor or employer at all -- so reviewer_of returns null and
+// the copy falls all the way through to the fully generic wording, which
+// none of the other fixture gigs reaches (GIG_NO_ASSESSOR still has a
+// supervisor).
+test('no reviewer at all: falls back to the fully generic wording', async ({ page }) => {
+  await page.goto(`/reflections/${REFLECTION_NO_REVIEWER}/submitted`);
+
+  await expect(
+    page.getByText('Your reflection has been handed in and is waiting on a review.'),
   ).toBeVisible();
 });
 
