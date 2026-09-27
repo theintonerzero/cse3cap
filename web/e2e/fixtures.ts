@@ -11,12 +11,21 @@
 import { test as base, expect } from '@playwright/test';
 
 import type { components } from '../src/api/schema.ts';
-import { FakeApi, type FrameworkDetail } from './fake-api.ts';
+import { FakeApi, type FrameworkDetail, type GigDetail, type ReflectionSummary } from './fake-api.ts';
 
 export const LATROBE = 'aaaa1111-0000-4aaa-8aaa-aaaaaaaaaaaa';
 export const SFIA = 'bbbb2222-0000-4bbb-8bbb-bbbbbbbbbbbb';
 export const EMPTY = 'cccc3333-0000-4ccc-8ccc-cccccccccccc';
 export const NOWHERE = 'ffff9999-0000-4fff-8fff-ffffffffffff';
+
+export const GIG_WITH_NEXT_SPRINT = 'aaaa1111-g001-4aaa-8aaa-aaaaaaaaaaaa';
+export const GIG_LAST_SPRINT = 'aaaa1111-g002-4aaa-8aaa-aaaaaaaaaaaa';
+export const GIG_NO_ASSESSOR = 'aaaa1111-g003-4aaa-8aaa-aaaaaaaaaaaa';
+export const REFLECTION_SUBMITTED = 'aaaa1111-r001-4aaa-8aaa-aaaaaaaaaaaa';
+export const REFLECTION_ON_LAST_SPRINT = 'aaaa1111-r002-4aaa-8aaa-aaaaaaaaaaaa';
+export const REFLECTION_NO_ASSESSOR = 'aaaa1111-r003-4aaa-8aaa-aaaaaaaaaaaa';
+export const REFLECTION_STILL_DRAFT = 'aaaa1111-r004-4aaa-8aaa-aaaaaaaaaaaa';
+export const REFLECTION_NOWHERE = 'ffff9999-r000-4fff-8fff-ffffffffffff';
 
 const DR_LEE: components['schemas']['Me'] = {
   id: 'dddd4444-0000-4ddd-8ddd-dddddddddddd',
@@ -128,6 +137,95 @@ const EMPTY_DETAIL: FrameworkDetail = {
 };
 
 /**
+ * Three gigs, covering the three shapes Submitted.tsx has to handle: a
+ * sprint with a next one after it, the last sprint on the gig (no next
+ * date), and a gig with no assessor participant at all -- which is a real
+ * shape (DemoSeeder's SFIA gig has none; a supervisor counter-scores
+ * instead), not an edge case invented for the test.
+ */
+const GIG_WITH_NEXT_SPRINT_DETAIL: GigDetail = {
+  id: GIG_WITH_NEXT_SPRINT,
+  title: 'Develop AI use cases',
+  org_name: 'Alumable',
+  starts_on: '2026-08-01',
+  ends_on: '2026-11-01',
+  my_role: 'student',
+  sprints: [
+    { id: 'aaaa1111-s001-4aaa-8aaa-aaaaaaaaaaaa', ordinal: 1, opens_on: '2026-08-01', due_on: '2026-08-14' },
+    { id: 'aaaa1111-s002-4aaa-8aaa-aaaaaaaaaaaa', ordinal: 2, opens_on: '2026-08-15', due_on: '2026-08-28' },
+    { id: 'aaaa1111-s003-4aaa-8aaa-aaaaaaaaaaaa', ordinal: 3, opens_on: '2026-08-29', due_on: '2026-09-11' },
+  ],
+  framework: { id: LATROBE, fw_key: 'latrobe6', name: 'La Trobe six-competency', version: 'v1' },
+  reflection_summary: { draft: 0, submitted: 1, assessed: 0 },
+  participants: [
+    { id: 'p-student', display_name: 'You', role: 'student' },
+    { id: 'p-assessor', display_name: 'Sam O', role: 'assessor' },
+    { id: 'p-supervisor', display_name: 'Dr Lee', role: 'supervisor' },
+  ],
+};
+
+const GIG_LAST_SPRINT_DETAIL: GigDetail = {
+  ...structuredClone(GIG_WITH_NEXT_SPRINT_DETAIL),
+  id: GIG_LAST_SPRINT,
+};
+
+const GIG_NO_ASSESSOR_DETAIL: GigDetail = {
+  id: GIG_NO_ASSESSOR,
+  title: 'Data migration audit',
+  org_name: 'Alumable',
+  starts_on: '2026-08-01',
+  ends_on: '2026-11-01',
+  my_role: 'student',
+  sprints: [
+    { id: 'bbbb2222-s001-4bbb-8bbb-bbbbbbbbbbbb', ordinal: 1, opens_on: '2026-08-01', due_on: '2026-08-14' },
+    { id: 'bbbb2222-s002-4bbb-8bbb-bbbbbbbbbbbb', ordinal: 2, opens_on: '2026-08-15', due_on: '2026-08-28' },
+  ],
+  framework: { id: SFIA, fw_key: 'sfia9', name: 'SFIA 9', version: '9.0' },
+  reflection_summary: { draft: 0, submitted: 1, assessed: 0 },
+  participants: [
+    { id: 'p-student', display_name: 'You', role: 'student' },
+    { id: 'p-supervisor', display_name: 'Dr Lee', role: 'supervisor' },
+  ],
+};
+
+const REFLECTION_SUBMITTED_SUMMARY: ReflectionSummary = {
+  id: REFLECTION_SUBMITTED,
+  status: 'submitted',
+  gig_id: GIG_WITH_NEXT_SPRINT,
+  sprint_id: 'aaaa1111-s001-4aaa-8aaa-aaaaaaaaaaaa',
+  sprint_ordinal: 1,
+  framework_id: LATROBE,
+  framework_version: 'v1',
+  submitted_at: '2026-09-27T10:00:00.000000Z',
+  created_at: '2026-09-20T10:00:00.000000Z',
+  updated_at: '2026-09-27T10:00:00.000000Z',
+};
+
+const REFLECTION_ON_LAST_SPRINT_SUMMARY: ReflectionSummary = {
+  ...structuredClone(REFLECTION_SUBMITTED_SUMMARY),
+  id: REFLECTION_ON_LAST_SPRINT,
+  gig_id: GIG_LAST_SPRINT,
+  sprint_id: 'aaaa1111-s003-4aaa-8aaa-aaaaaaaaaaaa',
+  sprint_ordinal: 3,
+};
+
+const REFLECTION_NO_ASSESSOR_SUMMARY: ReflectionSummary = {
+  ...structuredClone(REFLECTION_SUBMITTED_SUMMARY),
+  id: REFLECTION_NO_ASSESSOR,
+  gig_id: GIG_NO_ASSESSOR,
+  sprint_id: 'bbbb2222-s001-4bbb-8bbb-bbbbbbbbbbbb',
+  sprint_ordinal: 1,
+  framework_id: SFIA,
+};
+
+const REFLECTION_STILL_DRAFT_SUMMARY: ReflectionSummary = {
+  ...structuredClone(REFLECTION_SUBMITTED_SUMMARY),
+  id: REFLECTION_STILL_DRAFT,
+  status: 'draft',
+  submitted_at: null,
+};
+
+/**
  * The fake, installed for EVERY test, and a failure if the page asked for
  * anything it does not serve.
  *
@@ -138,7 +236,17 @@ const EMPTY_DETAIL: FrameworkDetail = {
 export const test = base.extend<{ api: FakeApi }>({
   api: [
     async ({ page }, provide) => {
-      const api = new FakeApi([LA_TROBE_DETAIL, SFIA_DETAIL, EMPTY_DETAIL], DR_LEE);
+      const api = new FakeApi(
+        [LA_TROBE_DETAIL, SFIA_DETAIL, EMPTY_DETAIL],
+        DR_LEE,
+        [GIG_WITH_NEXT_SPRINT_DETAIL, GIG_LAST_SPRINT_DETAIL, GIG_NO_ASSESSOR_DETAIL],
+        [
+          REFLECTION_SUBMITTED_SUMMARY,
+          REFLECTION_ON_LAST_SPRINT_SUMMARY,
+          REFLECTION_NO_ASSESSOR_SUMMARY,
+          REFLECTION_STILL_DRAFT_SUMMARY,
+        ],
+      );
       await api.install(page);
       await provide(api);
       expect(api.unexpected, 'requests the fake does not serve').toEqual([]);

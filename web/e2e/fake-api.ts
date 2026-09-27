@@ -22,6 +22,8 @@ import type { Page, Route } from '@playwright/test';
 import type { components } from '../src/api/schema.ts';
 
 export type FrameworkDetail = components['schemas']['FrameworkDetail'];
+export type GigDetail = components['schemas']['GigDetail'];
+export type ReflectionSummary = components['schemas']['ReflectionSummary'];
 type Framework = components['schemas']['Framework'];
 type Competency = components['schemas']['Competency'];
 type CompetencySummary = components['schemas']['CompetencySummary'];
@@ -53,13 +55,22 @@ export class FakeApi {
 
   private readonly frameworks: FrameworkDetail[];
   private readonly me: Me;
+  private readonly gigs: GigDetail[];
+  private readonly reflections: ReflectionSummary[];
   private readonly faults = new Map<string, Fault[]>();
   private readonly holds = new Map<string, Promise<void>>();
   private minted = 0;
 
-  constructor(frameworks: FrameworkDetail[], me: Me) {
+  constructor(
+    frameworks: FrameworkDetail[],
+    me: Me,
+    gigs: GigDetail[] = [],
+    reflections: ReflectionSummary[] = [],
+  ) {
     this.frameworks = structuredClone(frameworks);
     this.me = me;
+    this.gigs = structuredClone(gigs);
+    this.reflections = structuredClone(reflections);
   }
 
   /** The next `times` requests to `route` fail with `fault`, then it behaves. */
@@ -133,6 +144,20 @@ export class FakeApi {
       return framework
         ? reply(route, 200, framework)
         : reply(route, 404, envelope('NOT_FOUND', 'That framework does not exist.'));
+    }
+
+    if (key === 'GET /gigs/:id') {
+      const gig = this.gigs.find((g) => g.id === id);
+      return gig
+        ? reply(route, 200, gig)
+        : reply(route, 404, envelope('NOT_FOUND', 'No such gig, or it is not yours.'));
+    }
+
+    if (key === 'GET /reflections/:id') {
+      const reflection = this.reflections.find((r) => r.id === id);
+      return reflection
+        ? reply(route, 200, reflection)
+        : reply(route, 404, envelope('NOT_FOUND', 'No such resource, or it is not yours.'));
     }
 
     if (key === 'POST /frameworks') {
