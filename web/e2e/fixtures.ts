@@ -249,7 +249,12 @@ const GIG_NO_REVIEWER_DETAIL: GigDetail = {
       due_on: '2026-08-14',
     },
   ],
-  framework: { id: LATROBE, fw_key: 'latrobe6', name: 'La Trobe six-competency', version: 'v1' },
+  framework: {
+    id: LATROBE,
+    fw_key: 'latrobe6',
+    name: 'La Trobe six-competency',
+    version: 'v1',
+  },
   reflection_summary: { draft: 0, submitted: 1, assessed: 0 },
   participants: [{ id: 'p-student', display_name: 'You', role: 'student' }],
 };
