@@ -10,7 +10,115 @@ fixes what it finds leaves no record that the class of problem existed.
 
 ---
 
+## 2026-09-29 · The last three screens, and injection under test
+
+**Reviewer:** Tony To · **Ticket:** CAP-24 · **Commit reviewed:** `8318624`
+
+### Scope
+
+Everything the 09-24 entry left open. Three screens merged since: edit framework (CAP-16,
+#62), where a supervisor types the competency names and level descriptors every stepper
+then shows; the history sheet on the gig page (CAP-14, #61); and the submitted confirmation
+(CAP-12, #65). And the gap the 09-24 entry admitted: the steppers' injection result rested
+on reading, because `web/` had no way to put hostile text on a screen without writing it
+into the shared db. ADR #42 (#63) gave it one, a browser check against a fake API.
+
+With CAP-16 merged, every screen the MVP has is built, so this entry is CAP-24's sign-off.
+
+| Criterion | State |
+| --- | --- |
+| Token storage and exposure | Re-checked at `8318624`. Holds |
+| Narrative, comment and evidence text rendered without injection | **Every screen that renders typed text, under test.** Holds |
+| No client-side role trust | Reviewed across the three new screens. Holds |
+| Findings raised as tickets, sign-off recorded | No new findings. F9 (CAP-36) still open. This entry |
+
+### Method
+
+`web/e2e/injection.spec.ts` drives four screens in Chromium against `web/e2e/fake-api.ts`,
+which now also serves a reflection's detail, a gig's reflections and a reflection's events.
+`web/e2e/hostile.ts` puts one payload in every field a person types: the narrative, both
+evidence labels, a `javascript:` evidence link, the counter-score comment, every display
+name, a rubric's competency names, radar labels and descriptors, the gig's title, and an
+event type the history sheet has never heard of.
+
+```
+<img src=x onerror="window.__pwned=1"><script>window.__pwned=1</script>
+```
+
+The `<script>` half on its own would prove nothing, because a script added through
+`innerHTML` never runs. The `<img>` half does run, and it is what makes a sink visible.
+
+| Screen | Typed text on it |
+| --- | --- |
+| Student stepper | competency name, narrative, descriptors, counter-score scorer and comment, both evidence labels, the `javascript:` link |
+| Assessor stepper | the owner's name, in the status line and in two field labels |
+| Edit framework | a rubric's names and descriptors as fields, its name as an option, and the copy's name the supervisor types, shown back after a save |
+| Gig page and history | the gig title, the event actor, an unknown event type |
+
+Each test asserts every field is on the page as literal text, so it really was rendered, and
+then that nothing became markup: no `img[src="x"]` in the DOM, and `window.__pwned` still
+undefined.
+
+**Each test was then shown to fail.** For each screen, one text sink was swapped for
+`dangerouslySetInnerHTML` and that screen's test run, then the file was restored:
+
+| Mutation | Result |
+| --- | --- |
+| `EntryStepper.tsx`, a file evidence label | red: the label is no longer text on the page |
+| `EntryStepper.tsx`, the owner's name in the assessor status line | red: the name is no longer text |
+| `EditFramework.tsx`, `Saved as {copy.name}` | red: "Saved as . It is listed under Saved copies." |
+| `HistorySheet.tsx`, the event actor | red: the actor is no longer text |
+
+Each of those went red on its literal-text assertion before reaching the markup check. So
+the markup check was also run alone against the history mutation, and it went red on its own:
+one `img[src="x"]` in the DOM where none is allowed.
+
+Around the specs: a sweep of `web/src` for `dangerouslySetInnerHTML`, `innerHTML`, `eval`,
+`new Function`, `document.write`, `window.open`, `console.` and both storage APIs, which
+found none outside the session and theme files that were already reviewed; `./run check`;
+and every request the three new screens can send followed to the policy that decides it.
+
+### Findings
+
+None new. F9 (CAP-36) is still open and still not a way in: the student route offers a
+reviewer controls the server refuses. F8 stays open for the day an evidence download is
+built. None of these screens serves a file.
+
+### What is already right
+
+- **No screen renders typed text as markup.** Not argued from reading this time. Every field
+  above is under a test that fails against a sink, and it runs in CI on every pull request.
+- **A supervisor's wording reaches the steppers only as text.** Edit framework is the one
+  place a person authors what everyone else then reads, and it shows that wording only as
+  field values, option text and one message. Every stepper test above already carries
+  hostile rubric wording.
+- **The history sheet never renders `metadata`.** The contract lets it hold anything, and the
+  sheet reads only the event type, the actor and the time. An unknown type is shown by name,
+  as text.
+- **The three new screens trust no role.** `GigDetail` asks for a student's reflections and
+  offers History only when the server's `my_role` says student, and the events it then reads
+  pass `ReflectionPolicy::view`. `Submitted` reads participants' roles only to name who will
+  review. `EditFramework` checks no role at all: `POST /frameworks` passes
+  `FrameworkPolicy::create`, and every competency and level `PATCH` passes
+  `FrameworkPolicy::update`, whose in-use and owner rules live in `FrameworkEditing`.
+- **Tokens are where they were.** In `sessionStorage` per tab. The browser checks sign in
+  with a placeholder the fake never reads, so no credential goes near a browser, including in
+  CI.
+
+### Sign-off
+
+All four criteria are reviewed against every screen the MVP has and hold. The injection
+criterion is now held by `web/e2e/injection.spec.ts` rather than by a reviewer's reading, and
+each of its tests has been shown to fail against the sink it guards. CAP-24 is done. What
+stays open is recorded as tickets: F9 as CAP-36, and F8 as a condition on whichever ticket
+first serves an evidence file.
+
+---
+
 ## 2026-09-24 · The two entry steppers
+
+> **Superseded in part by 2026-09-29.** The injection result below rested on reading. It is
+> now under test for both steppers, and for the screens built since.
 
 **Reviewer:** Tony To · **Ticket:** CAP-24 · **Commit reviewed:** `809274a`
 
