@@ -170,7 +170,11 @@ export class FakeApi {
 
     if (key === 'GET /reflections/:id/events') {
       if (!this.reflections.some((r) => r.id === id)) {
-        return reply(route, 404, envelope('NOT_FOUND', 'No such resource, or it is not yours.'));
+        return reply(
+          route,
+          404,
+          envelope('NOT_FOUND', 'No such resource, or it is not yours.'),
+        );
       }
       return reply(route, 200, this.events[id] ?? []);
     }
