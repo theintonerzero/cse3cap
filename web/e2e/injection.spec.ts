@@ -33,3 +33,16 @@ test('student stepper: every typed field is text, and a javascript: link is not 
   await expect(page.locator('a[href^="javascript:"]')).toHaveCount(0);
   await assertInert(page);
 });
+
+test("assessor stepper: the student's name and work are text", async ({ page }) => {
+  await page.goto(`/review-queue/reflections/${HOSTILE_REFLECTION}`);
+  await expect(page.getByRole('heading', { name: 'Score reflection' })).toBeVisible();
+
+  // The owner's display name comes from Alumable, and the assessor screen
+  // puts it in the status line and in two field labels.
+  await expect(page.getByText(`${PAYLOAD} · you have scored 0 of 1`)).toBeVisible();
+  await expect(page.getByLabel(`${PAYLOAD} wrote`)).toHaveValue(PAYLOAD);
+  await expect(page.getByRole('group', { name: `${PAYLOAD}'s self-score` })).toBeVisible();
+  await expect(page.locator('a[href^="javascript:"]')).toHaveCount(0);
+  await assertInert(page);
+});
