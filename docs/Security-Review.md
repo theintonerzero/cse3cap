@@ -30,7 +30,7 @@ With CAP-16 merged, every screen the MVP has is built, so this entry is CAP-24's
 | Token storage and exposure | Re-checked at `8318624`. Holds |
 | Narrative, comment and evidence text rendered without injection | **Every screen that renders typed text, under test.** Holds |
 | No client-side role trust | Reviewed across the three new screens. Holds |
-| Findings raised as tickets, sign-off recorded | No new findings. F9 (CAP-36) still open. This entry |
+| Findings raised as tickets, sign-off recorded | No new findings. Every open one has a ticket: F2 to F4 in CAP-32, F9 in CAP-36. This entry |
 
 ### Method
 
@@ -110,8 +110,8 @@ built. None of these screens serves a file.
 All four criteria are reviewed against every screen the MVP has and hold. The injection
 criterion is now held by `web/e2e/injection.spec.ts` rather than by a reviewer's reading, and
 each of its tests has been shown to fail against the sink it guards. CAP-24 is done. What
-stays open is recorded as tickets: F9 as CAP-36, and F8 as a condition on whichever ticket
-first serves an evidence file.
+stays open is recorded as tickets: F9 as CAP-36, F2 to F4 as CAP-32, and F8 as a condition on
+whichever ticket first serves an evidence file.
 
 ---
 
@@ -486,6 +486,9 @@ looks wrong, and no error is raised, so this fails silently and indefinitely.
 
 #### F2 · Tokens never expire — Medium
 
+> **Raised as CAP-32 (COA4-90),** the security posture review, which carries F2, F3 and F4
+> as acceptance criteria.
+
 `api/config/sanctum.php:53` sets `'expiration' => null`. A token is valid until it is
 manually revoked, and Sanctum stores only a hash, so a leaked token cannot be recognised
 after the fact — only revoked wholesale by reissuing, which the README notes breaks
@@ -497,6 +500,9 @@ which is CAP-26. Worth an explicit decision rather than a default.
 
 #### F3 · Tokens carry every ability — Medium
 
+> **Raised as CAP-32 (COA4-90),** the security posture review, which carries F2, F3 and F4
+> as acceptance criteria.
+
 `api/database/seeders/DemoSeeder.php:120` calls `$user->createToken('demo')` with no
 abilities, so Sanctum grants `['*']`.
 
@@ -506,6 +512,9 @@ What it costs is defence in depth. There is no way to issue a read-only token fo
 a screenshot session, and a leaked token can do everything its owner can, including delete.
 
 #### F4 · No token prefix, so a leak is not machine-detectable — Low
+
+> **Raised as CAP-32 (COA4-90),** the security posture review, which carries F2, F3 and F4
+> as acceptance criteria.
 
 `api/config/sanctum.php:68` leaves `token_prefix` empty. Sanctum supports a prefix precisely
 so that secret scanners — GitHub push protection among them — can recognise a token in a
