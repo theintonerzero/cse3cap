@@ -19,11 +19,14 @@
  */
 import type { Page, Route } from '@playwright/test';
 
-import type { components } from '../src/api/schema.ts';
+import type { components, paths } from '../src/api/schema.ts';
 
 export type FrameworkDetail = components['schemas']['FrameworkDetail'];
 export type GigDetail = components['schemas']['GigDetail'];
 export type ReflectionSummary = components['schemas']['ReflectionSummary'];
+export type ReflectionDetail = components['schemas']['ReflectionDetail'];
+export type ReflectionEvent =
+  paths['/reflections/{reflection_id}/events']['get']['responses']['200']['content']['application/json'][number];
 type Framework = components['schemas']['Framework'];
 type Competency = components['schemas']['Competency'];
 type CompetencySummary = components['schemas']['CompetencySummary'];
@@ -56,7 +59,8 @@ export class FakeApi {
   private readonly frameworks: FrameworkDetail[];
   private readonly me: Me;
   private readonly gigs: GigDetail[];
-  private readonly reflections: ReflectionSummary[];
+  private readonly reflections: (ReflectionSummary | ReflectionDetail)[];
+  private readonly events: Record<string, ReflectionEvent[]>;
   private readonly faults = new Map<string, Fault[]>();
   private readonly holds = new Map<string, Promise<void>>();
   private minted = 0;
@@ -65,12 +69,14 @@ export class FakeApi {
     frameworks: FrameworkDetail[],
     me: Me,
     gigs: GigDetail[] = [],
-    reflections: ReflectionSummary[] = [],
+    reflections: (ReflectionSummary | ReflectionDetail)[] = [],
+    events: Record<string, ReflectionEvent[]> = {},
   ) {
     this.frameworks = structuredClone(frameworks);
     this.me = me;
     this.gigs = structuredClone(gigs);
     this.reflections = structuredClone(reflections);
+    this.events = structuredClone(events);
   }
 
   /** The next `times` requests to `route` fail with `fault`, then it behaves. */
@@ -151,6 +157,26 @@ export class FakeApi {
       return gig
         ? reply(route, 200, gig)
         : reply(route, 404, envelope('NOT_FOUND', 'No such gig, or it is not yours.'));
+    }
+
+    if (key === 'GET /reflections') {
+      const gig_id = new URL(request.url()).searchParams.get('gig_id');
+      return reply(
+        route,
+        200,
+        this.reflections.filter((r) => r.gig_id === gig_id).map(summary_of),
+      );
+    }
+
+    if (key === 'GET /reflections/:id/events') {
+      if (!this.reflections.some((r) => r.id === id)) {
+        return reply(
+          route,
+          404,
+          envelope('NOT_FOUND', 'No such resource, or it is not yours.'),
+        );
+      }
+      return reply(route, 200, this.events[id] ?? []);
     }
 
     if (key === 'GET /reflections/:id') {
@@ -236,6 +262,12 @@ export class FakeApi {
     this.minted += 1;
     return `e2e00000-0000-4000-8000-${this.minted.toString(16).padStart(12, '0')}`;
   }
+}
+
+/** A list row is the summary: the detail's owner and entries are not in it. */
+function summary_of(reflection: ReflectionSummary | ReflectionDetail): ReflectionSummary {
+  const { owner: _owner, entries: _entries, ...rest } = reflection as ReflectionDetail;
+  return rest;
 }
 
 function summary(detail: FrameworkDetail): Framework {
