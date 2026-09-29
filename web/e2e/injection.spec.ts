@@ -8,7 +8,14 @@
  * also run against a deliberate dangerouslySetInnerHTML in its screen and
  * failed there; the PR records how. See docs/Security-Review.md, 2026-09-29.
  */
-import { HOSTILE_REFLECTION, PAYLOAD, assertInert, expect, test } from './hostile.ts';
+import {
+  HOSTILE_FRAMEWORK,
+  HOSTILE_REFLECTION,
+  PAYLOAD,
+  assertInert,
+  expect,
+  test,
+} from './hostile.ts';
 
 test('student stepper: every typed field is text, and a javascript: link is not a link', async ({
   page,
@@ -46,3 +53,31 @@ test("assessor stepper: the student's name and work are text", async ({ page }) 
   await expect(page.locator('a[href^="javascript:"]')).toHaveCount(0);
   await assertInert(page);
 });
+
+test("edit framework: a rubric's wording, and the name a supervisor types, are text", async ({
+  page,
+  api,
+}) => {
+  await page.goto(`/frameworks/${HOSTILE_FRAMEWORK}/edit`);
+  await expect(page.getByRole('heading', { name: 'Copy and edit a rubric' })).toBeVisible();
+
+  // The base rubric's own wording, as the fields a supervisor edits.
+  const competency = page.getByRole('group', { name: 'hostile' });
+  await expect(competency.getByLabel('Competency name')).toHaveValue(PAYLOAD);
+  await expect(competency.getByLabel('Level 1')).toHaveValue(PAYLOAD);
+  await expect(
+    page.getByRole('option', { name: new RegExp(`^${escape(PAYLOAD)}`) }),
+  ).toHaveCount(1);
+
+  // And what the supervisor types becomes the copy's name, shown back once saved.
+  await page.getByLabel('Name of your copy').fill(PAYLOAD);
+  await page.getByRole('button', { name: 'Save as a new copy' }).click();
+  await expect(page.getByRole('status')).toContainText(`Saved as ${PAYLOAD}.`);
+  expect(api.copies()).toHaveLength(1);
+  await assertInert(page);
+});
+
+/** A literal string as a RegExp source. */
+function escape(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
