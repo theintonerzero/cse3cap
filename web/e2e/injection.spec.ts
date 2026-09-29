@@ -10,6 +10,7 @@
  */
 import {
   HOSTILE_FRAMEWORK,
+  HOSTILE_GIG,
   HOSTILE_REFLECTION,
   PAYLOAD,
   assertInert,
@@ -74,6 +75,24 @@ test("edit framework: a rubric's wording, and the name a supervisor types, are t
   await page.getByRole('button', { name: 'Save as a new copy' }).click();
   await expect(page.getByRole('status')).toContainText(`Saved as ${PAYLOAD}.`);
   expect(api.copies()).toHaveLength(1);
+  await assertInert(page);
+});
+
+test('gig page and history: the title, who acted, and an unknown event are text', async ({
+  page,
+}) => {
+  await page.goto(`/gigs/${HOSTILE_GIG}`);
+  await expect(page.getByRole('heading', { name: PAYLOAD })).toBeVisible();
+
+  await page.getByRole('button', { name: 'History' }).click();
+  const sheet = page.getByRole('dialog', { name: 'History' });
+  await expect(sheet.getByText('Reflection submitted (Sprint 1)')).toBeVisible();
+  await expect(sheet.getByText(`· ${PAYLOAD}`)).toBeVisible();
+
+  // An event type the sheet has never heard of is shown by name rather than
+  // dropped (history-log.ts), so its name is typed text too.
+  await expect(sheet.getByText('<b>odd</b> (Sprint 1)')).toBeVisible();
+  await expect(sheet.locator('b')).toHaveCount(0);
   await assertInert(page);
 });
 
