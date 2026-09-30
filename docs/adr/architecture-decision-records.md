@@ -51,6 +51,7 @@ Index
 #39 PDF export renders with dompdf ............... Accepted
 #40 Policies for records, query scopes for lists .. Accepted
 #42 Browser checks with Playwright, fake API ..... Accepted
+#43 Agents set ticket fields, not wording ...... Proposed
 
 ===============================================================
 
@@ -2114,3 +2115,98 @@ Rejected because the limit is structural. A grep can prove a string is in a file
 compiled module can prove a function's output. Neither can prove what a rendered screen does
 when a button is pressed, which is where both CAP-16 bugs were.
 
+
+===============================================================
+
+ADR #43: Agents may set a ticket's fields, not rewrite its wording
+
+Status: Proposed
+Date: 2026-09-30
+Extends: #38
+
+Context:
+#38 let agents read the board and move tickets, through an `atlassian` server in
+`.mcp.json` limited to eleven tools. None of the eleven can change a ticket once it exists.
+Assignee, story points and sprint can be set when a ticket is created and never after.
+
+That gap is where the board has drifted since. CAP-37 was finished, merged and closed on
+2026-09-24 and was still unassigned a week later. CAP-33 to CAP-37 carry no story points.
+CAP-21 to CAP-32 sit in no sprint. Each of those is a one-field fix that an agent working
+the ticket could see, name and not make, so it went into a list for a person to do in Jira,
+and the list did not get done.
+
+The developer's token can already make those edits. It is a plain Atlassian API token in
+the shell environment, and `./run jira` uses it over HTTP. An agent that wanted to could set
+an assignee with curl. That is the wrong way for this to happen: an edit through curl is
+invisible to the allowlist in `.mcp.json`, which is the one place the team can see what
+agents are allowed to do.
+
+The tool that fixes it, `jira_update_issue` in mcp-atlassian 0.23.1, is broader than the
+gap. It takes any field, so the same call that sets an assignee can rewrite a summary, a
+description or a list of acceptance criteria. On an assessed board that last one matters
+most. A criterion rewritten to match what was built is a criterion that stops being
+checked, and it would read as if it had always said that.
+
+One more change to #38 has already happened without a record. #38 says agents never move
+somebody else's ticket. The jira-tickets skill was changed on 2026-09-27 (PR #64) to allow it
+when the person names that ticket, after four teammates' tickets were closed that way at
+Tony's request, each with the evidence in a comment. This record makes that change explicit
+rather than leaving it only in the skill.
+
+Decision:
+Add `jira_update_issue` to ENABLED_TOOLS, making twelve. Deleting an issue stays out.
+
+How it is used lives in `.claude/skills/jira-tickets`, like every other Jira rule:
+
+- Assignee: an agent may assign a ticket to the developer running it, when that developer
+  did or is taking the work. Anyone else only when the person names the ticket and the
+  assignee.
+- Story points: only a number the team agreed, given by the person. An agent never
+  estimates.
+- Sprint: only when the person asks, by ticket.
+- Summary, description and acceptance criteria: an agent does not edit them. A criterion
+  that is wrong gets a comment saying so, and a person changes it.
+- Every edit is said out loud in the same message as the work, and an edit to a teammate's
+  ticket also gets a comment on it saying who made it and why.
+
+And from #64: a teammate's ticket may be moved when the person names it, on the same
+evidence as the developer's own, with a comment, and with its assignee left alone. A general
+request like "fix the board" names nothing and gets a proposal, not moves.
+
+Consequences:
+Positive:
+The fields that drift can be fixed by the agent that notices, in the same pass as the work.
+A ticket finished by an agent can be closed with its assignee set, instead of waiting for
+someone to remember.
+
+The allowlist in `.mcp.json` still says exactly what agents can do, and `./run jira` still
+checks the server answers with the tools it lists, so the new power is visible and checked
+rather than exercised through a token nobody sees used.
+
+The practice already in use since #64 now has a record, so #38 no longer contradicts the
+skill.
+
+Negative:
+The guard on wording is a rule, not a permission. The tool can rewrite an acceptance
+criterion, and the only thing stopping an agent is the skill telling it not to. #38 said the
+same of transitions, and it is more true here, because a moved ticket is visible on the board
+and a quietly edited description is not.
+
+Agents can now change more of what four other people see. An assignee changed on the wrong
+ticket misattributes work on a board that is assessed. The summary-search sharp edge from
+#38 makes that easier to get wrong: `summary ~ "CAP-3"` matches CAP-30 to CAP-37 too.
+
+Every developer's session needs a restart to pick up the new tool list, and one with an old
+session keeps eleven tools without knowing it.
+
+Alternatives:
+Keep the eleven and have people make field edits in Jira. The status quo, and genuinely the
+safest option. Rejected because the drift it leaves is the failure #38 set out to fix, moved
+from status to the fields next to it.
+
+Let agents use the API token directly for the edits the allowlist does not cover. No config
+change and nothing for the team to agree. Rejected because it makes the allowlist a
+description of what agents usually do rather than what they can do, and nothing checks it.
+
+Enable the tool with no limits in the skill. Simplest, and rejected because it puts
+acceptance criteria within reach of the agent being judged against them.
