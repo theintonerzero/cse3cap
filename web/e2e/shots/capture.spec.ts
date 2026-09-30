@@ -41,7 +41,11 @@ for (const shot of SHOTS) {
         shot.scenario.reflections ?? [],
       );
       if (shot.scenario.fault)
-        api.fail(shot.scenario.fault.route, shot.scenario.fault.fault);
+        api.fail(
+          shot.scenario.fault.route,
+          shot.scenario.fault.fault,
+          shot.scenario.fault.times ?? 1,
+        );
       if (shot.scenario.hold) release = api.hold(shot.scenario.hold);
       await api.install(page);
     } else {
@@ -54,6 +58,12 @@ for (const shot of SHOTS) {
     }
 
     await page.goto(shot.route);
+
+    // History Sheet and Export Sheet are BottomSheet children opened by a
+    // button click, not routes of their own (routes.tsx: "they open over
+    // the diary rather than navigating away from it") -- `shot.open` names
+    // that trigger's visible text, clicked here before either wait below.
+    if (shot.open) await page.getByText(shot.open).click();
 
     if (shot.state === 'loading') {
       await expect(page.getByRole('status').first()).toBeVisible();

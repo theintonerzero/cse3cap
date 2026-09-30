@@ -18,8 +18,16 @@ export interface FakeScenario {
   frameworks: FrameworkDetail[];
   gigs?: GigDetail[];
   reflections?: ReflectionSummary[];
-  /** For state: 'error' only -- which route to fail, and how. */
-  fault?: { route: string; fault: Fault };
+  /**
+   * For state: 'error' only -- which route to fail, and how. `times`
+   * defaults to 1, matching FakeApi.fail()'s own default; set it higher
+   * (e.g. 2) when the route is fetched from a mount effect, because React
+   * StrictMode (main.tsx) double-invokes those in dev and the first,
+   * faulted request gets aborted by the effect's own cleanup before the
+   * component sees it -- the second, unfaulted request would otherwise
+   * succeed and the screen would load normally instead of erroring.
+   */
+  fault?: { route: string; fault: Fault; times?: number };
   /** For state: 'loading' only -- which route to hold open. */
   hold?: string;
 }
@@ -42,6 +50,15 @@ export interface Shot {
   scenario: FakeScenario | RealScenario;
   /** CSS selectors to redact in the screenshot (criterion 3). */
   mask?: string[];
+  /**
+   * The visible text of a button or link to click after `page.goto(route)`
+   * and before the loading/ready wait -- for a screen that is not a route
+   * of its own but a BottomSheet opened over one (History Sheet over Gig
+   * Detail, Export Sheet over Diary Home; routes.tsx: "they open over the
+   * diary rather than navigating away from it"). Omit for anything that is
+   * itself a route.
+   */
+  open?: string;
 }
 
 import {
@@ -153,23 +170,13 @@ export const SHOTS: Shot[] = [
     ready: 'Nothing in your diary yet.',
     scenario: { source: 'fake', me: JANE, frameworks: [LA_TROBE_FRAMEWORK], gigs: [EMPTY_GIG] },
   },
-  // CONCERN: verified failing under `./run shots` today, not a data mistake.
   // React StrictMode (main.tsx) double-invokes DiaryHome's mount effect in
   // dev (SessionProvider.tsx's own comment already names this: "you will
-  // see two requests on first load"). `api.fail(route, fault)` is single-use
-  // by default (FakeApi.fail's `times = 1`), and capture.spec.ts always
-  // calls it with the default -- it has no way to take a `times` from this
-  // manifest entry. The first GET /gigs is the one that gets faulted, but
-  // StrictMode's cleanup aborts that request client-side before the
-  // component acts on it; the second, unfaulted GET /gigs then succeeds and
-  // the screen renders normally instead of erroring. Confirmed by running
-  // it: the page shows "Nothing in your diary yet." instead of the error
-  // notice, so the wait for `ready` genuinely times out (an honest failure,
-  // not a silently mislabelled screenshot). Fixing this needs
-  // capture.spec.ts to pass a higher `times` (e.g. 2) through to `fail()`
-  // for a mount-effect fault -- out of this task's scope (fixtures.ts and
-  // manifest.ts only) and not specific to Diary Home: any future error shot
-  // for a mount-effect GET will hit the same thing.
+  // see two requests on first load"). `times: 2` below means both the
+  // StrictMode-aborted first request AND the real second request get the
+  // fault, so the screen actually renders the error notice instead of the
+  // second, unfaulted-by-default request quietly succeeding. Confirmed
+  // fixed by running it after adding `times`.
   {
     id: 'diary-home-error',
     screen: 'Diary home',
@@ -184,6 +191,7 @@ export const SHOTS: Shot[] = [
       gigs: [GIG],
       fault: {
         route: 'GET /gigs',
+        times: 2,
         fault: {
           kind: 'error',
           status: 500,
@@ -312,10 +320,8 @@ export const SHOTS: Shot[] = [
       reflections: [REFLECTION_EMPTY_DETAIL],
     },
   },
-  // CONCERN: same StrictMode-vs-fail() gap as diary-home-error above --
-  // see that entry's comment. Confirmed by running it: the page shows the
-  // fully loaded reflection (the "Communication" entry, self-score and
-  // all) instead of the error notice.
+  // Same StrictMode-vs-fail() mount-effect gap as diary-home-error above --
+  // see that entry's comment. `times: 2` for the same reason.
   {
     id: 'entry-stepper-error',
     screen: 'Entry stepper',
@@ -330,6 +336,7 @@ export const SHOTS: Shot[] = [
       reflections: [REFLECTION_DRAFT_DETAIL],
       fault: {
         route: 'GET /reflections/:id',
+        times: 2,
         fault: {
           kind: 'error',
           status: 500,
@@ -341,24 +348,19 @@ export const SHOTS: Shot[] = [
   },
 
   // -- History sheet (CAP-14) ---------------------------------------------
-  // Loaded-only in this task. "Reflection submitted" is history-log.ts's
-  // own label for a reflection_submitted milestone.
-  //
-  // CONCERN: HistorySheet is not a route (routes.tsx: "not here... they
-  // open over the diary" via BottomSheet) -- it only renders once GigDetail's
-  // History button is clicked, and capture.spec.ts's generic goto-then-wait
-  // loop has no click step. This entry is inert today (no
-  // SHOTS_STUDENT_TOKEN, so it skips before `page.goto`), but as written it
-  // cannot produce a real screenshot even once Task 4 supplies a token and a
-  // real gig id: `ready` will never appear because the sheet is never
-  // opened. Flagged per this task's brief rather than fixed here, since
-  // fixing it means either giving capture.spec.ts a click step or giving
-  // the history sheet its own URL, and both are runner/product changes out
-  // of this task's scope (fixtures.ts and manifest.ts only).
+  // Loaded-only in this task. Not a route of its own -- it is a BottomSheet
+  // over Gig Detail (routes.tsx: "they open over the diary rather than
+  // navigating away from it"; Stack-and-Build-Scope.md: "History sheet on
+  // the same frame [as Gig Detail] is CAP-14"), opened by GigHeader's
+  // "History" Button (GigDetail.tsx). `route` is Gig Detail's own route and
+  // `open` is that button's exact visible text; capture.spec.ts clicks it
+  // after `page.goto` and before waiting on `ready`. "Reflection submitted"
+  // is history-log.ts's own label for a reflection_submitted milestone.
   {
     id: 'history-sheet-loaded',
     screen: 'History sheet',
     route: `/gigs/${REAL_GIG_ID_PLACEHOLDER}`,
+    open: 'History',
     viewport: 'desktop',
     state: 'loaded',
     ready: 'Reflection submitted',
@@ -368,6 +370,7 @@ export const SHOTS: Shot[] = [
     id: 'history-sheet-loaded-mobile',
     screen: 'History sheet',
     route: `/gigs/${REAL_GIG_ID_PLACEHOLDER}`,
+    open: 'History',
     viewport: 'mobile',
     state: 'loaded',
     ready: 'Reflection submitted',
@@ -375,25 +378,20 @@ export const SHOTS: Shot[] = [
   },
 
   // -- Export sheet (CAP-18) -----------------------------------------------
-  // Mounted inside DiaryHome's own BottomSheet, opened by `export_open`
-  // React state on a button click, same as GigDetail's History button.
-  //
-  // CONCERN: this shot has the same structural gap as History Sheet above,
-  // except this one is fake-sourced, so it WILL actually run in this
-  // environment rather than skip. `ready` deliberately names text that only
-  // renders once ExportSheet is mounted (open) -- not "Export your record",
-  // which is the DiaryHome button that OPENS the sheet and would already be
-  // visible on plain `page.goto('/')`, making the test pass without the
-  // sheet ever having rendered and mislabelling a Diary Home screenshot as
-  // "Export sheet — loaded". With the correct, sheet-only ready text this
-  // entry is expected to time out and FAIL until either capture.spec.ts
-  // gains a click step or the sheet gets its own URL -- both out of this
-  // task's scope (fixtures.ts and manifest.ts only). Left in and reported
-  // as a concern rather than silently made to pass on the wrong text.
+  // Loaded-only in this task. Not a route of its own either -- a BottomSheet
+  // over Diary Home (Stack-and-Build-Scope.md: Diary Home's "export link...
+  // opens the sheet CAP-18 fills in"), opened by DiaryHome's "Export your
+  // record" Button. `route` is Diary Home's own route and `open` is that
+  // button's exact visible text. `ready` is "Request a PDF export" (the
+  // idle-state Button inside the sheet itself), not "Export your record"
+  // again -- that text is also the trigger, so it is already visible before
+  // the click and would make the wait resolve immediately regardless of
+  // whether the sheet actually opened.
   {
     id: 'export-sheet-loaded',
     screen: 'Export sheet',
     route: '/',
+    open: 'Export your record',
     viewport: 'desktop',
     state: 'loaded',
     ready: 'Request a PDF export',
@@ -409,6 +407,7 @@ export const SHOTS: Shot[] = [
     id: 'export-sheet-loaded-mobile',
     screen: 'Export sheet',
     route: '/',
+    open: 'Export your record',
     viewport: 'mobile',
     state: 'loaded',
     ready: 'Request a PDF export',
