@@ -162,9 +162,13 @@ sweep above being run again.
 
 ### Findings
 
-#### F9 · The student route offers a reviewer edit controls the server will refuse — Low
+#### F9 · The student route offers a reviewer edit controls the server will refuse — Low. **Fixed 2026-09-30**
 
-> **Raised as CAP-36 (COA4-94).**
+> **Raised as CAP-36 (COA4-94), fixed there.** `read_only` now also turns on for anyone who
+> is not the reflection's owner, and while `me` is still loading. `web/e2e/stepper-ownership.spec.ts`
+> opens Jane's draft as Sam and finds no editable control and no write sent, and
+> `scripts/verify-entry-stepper.sh` asserts the condition. Both were red with the ownership
+> term removed.
 
 `EntryStepper` decides `read_only` from the mode and the status alone:
 

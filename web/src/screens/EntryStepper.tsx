@@ -414,7 +414,12 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
   }
 
   // An assessor never edits what the student wrote, whatever the status.
-  const read_only = mode === 'assessor' || reflection.status !== 'draft';
+  // Nor does anyone but the owner: every reviewer on the gig can open a
+  // draft here in student mode, and the server would refuse each write (F9,
+  // CAP-36). Until the session knows who this is, me_id is null, so it
+  // stays read-only rather than briefly offering controls.
+  const is_owner = me_id !== null && reflection.owner.id === me_id;
+  const read_only = mode === 'assessor' || reflection.status !== 'draft' || !is_owner;
   const current_index = Math.min(step, entries.length - 1);
   const current = entries[current_index];
   const scoring_open = mode === 'assessor' && reflection.status === 'submitted';
