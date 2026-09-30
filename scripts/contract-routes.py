@@ -9,10 +9,15 @@ runs on any python3. scripts/check-contract-drift.sh produces both.
 
 Each side becomes a set of "METHOD /path". Paths are relative to the
 contract's first server url, so `api/v1/gigs` and `/gigs` are the same
-thing, and routes outside that base (Laravel's own `up`, say) are not the
-contract's business. Path parameters are compared by position, not by name:
-Laravel binds `{reflection}`, the contract says `{reflection_id}`, and that
-is not drift. HEAD is Laravel adding itself to every GET, so it is dropped.
+thing. Routes outside the API altogether (Laravel's own `up`, say) are not
+the contract's business, but one under `api/` that missed the `v1` group is,
+and is reported by its full path. Path parameters are compared by position,
+not by name: Laravel binds `{reflection}`, the contract says
+`{reflection_id}`, and that is not drift. HEAD is Laravel adding itself to
+every GET, so it is dropped there; a HEAD on its own is an operation.
+
+A contract with no operations is refused rather than matched: an empty set
+agreeing with an empty route list proves nothing.
 
 Exits 1 and names every difference, both ways.
 """
@@ -42,15 +47,24 @@ def load_contract(spec):
 
 
 def load_routes(routes, base):
-    prefix = base.strip("/") + "/"
+    base = base.strip("/")
+    root = base.split("/")[0]
     served = set()
     for route in routes:
         uri = route["uri"].strip("/")
-        if not uri.startswith(prefix):
+        if uri == base or uri.startswith(base + "/"):
+            path = normalise(uri[len(base):])
+        elif uri == root or uri.startswith(root + "/"):
+            # Under api/ but not api/v1/: the contract cannot declare it, so
+            # it is always drift. Named in full so it is recognisable.
+            path = normalise(uri)
+        else:
             continue
-        for method in route["method"].split("|"):
-            if method != "HEAD":
-                served.add(f"{method} {normalise(uri[len(prefix):])}")
+        methods = route["method"].split("|")
+        for method in methods:
+            if method == "HEAD" and "GET" in methods:
+                continue
+            served.add(f"{method} {path}")
     return served
 
 
@@ -64,6 +78,9 @@ def main(argv):
         spec = json.load(f)
 
     base, declared = load_contract(spec)
+    if not declared:
+        print("the contract declares no operations under paths: refusing to compare")
+        return 1
     served = load_routes(routes, base)
 
     unrouted = sorted(declared - served)
