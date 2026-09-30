@@ -136,6 +136,11 @@ case "${1:-help}" in
     # The contract mocked, so the frontend does not need the backend.
     mock)  step npx -y @stoplight/prism-cli mock docs/openapi.yaml ;;
 
+    # Both halves of the seam against the contract (CAP-25): schema.ts is
+    # what the contract generates, and Laravel's routes are its operations.
+    # Needs api/vendor and api/.env for route:list; never the database.
+    contract-drift) need_api; step ./scripts/check-contract-drift.sh ;;
+
     test)  need_api; in_dir api php artisan test ;;
 
     # The frontend client against real servers, plus the compile-time
@@ -295,6 +300,9 @@ case "${1:-help}" in
     check)
         say "Contract"
         step npx -y @redocly/cli@latest lint docs/openapi.yaml
+        step python3 scripts/contract-routes.test.py
+        need_api
+        step ./scripts/check-contract-drift.sh
         say "Guards"
         step python3 scripts/guard-shared-db.test.py
         step python3 scripts/guard-docs-location.test.py
@@ -328,6 +336,7 @@ ${BLUE}Alumable Reflection Diary${RESET}
   ${GREEN}./run api${RESET}      backend only
   ${GREEN}./run web${RESET}      frontend only
   ${GREEN}./run mock${RESET}     mock the contract on :4010, so web needs no backend
+  ${GREEN}./run contract-drift${RESET}  schema.ts and Laravel's routes, both against the contract
 
   ${GREEN}./run test${RESET}     backend test suite, against your own test database
   ${GREEN}./run smoke${RESET}    end-to-end over HTTP. Needs a server already running
