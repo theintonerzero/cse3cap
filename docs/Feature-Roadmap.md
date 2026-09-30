@@ -10,8 +10,8 @@ rather than feasibility.
 
 It is not a commitment. Nothing here gets built until the MVP's own tickets are done: the
 entry stepper (CAP-11), the submitted screen (CAP-12) and the assessor stepper (CAP-13)
-come first, because without them the core loop cannot be demonstrated. As of 24 September
-both steppers have merged (#54, #56), and the submitted screen is still to come.
+come first, because without them the core loop cannot be demonstrated. As of 30 September
+all three have merged (#54, #56, #65), so every item below is now buildable in principle.
 
 ---
 
@@ -175,5 +175,5 @@ this is about convenience and control.
 ## What the team does next
 
 If the team agrees, the Tier A items become optional tickets that anyone with capacity can
-pick up once CAP-12 is merged, the last of the three. Tier B items wait for David's answers. Tier C
+pick up now that CAP-12 has merged, the last of the three. Tier B items wait for David's answers. Tier C
 stays out unless the client asks and a superseding ADR is written.
