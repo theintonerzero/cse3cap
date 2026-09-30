@@ -1,0 +1,54 @@
+/**
+ * The screenshot-capture config for HO-6, separate from playwright.config.ts
+ * (ADR #42) on purpose: this one is never run by CI or by ./run check, only
+ * by ./run shots. See web/e2e/shots/README.md for when to run it and how the
+ * figure numbering works.
+ */
+import { defineConfig, devices } from '@playwright/test';
+
+const PORT = 5176;
+const ORIGIN = `http://127.0.0.1:${PORT}`;
+
+export default defineConfig({
+  testDir: './e2e/shots',
+  fullyParallel: false, // real-API shots share one signed-in session per test; keep runs predictable
+  retries: 0,
+  reporter: 'list',
+  timeout: 30_000,
+  use: {
+    baseURL: ORIGIN,
+    deviceScaleFactor: 2,
+  },
+  projects: [
+    {
+      name: 'desktop',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } },
+    },
+    {
+      name: 'mobile',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 360, height: 800 } },
+    },
+  ],
+  webServer: {
+    command: `npx vite --host 127.0.0.1 --port ${PORT} --strictPort`,
+    url: ORIGIN,
+    reuseExistingServer: false,
+    env: {
+      // web/vite.config.ts proxies nothing -- client.ts's baseUrl() reads
+      // VITE_API_BASE_URL directly and throws if it is unset (there is no
+      // web/.env in a fresh checkout to fall back on). Fake-API shots don't
+      // care what this points at: FakeApi.install() intercepts by
+      // **/api/v1/** glob, which matches regardless of origin. Real-API
+      // shots need the actual backend, so this is the same value ./run dev
+      // writes into web/.env (web/README.md), making shots behave exactly
+      // like a developer's own npm run dev rather than inventing a second
+      // convention.
+      VITE_API_BASE_URL: 'http://localhost:8000/api/v1',
+      // No VITE_API_TOKEN: fake-API shots sign themselves in via
+      // sessionStorage (FakeApi.install / sign_in_real), and real-API shots
+      // read their token from SHOTS_<SLOT>_TOKEN at test time instead
+      // (helpers.ts's token_env_var).
+      VITE_API_TOKEN: '',
+    },
+  },
+});

@@ -225,6 +225,19 @@ case "${1:-help}" in
         in_dir web npx playwright test ${@+"$@"}
         ;;
 
+    # HO-6: screenshots for the User Manual and SMD, against a separate
+    # config so this never runs under CI or ./run check. Writes PNGs to
+    # web/e2e/shots/output/, named by web/e2e/shots/manifest.ts's ids --
+    # see web/e2e/shots/README.md for what those ids mean and when to run
+    # this for real (after the UI freeze on 7 Oct, then again before
+    # submission).
+    shots)
+        need_web_deps
+        in_dir web npx playwright install chromium
+        shift
+        in_dir web npx playwright test --config=playwright.shots.config.ts ${@+"$@"}
+        ;;
+
     # Proves your Jira credentials work, over plain HTTP, independently of
     # the atlassian MCP server. Run it when Jira misbehaves: it separates a
     # wrong token from a broken MCP server, which look identical otherwise.
@@ -342,6 +355,7 @@ ${BLUE}Alumable Reflection Diary${RESET}
   ${GREEN}./run verify-frameworks${RESET}  the select framework screen: groups, in_use, the 409
   ${GREEN}./run verify-framework-edit${RESET}  the edit framework screen: copy then edit, scope, retries
   ${GREEN}./run e2e${RESET}      browser checks in headless Chromium against a fake API (no server)
+  ${GREEN}./run shots${RESET}    screenshots for the User Manual, against a separate config (HO-6)
   ${GREEN}./run swap${RESET}     the framework swap: SFIA against La Trobe, over HTTP
   ${GREEN}./run bundle-secrets${RESET}  proves a production build carries no token
   ${GREEN}./run lint${RESET}     pint, oxlint and prettier, checking only

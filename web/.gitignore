@@ -31,3 +31,8 @@ src/__verify_*.ts
 # Playwright's output: traces and screenshots of failed runs (ADR #42).
 test-results
 playwright-report
+
+# HO-6's screenshot pipeline (./run shots): generated PNGs, rebuilt on every
+# run from web/e2e/shots/manifest.ts. Not the deliverable itself -- that is
+# whatever the User Manual embeds from a run someone actually took.
+e2e/shots/output
