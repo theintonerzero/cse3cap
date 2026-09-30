@@ -152,6 +152,18 @@ export class FakeApi {
         : reply(route, 404, envelope('NOT_FOUND', 'That framework does not exist.'));
     }
 
+    // The list DiaryHome calls on mount (HO-6, shots Task 2): every gig the
+    // fake's `me` participates in, in the list shape (Gig), not the detail
+    // shape (GigDetail) GET /gigs/:id returns -- same relationship as
+    // summary() below stripping FrameworkDetail down to Framework.
+    if (key === 'GET /gigs') {
+      return reply(
+        route,
+        200,
+        this.gigs.map(({ participants: _participants, ...gig }) => gig),
+      );
+    }
+
     if (key === 'GET /gigs/:id') {
       const gig = this.gigs.find((g) => g.id === id);
       return gig
