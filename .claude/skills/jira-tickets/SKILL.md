@@ -16,6 +16,10 @@ a project's or board's or sprint's issues, list and perform transitions, comment
 create. **Deleting an issue is deliberately not among them.** If you need something outside
 that list, that is a change to `.mcp.json` and a conversation, not a workaround.
 
+**No tool edits a ticket once it exists.** Assignee, story points, sprint, summary and
+description can be set on create and never changed afterwards. When one needs changing,
+say which ticket and what value, and leave it to the person to do in Jira.
+
 ## Never read docs/jira/*.csv for status
 
 Those are the import files the tickets were created from. They have no status column and no
@@ -43,11 +47,12 @@ project = COA4 AND summary ~ "CAP-20"
 Always confirm the summary you get back really is that ticket before acting on it. `~` is a
 text match: searching `CAP-2` can return CAP-20 through CAP-29 as well.
 
-**The board stops at CAP-20.** CAP-21 to CAP-30 exist in `docs/jira/cap-sprint-5.csv` and
-were never imported, so the four-states audit, the Playwright journey, the security review
-and the deploy have no ticket. Work on them is real and invisible to the board. A search
-returning nothing for CAP-24 means the ticket was never created, not that the work does not
-exist — say which, rather than reporting it as missing.
+**Not every CAP key came from a csv, and not every one is in a sprint.** CAP-1 to CAP-20
+were imported and sprinted. CAP-21 to CAP-32 were imported later (COA4-79 to COA4-90) and
+sit in the backlog with no sprint. From CAP-33 on, tickets are created directly in Jira as
+follow-ups, often with no story points, and have no csv row at all. So search before
+assuming a ticket is missing. If a search really returns nothing, the ticket was never
+created, which is not the same as the work not existing. Say which.
 
 Jira also carries a Sprint 1 stream, `COA4-1` to `COA4-52`, covering governance, UX,
 technical foundation and the assessment deliverables. None of it is in the repository's
@@ -117,30 +122,40 @@ green, reviewed and merged, and the criterion was false.
 So before moving anything to Done: **read the acceptance criteria off the Jira ticket and
 check each one against the repository.** Say which you checked and how.
 
+**A ticket with no description has its summary as its criteria.** Most of the Sprint 1
+stream is like this. Take each claim in the summary ("scaffold the app *and coding
+standards*") and find the evidence for each part, not just the first. Quote it in the
+comment.
+
 A criterion that cannot be checked yet means the ticket is not Done, and saying so is the
-useful answer. CAP-20 is short a screenshot; one of its criteria concerns a stepper that
-cannot exist while CAP-11 is To Do.
+useful answer. CAP-20 sat In Review for a week because one criterion concerned a stepper
+that could not exist until CAP-11 merged.
 
 `./run check` is the floor, not the ceiling. It proves the build is sound, not that the
 ticket is finished.
 
 **Never:**
 
-- Move a ticket that is not the one you are working on, unless asked by name.
-- Move someone else's ticket. You are acting as one developer; moving another's work
-  misrepresents who did what, on a board that is assessed.
+- Move a ticket that is not the one you are working on, or that belongs to someone else,
+  unless the person names it. "Fix the board" or "tidy Jira" names nothing. Answer it with
+  a list of proposed moves, each with its evidence, and let the person pick.
 - Move a ticket to Done because its acceptance criteria "look met". Check them, one at a
   time, against the repository. Looking met and being met came apart on CAP-19.
 - Batch-transition. One ticket, one deliberate decision.
+
+**A teammate's ticket, once named, moves on the same evidence as your own, plus a
+comment** that says who moved it, at whose request, and what the evidence is. The assignee
+stays as it is. They did the work, and the board is assessed on who did what. Checking the
+criteria is not optional just because the owner isn't here to object.
 
 **Say what you moved and why**, in the same message as the work. A transition nobody was
 told about is how a board stops being trusted.
 
 ## Partial tickets
 
-Some tickets are genuinely half-done and the board has no state for it. CAP-24's token half
-merged while its injection half waits on other screens; CAP-26's design merged while the
-deploy waits on host access.
+Some tickets are genuinely half-done and the board has no state for it. CAP-24 reviewed
+each screen as it merged and stayed In Progress for the one still unbuilt. CAP-26's design
+merged weeks before anyone had the host access to deploy it.
 
 **Do not move a half-finished ticket to Done.** Leave it where it is and put the split in a
 comment, or say plainly that the ticket needs splitting. Marking it Done because the part
@@ -148,7 +163,8 @@ you did is finished loses the part nobody did.
 
 ## What to do with what you read
 
-When reporting status, ground every claim in one of the two sources and name which:
+When reporting status, ground every claim in one of the two sources and name which. The
+shape, from an earlier report:
 
 > Merged: CAP-1, CAP-2, CAP-3, CAP-4, CAP-5, CAP-6, CAP-7, CAP-9, CAP-10, CAP-19, CAP-20
 > (git). Jira additionally shows CAP-8 In Progress, which has no branch yet.
@@ -167,3 +183,5 @@ copies of all three are a year-zero snapshot.
 | Moving to Done because the PR merged | CAP-19 merged with a false criterion. Read the criteria |
 | Resolving a Jira/git disagreement silently | Destroys the finding that mattered |
 | Falling back to git when Jira is unreachable | Looks authoritative, misses reassignments |
+| Taking "fix the board" as leave to move teammates' tickets | Moves nobody named. Propose a list, let the person pick |
+| Moving a named teammate's ticket with no comment | The owner finds it moved and cannot tell why or by whom |
