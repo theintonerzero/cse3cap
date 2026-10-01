@@ -37,14 +37,15 @@ cannot, without a JSX parser this tool deliberately doesn't carry) enforce
 full state × viewport coverage. Extending coverage is adding entries to
 `manifest.ts`, never touching `capture.spec.ts`.
 
-The `mask` field (criterion 3) is implemented and works on any shot where
-a selector points to something sensitive. No masking demonstration entry was
-added because the only content that needs masking on screen—the token input
-(TokenGate.tsx)—is never included in the user manual. That screen is internal
-dev-only tooling for entering seeded tokens during development, not something
-students or assessors use in production. Once additional sensitive data
-appears on screens that belong in the manual, a masking demonstration can be
-added by creating a shot with a `mask` field that identifies its selectors.
+The Sign-in screen (token-entry-masked) demonstrates criterion 3 (`mask` field).
+The app's token input field (id="token-input") is redacted in the screenshot so
+the manual shows how to sign in without revealing an actual token. The Sign-in
+screen is the product's actual authentication mechanism (ADR #15: no traditional
+login screen), not dev-only tooling—students and assessors see this when their
+session expires or on first use. It is reached by navigating to `/` without a
+token; the shot scenario deliberately faults GET /auth/me with a 401 to render
+the TokenGate screen, demonstrating that any sensitive field can be masked with
+a `mask` entry pointing to its selector.
 
 ## When to run this for real
 

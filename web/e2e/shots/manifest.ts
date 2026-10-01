@@ -547,4 +547,34 @@ export const SHOTS: Shot[] = [
     ready: 'Based on',
     scenario: { source: 'real', slot: 'supervisor' },
   },
+
+  // -- Sign in (masking demonstration) ------------------------------------
+  // This is the actual sign-in screen the product uses (ADR #15: no login
+  // screen in the traditional sense; tokens are pasted here). Demonstrates
+  // the `mask` field: the token input (id="token-input") is redacted in the
+  // screenshot even though it doesn't appear until a user interacts. The
+  // input field exists in the DOM, and the mask ensures it would be redacted
+  // if ever visible in the final manual. When no token is in sessionStorage,
+  // AppShell renders TokenGate in screen mode with the prompt text visible.
+  {
+    id: 'token-entry-masked',
+    screen: 'Sign in',
+    route: '/',
+    viewport: 'desktop',
+    state: 'loaded',
+    ready: 'Reflection Diary',
+    scenario: {
+      source: 'fake',
+      me: JANE,
+      frameworks: [],
+      reflections: [],
+      gigs: [],
+      fault: {
+        route: 'GET /auth/me',
+        times: 2,
+        fault: { kind: 'error', status: 401, code: 'UNAUTHENTICATED', message: 'No token' },
+      },
+    },
+    mask: ['#token-input'],
+  },
 ];
