@@ -80,6 +80,30 @@ export const LA_TROBE_FRAMEWORK: FrameworkDetail = {
   ],
 };
 
+/**
+ * A rubric with no competencies, for Edit Framework's own empty state
+ * (CAP-21: `base.competencies.length === 0` -> "Nothing to rename."). Not
+ * reachable through normal use -- ReflectionCreator and the schema both
+ * assume a rubric has at least one competency -- but Edit Framework reads
+ * the base straight off the route param, so a broken or hand-edited row
+ * still renders a designed empty state rather than crashing. `created_by:
+ * null` puts it in the Templates group the same way LA_TROBE_FRAMEWORK is.
+ */
+export const EMPTY_FRAMEWORK: FrameworkDetail = {
+  id: 'ffff1111-0f02-4fff-8fff-ffffffffffff',
+  fw_key: 'shots-empty',
+  version: 'v1',
+  name: 'Empty rubric',
+  created_by: null,
+  in_use: false,
+  comment_required: true,
+  evidence_required: false,
+  accepted_file_types: ['pdf', 'png', 'jpg'],
+  max_file_bytes: 10485760,
+  scale: { min: 1, max: 4 },
+  competencies: [],
+};
+
 export const GIG: GigDetail = {
   id: 'ffff1111-0a01-4fff-8fff-ffffffffffff',
   title: 'La Trobe capstone',

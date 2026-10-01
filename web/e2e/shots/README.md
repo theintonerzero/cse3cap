@@ -38,20 +38,29 @@ message, same as a missing token.
 
 ## Coverage today
 
-Not every screen has all four states yet. Diary Home and Entry Stepper are
-the two worked examples with full `loading`/`empty`/`error` coverage in both
-viewports, proving the fake-API techniques (`hold()`, empty arrays, `fail()`)
-generalise; every other screen has its `loaded` shot plus a mobile copy.
-`manifest.test.ts` only enforces that every _routed_ screen has at least one
-shot; it does not (and cannot, without a JSX parser this tool deliberately
-doesn't carry) enforce full state × viewport coverage. Extending coverage is
-adding entries to `manifest.ts`, never touching `capture.spec.ts`. The
-Sign-in screen is not routed (rendered by AppShell when there is no token),
+Every screen now has all four states: `loaded`, `loading`, `empty` and
+`error` (CAP-21 extended HO-6's original two worked examples, Diary Home and
+Entry Stepper, to the remaining seven screens, proving the fake-API
+techniques — `hold()`, empty arrays, `fail()` — generalise). Two documented,
+deliberate exceptions: Export Sheet has no `loading` entry, because it takes
+`reflections` as a prop already loaded by its parent and never fetches on
+its own mount (see its manifest entry); and assessor-mode Entry Stepper has
+no `loading`/`empty`/`error` entries of its own, reusing student mode's,
+since only the `loaded` view differs between the two modes. `manifest.test.ts`
+only enforces that every _routed_ screen has at least one shot; it does not
+(and cannot, without a JSX parser this tool deliberately doesn't carry)
+enforce full state × viewport coverage. Extending coverage is almost always
+adding entries to `manifest.ts` alone — `capture.spec.ts`'s `open` field
+accepting an array (for a state that needs more than one interaction to
+reach, e.g. Export Sheet's `failed` state needing two clicks) is the one
+documented exception where this diff did touch it.
+The Sign-in screen is not routed (rendered by AppShell when there is no token),
 so it is not covered by the completeness check.
 
-Select Framework and Edit Framework have no `error`-state demo yet.
-`FRAMEWORK_IN_USE` (the one business-rule refusal either screen's save path
-can return) is contract-valid only on the three PATCH routes a save makes
+Select Framework and Edit Framework each have a generic 500 `error`-state demo
+now, but neither has a `FRAMEWORK_IN_USE`-specific one. `FRAMEWORK_IN_USE`
+(the one business-rule refusal either screen's save path can return) is
+contract-valid only on the three PATCH routes a save makes
 (`docs/openapi.yaml`'s `updateFramework`, `updateCompetency`, `updateLevel`),
 never on the GET routes either screen's own load calls — and a real-API shot
 in this tool is a read-only navigation, never a save. There is no route this
