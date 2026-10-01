@@ -16,6 +16,7 @@
 # 4. The security condition from the ticket's own comment: a link evidence
 #    item carries rel="noopener noreferrer", and no evidence item of any
 #    other kind is ever given a clickable href.
+# 5. Only the reflection's owner gets editable controls (F9, CAP-36).
 
 set -uo pipefail
 
@@ -118,7 +119,26 @@ else
 fi
 
 # --------------------------------------------------------------------------
-say "5. Pure logic stays free of React"
+say "5. Only the owner edits (F9, CAP-36)"
+
+# Every reviewer on a gig can open a draft in student mode, so read_only has
+# to turn on for anyone who is not the owner, and stay on while me_id is
+# still null. web/e2e/stepper-ownership.spec.ts drives the behaviour; this
+# keeps the condition from quietly going missing in a refactor.
+if grep -qE "is_owner = me_id !== null && reflection\.owner\.id === me_id" "$SCREEN"; then
+    ok "ownership compares reflection.owner.id to me_id"
+else
+    bad "ownership compares reflection.owner.id to me_id" "is_owner missing or changed"
+fi
+
+if grep -qE "const read_only = .*\|\| !is_owner" "$SCREEN"; then
+    ok "read_only includes !is_owner"
+else
+    bad "read_only includes !is_owner" "a non-owner gets the student's controls"
+fi
+
+# --------------------------------------------------------------------------
+say "6. Pure logic stays free of React"
 
 if grep -q "from 'react'" "$LOGIC"; then
     bad "entry-stepper-logic.ts has no React import" "found one"
