@@ -114,6 +114,25 @@ export const GIG: GigDetail = {
   ],
 };
 
+/**
+ * The assessor identity for Review Queue and the Entry Stepper's assessor
+ * mode (CAP-13/CAP-10) -- the same id GIG.participants above already lists
+ * as "Sam O", so the two stay one identity rather than two coincidentally
+ * matching ones.
+ */
+export const SAM: Me = {
+  id: 'ffff1111-0002-4fff-8fff-ffffffffffff',
+  display_name: 'Sam O',
+  participations: [{ gig_id: GIG.id, gig_title: GIG.title, role: 'assessor' }],
+};
+
+/** The supervisor identity for Select Framework and Edit Framework (CAP-15/CAP-16). */
+export const DR_LEE: Me = {
+  id: 'ffff1111-0003-4fff-8fff-ffffffffffff',
+  display_name: 'Dr Lee',
+  participations: [{ gig_id: GIG.id, gig_title: GIG.title, role: 'supervisor' }],
+};
+
 export const REFLECTION_SUBMITTED: ReflectionSummary = {
   id: 'ffff1111-0b01-4fff-8fff-ffffffffffff',
   status: 'submitted',

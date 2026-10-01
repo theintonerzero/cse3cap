@@ -62,6 +62,7 @@ export interface Shot {
 }
 
 import {
+  DR_LEE,
   EMPTY_GIG,
   GIG,
   JANE,
@@ -70,21 +71,8 @@ import {
   REFLECTION_EMPTY_DETAIL,
   REFLECTION_SUBMITTED,
   REFLECTION_SUBMITTED_DETAIL,
+  SAM,
 } from './fixtures.ts';
-
-/**
- * The assessor viewing the Entry Stepper's second mode (CAP-13). Not
- * exported: Task 3 adds its own `SAM` to fixtures.ts for Review Queue and
- * friends (see the plan's Task 3 Step 2), and this shot needs nothing from
- * that beyond the same id GIG.participants already uses for "Sam O", so a
- * second top-level export under a different name would just be a second
- * place this identity is defined.
- */
-const ENTRY_STEPPER_ASSESSOR: Me = {
-  id: 'ffff1111-0002-4fff-8fff-ffffffffffff',
-  display_name: 'Sam O',
-  participations: [{ gig_id: GIG.id, gig_title: GIG.title, role: 'assessor' }],
-};
 
 /**
  * No live backend is reachable in this environment (Task 2 of HO-6), so
@@ -99,6 +87,16 @@ const ENTRY_STEPPER_ASSESSOR: Me = {
  * screenshot rather than a 404.
  */
 const REAL_GIG_ID_PLACEHOLDER = '00000000-0000-4000-8000-000000000000';
+
+/**
+ * Same placeholder situation as REAL_GIG_ID_PLACEHOLDER above, for
+ * `edit-framework-loaded`: there is no live backend to read a real seeded
+ * framework id from, and the shot currently skips cleanly anyway because no
+ * SHOTS_SUPERVISOR_TOKEN is set. Task 4 must replace it with a real id (e.g.
+ * one read off GET /frameworks under that token) before this entry can
+ * produce a real screenshot rather than a 404.
+ */
+const REAL_FRAMEWORK_ID_PLACEHOLDER = '00000000-0000-4000-8000-000000000000';
 
 export const SHOTS: Shot[] = [
   {
@@ -273,7 +271,7 @@ export const SHOTS: Shot[] = [
     ready: 'Communication',
     scenario: {
       source: 'fake',
-      me: ENTRY_STEPPER_ASSESSOR,
+      me: SAM,
       frameworks: [LA_TROBE_FRAMEWORK],
       reflections: [REFLECTION_SUBMITTED_DETAIL],
     },
@@ -287,7 +285,7 @@ export const SHOTS: Shot[] = [
     ready: 'Communication',
     scenario: {
       source: 'fake',
-      me: ENTRY_STEPPER_ASSESSOR,
+      me: SAM,
       frameworks: [LA_TROBE_FRAMEWORK],
       reflections: [REFLECTION_SUBMITTED_DETAIL],
     },
@@ -418,5 +416,135 @@ export const SHOTS: Shot[] = [
       gigs: [GIG],
       reflections: [REFLECTION_SUBMITTED],
     },
+  },
+
+  // -- Review queue (CAP-10) ----------------------------------------------
+  // GET /review-queue (ReviewQueueController::index), scoped to the caller's
+  // own role server-side -- nothing in the route or the fixture asserts
+  // that. Loaded-only in this task (same progress-ledger ruling as Gig
+  // Detail). "Score this →" is ReviewQueueRow's own link into the assessor
+  // stepper (CAP-13), present only once state.status === 'loaded' with at
+  // least one entry -- the "Review queue" h1 above it renders in every
+  // status, so it cannot be the wait target (same trap as Diary Home's own
+  // h1; see that entry's comment).
+  //
+  // CONCERN: inert today, same as every other real-sourced entry in this
+  // file -- no SHOTS_ASSESSOR_TOKEN is set, so capture.spec.ts skips before
+  // page.goto ever fires, and "Score this →" assumes the real seeded
+  // assessor has at least one submission waiting, which Task 4 confirms.
+  {
+    id: 'review-queue-loaded',
+    screen: 'Review queue',
+    route: '/review-queue',
+    viewport: 'desktop',
+    state: 'loaded',
+    ready: 'Score this →',
+    scenario: { source: 'real', slot: 'assessor' },
+  },
+  {
+    id: 'review-queue-loaded-mobile',
+    screen: 'Review queue',
+    route: '/review-queue',
+    viewport: 'mobile',
+    state: 'loaded',
+    ready: 'Score this →',
+    scenario: { source: 'real', slot: 'assessor' },
+  },
+
+  // -- Select framework (CAP-15) -------------------------------------------
+  // GET /frameworks (SelectFramework.tsx). Loaded-only for the real shot;
+  // "Templates" is the Group heading for the shipped-with-the-product group,
+  // rendered only from LoadedState once state.status === 'loaded' -- the
+  // "Frameworks" h1 and its sub paragraph above it render in every status
+  // (same trap as Diary Home's and Review Queue's own h1s), so neither can
+  // be the wait target. A seeded database always has templates (CLAUDE.md:
+  // "Treat seeded ... frameworks as fixed reference data"), so the group is
+  // never actually empty.
+  {
+    id: 'select-framework-loaded',
+    screen: 'Select framework',
+    route: '/frameworks',
+    viewport: 'desktop',
+    state: 'loaded',
+    ready: 'Templates',
+    scenario: { source: 'real', slot: 'supervisor' },
+  },
+  {
+    id: 'select-framework-loaded-mobile',
+    screen: 'Select framework',
+    route: '/frameworks',
+    viewport: 'mobile',
+    state: 'loaded',
+    ready: 'Templates',
+    scenario: { source: 'real', slot: 'supervisor' },
+  },
+  // A 409 FRAMEWORK_IN_USE demonstration (ADR #42: a refusal is injected by
+  // code, the fake never reimplements the rule itself -- the rule that an
+  // in-use framework can no longer be edited directly lives in
+  // api/app/Services/FrameworkEditing.php and is tested in api/tests/, not
+  // here). FRAMEWORK_IN_USE is a real code from docs/openapi.yaml's Error
+  // schema (ErrorCode enum, used on PATCH /frameworks/{framework_id} and
+  // friends in EditFramework.tsx's own save path). Faulting it on Select
+  // Framework's own load route demonstrates the code's ErrorNotice rendering
+  // without needing a copy already saved and already in use, which the fake
+  // scenarios in this file do not otherwise construct. ErrorNotice's default
+  // branch (ErrorNotice.tsx: any code besides UNAUTHENTICATED / ROLE_FORBIDDEN
+  // / NOT_FOUND) shows the envelope's own message verbatim, so `ready` is
+  // that same string. `times: 2` for the same StrictMode-vs-mount-effect gap
+  // as diary-home-error and entry-stepper-error above -- SelectFramework.tsx
+  // uses the identical AbortController-in-a-mount-effect shape.
+  {
+    id: 'select-framework-error',
+    screen: 'Select framework',
+    route: '/frameworks',
+    viewport: 'desktop',
+    state: 'error',
+    ready: 'This framework has reflections against it and cannot be edited directly.',
+    scenario: {
+      source: 'fake',
+      me: DR_LEE,
+      frameworks: [LA_TROBE_FRAMEWORK],
+      fault: {
+        route: 'GET /frameworks',
+        times: 2,
+        fault: {
+          kind: 'error',
+          status: 409,
+          code: 'FRAMEWORK_IN_USE',
+          message: 'This framework has reflections against it and cannot be edited directly.',
+        },
+      },
+    },
+  },
+
+  // -- Edit framework (CAP-16) ---------------------------------------------
+  // GET /frameworks then GET /frameworks/{framework_id} (EditFramework.tsx,
+  // Promise.all), the latter keyed by the route param. Loaded-only for the
+  // real shot; "Based on" is the base-picker's own label, rendered only once
+  // load.status === 'loaded', regardless of whether the base framework turns
+  // out to have competencies to rename -- the "Copy and edit a rubric" h1
+  // above it renders in every status (same trap as the other screens' own
+  // h1s in this file), so it cannot be the wait target.
+  //
+  // CONCERN: needs a real seeded framework id, same placeholder situation as
+  // REAL_GIG_ID_PLACEHOLDER (see REAL_FRAMEWORK_ID_PLACEHOLDER above) --
+  // inert today because no SHOTS_SUPERVISOR_TOKEN is set either.
+  {
+    id: 'edit-framework-loaded',
+    screen: 'Edit framework',
+    route: `/frameworks/${REAL_FRAMEWORK_ID_PLACEHOLDER}/edit`,
+    viewport: 'desktop',
+    state: 'loaded',
+    ready: 'Based on',
+    scenario: { source: 'real', slot: 'supervisor' },
+  },
+  {
+    id: 'edit-framework-loaded-mobile',
+    screen: 'Edit framework',
+    route: `/frameworks/${REAL_FRAMEWORK_ID_PLACEHOLDER}/edit`,
+    viewport: 'mobile',
+    state: 'loaded',
+    ready: 'Based on',
+    scenario: { source: 'real', slot: 'supervisor' },
   },
 ];
