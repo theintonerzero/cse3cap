@@ -25,9 +25,13 @@
   color: var(--color-text);
 }
 
-/* "Nobody is on this gig yet." --color-text rather than muted: muted on
-   the lavender card is another of the tinted-fill AA failures recorded in
-   the CAP-8 plan, and this is ordinary body copy. */
+/* "Nobody is on this gig yet." --color-text rather than muted: this used to
+   be one of the tinted-fill AA failures recorded in the CAP-8 plan
+   (--color-text-muted on a tint measured under 4.5:1). CAP-23 darkened
+   --color-text-muted (see tokens.css) and that pair now clears AA -- see
+   check-contrast.mjs's --color-text-muted/--color-accent-lavender entry --
+   but this stays --color-text regardless, because it is ordinary body copy
+   and there was never a reason other than AA to mute it. */
 .none {
   font-size: var(--font-size-sm);
   color: var(--color-text);
@@ -213,12 +217,17 @@
   color: var(--color-text);
 }
 
-/* Matches .empty_link and .about_link on the diary home: a link in this
-   product is --color-primary. Measured at 3.93:1 on this tint, which is
-   below AA for normal text -- recorded as a finding for the team in the
-   CAP-8 plan rather than fixed here, because the link treatment is a
-   design decision for whoever owns the palette, not something one screen
-   changes on its own. */
+/* Matches .empty_link on the diary home: a link in this product is
+   --color-primary. This card is accent="pink" (Card.module.css), where
+   --color-primary measured 3.79:1 before CAP-23 -- a worse number than the
+   3.93:1 against a lavender tint recorded as a deferred finding in the
+   CAP-8 plan, because by the time this comment was last read the card had
+   already moved from lavender to pink without the recorded ratio being
+   re-measured. CAP-23's contrast-pair sweep (Task 2) is the fix the CAP-8
+   note deferred: --color-primary is darkened in tokens.css specifically
+   because it is rendered as normal link text on --color-bg,
+   --color-surface-alt and this --color-accent-pink tint, and now clears
+   4.5:1 on all three -- see check-contrast.mjs's --color-primary entries. */
 .diary_link {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
@@ -242,8 +251,11 @@
   color: var(--color-text);
 }
 
-/* --color-text-muted on --color-surface-alt is 4.32:1 in light mode and fails
-   AA, so the body copy in a tinted empty state stays --color-text. */
+/* --color-text-muted on --color-surface-alt measured 4.32:1 in light mode
+   before CAP-23, under AA. CAP-23 darkened --color-text-muted (tokens.css)
+   and that pair now clears AA -- see check-contrast.mjs's
+   --color-text-muted/--color-surface-alt entry -- so this --color-text
+   choice is a style preference now, not an AA requirement. */
 .empty_body {
   margin: 0;
   font-size: var(--font-size-sm);

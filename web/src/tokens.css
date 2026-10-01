@@ -61,15 +61,20 @@
     (ExportSheet's building-status detail) -- all below 4.5:1 at #717171. Darkened further,
     same grey, to clear the hardest of those real backgrounds. */
   --color-text-inverse: #ffffff;
-  --color-primary: #7f52ad; /* AA-adjusted from sampled #9a76be (white button text was 3.68:1),
+  --color-primary: #8053ad; /* AA-adjusted from sampled #9a76be (white button text was 3.68:1),
     then re-adjusted for CAP-23: #8c63b5 (the first adjustment) passed as a button fill but
     Task 2's exhaustive pair sweep found it is also rendered as normal link text directly on
     --color-bg (EditFramework's back link), --color-surface-alt (DiaryHome/Submitted empty-state
-    links) and --color-accent-pink (GigDetail's diary link, previously an acknowledged 3.79:1
-    finding) -- all below 4.5:1 at #8c63b5. Same hue/saturation (270 deg, 35.7%), lightness
-    moved from 54.9% to 50%, which clears every accent tint in the file, not only the three
-    pairs actually found, so this does not need re-litigating the next time a screen reuses the
-    link style on a new tint. */
+    links) and --color-accent-pink (GigDetail's diary link, previously an acknowledged 3.93:1
+    finding against a tint the card no longer uses -- the card is pink now, where the real
+    number was 3.79:1) -- all below 4.5:1 at #8c63b5. Same hue/saturation (270 deg, 35.7%).
+    --color-accent-pink is the binding constraint of the three (lowest luminance, so hardest to
+    clear at this hue/saturation): lightness moved only as far as clearing it needs (54.9% ->
+    50.3%), not further to cover every accent tint in the file -- this is the deliberately
+    narrow, same-as-danger/success-below fix the CAP-23 review asked for, in place of an
+    earlier, broader re-adjustment to 50% that also happened to clear tints nothing actually
+    renders text on. If a future screen puts this link style on a new tint, re-run
+    check-contrast.mjs rather than assuming this value still covers it. */
   --color-primary-hover: #734a9b; /* generated when --color-primary was #8c63b5: no hover variant
     in the Figma file (confirmed directly in Design mode). Same hue/saturation as --color-primary
     (270 deg, 35.7%), lightness moved -10 points (54.9% -> 44.9%). Darker on hover in light mode,
@@ -89,7 +94,7 @@
     is a separate, independent piece of state from the autosave status) at 4.00:1. Same
     hue/saturation (122.5 deg, 39.9%), darkened further to clear that. */
   --color-success-bg: #e9f4ee;
-  --color-focus-ring: #7f52ad; /* confirmed: no focus variant in the Figma file either. Reuses
+  --color-focus-ring: #8053ad; /* confirmed: no focus variant in the Figma file either. Reuses
     --color-primary by deliberate team decision (2026-08-26), not a default fallback. Kept equal
     to --color-primary through the CAP-23 re-adjustment above. */
 

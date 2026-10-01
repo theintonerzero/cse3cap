@@ -112,9 +112,11 @@
   color: var(--color-text);
 }
 
-/* --color-text-muted on --color-surface-alt is 4.32:1 in light mode and fails
-   AA, so the body copy in a tinted empty state stays --color-text. Same
-   reasoning as GigDetail.module.css. */
+/* --color-text-muted on --color-surface-alt measured 4.32:1 in light mode
+   before CAP-23 darkened --color-text-muted (tokens.css); that pair now
+   clears 4.5:1 -- see check-contrast.mjs -- so this --color-text choice is
+   a style preference now, not an AA requirement. Same reasoning as
+   GigDetail.module.css. */
 .empty_body {
   margin: 0;
   font-size: var(--font-size-sm);
