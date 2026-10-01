@@ -171,6 +171,13 @@ export class FakeApi {
         : reply(route, 404, envelope('NOT_FOUND', 'No such gig, or it is not yours.'));
     }
 
+    // CAP-21 (shots): Review Queue's own `loaded` shot is real-sourced
+    // (manifest.ts has no fixture for a populated queue), so this fake
+    // always answers empty -- enough to produce review-queue-empty, and a
+    // base for review-queue-error and review-queue-loading, both of which
+    // intercept above via fault()/hold() before this line is ever reached.
+    if (key === 'GET /review-queue') return reply(route, 200, []);
+
     if (key === 'GET /reflections') {
       // ReflectionController::index only applies the gig_id filter when the
       // query param is actually present (`->when($request->query('gig_id'),

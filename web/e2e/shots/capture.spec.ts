@@ -94,7 +94,11 @@ for (const shot of SHOTS) {
     // button click, not routes of their own (routes.tsx: "they open over
     // the diary rather than navigating away from it") -- `shot.open` names
     // that trigger's visible text, clicked here before either wait below.
-    if (shot.open) await page.getByText(shot.open).click();
+    // An array (CAP-21, export-sheet-error) clicks each text in turn, for a
+    // state reachable only after a second press once the sheet is open.
+    for (const text of shot.open ? [shot.open].flat() : []) {
+      await page.getByText(text).click();
+    }
 
     if (shot.state === 'loading') {
       await expect(page.getByRole('status').first()).toBeVisible();

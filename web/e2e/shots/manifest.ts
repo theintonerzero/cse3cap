@@ -74,8 +74,14 @@ export interface Shot {
    * Detail, Export Sheet over Diary Home; routes.tsx: "they open over the
    * diary rather than navigating away from it"). Omit for anything that is
    * itself a route.
+   *
+   * An array clicks each text in order (CAP-21, export-sheet-error): the
+   * sheet's own `failed` job state is plain component state with no prop or
+   * URL to seed it and no fetch on mount, reachable only by opening the
+   * sheet and then pressing its Request button, so one click is not enough
+   * to get there.
    */
-  open?: string;
+  open?: string | string[];
   /**
    * Selectors to fill with a value after `open`'s click and before the
    * loading/ready wait -- so a masked field (token-entry-masked) visibly
@@ -85,6 +91,8 @@ export interface Shot {
 }
 
 import {
+  DR_LEE,
+  EMPTY_FRAMEWORK,
   EMPTY_GIG,
   GIG,
   JANE,
@@ -130,6 +138,71 @@ export const SHOTS: Shot[] = [
       frameworks: [LA_TROBE_FRAMEWORK],
       gigs: [GIG],
       reflections: [REFLECTION_SUBMITTED],
+    },
+  },
+  // Two fetches in sequence (Submitted.tsx: GET /reflections/{id}, then
+  // GET /gigs/{gig_id}) -- loading holds the first, since the second never
+  // fires until it resolves.
+  {
+    id: 'submitted-loading',
+    screen: 'Submitted confirmation',
+    route: `/reflections/${REFLECTION_SUBMITTED.id}/submitted`,
+    viewport: 'desktop',
+    state: 'loading',
+    scenario: {
+      source: 'fake',
+      me: JANE,
+      frameworks: [LA_TROBE_FRAMEWORK],
+      gigs: [GIG],
+      reflections: [REFLECTION_SUBMITTED],
+      hold: 'GET /reflections/:id',
+    },
+  },
+  // Empty is reaching this URL for a reflection that is still a draft --
+  // reachable by a stale tab, a bookmark, or a shared link rather than only
+  // right after submitting (Submitted.tsx's own comment: "not an error: the
+  // honest answer is that there is nothing to confirm yet"). Needs a GIG
+  // row for the second fetch even though the draft itself is what renders.
+  {
+    id: 'submitted-empty',
+    screen: 'Submitted confirmation',
+    route: `/reflections/${REFLECTION_DRAFT_DETAIL.id}/submitted`,
+    viewport: 'desktop',
+    state: 'empty',
+    ready: 'This reflection has not been submitted yet.',
+    scenario: {
+      source: 'fake',
+      me: JANE,
+      frameworks: [LA_TROBE_FRAMEWORK],
+      gigs: [GIG],
+      reflections: [REFLECTION_DRAFT_DETAIL],
+    },
+  },
+  // Same StrictMode-vs-fail() mount-effect gap as diary-home-error -- see
+  // that entry's comment. `times: 2` for the same reason.
+  {
+    id: 'submitted-error',
+    screen: 'Submitted confirmation',
+    route: `/reflections/${REFLECTION_SUBMITTED.id}/submitted`,
+    viewport: 'desktop',
+    state: 'error',
+    ready: 'Something went wrong.',
+    scenario: {
+      source: 'fake',
+      me: JANE,
+      frameworks: [LA_TROBE_FRAMEWORK],
+      gigs: [GIG],
+      reflections: [REFLECTION_SUBMITTED],
+      fault: {
+        route: 'GET /reflections/:id',
+        times: 2,
+        fault: {
+          kind: 'error',
+          status: 500,
+          code: 'VALIDATION_FAILED',
+          message: 'Something went wrong.',
+        },
+      },
     },
   },
 
@@ -248,6 +321,68 @@ export const SHOTS: Shot[] = [
     state: 'loaded',
     ready: 'Reflection diary',
     scenario: { source: 'real', slot: 'student', requires_env: ['SHOTS_GIG_ID'] },
+  },
+  // Loading/empty/error are fake-sourced (Global Constraints), unlike the
+  // two `loaded` shots above which need a real seeded gig. GET /gigs/{id}
+  // is the key route; a student's GET /reflections only fires once it
+  // resolves, so holding/failing the gig fetch is enough for all three.
+  {
+    id: 'gig-detail-loading',
+    screen: 'Gig detail',
+    route: `/gigs/${GIG.id}`,
+    viewport: 'desktop',
+    state: 'loading',
+    scenario: {
+      source: 'fake',
+      me: JANE,
+      frameworks: [LA_TROBE_FRAMEWORK],
+      gigs: [GIG],
+      hold: 'GET /gigs/:id',
+    },
+  },
+  // Empty is `gig.sprints.length === 0` (DiaryCard, GigDetail.tsx around
+  // line 352) -> "No sprints on this gig yet." EMPTY_GIG already has no
+  // sprints and is the same fixture diary-home-empty uses for its own
+  // "a gig the caller is a student on" case.
+  {
+    id: 'gig-detail-empty',
+    screen: 'Gig detail',
+    route: `/gigs/${EMPTY_GIG.id}`,
+    viewport: 'desktop',
+    state: 'empty',
+    ready: 'No sprints on this gig yet.',
+    scenario: {
+      source: 'fake',
+      me: JANE,
+      frameworks: [LA_TROBE_FRAMEWORK],
+      gigs: [EMPTY_GIG],
+    },
+  },
+  // Same StrictMode-vs-fail() mount-effect gap as diary-home-error -- see
+  // that entry's comment. `times: 2` for the same reason.
+  {
+    id: 'gig-detail-error',
+    screen: 'Gig detail',
+    route: `/gigs/${GIG.id}`,
+    viewport: 'desktop',
+    state: 'error',
+    ready: 'Something went wrong.',
+    scenario: {
+      source: 'fake',
+      me: JANE,
+      frameworks: [LA_TROBE_FRAMEWORK],
+      gigs: [GIG],
+      fault: {
+        route: 'GET /gigs/:id',
+        times: 2,
+        fault: {
+          kind: 'error',
+          status: 500,
+          code: 'VALIDATION_FAILED',
+          message: 'Something went wrong.',
+        },
+      },
+    },
   },
 
   // -- Entry stepper (CAP-11 / CAP-13) ------------------------------------
@@ -397,6 +532,74 @@ export const SHOTS: Shot[] = [
     ready: 'Reflection submitted',
     scenario: { source: 'real', slot: 'student', requires_env: ['SHOTS_GIG_ID'] },
   },
+  // Loading/empty/error are fake-sourced over a fake GIG, opened the same
+  // way the real `loaded` shots above are (History button on Gig Detail).
+  // GET /reflections/{id}/events, once per reflection GigDetail handed in.
+  {
+    id: 'history-sheet-loading',
+    screen: 'History sheet',
+    route: `/gigs/${GIG.id}`,
+    open: 'History',
+    viewport: 'desktop',
+    state: 'loading',
+    scenario: {
+      source: 'fake',
+      me: JANE,
+      frameworks: [LA_TROBE_FRAMEWORK],
+      gigs: [GIG],
+      reflections: [REFLECTION_SUBMITTED],
+      hold: 'GET /reflections/:id/events',
+    },
+  },
+  // Empty is `rows.length === 0` (HistorySheet.tsx around line 110) ->
+  // "Nothing has happened yet." With no reflections handed in at all,
+  // Promise.all([]) resolves with nothing to fetch, which is itself the
+  // honest empty case -- a student on this gig who has written nothing yet.
+  {
+    id: 'history-sheet-empty',
+    screen: 'History sheet',
+    route: `/gigs/${GIG.id}`,
+    open: 'History',
+    viewport: 'desktop',
+    state: 'empty',
+    ready: 'Nothing has happened yet.',
+    scenario: {
+      source: 'fake',
+      me: JANE,
+      frameworks: [LA_TROBE_FRAMEWORK],
+      gigs: [GIG],
+      reflections: [],
+    },
+  },
+  // Same StrictMode-vs-fail() mount-effect gap as diary-home-error -- see
+  // that entry's comment. `times: 2` for the same reason; this sheet mounts
+  // fresh on every open, same as any other effect-bearing component.
+  {
+    id: 'history-sheet-error',
+    screen: 'History sheet',
+    route: `/gigs/${GIG.id}`,
+    open: 'History',
+    viewport: 'desktop',
+    state: 'error',
+    ready: 'Something went wrong.',
+    scenario: {
+      source: 'fake',
+      me: JANE,
+      frameworks: [LA_TROBE_FRAMEWORK],
+      gigs: [GIG],
+      reflections: [REFLECTION_SUBMITTED],
+      fault: {
+        route: 'GET /reflections/:id/events',
+        times: 2,
+        fault: {
+          kind: 'error',
+          status: 500,
+          code: 'VALIDATION_FAILED',
+          message: 'Something went wrong.',
+        },
+      },
+    },
+  },
 
   // -- Export sheet (CAP-18) -----------------------------------------------
   // Loaded-only in this task. Not a route of its own either -- a BottomSheet
@@ -440,6 +643,62 @@ export const SHOTS: Shot[] = [
       reflections: [REFLECTION_SUBMITTED],
     },
   },
+  // No `export-sheet-loading` entry: confirmed by reading ExportSheet.tsx --
+  // it takes `reflections` as a prop the parent (Diary Home) already
+  // loaded, and it never fetches anything on its own mount, so it has no
+  // loading state to demonstrate (Task 1 Step 2's own instruction).
+  //
+  // Empty is `reflections.length === 0` -> "Nothing to export yet." A whole
+  // record with nothing written yet, not a scope filter (the sheet counts
+  // the whole record -- see this file's ExportSheet.tsx header comment).
+  {
+    id: 'export-sheet-empty',
+    screen: 'Export sheet',
+    route: '/',
+    open: 'Export your record',
+    viewport: 'desktop',
+    state: 'empty',
+    ready: 'Nothing to export yet.',
+    scenario: {
+      source: 'fake',
+      me: JANE,
+      frameworks: [LA_TROBE_FRAMEWORK],
+      gigs: [GIG],
+      reflections: [],
+    },
+  },
+  // The sheet's own `failed` job status (ExportSheet.tsx's Job type), not
+  // DiaryHome's error state: it is plain component state with no fetch on
+  // mount, so it is reached by opening the sheet and then pressing Request,
+  // which POST /exports here answers with a fault -- `open` as an array
+  // (manifest.ts's own Shot.open doc) clicks both in order. No `times: 2`:
+  // this call fires from a click handler, not a mount effect, so React
+  // StrictMode's double-invoke (see diary-home-error) does not apply.
+  {
+    id: 'export-sheet-error',
+    screen: 'Export sheet',
+    route: '/',
+    open: ['Export your record', 'Request a PDF export'],
+    viewport: 'desktop',
+    state: 'error',
+    ready: 'Something went wrong.',
+    scenario: {
+      source: 'fake',
+      me: JANE,
+      frameworks: [LA_TROBE_FRAMEWORK],
+      gigs: [GIG],
+      reflections: [REFLECTION_SUBMITTED],
+      fault: {
+        route: 'POST /exports',
+        fault: {
+          kind: 'error',
+          status: 500,
+          code: 'VALIDATION_FAILED',
+          message: 'Something went wrong.',
+        },
+      },
+    },
+  },
 
   // -- Review queue (CAP-10) ----------------------------------------------
   // GET /review-queue (ReviewQueueController::index), scoped to the caller's
@@ -472,6 +731,64 @@ export const SHOTS: Shot[] = [
     state: 'loaded',
     ready: 'Score this →',
     scenario: { source: 'real', slot: 'assessor' },
+  },
+  // Loading/empty/error are fake-sourced. fake-api.ts has no populated
+  // GET /review-queue fixture of its own (the `loaded` shots above are
+  // real-sourced instead) -- it always answers 200 [], which is exactly
+  // this screen's own empty shape, and is enough of a base for hold()/
+  // fail() to intercept ahead of it for the other two.
+  {
+    id: 'review-queue-loading',
+    screen: 'Review queue',
+    route: '/review-queue',
+    viewport: 'desktop',
+    state: 'loading',
+    scenario: {
+      source: 'fake',
+      me: SAM,
+      frameworks: [LA_TROBE_FRAMEWORK],
+      hold: 'GET /review-queue',
+    },
+  },
+  // Empty is `entries.length === 0` (ReviewQueue.tsx around line 62) ->
+  // "Nothing is waiting on you right now."
+  {
+    id: 'review-queue-empty',
+    screen: 'Review queue',
+    route: '/review-queue',
+    viewport: 'desktop',
+    state: 'empty',
+    ready: 'Nothing is waiting on you right now.',
+    scenario: {
+      source: 'fake',
+      me: SAM,
+      frameworks: [LA_TROBE_FRAMEWORK],
+    },
+  },
+  // Same StrictMode-vs-fail() mount-effect gap as diary-home-error -- see
+  // that entry's comment. `times: 2` for the same reason.
+  {
+    id: 'review-queue-error',
+    screen: 'Review queue',
+    route: '/review-queue',
+    viewport: 'desktop',
+    state: 'error',
+    ready: 'Something went wrong.',
+    scenario: {
+      source: 'fake',
+      me: SAM,
+      frameworks: [LA_TROBE_FRAMEWORK],
+      fault: {
+        route: 'GET /review-queue',
+        times: 2,
+        fault: {
+          kind: 'error',
+          status: 500,
+          code: 'VALIDATION_FAILED',
+          message: 'Something went wrong.',
+        },
+      },
+    },
   },
 
   // -- Select framework (CAP-15) -------------------------------------------
@@ -511,6 +828,65 @@ export const SHOTS: Shot[] = [
   // render itself). Faulting the list route with a 409 the contract never
   // lets it return would depict a state the real backend cannot reach --
   // see README.md's coverage section for the one-sentence version.
+  //
+  // Loading/empty/error are fake-sourced, as DR_LEE (the supervisor
+  // identity, CAP-15/CAP-16).
+  {
+    id: 'select-framework-loading',
+    screen: 'Select framework',
+    route: '/frameworks',
+    viewport: 'desktop',
+    state: 'loading',
+    scenario: {
+      source: 'fake',
+      me: DR_LEE,
+      frameworks: [LA_TROBE_FRAMEWORK],
+      hold: 'GET /frameworks',
+    },
+  },
+  // Empty is `templates.length === 0 && copies.length === 0`
+  // (SelectFramework.tsx's own LoadedState, around line 110) ->
+  // "No rubrics yet." -- the whole list empty, not either group, per that
+  // function's own comment. Only reachable with an unseeded-shaped fixture
+  // (the audit's own finding: a seeded database always has templates).
+  {
+    id: 'select-framework-empty',
+    screen: 'Select framework',
+    route: '/frameworks',
+    viewport: 'desktop',
+    state: 'empty',
+    ready: 'No rubrics yet.',
+    scenario: {
+      source: 'fake',
+      me: DR_LEE,
+      frameworks: [],
+    },
+  },
+  // Same StrictMode-vs-fail() mount-effect gap as diary-home-error -- see
+  // that entry's comment. `times: 2` for the same reason.
+  {
+    id: 'select-framework-error',
+    screen: 'Select framework',
+    route: '/frameworks',
+    viewport: 'desktop',
+    state: 'error',
+    ready: 'Something went wrong.',
+    scenario: {
+      source: 'fake',
+      me: DR_LEE,
+      frameworks: [LA_TROBE_FRAMEWORK],
+      fault: {
+        route: 'GET /frameworks',
+        times: 2,
+        fault: {
+          kind: 'error',
+          status: 500,
+          code: 'VALIDATION_FAILED',
+          message: 'Something went wrong.',
+        },
+      },
+    },
+  },
 
   // -- Edit framework (CAP-16) ---------------------------------------------
   // GET /frameworks then GET /frameworks/{framework_id} (EditFramework.tsx,
@@ -540,6 +916,65 @@ export const SHOTS: Shot[] = [
     state: 'loaded',
     ready: 'Based on',
     scenario: { source: 'real', slot: 'supervisor', requires_env: ['SHOTS_FRAMEWORK_ID'] },
+  },
+  // Loading/empty/error are fake-sourced, as DR_LEE. EditFramework.tsx
+  // fetches GET /frameworks and GET /frameworks/{framework_id} together
+  // (Promise.all); holding/failing the by-id route is enough for all three,
+  // since neither call waits on the other.
+  {
+    id: 'edit-framework-loading',
+    screen: 'Edit framework',
+    route: `/frameworks/${LA_TROBE_FRAMEWORK.id}/edit`,
+    viewport: 'desktop',
+    state: 'loading',
+    scenario: {
+      source: 'fake',
+      me: DR_LEE,
+      frameworks: [LA_TROBE_FRAMEWORK],
+      hold: 'GET /frameworks/:id',
+    },
+  },
+  // Empty is `base.competencies.length === 0` (Editor, EditFramework.tsx
+  // around line 253) -> "Nothing to rename." EMPTY_FRAMEWORK is the one
+  // fixture shaped for it -- see fixtures.ts's own comment on why this is
+  // reachable only by a broken or hand-edited row, not by normal use.
+  {
+    id: 'edit-framework-empty',
+    screen: 'Edit framework',
+    route: `/frameworks/${EMPTY_FRAMEWORK.id}/edit`,
+    viewport: 'desktop',
+    state: 'empty',
+    ready: 'Nothing to rename.',
+    scenario: {
+      source: 'fake',
+      me: DR_LEE,
+      frameworks: [EMPTY_FRAMEWORK],
+    },
+  },
+  // Same StrictMode-vs-fail() mount-effect gap as diary-home-error -- see
+  // that entry's comment. `times: 2` for the same reason.
+  {
+    id: 'edit-framework-error',
+    screen: 'Edit framework',
+    route: `/frameworks/${LA_TROBE_FRAMEWORK.id}/edit`,
+    viewport: 'desktop',
+    state: 'error',
+    ready: 'Something went wrong.',
+    scenario: {
+      source: 'fake',
+      me: DR_LEE,
+      frameworks: [LA_TROBE_FRAMEWORK],
+      fault: {
+        route: 'GET /frameworks/:id',
+        times: 2,
+        fault: {
+          kind: 'error',
+          status: 500,
+          code: 'VALIDATION_FAILED',
+          message: 'Something went wrong.',
+        },
+      },
+    },
   },
 
   // -- Sign in (masking demonstration) ------------------------------------
