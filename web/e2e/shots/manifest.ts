@@ -298,9 +298,10 @@ export const SHOTS: Shot[] = [
 
   // -- Gig detail (CAP-8) -------------------------------------------------
   // GET /gigs/{gig_id} (key `GET /gigs/:id`), plus GET /reflections?gig_id=
-  // for a student. Loaded-only in this task (ruling: Task 2's progress
-  // ledger). "Reflection diary" is the DiaryCard's own heading, present
-  // once the gig has loaded and absent from the skeleton.
+  // for a student. The `loaded` shots below are real-sourced; the other
+  // three states further down are fake (CAP-21). "Reflection diary" is the
+  // DiaryCard's own heading, present once the gig has loaded and absent
+  // from the skeleton.
   //
   // Needs SHOTS_GIG_ID (see SHOTS_GIG_ID above) alongside SHOTS_STUDENT_TOKEN
   // -- skips cleanly with either unset.
@@ -502,7 +503,8 @@ export const SHOTS: Shot[] = [
   },
 
   // -- History sheet (CAP-14) ---------------------------------------------
-  // Loaded-only in this task. Not a route of its own -- it is a BottomSheet
+  // Loaded shots are real-sourced; the other states below are fake (CAP-21).
+  // Not a route of its own -- it is a BottomSheet
   // over Gig Detail (routes.tsx: "they open over the diary rather than
   // navigating away from it"; Stack-and-Build-Scope.md: "History sheet on
   // the same frame [as Gig Detail] is CAP-14"), opened by GigHeader's
@@ -602,7 +604,9 @@ export const SHOTS: Shot[] = [
   },
 
   // -- Export sheet (CAP-18) -----------------------------------------------
-  // Loaded-only in this task. Not a route of its own either -- a BottomSheet
+  // Loaded shots are real-sourced; the empty/error states below are fake
+  // (CAP-21; no loading entry at all -- see that state's own comment below
+  // for why). Not a route of its own either -- a BottomSheet
   // over Diary Home (Stack-and-Build-Scope.md: Diary Home's "export link...
   // opens the sheet CAP-18 fills in"), opened by DiaryHome's "Export your
   // record" Button. `route` is Diary Home's own route and `open` is that
@@ -703,8 +707,8 @@ export const SHOTS: Shot[] = [
   // -- Review queue (CAP-10) ----------------------------------------------
   // GET /review-queue (ReviewQueueController::index), scoped to the caller's
   // own role server-side -- nothing in the route or the fixture asserts
-  // that. Loaded-only in this task (same progress-ledger ruling as Gig
-  // Detail). "Score this →" is ReviewQueueRow's own link into the assessor
+  // that. Loaded shots are real-sourced; the other states below are fake
+  // (CAP-21). "Score this →" is ReviewQueueRow's own link into the assessor
   // stepper (CAP-13), present only once state.status === 'loaded' with at
   // least one entry -- the "Review queue" h1 above it renders in every
   // status, so it cannot be the wait target (same trap as Diary Home's own
