@@ -233,6 +233,7 @@ case "${1:-help}" in
     # submission).
     shots)
         need_web_deps
+        in_dir web node --experimental-strip-types e2e/shots/manifest.test.ts
         in_dir web npx playwright install chromium
         shift
         in_dir web npx playwright test --config=playwright.shots.config.ts ${@+"$@"}
