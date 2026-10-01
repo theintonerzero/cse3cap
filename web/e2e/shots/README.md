@@ -35,17 +35,19 @@ Export) has a mobile copy of its `loaded` shot. `manifest.test.ts` only
 enforces that every *routed* screen has at least one shot; it does not (and
 cannot, without a JSX parser this tool deliberately doesn't carry) enforce
 full state × viewport coverage. Extending coverage is adding entries to
-`manifest.ts`, never touching `capture.spec.ts`.
+`manifest.ts`, never touching `capture.spec.ts`. The Sign-in screen is not
+routed (rendered by AppShell when there is no token), so it is not covered
+by the completeness check.
 
-The Sign-in screen (token-entry-masked) demonstrates criterion 3 (`mask` field).
-The app's token input field (id="token-input") is redacted in the screenshot so
-the manual shows how to sign in without revealing an actual token. The Sign-in
-screen is the product's actual authentication mechanism (ADR #15: no traditional
-login screen), not dev-only tooling—students and assessors see this when their
-session expires or on first use. It is reached by navigating to `/` without a
-token; the shot scenario deliberately faults GET /auth/me with a 401 to render
-the TokenGate screen, demonstrating that any sensitive field can be masked with
-a `mask` entry pointing to its selector.
+The Sign-in screen (token-entry-masked) demonstrates criterion 3 (`mask`
+field). The shot navigates to `/` where TokenGate renders, clicks the
+"Student +" chip to open the token entry form, and masks the resulting
+input field (id="token-input") with a solid redaction box in the screenshot.
+This shows the manual how to sign in without revealing an actual token.
+TokenGate is the product's actual authentication mechanism (ADR #15: no
+traditional login screen)—students and assessors see it on first use and
+when their session expires. The scenario deliberately faults GET /auth/me
+with a 401 to keep the sign-in screen visible for the screenshot.
 
 ## When to run this for real
 
