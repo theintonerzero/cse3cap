@@ -42,7 +42,7 @@ Not every screen has all four states yet. Diary Home and Entry Stepper are
 the two worked examples with full `loading`/`empty`/`error` coverage in both
 viewports, proving the fake-API techniques (`hold()`, empty arrays, `fail()`)
 generalise; every other screen has its `loaded` shot plus a mobile copy.
-`manifest.test.ts` only enforces that every *routed* screen has at least one
+`manifest.test.ts` only enforces that every _routed_ screen has at least one
 shot; it does not (and cannot, without a JSX parser this tool deliberately
 doesn't carry) enforce full state × viewport coverage. Extending coverage is
 adding entries to `manifest.ts`, never touching `capture.spec.ts`. The

@@ -9,7 +9,10 @@ import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { SHOTS } from './manifest.ts';
 
-const routes_source = readFileSync(new URL('../../src/app/routes.tsx', import.meta.url), 'utf8');
+const routes_source = readFileSync(
+  new URL('../../src/app/routes.tsx', import.meta.url),
+  'utf8',
+);
 
 // Every static (non-dynamic-segment) path in routes.tsx that is not the
 // catch-all or a Placeholder. This is intentionally a narrow regex over the
@@ -44,10 +47,22 @@ const SCREEN_FOR_ROUTE: Record<string, string> = {
 
 for (const path of routed_paths) {
   const screen = SCREEN_FOR_ROUTE[path];
-  assert.ok(screen, `routes.tsx has "${path}" with no entry in SCREEN_FOR_ROUTE -- add one`);
-  assert.ok(covered_screens.has(screen), `"${screen}" (route "${path}") has no shot in the manifest yet`);
+  assert.ok(
+    screen,
+    `routes.tsx has "${path}" with no entry in SCREEN_FOR_ROUTE -- add one`,
+  );
+  assert.ok(
+    covered_screens.has(screen),
+    `"${screen}" (route "${path}") has no shot in the manifest yet`,
+  );
 }
 
-assert.equal(covered_ids.size, SHOTS.length, 'two manifest entries share an id -- filenames would collide');
+assert.equal(
+  covered_ids.size,
+  SHOTS.length,
+  'two manifest entries share an id -- filenames would collide',
+);
 
-console.log(`${SHOTS.length} shots, ${covered_ids.size} unique ids, ${covered_screens.size} screens covered.`);
+console.log(
+  `${SHOTS.length} shots, ${covered_ids.size} unique ids, ${covered_screens.size} screens covered.`,
+);

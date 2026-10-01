@@ -184,7 +184,12 @@ export const SHOTS: Shot[] = [
     viewport: 'desktop',
     state: 'empty',
     ready: 'Nothing in your diary yet.',
-    scenario: { source: 'fake', me: JANE, frameworks: [LA_TROBE_FRAMEWORK], gigs: [EMPTY_GIG] },
+    scenario: {
+      source: 'fake',
+      me: JANE,
+      frameworks: [LA_TROBE_FRAMEWORK],
+      gigs: [EMPTY_GIG],
+    },
   },
   // React StrictMode (main.tsx) double-invokes DiaryHome's mount effect in
   // dev (SessionProvider.tsx's own comment already names this: "you will
