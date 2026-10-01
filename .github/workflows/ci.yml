@@ -29,6 +29,38 @@ jobs:
       - name: Lint the OpenAPI contract
         run: npx -y @redocly/cli@latest lint docs/openapi.yaml
 
+      # CAP-25. Both halves of the seam against the contract, in one job:
+      # web/src/api/schema.ts must be what the contract generates, and
+      # Laravel's routes must be its operations. Each drifts silently
+      # otherwise (docs/Frontend-and-Backend.md, "What breaks quietly").
+      # PHP is here only so route:list can boot the router. No database.
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: mbstring, xml, intl
+          coverage: none
+
+      - name: Cache composer packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ hashFiles('api/composer.lock') }}
+          restore-keys: composer-
+
+      - name: Install PHP dependencies
+        working-directory: api
+        run: |
+          composer install --no-interaction --prefer-dist --no-progress
+          cp ../.env.example .env
+          php artisan key:generate
+
+      - name: Check the route comparison's cases
+        run: python3 scripts/contract-routes.test.py
+
+      - name: Check for contract drift
+        run: bash scripts/check-contract-drift.sh
+
       # The guard that stops a shell command dropping the shared schema.
       # It is only as good as its cases, and it has already been wrong
       # once, so the cases run on every push.

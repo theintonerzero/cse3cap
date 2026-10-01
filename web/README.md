@@ -157,7 +157,8 @@ try {
 `error.code` is `null`, with `status` 0, when the request never reached the API at all.
 
 **Regenerate after every pull that touched the contract**, with `npm run gen:types`.
-Nothing catches a stale `schema.ts` yet; that guard is CAP-25.
+If you forget, CI's Contract job fails on the difference; `./run contract-drift` runs the
+same check locally (CAP-25).
 
 `./run verify` from the repository root checks all of this: that regenerating changes
 nothing, that the bad calls above are compile errors, and that the client behaves against
