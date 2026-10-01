@@ -17,16 +17,29 @@ export default defineConfig({
   timeout: 30_000,
   use: {
     baseURL: ORIGIN,
-    deviceScaleFactor: 2,
   },
   projects: [
     {
+      // deviceScaleFactor must come AFTER the devices['Desktop Chrome']
+      // spread, not in the top-level `use` block above: that preset carries
+      // its own deviceScaleFactor: 1, which silently overrides a top-level
+      // value set before it is spread in (final-review finding, HO-6). A
+      // test-side guard in capture.spec.ts (window.devicePixelRatio) fails
+      // loudly if this regresses again.
       name: 'desktop',
-      use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } },
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1440, height: 900 },
+        deviceScaleFactor: 2,
+      },
     },
     {
       name: 'mobile',
-      use: { ...devices['Desktop Chrome'], viewport: { width: 360, height: 800 } },
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 360, height: 800 },
+        deviceScaleFactor: 2,
+      },
     },
   ],
   webServer: {

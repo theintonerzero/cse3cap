@@ -30,11 +30,28 @@ export interface FakeScenario {
   fault?: { route: string; fault: Fault; times?: number };
   /** For state: 'loading' only -- which route to hold open. */
   hold?: string;
+  /**
+   * FakeApi.install() always plants a placeholder token (supervisor slot) so
+   * every other fake-sourced shot never has to think about sign-in. A shot
+   * that needs TokenGate's own clean, no-token entry state (token-entry-masked)
+   * sets this instead, so capture.spec.ts clears what install() just planted
+   * before the app reads it -- no 401, no rejection banner, just the real
+   * first-run state.
+   */
+  no_token?: boolean;
 }
 
 export interface RealScenario {
   source: 'real';
   slot: SlotId;
+  /**
+   * Env vars (beyond the slot's own SHOTS_<SLOT>_TOKEN) this shot needs set
+   * before it can hit a real route -- e.g. SHOTS_GIG_ID for a route built
+   * from a real seeded gig id this tool has no way to discover on its own.
+   * Missing any of these skips the shot with a clear message, the same
+   * convention token_env_var (helpers.ts) already uses for a missing token.
+   */
+  requires_env?: string[];
 }
 
 export interface Shot {
@@ -59,10 +76,15 @@ export interface Shot {
    * itself a route.
    */
   open?: string;
+  /**
+   * Selectors to fill with a value after `open`'s click and before the
+   * loading/ready wait -- so a masked field (token-entry-masked) visibly
+   * covers real content in the screenshot rather than an empty one.
+   */
+  fill?: { selector: string; value: string }[];
 }
 
 import {
-  DR_LEE,
   EMPTY_GIG,
   GIG,
   JANE,
@@ -75,28 +97,24 @@ import {
 } from './fixtures.ts';
 
 /**
- * No live backend is reachable in this environment (Task 2 of HO-6), so
- * there is no way to look up a real seeded gig id the SHOTS_STUDENT_TOKEN
- * user actually participates in. `gig-detail-loaded` and
- * `history-sheet-loaded` both need one, and both currently skip cleanly
- * anyway because no SHOTS_STUDENT_TOKEN is set (capture.spec.ts's
- * `test.skip(!token, ...)` runs before `page.goto` ever fires) -- so this
- * placeholder is inert for now. Task 4, which actually exercises the real
- * path, must replace it with a real id (e.g. read one off that token's own
- * GET /gigs response) before these two entries can produce a real
- * screenshot rather than a 404.
+ * `gig-detail-loaded` and `history-sheet-loaded` both need a route built
+ * from a real seeded gig id the SHOTS_STUDENT_TOKEN user actually
+ * participates in -- this tool only navigates and reads (Global
+ * Constraints), so it has no way to discover one on its own. SHOTS_GIG_ID
+ * supplies it from the environment, the same convention token_env_var
+ * (helpers.ts) already uses for tokens: with it unset, capture.spec.ts's
+ * `requires_env` check (RealScenario) skips these two entries and their
+ * mobile copies with a clear message, rather than letting them 404 against
+ * a placeholder that was never a real id.
  */
-const REAL_GIG_ID_PLACEHOLDER = '00000000-0000-4000-8000-000000000000';
+const SHOTS_GIG_ID = process.env.SHOTS_GIG_ID;
 
 /**
- * Same placeholder situation as REAL_GIG_ID_PLACEHOLDER above, for
- * `edit-framework-loaded`: there is no live backend to read a real seeded
- * framework id from, and the shot currently skips cleanly anyway because no
- * SHOTS_SUPERVISOR_TOKEN is set. Task 4 must replace it with a real id (e.g.
- * one read off GET /frameworks under that token) before this entry can
- * produce a real screenshot rather than a 404.
+ * Same situation as SHOTS_GIG_ID above, for `edit-framework-loaded`:
+ * SHOTS_FRAMEWORK_ID supplies a real seeded framework id the
+ * SHOTS_SUPERVISOR_TOKEN user may open to edit.
  */
-const REAL_FRAMEWORK_ID_PLACEHOLDER = '00000000-0000-4000-8000-000000000000';
+const SHOTS_FRAMEWORK_ID = process.env.SHOTS_FRAMEWORK_ID;
 
 export const SHOTS: Shot[] = [
   {
@@ -206,27 +224,25 @@ export const SHOTS: Shot[] = [
   // ledger). "Reflection diary" is the DiaryCard's own heading, present
   // once the gig has loaded and absent from the skeleton.
   //
-  // CONCERN: this route needs a real seeded gig id the token's student
-  // participates in, which is not resolvable without a live backend (see
-  // REAL_GIG_ID_PLACEHOLDER above). Inert today because there is no
-  // SHOTS_STUDENT_TOKEN in this environment either.
+  // Needs SHOTS_GIG_ID (see SHOTS_GIG_ID above) alongside SHOTS_STUDENT_TOKEN
+  // -- skips cleanly with either unset.
   {
     id: 'gig-detail-loaded',
     screen: 'Gig detail',
-    route: `/gigs/${REAL_GIG_ID_PLACEHOLDER}`,
+    route: `/gigs/${SHOTS_GIG_ID}`,
     viewport: 'desktop',
     state: 'loaded',
     ready: 'Reflection diary',
-    scenario: { source: 'real', slot: 'student' },
+    scenario: { source: 'real', slot: 'student', requires_env: ['SHOTS_GIG_ID'] },
   },
   {
     id: 'gig-detail-loaded-mobile',
     screen: 'Gig detail',
-    route: `/gigs/${REAL_GIG_ID_PLACEHOLDER}`,
+    route: `/gigs/${SHOTS_GIG_ID}`,
     viewport: 'mobile',
     state: 'loaded',
     ready: 'Reflection diary',
-    scenario: { source: 'real', slot: 'student' },
+    scenario: { source: 'real', slot: 'student', requires_env: ['SHOTS_GIG_ID'] },
   },
 
   // -- Entry stepper (CAP-11 / CAP-13) ------------------------------------
@@ -354,25 +370,27 @@ export const SHOTS: Shot[] = [
   // `open` is that button's exact visible text; capture.spec.ts clicks it
   // after `page.goto` and before waiting on `ready`. "Reflection submitted"
   // is history-log.ts's own label for a reflection_submitted milestone.
+  // Needs SHOTS_GIG_ID (see SHOTS_GIG_ID above) alongside SHOTS_STUDENT_TOKEN
+  // -- skips cleanly with either unset.
   {
     id: 'history-sheet-loaded',
     screen: 'History sheet',
-    route: `/gigs/${REAL_GIG_ID_PLACEHOLDER}`,
+    route: `/gigs/${SHOTS_GIG_ID}`,
     open: 'History',
     viewport: 'desktop',
     state: 'loaded',
     ready: 'Reflection submitted',
-    scenario: { source: 'real', slot: 'student' },
+    scenario: { source: 'real', slot: 'student', requires_env: ['SHOTS_GIG_ID'] },
   },
   {
     id: 'history-sheet-loaded-mobile',
     screen: 'History sheet',
-    route: `/gigs/${REAL_GIG_ID_PLACEHOLDER}`,
+    route: `/gigs/${SHOTS_GIG_ID}`,
     open: 'History',
     viewport: 'mobile',
     state: 'loaded',
     ready: 'Reflection submitted',
-    scenario: { source: 'real', slot: 'student' },
+    scenario: { source: 'real', slot: 'student', requires_env: ['SHOTS_GIG_ID'] },
   },
 
   // -- Export sheet (CAP-18) -----------------------------------------------
@@ -478,44 +496,16 @@ export const SHOTS: Shot[] = [
     ready: 'Templates',
     scenario: { source: 'real', slot: 'supervisor' },
   },
-  // A 409 FRAMEWORK_IN_USE demonstration (ADR #42: a refusal is injected by
-  // code, the fake never reimplements the rule itself -- the rule that an
-  // in-use framework can no longer be edited directly lives in
-  // api/app/Services/FrameworkEditing.php and is tested in api/tests/, not
-  // here). FRAMEWORK_IN_USE is a real code from docs/openapi.yaml's Error
-  // schema (ErrorCode enum, used on PATCH /frameworks/{framework_id} and
-  // friends in EditFramework.tsx's own save path). Faulting it on Select
-  // Framework's own load route demonstrates the code's ErrorNotice rendering
-  // without needing a copy already saved and already in use, which the fake
-  // scenarios in this file do not otherwise construct. ErrorNotice's default
-  // branch (ErrorNotice.tsx: any code besides UNAUTHENTICATED / ROLE_FORBIDDEN
-  // / NOT_FOUND) shows the envelope's own message verbatim, so `ready` is
-  // that same string. `times: 2` for the same StrictMode-vs-mount-effect gap
-  // as diary-home-error and entry-stepper-error above -- SelectFramework.tsx
-  // uses the identical AbortController-in-a-mount-effect shape.
-  {
-    id: 'select-framework-error',
-    screen: 'Select framework',
-    route: '/frameworks',
-    viewport: 'desktop',
-    state: 'error',
-    ready: 'This framework has reflections against it and cannot be edited directly.',
-    scenario: {
-      source: 'fake',
-      me: DR_LEE,
-      frameworks: [LA_TROBE_FRAMEWORK],
-      fault: {
-        route: 'GET /frameworks',
-        times: 2,
-        fault: {
-          kind: 'error',
-          status: 409,
-          code: 'FRAMEWORK_IN_USE',
-          message: 'This framework has reflections against it and cannot be edited directly.',
-        },
-      },
-    },
-  },
+  // No FRAMEWORK_IN_USE error-state demo here (final-review finding, HO-6):
+  // docs/openapi.yaml declares FRAMEWORK_IN_USE only on the three PATCH
+  // routes a save makes (updateFramework, updateCompetency, updateLevel),
+  // never on GET /frameworks or GET /frameworks/{framework_id}, which are
+  // the only routes Select Framework's and Edit Framework's own loads call
+  // and the only kind of request this tool drives (Global Constraints: a
+  // real-API shot is a read-only navigation the screen already makes to
+  // render itself). Faulting the list route with a 409 the contract never
+  // lets it return would depict a state the real backend cannot reach --
+  // see README.md's coverage section for the one-sentence version.
 
   // -- Edit framework (CAP-16) ---------------------------------------------
   // GET /frameworks then GET /frameworks/{framework_id} (EditFramework.tsx,
@@ -526,26 +516,25 @@ export const SHOTS: Shot[] = [
   // above it renders in every status (same trap as the other screens' own
   // h1s in this file), so it cannot be the wait target.
   //
-  // CONCERN: needs a real seeded framework id, same placeholder situation as
-  // REAL_GIG_ID_PLACEHOLDER (see REAL_FRAMEWORK_ID_PLACEHOLDER above) --
-  // inert today because no SHOTS_SUPERVISOR_TOKEN is set either.
+  // Needs SHOTS_FRAMEWORK_ID (see SHOTS_FRAMEWORK_ID above) alongside
+  // SHOTS_SUPERVISOR_TOKEN -- skips cleanly with either unset.
   {
     id: 'edit-framework-loaded',
     screen: 'Edit framework',
-    route: `/frameworks/${REAL_FRAMEWORK_ID_PLACEHOLDER}/edit`,
+    route: `/frameworks/${SHOTS_FRAMEWORK_ID}/edit`,
     viewport: 'desktop',
     state: 'loaded',
     ready: 'Based on',
-    scenario: { source: 'real', slot: 'supervisor' },
+    scenario: { source: 'real', slot: 'supervisor', requires_env: ['SHOTS_FRAMEWORK_ID'] },
   },
   {
     id: 'edit-framework-loaded-mobile',
     screen: 'Edit framework',
-    route: `/frameworks/${REAL_FRAMEWORK_ID_PLACEHOLDER}/edit`,
+    route: `/frameworks/${SHOTS_FRAMEWORK_ID}/edit`,
     viewport: 'mobile',
     state: 'loaded',
     ready: 'Based on',
-    scenario: { source: 'real', slot: 'supervisor' },
+    scenario: { source: 'real', slot: 'supervisor', requires_env: ['SHOTS_FRAMEWORK_ID'] },
   },
 
   // -- Sign in (masking demonstration) ------------------------------------
@@ -554,8 +543,17 @@ export const SHOTS: Shot[] = [
   // the `mask` field (criterion 3) by rendering the token form and masking
   // the token input field (id="token-input") so the screenshot shows where
   // to paste without revealing an actual token. The form only appears after
-  // clicking a chip to select which role's token to enter. The scenario uses
-  // a 401 fault on GET /auth/me to keep the sign-in screen visible.
+  // clicking a chip to select which role's token to enter.
+  //
+  // `no_token` (final-review finding, HO-6): FakeApi.install() always plants
+  // a placeholder token, so without this the session effect fires GET
+  // /auth/me on mount and a faulted 401 there evicts it, landing back on
+  // TokenGate with its "That token was rejected" banner showing -- a
+  // confusing figure for "how to sign in". `no_token` has capture.spec.ts
+  // clear what install() planted before the app ever reads it, so no request
+  // is made at all and TokenGate renders its clean, first-run state instead.
+  // `fill` puts a dummy value in the input once it opens, so the masked box
+  // in the screenshot covers real-looking content rather than an empty field.
   {
     id: 'token-entry-masked',
     screen: 'Sign in',
@@ -570,12 +568,9 @@ export const SHOTS: Shot[] = [
       frameworks: [],
       reflections: [],
       gigs: [],
-      fault: {
-        route: 'GET /auth/me',
-        times: 2,
-        fault: { kind: 'error', status: 401, code: 'UNAUTHENTICATED', message: 'No token' },
-      },
+      no_token: true,
     },
+    fill: [{ selector: '#token-input', value: '1|dGhpcyBpcyBub3QgYSByZWFsIHRva2Vu' }],
     mask: ['#token-input'],
   },
 ];
