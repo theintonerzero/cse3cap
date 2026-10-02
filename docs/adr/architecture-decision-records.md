@@ -51,6 +51,7 @@ Index
 #39 PDF export renders with dompdf ............... Accepted
 #40 Policies for records, query scopes for lists .. Accepted
 #42 Browser checks with Playwright, fake API ..... Accepted
+#44 Type, line height and control shape leave Figma . Proposed
 
 ===============================================================
 
@@ -2208,3 +2209,50 @@ Per-screen overrides (the same approach CAP-8 tried and Patrick reverted). Rejec
 reason already on record: it does not fix the shared problem, it just relocates it to
 whichever screen last touched it.
 
+
+ADR #44: Type, line height and control shape depart from the Figma measurements
+Status: Proposed
+Date: 2026-10-03
+
+Context:
+ADR #28 put every design value in `web/src/tokens.css`, and the type block was measured off
+Figma text layers. Those measurements were faithful but they don't make a readable product.
+Line height measured 100% on every layer, so all three line-height tokens are `1` and every
+paragraph, wrapped chip and textarea sits with its lines touching. `--font-size-sm` and
+`--font-size-base` both measured 14px, so the scale can't tell a caption from body text.
+Inter is named as the font but was never loaded, so the product renders in whatever system
+font the reader has. Buttons use a 12px corner while chips and badges are fully round, so
+the controls on one screen don't look like one family.
+
+CAP-38 is the visual pass agreed by the team before the UI freeze on 7 October 2026. The
+live Alumable app was used as a reference (pill controls, roomy type, soft depth), not as a
+spec. Colour was explicitly left alone because ADR #43 tuned it for AA.
+
+Decision:
+Self-host Inter through `@fontsource-variable/inter`. Type scale xs 12, sm 13, base 15, lg
+17, xl 22, 2xl 30, plus a new 3xl 36. Line heights tight 1.2, normal 1.45, relaxed 1.6, and
+the body takes normal. Buttons go fully round like chips and badges. Cards keep their 16px
+corner. Add a section-label letter spacing, two content widths (reading and lists) and two
+shadow tokens, which become a hairline border in dark mode. No colour token changes.
+
+Consequences:
+Positive:
+Every screen gets readable text at once from one file, rather than five people adjusting
+their own screens. The controls read as one set. The font is the same on every machine and
+works offline at the demo, with no request to a font CDN.
+
+Negative:
+The tokens no longer match Figma for type and button shape, so anyone comparing the build
+to a frame will see a difference and needs this record to know it's deliberate. Every
+screen moves at once, which makes the PR's visual diff large and means a regression on one
+screen hides among intended changes. The before and after captures in the PR are the
+mitigation. The font adds about 50KB to the first load. It's another dependency to keep
+updated.
+
+Alternatives:
+Keep the Figma values and polish screen by screen. That respects ADR #28's source but leaves
+the line-height and scale problems in place on every screen, and pushes each fix into a
+screen stylesheet, which is the five-variants problem ADR #43 already named.
+
+Load Inter from Google Fonts. Less to install, but it puts a third-party request on every
+page load and fails offline, and the demo can't depend on venue wifi.
