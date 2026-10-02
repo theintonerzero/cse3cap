@@ -1,9 +1,5 @@
 .back {
-  display: inline-block;
-  margin-bottom: var(--space-12);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-primary);
+  margin-bottom: var(--space-16);
 }
 
 .heading {
@@ -188,4 +184,54 @@
   font-size: var(--font-size-sm);
   line-height: var(--line-height-relaxed);
   color: var(--color-text);
+}
+
+/* CAP-38: each level's label as a small numbered pill, so four stacked
+   descriptors read as a scale at a glance. Still the field's label, so its
+   name is unchanged. */
+.level_label {
+  align-self: flex-start;
+  padding: var(--space-4) var(--space-8);
+  border-radius: var(--radius-full);
+  background: var(--color-accent-lavender);
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+}
+
+.levels {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  min-width: 0;
+}
+
+/* A wide screen holds a competency's name and label beside its four
+   levels, so the page is half as long. */
+@media (min-width: 60rem) {
+  .fieldset {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
+    align-items: start;
+    gap: var(--space-24);
+  }
+
+  .fieldset .pair {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* On a phone the save stays in reach at the foot of a long form. Sticky,
+   so it rests in place once the form ends (index.css keeps scroll room
+   for it). */
+@media (max-width: 40rem) {
+  .footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    margin-inline: calc(-1 * var(--space-16));
+    padding: var(--space-12) var(--space-16);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-sheet);
+    border-top: 0;
+  }
 }

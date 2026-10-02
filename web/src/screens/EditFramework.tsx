@@ -31,6 +31,7 @@ import {
   Button,
   Card,
   ErrorNotice,
+  LinkButton,
   Select,
   Skeleton,
   SkeletonGroup,
@@ -108,9 +109,11 @@ export function EditFramework() {
 
   return (
     <section>
-      <Link className={styles.back} to="/frameworks">
-        {'‹'} Frameworks
-      </Link>
+      <div className={styles.back}>
+        <LinkButton to="/frameworks" variant="quiet" back>
+          Frameworks
+        </LinkButton>
+      </div>
       <h1 className={styles.heading}>Copy and edit a rubric</h1>
       <p className={styles.sub}>
         Saving makes a new rubric of your own. The one it is based on does not change, and
@@ -382,31 +385,36 @@ function Editor({
                       </div>
                     </div>
 
-                    {competency.levels.map((level) => {
-                      const id = `level-${competency.code}-${level.level_value}`;
-                      return (
-                        <div key={level.level_value} className={styles.field}>
-                          <label className={styles.label} htmlFor={id}>
-                            Level {level.level_value}
-                          </label>
-                          <textarea
-                            id={id}
-                            className={`${styles.control} ${styles.descriptor}`}
-                            value={level.descriptor}
-                            onChange={(event) =>
-                              edit(
-                                set_level(
-                                  draft,
-                                  competency.code,
-                                  level.level_value,
-                                  event.target.value,
-                                ),
-                              )
-                            }
-                          />
-                        </div>
-                      );
-                    })}
+                    <div className={styles.levels}>
+                      {competency.levels.map((level) => {
+                        const id = `level-${competency.code}-${level.level_value}`;
+                        return (
+                          <div key={level.level_value} className={styles.field}>
+                            <label
+                              className={`${styles.label} ${styles.level_label}`}
+                              htmlFor={id}
+                            >
+                              Level {level.level_value}
+                            </label>
+                            <textarea
+                              id={id}
+                              className={`${styles.control} ${styles.descriptor}`}
+                              value={level.descriptor}
+                              onChange={(event) =>
+                                edit(
+                                  set_level(
+                                    draft,
+                                    competency.code,
+                                    level.level_value,
+                                    event.target.value,
+                                  ),
+                                )
+                              }
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
                   </fieldset>
                 </Card>
               </li>

@@ -19,6 +19,7 @@ import {
   type GigDetail,
   type ReflectionDetail,
 } from './fake-api.ts';
+import { LATROBE, test as dr_lee_test } from './fixtures.ts';
 
 type Me = components['schemas']['Me'];
 
@@ -152,3 +153,25 @@ test('phone: the stepper bar never covers the focused field', async ({ page }) =
     ).toBeLessThanOrEqual(0);
   }
 });
+
+dr_lee_test(
+  'phone: the edit-framework save bar never covers the focused field',
+  async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 600 });
+    await page.goto(`/frameworks/${LATROBE}/edit`);
+    await expect(
+      page.getByRole('heading', { name: 'Copy and edit a rubric' }),
+    ).toBeVisible();
+
+    const save = page.getByRole('button', { name: 'Save as a new copy' });
+    const fields = await page.getByRole('main').locator('textarea, input, select').all();
+    expect(fields.length).toBeGreaterThan(3);
+
+    for (const field of fields) {
+      expect(
+        await overlap(field, save),
+        await field.evaluate((e) => e.id || e.outerHTML.slice(0, 80)),
+      ).toBeLessThanOrEqual(0);
+    }
+  },
+);

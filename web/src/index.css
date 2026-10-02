@@ -18,6 +18,6 @@ body {
    into view would otherwise park it underneath that bar. */
 @media (max-width: 40rem) {
   html {
-    scroll-padding-bottom: 6rem;
+    scroll-padding-bottom: 8rem;
   }
 }
