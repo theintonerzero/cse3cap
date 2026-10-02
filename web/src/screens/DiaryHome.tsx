@@ -24,7 +24,9 @@ import {
   Button,
   Chip,
   ErrorNotice,
+  LinkButton,
   RadarPanel,
+  Select,
   Skeleton,
   SkeletonGroup,
 } from '../components/index.ts';
@@ -146,7 +148,12 @@ export function DiaryHome() {
 
   return (
     <section>
-      <h1 className={styles.heading}>Your diary</h1>
+      <div className={styles.page_head}>
+        <h1 className={styles.heading}>Your diary</h1>
+        <Button variant="secondary" full_width={false} on_click={() => setExportOpen(true)}>
+          Export your record
+        </Button>
+      </div>
 
       <ScopeChips gigs={mine} scope={scope} on_select={go_to} />
 
@@ -160,22 +167,29 @@ export function DiaryHome() {
       {whole_record.length === 0 && <NothingWritten gigs={mine} />}
       {whole_record.length > 0 && rows.length === 0 && <NothingInScope />}
       {rows.length > 0 && (
-        <>
-          <ScopedRadar
-            key={`${scope.gig_id ?? 'all'}:${scope.sprint_id ?? 'all'}`}
-            gig_id={scope.gig_id}
-            sprint_id={scope.sprint_id}
-            gigs={mine}
-          />
+        <div className={styles.content}>
+          {/*
+           * Unscoped, GET /me/radar draws one rubric: the latest
+           * reflection's (docs/openapi.yaml, /me/radar). Over two or more
+           * gigs that is one gig labelled as all of them, so "All gigs"
+           * asks for a choice instead (CAP-38). Over one gig, "all" is that
+           * gig and the radar draws as it always has.
+           */}
+          {scope.gig_id === null && mine.length > 1 ? (
+            <div className={styles.radar_block}>
+              <RadarPanel state="prompt" message="Pick a gig to see its radar." />
+            </div>
+          ) : (
+            <ScopedRadar
+              key={`${scope.gig_id ?? 'all'}:${scope.sprint_id ?? 'all'}`}
+              gig_id={scope.gig_id}
+              sprint_id={scope.sprint_id}
+              gigs={mine}
+            />
+          )}
           <ReflectionList rows={rows} show_gig={scope.gig_id === null} gigs={mine} />
-        </>
+        </div>
       )}
-
-      <div className={styles.export_row}>
-        <Button variant="secondary" full_width={false} on_click={() => setExportOpen(true)}>
-          Export your record
-        </Button>
-      </div>
 
       <BottomSheet
         open={export_open}
@@ -306,19 +320,26 @@ function ScopeChips({
 
   return (
     <div>
-      <div className={styles.chip_row} role="group" aria-label="Scope">
-        <Chip selected={scope.gig_id === null} on_click={() => on_select(ALL_GIGS)}>
-          All gigs
-        </Chip>
-        {gigs.map((candidate) => (
-          <Chip
-            key={candidate.id}
-            selected={scope.gig_id === candidate.id}
-            on_click={() => on_select({ gig_id: candidate.id, sprint_id: null })}
-          >
-            {candidate.title}
-          </Chip>
-        ))}
+      {/* A dropdown, not a chip per gig (CAP-38): a row of chips grows a
+          line per gig on a phone, and a long title wraps inside its pill.
+          A native select scales to any number of gigs and opens the phone's
+          own picker. Same on_select either way, so the URL is unchanged. */}
+      <div className={styles.gig_picker}>
+        <Select
+          id="diary-gig"
+          label="Gig"
+          value={scope.gig_id ?? ''}
+          on_change={(value) =>
+            on_select(value === '' ? ALL_GIGS : { gig_id: value, sprint_id: null })
+          }
+        >
+          <option value="">All gigs</option>
+          {gigs.map((candidate) => (
+            <option key={candidate.id} value={candidate.id}>
+              {candidate.title}
+            </option>
+          ))}
+        </Select>
       </div>
 
       {gig && sprints.length > 0 && (
@@ -418,9 +439,9 @@ function NothingWritten({ gigs }: { gigs: Gig[] }) {
       <ul className={styles.empty_gigs}>
         {gigs.map((gig) => (
           <li key={gig.id}>
-            <Link className={styles.empty_link} to={`/gigs/${gig.id}`}>
+            <LinkButton to={`/gigs/${gig.id}`} variant="secondary">
               {gig.title}
-            </Link>
+            </LinkButton>
           </li>
         ))}
       </ul>

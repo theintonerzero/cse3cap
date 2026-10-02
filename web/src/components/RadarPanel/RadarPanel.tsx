@@ -49,6 +49,8 @@ export type RadarPanelProps =
   | { state: 'loading' }
   | { state: 'error'; error: ApiError; on_retry?: () => void }
   | { state: 'empty' }
+  /** A radar that waits for a choice (CAP-38): a greyed outline and why. */
+  | { state: 'prompt'; message: string }
   | { state: 'loaded'; scale: RadarScale; axes: RadarAxis[] };
 
 // "Insufficient" only means genuinely nothing to plot on either series --
@@ -72,6 +74,7 @@ function has_nothing_to_draw(axes: RadarAxis[]): boolean {
 
 export function RadarPanel(props: RadarPanelProps) {
   if (props.state === 'loading') return <LoadingRadar />;
+  if (props.state === 'prompt') return <PromptRadar message={props.message} />;
   if (props.state === 'error') {
     return <ErrorNotice error={props.error} on_retry={props.on_retry} />;
   }
@@ -176,6 +179,22 @@ function LoadingRadar() {
       <SkeletonGroup label="Loading radar">
         <Skeleton variant="circle" width="20rem" height="20rem" />
       </SkeletonGroup>
+    </div>
+  );
+}
+
+/**
+ * The chart's shape with nothing on it, greyed, and the message saying what
+ * would fill it. Decorative outline only: the message is the content.
+ */
+function PromptRadar({ message }: { message: string }) {
+  return (
+    <div className={`${styles.placeholder} ${styles.prompt}`}>
+      <svg className={styles.prompt_shape} viewBox="0 0 100 100" aria-hidden="true">
+        <polygon points="50,6 88,28 88,72 50,94 12,72 12,28" />
+        <polygon points="50,28 69,39 69,61 50,72 31,61 31,39" />
+      </svg>
+      <p>{message}</p>
     </div>
   );
 }

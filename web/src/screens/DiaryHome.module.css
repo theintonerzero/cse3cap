@@ -103,12 +103,6 @@
   list-style: none;
 }
 
-.empty_link {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-primary);
-}
-
 .about_gig {
   margin: 0 0 var(--space-12);
 }
@@ -120,8 +114,9 @@
   margin-top: var(--space-16);
   padding: var(--space-16);
   border: var(--border-width-sm) solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
+  box-shadow: var(--shadow-card);
 }
 
 .caption {
@@ -137,8 +132,47 @@
   color: var(--color-text-muted);
 }
 
-.export_row {
+/* CAP-38: the title and the page's one action share a row, rather than
+   the action sitting alone at the bottom of a long list. */
+.page_head {
   display: flex;
-  justify-content: flex-end;
-  margin-top: var(--space-24);
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+  margin-bottom: var(--space-16);
+}
+
+.page_head .heading {
+  margin: 0;
+}
+
+.gig_picker {
+  max-width: 26rem;
+  margin-bottom: var(--space-12);
+}
+
+/* Radar beside the list on a wide screen, stacked on a phone. The radar
+   stays in view while the list scrolls. */
+.content {
+  display: grid;
+  gap: var(--space-16);
+}
+
+@media (min-width: 60rem) {
+  .content {
+    grid-template-columns: minmax(0, 26rem) minmax(0, 1fr);
+    align-items: start;
+    gap: var(--space-24);
+  }
+
+  .content > .radar_block,
+  .content > :first-child {
+    position: sticky;
+    top: 6rem;
+  }
+
+  .content .list {
+    margin-top: var(--space-16);
+  }
 }

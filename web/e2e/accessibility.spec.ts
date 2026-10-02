@@ -206,7 +206,10 @@ test.describe('BottomSheet: keyboard focus trap', () => {
 test.describe('360px: no horizontal overflow (student scenario)', () => {
   test('Diary Home, with a real radar, including the Task 1 table', async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 800 });
-    await page.goto('/');
+    // Scoped to the gig (CAP-38): "All gigs" over two or more gigs shows a
+    // prompt rather than a radar. This student has one gig, so either URL
+    // draws it; the gig's own URL says which radar this test is about.
+    await page.goto(`/?gig_id=${GIG_ID}`);
 
     await expect(page.getByRole('heading', { name: 'Your diary' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Export your record' })).toBeVisible();

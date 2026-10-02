@@ -47,6 +47,22 @@
   font-size: var(--font-size-sm);
 }
 
+/* CAP-38: the waiting radar. Column, so the outline sits above its
+   message; stroke and fill are borders and surfaces, nothing that could
+   read as a score. */
+.prompt {
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.prompt_shape {
+  width: 9rem;
+  height: 9rem;
+  fill: var(--color-surface-alt);
+  stroke: var(--color-border);
+  stroke-width: 1.5;
+}
+
 /* Visually hidden, not display:none -- a screen reader still announces it.
    Based on Skeleton.module.css's .sr_only, with two additions needed
    because this one wraps a <table> (the only element here it is ever
