@@ -6,10 +6,15 @@
   font-weight: var(--font-weight-medium);
   white-space: nowrap;
   /* Every status is a tinted fill with a --color-text label. The obvious
-     alternative -- --color-success on --color-success-bg -- measures 4.32:1
-     in light mode, under the 4.5:1 AA needs. CAP-1 has no darker "ink"
-     variant to reach for, so the label stays neutral and the fill carries
-     the meaning. */
+     alternative -- --color-success on --color-success-bg -- measured 4.32:1
+     in light mode before CAP-23, under the 4.5:1 AA needs; CAP-23 darkened
+     --color-success for an unrelated pair (--color-success on
+     --color-danger-bg, see tokens.css) and this one now clears AA too, at
+     roughly 5.2:1 -- see check-contrast.mjs. Kept neutral regardless: there
+     is no equivalent "ink" variant for every status (.draft's
+     --color-surface-alt fill has no colour of its own to match), and one
+     badge with a coloured label while the others stay neutral would read as
+     an inconsistency, not a feature. */
   color: var(--color-text);
 }
 
