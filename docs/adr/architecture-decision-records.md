@@ -2114,3 +2114,97 @@ Rejected because the limit is structural. A grep can prove a string is in a file
 compiled module can prove a function's output. Neither can prove what a rendered screen does
 when a button is pressed, which is where both CAP-16 bugs were.
 
+
+ADR #43: The AA-compliant palette is tokens.css's, not any one screen's
+
+Status: Proposed
+Date: 2026-10-02
+
+Context:
+CAP-8's plan recorded three light-mode AA failures of `--color-primary` as link text
+(3.93:1 on the lavender tint, 4.07-4.29:1 on surface-alt/bg) and deliberately did not fix
+them. That plan quotes why directly: this branch tried changing `.diary_link` and
+`.empty_link` to `--color-text` plus an underline, and Patrick reverted it on 2026-09-14 --
+"imagine if everyone did small changes to the css our design would end up fucked." The CAP-8
+plan's own conclusion: "the link treatment is a property of the design system, so five
+people each fixing it locally produces five link styles and no fix... adding a failing row
+would turn a recorded team finding into a red build, which is also not one person's call."
+`scripts/check-contrast.mjs`'s `PAIRS` list stayed hand-kept and nobody added those rows, so
+the failures stayed invisible to CI rather than forcing a decision nobody had agreed to make.
+
+CAP-23 (accessibility and responsive pass) re-checked the premise that `PAIRS` was complete
+rather than assuming CAP-1 had already covered it. It was not: a systematic sweep of every
+`color: var(--color-*)` declaration in `web/src/**/*.module.css` against its actual rendered
+background found 10 real pairs missing, 3 of which genuinely fail AA -- including exactly
+the `--color-primary`-as-link-text failure CAP-8 recorded and left open, now also found on a
+fourth background (`--color-accent-pink`, 3.79:1, the lowest of the four and the binding
+constraint), plus two more failures on `--color-text-muted` and on `--color-danger`/
+`--color-success` against their own tinted backgrounds.
+
+Decision:
+Fix all three by adjusting the token values in `web/src/tokens.css`, not by overriding any
+one screen's CSS. This is deliberately the layer CAP-8's objection pointed at: Patrick's
+complaint was about five people each patching their own screen, not about fixing the shared
+token once, consistently, everywhere it is used. A token-level fix is one change, one owner
+of record (this ADR), and every consumer of `--color-primary` moves together rather than
+drifting into five link styles.
+
+Light theme: `--color-primary` #8c63b5 -> #8053ad (same hue/saturation, 270deg/35.7%,
+lightness 54.9% -> 50.3%, the minimum needed to clear `--color-accent-pink`, the hardest of
+the four real backgrounds -- not pushed further to cover every accent tint in the file,
+including ones nothing currently renders text on). `--color-focus-ring` moves with it,
+preserving the existing 2026-08-26 team decision that the focus ring reuses
+`--color-primary` rather than its own value. `--color-text-muted` #717171 -> #666666 (clears
+new findings on `--color-surface-alt`, `--color-success-bg` and `--color-accent-lavender`).
+`--color-danger` and `--color-success` each darkened narrowly to clear one new finding apiece
+against their own tinted backgrounds (`--color-danger-bg`). Dark theme: `--color-text-muted`
+lightened to clear the same class of finding there. `scripts/check-contrast.mjs`'s `PAIRS`
+gained the 10 missing rows, so this class of failure is now checked by CI rather than
+hand-kept and easy to miss, the same gap that let CAP-8's finding sit unenforced.
+
+This status is Proposed, not Accepted, on purpose. CAP-8 explicitly said this change is
+"not one person's call" and named the palette as something a team member owns. CAP-23's
+agent-driven sweep found and fixed the failure because its own mandate was "re-checked
+rather than assumed, nothing deferred" -- but that mandate does not retroactively grant the
+authority CAP-8 said this decision needs. This record exists so a human (Patrick, or
+whoever is asked to look at it) can review the actual before/after values below and either
+ratify this ADR to Accepted, or correct it before it merges.
+
+Consequences:
+Positive:
+One consistent link/focus colour across the whole product, not five local overrides. Every
+pair `check-contrast.mjs` knows about now passes AA in both themes, verified by running the
+script, not assumed. The failure CAP-8 recorded 18 days earlier stops being a known, unfixed
+gap sitting outside CI's view.
+
+Negative:
+`--color-primary-hover` (#734a9b) was not regenerated against the new base value. The
+contrast step from primary to its hover state is now about 1.18x, down from about 1.45x
+before this change -- hover feedback on buttons and chips is visibly subtler than it was.
+Whether that needs its own adjustment is open, and is not decided by this ADR.
+
+The brand's primary colour and every focus ring in the product are visibly different
+(darker, in light mode) than they were before this ticket. That is a real design change,
+made by an automated accessibility sweep rather than by the palette's owner, and is exactly
+the shape of decision CAP-8 said should not happen that way -- the mitigation here is this
+ADR making the change visible and reversible before merge, not that the change avoided being
+unilateral in the first place.
+
+Dark-mode `--color-danger` on `--color-danger-bg` now measures 4.5019:1 -- a genuine pass,
+dark-theme tokens were untouched by this change, but the margin is one part in ten thousand.
+Worth a glance if either token moves again.
+
+Alternatives:
+Leave the three failures recorded but unfixed, as CAP-8 did, and open a separate ticket
+naming a palette owner to decide. Rejected for this branch because CAP-23's own acceptance
+criteria require contrast to be "re-checked rather than assumed" with nothing deferred out
+of the ticket, and a verification task that finds a real, newly-confirmed AA failure and
+ships without fixing it fails that bar on its own terms. The compromise taken instead is to
+make the fix and flag it for explicit human sign-off via this ADR, rather than either
+silently shipping it as settled or leaving a known, now-doubly-confirmed failure unfixed
+again.
+
+Per-screen overrides (the same approach CAP-8 tried and Patrick reverted). Rejected for the
+reason already on record: it does not fix the shared problem, it just relocates it to
+whichever screen last touched it.
+
