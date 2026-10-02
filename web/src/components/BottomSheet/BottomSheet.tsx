@@ -39,6 +39,16 @@ export function BottomSheet({ open, onClose, title, children }: BottomSheetProps
   // passive effect anywhere in the tree, so capturing here instead
   // guarantees nothing has touched focus yet, however this sheet's own
   // content manages it afterwards.
+  //
+  // A second, related effect of this ordering: which element gets INITIAL
+  // focus on open is now whatever the child's own focus-management effect
+  // chooses, since this generic first-focusable fallback captures
+  // `previouslyFocused` before the child's passive effect runs but does not
+  // itself re-run afterwards. Export Sheet's "Request a PDF export" button
+  // ends up focused, rather than racing this effect to the first chip in
+  // document order. That matches Export Sheet's own stated intent and is an
+  // improvement, not a bug -- worth knowing if a future reader is debugging
+  // "why does focus land here now".
   useLayoutEffect(() => {
     if (!open) return;
 
