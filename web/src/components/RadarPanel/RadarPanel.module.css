@@ -48,12 +48,13 @@
 }
 
 /* Visually hidden, not display:none -- a screen reader still announces it.
-   Copied verbatim from Skeleton.module.css's .sr_only. Written in rem
-   because check-tokens.sh rejects the conventional pixel value.
+   Based on Skeleton.module.css's .sr_only, with two additions needed
+   because this one wraps a <table> (the only element here it is ever
+   applied to, Task 1's radar-as-numbers table) rather than a <span>.
+   Written in rem because check-tokens.sh rejects the conventional pixel
+   value.
 
-   CAP-23's 360px pass found this class alone is not enough on a <table>
-   (the only element here it is ever applied to, Task 1's radar-as-numbers
-   table). Two things stacked:
+   The two additions, stacked:
    1. Table layout is "auto" by default, which treats a specified `width`
       as a hint and still sizes columns off cell content -- `table-layout:
       fixed` makes the width authoritative instead, which is what the
@@ -61,13 +62,14 @@
    2. Even fixed, a <table>'s box is still widened to fit its own <caption>
       when the caption cannot wrap -- and the caption here is one long
       sentence. `white-space: nowrap` below (inherited onto the caption)
-      forced it to lay out as a single unbroken line nearly 540px wide,
+      forced it to lay out as a single unbroken line at roughly 34rem wide,
       and that caption-driven minimum, not the table grid, is what was
-      still pushing the page into horizontal scroll at 360px even after
-      fixing 1. `overflow: hidden` only clips what paints past the table's
-      OWN box, never shrinks the box itself. Scoping `white-space: normal`
-      back onto the caption only (not the th/td values, which are short)
-      lets it wrap invisibly instead of forcing that minimum. */
+      still pushing the page into horizontal scroll at a 360-wide viewport
+      even after fixing 1. `overflow: hidden` only clips what paints past
+      the table's OWN box, never shrinks the box itself. Scoping
+      `white-space: normal` back onto the caption only (not the th/td
+      values, which are short) lets it wrap invisibly instead of forcing
+      that minimum. */
 .sr_only {
   position: absolute;
   width: 0.0625rem;

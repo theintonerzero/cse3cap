@@ -212,7 +212,8 @@ test.describe('360px: no horizontal overflow (student scenario)', () => {
     await expect(page.getByRole('button', { name: 'Export your record' })).toBeVisible();
 
     await expect(page.locator('table caption')).toHaveText(
-      'The radar above, as numbers: self-score and counter-score per competency.',
+      'The radar above, as numbers: self-score and counter-score per competency, ' +
+        'on a 1 to 4 scale.',
     );
     const rows = page.locator('table tbody tr');
     await expect(rows).toHaveCount(2);

@@ -145,7 +145,10 @@ function LoadedRadar({ scale, axes }: { scale: RadarScale; axes: RadarAxis[] }) 
         </RadarChart>
       </ResponsiveContainer>
       <table className={styles.sr_only}>
-        <caption>The radar above, as numbers: self-score and counter-score per competency.</caption>
+        <caption>
+          {`The radar above, as numbers: self-score and counter-score per competency, ` +
+            `on a ${scale.min} to ${scale.max} scale.`}
+        </caption>
         <thead>
           <tr>
             <th scope="col">Competency</th>
