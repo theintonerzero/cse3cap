@@ -10,7 +10,7 @@
  *
  * Ids prefixed '3840' (CAP-38, third scenario).
  */
-import { test as base, expect, type Locator, type Page } from '@playwright/test';
+import { test as base, expect, type Locator } from '@playwright/test';
 
 import type { components } from '../src/api/schema.ts';
 import {
@@ -118,7 +118,7 @@ const test = base.extend<{ api: FakeApi }>({
 });
 
 /** How far `field` runs under the top of the bar holding `bar_button`. */
-async function overlap(page: Page, field: Locator, bar_button: Locator): Promise<number> {
+async function overlap(field: Locator, bar_button: Locator): Promise<number> {
   await field.focus();
   const box = await field.boundingBox();
   const bar_top = await bar_button.evaluate(
@@ -147,7 +147,7 @@ test('phone: the stepper bar never covers the focused field', async ({ page }) =
     );
     if (in_bar) continue;
     expect(
-      await overlap(page, field, submit),
+      await overlap(field, submit),
       await field.evaluate((e) => e.outerHTML.slice(0, 80)),
     ).toBeLessThanOrEqual(0);
   }
