@@ -152,12 +152,15 @@
   display: grid;
   /* Fixed status columns (CAP-38): with auto, every row and the heading
      line sized their own, so the headings never sat over their words. */
-  grid-template-columns: minmax(0, 1fr) 6.5rem 6.5rem var(--space-16);
+  grid-template-columns: minmax(0, 1fr) 8.5rem 8.5rem var(--space-16);
   align-items: center;
   gap: var(--space-12);
 }
 
 .rows_head {
+  /* Bottom-aligned (CAP-38): a two-line heading and a one-line one share a
+     baseline rather than centring against each other. */
+  align-items: end;
   margin: 0;
   padding: 0 var(--space-16);
   font-size: var(--font-size-xs);
@@ -208,6 +211,15 @@
 .row_state {
   font-size: var(--font-size-sm);
   color: var(--color-text);
+}
+
+/* A reviewer's sprint calendar has two cells, not four: its dates span the
+   status columns and sit at the right edge, where they were before the
+   columns got fixed widths (CAP-38). Only the calendar's meta is a direct
+   child of a row; the student rows keep theirs inside .row_sprint. */
+.row_flat > .row_meta {
+  grid-column: 2 / -1;
+  justify-self: end;
 }
 
 .chevron {

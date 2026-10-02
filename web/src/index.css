@@ -21,3 +21,16 @@ body {
     scroll-padding-bottom: 8rem;
   }
 }
+
+/* And the sticky header at the top (two rows on a phone, one above): a
+   field focused while moving up the page clears it rather than landing
+   underneath. */
+html {
+  scroll-padding-top: 6rem;
+}
+
+@media (max-width: 40rem) {
+  html {
+    scroll-padding-top: 9rem;
+  }
+}

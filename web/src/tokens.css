@@ -179,6 +179,14 @@
   --content-width-list: 67.5rem;
   --shadow-card: 0 1px 2px rgb(20 16 31 / 0.06), 0 4px 12px rgb(20 16 31 / 0.05);
   --shadow-sheet: 0 -8px 24px rgb(20 16 31 / 0.12);
+
+  /* Stacking order, CAP-38. The sticky header and the sticky phone bars
+     are the first things in this product to sit above the page, so the
+     order is written down once: bars, then the header, then any open
+     sheet over everything, since a modal dialog covers the whole page. */
+  --z-sticky-bar: 5;
+  --z-header: 10;
+  --z-sheet: 100;
 }
 
 @media (prefers-color-scheme: dark) {

@@ -11,6 +11,12 @@
   justify-content: center;
 }
 
+/* Above the sticky header (CAP-38): an open sheet is modal, so nothing
+   behind it may show through or take a click. Added beside .backdrop. */
+.backdrop {
+  z-index: var(--z-sheet);
+}
+
 .sheet {
   width: 100%;
   /* TODO(CAP-1): no spacing token maps to a layout max-width; check with

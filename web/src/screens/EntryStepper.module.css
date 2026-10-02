@@ -43,7 +43,7 @@
   .nav {
     position: sticky;
     bottom: 0;
-    z-index: 5;
+    z-index: var(--z-sticky-bar);
     margin-inline: calc(-1 * var(--space-16));
     padding: var(--space-12) var(--space-16);
     background: var(--color-surface);

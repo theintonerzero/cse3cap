@@ -175,3 +175,30 @@ dr_lee_test(
     }
   },
 );
+
+test('phone: walking backwards, no focused field hides under the sticky header', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 600 });
+  await page.goto(`/reflections/${DRAFT}`);
+  await expect(page.getByText('Collaboration').first()).toBeVisible();
+
+  const fields = await page
+    .getByRole('main')
+    .locator('textarea, input:not([type=file]), button:not([disabled])')
+    .all();
+  // Start at the bottom, then move up one field at a time, as Shift+Tab does.
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  const header = page.getByRole('banner');
+
+  for (const field of fields.reverse()) {
+    await field.focus();
+    const box = await field.boundingBox();
+    const header_bottom =
+      (await header.boundingBox())!.y + (await header.boundingBox())!.height;
+    expect(
+      box ? box.y - header_bottom : 0,
+      await field.evaluate((e) => e.id || e.outerHTML.slice(0, 80)),
+    ).toBeGreaterThanOrEqual(0);
+  }
+});

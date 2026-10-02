@@ -115,11 +115,13 @@ function ReviewQueueRow({ entry }: { entry: ReviewQueueEntry }) {
     <li>
       {/* The assessor stepper (CAP-13), by reflection: the queue has nothing finer. */}
       {/* Named once, plainly: read from its contents the card's name would
-          also pick up the progress bar's own value ("of 6 0"). */}
+          also pick up the progress bar's own value ("of 6 0"). It starts
+          with the words on the card, so "click Score this" works by voice
+          (WCAG 2.5.3). */}
       <Link
         className={styles.row}
         to={`/review-queue/reflections/${entry.reflection_id}`}
-        aria-label={`Score ${student.display_name}, ${gig_title ?? 'Unknown gig'}${
+        aria-label={`Score this: ${student.display_name}, ${gig_title ?? 'Unknown gig'}${
           sprint_ordinal != null ? `, Sprint ${sprint_ordinal}` : ''
         }: ${progress.scored_by_me} of ${progress.entries} entries scored`}
       >
