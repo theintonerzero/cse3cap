@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import type { MouseEvent, ReactNode } from 'react';
 import styles from './BottomSheet.module.css';
 
@@ -25,7 +25,21 @@ export function BottomSheet({ open, onClose, title, children }: BottomSheetProps
     onCloseRef.current = onClose;
   }, [onClose]);
 
-  useEffect(() => {
+  // useLayoutEffect, not useEffect: a sheet's own content (ExportSheet is
+  // the real case, CAP-23) can carry its own mount effect that moves focus
+  // to a more specific control once it renders ("every state names where
+  // focus lives", ExportSheet.tsx). Passive effects run child-before-parent,
+  // so a child's useEffect fires before this one if this were also a
+  // useEffect -- by the time this ran, document.activeElement would already
+  // be whatever the child just focused, not the real trigger, and
+  // `previouslyFocused` would capture the wrong element. That was a real,
+  // reproducible bug: Escape silently failed to restore focus, because the
+  // wrongly-captured element was itself inside the sheet and got removed
+  // along with it, leaving focus on <body>. Layout effects run before ANY
+  // passive effect anywhere in the tree, so capturing here instead
+  // guarantees nothing has touched focus yet, however this sheet's own
+  // content manages it afterwards.
+  useLayoutEffect(() => {
     if (!open) return;
 
     previouslyFocused.current = document.activeElement as HTMLElement | null;
