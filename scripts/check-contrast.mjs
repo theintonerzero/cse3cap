@@ -42,6 +42,8 @@ const PAIRS = [
   ['--color-text', '--color-danger-bg', 'normal'],
   ['--color-text', '--color-success-bg', 'normal'],
   ['--color-text', '--color-accent-evidence', 'normal'],
+  // CAP-38: evidence rows put the link's site name in muted text on this tint.
+  ['--color-text-muted', '--color-accent-evidence', 'normal'],
   ['--color-danger', '--color-bg', 'normal'],
   ['--color-danger', '--color-surface', 'normal'],
   ['--color-success', '--color-bg', 'normal'],

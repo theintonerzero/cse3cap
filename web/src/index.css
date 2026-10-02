@@ -12,3 +12,12 @@ body {
   color: var(--color-text);
   line-height: var(--line-height-normal);
 }
+
+/* CAP-38: phone screens carry a sticky action bar at the bottom (the
+   stepper's Back/Next, Edit Framework's save). Scrolling a focused field
+   into view would otherwise park it underneath that bar. */
+@media (max-width: 40rem) {
+  html {
+    scroll-padding-bottom: 6rem;
+  }
+}

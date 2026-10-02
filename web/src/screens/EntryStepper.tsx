@@ -372,7 +372,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
 
   if (load.status === 'loading') {
     return (
-      <section>
+      <section className={styles.page}>
         {exit_to_queue}
         <h1 className={styles.heading}>{heading}</h1>
         <LoadingState />
@@ -382,7 +382,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
 
   if (load.status === 'error') {
     return (
-      <section>
+      <section className={styles.page}>
         {exit_to_queue}
         <h1 className={styles.heading}>{heading}</h1>
         <ErrorNotice error={load.error} on_retry={retry} />
@@ -399,7 +399,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
     // itself has none -- a broken rubric, not a normal path. Still one of
     // this screen's four states rather than a blank crash.
     return (
-      <section>
+      <section className={styles.page}>
         {exit_to_queue}
         <h1 className={styles.heading}>{heading}</h1>
         <div className={styles.empty}>
@@ -430,7 +430,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
       : [];
 
   return (
-    <section>
+    <section className={styles.page}>
       {exit_to_queue}
       <h1 className={styles.heading}>{heading}</h1>
       <div className={styles.status_row}>
@@ -736,12 +736,45 @@ function EntryCard({
           // In assessor mode the viewer's own score is shown by the panel
           // as greyed chips, so it is not repeated here as a text line.
           .filter((score) => mode !== 'assessor' || score.scorer?.id !== viewer_id)
-          .map((score) => (
-            <p key={score.id} className={styles.counter_score}>
-              {score.scorer?.display_name ?? 'Counter-score'}: level {score.level_value}
-              {score.comment && <> &mdash; &ldquo;{score.comment}&rdquo;</>}
-            </p>
-          ))}
+          .map((score) => {
+            // The way the assessor sees their own saved score (Patrick, PR
+            // #56): the chips greyed with the level selected, in the
+            // counter-score green, and the comment in its box, read-only.
+            // Never folded into one line of text (CAP-38).
+            const who = `${score.scorer?.display_name ?? 'Counter-score'}'s`;
+            const comment_id = `counter-comment-${score.id}`;
+            return (
+              <div key={score.id} className={styles.counter_block}>
+                <p className={styles.field_label}>{who} score</p>
+                <div className={styles.level_row} role="group" aria-label={`${who} score`}>
+                  {levels.map((level) => (
+                    <Chip
+                      key={level.id}
+                      tone="counter"
+                      selected={score.level_id === level.id}
+                      disabled
+                    >
+                      {level.level_value} &middot; {level.descriptor}
+                    </Chip>
+                  ))}
+                </div>
+                {score.comment && (
+                  <div className={text_area_styles.field}>
+                    <label className={text_area_styles.label} htmlFor={comment_id}>
+                      {who} comment
+                    </label>
+                    <textarea
+                      id={comment_id}
+                      className={text_area_styles.textarea}
+                      value={score.comment}
+                      disabled
+                      readOnly
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })}
     </div>
   );
 
@@ -784,6 +817,15 @@ function EntryCard({
  * contract has nothing that serves a file back and this screen does not
  * invent one.
  */
+/** The site a link goes to, for the line under its label. */
+function host_of(uri: string): string {
+  try {
+    return new URL(uri).hostname.replace(/^www\./, '');
+  } catch {
+    return '';
+  }
+}
+
 function EvidenceList({
   entry,
   framework,
@@ -866,13 +908,23 @@ function EvidenceList({
       {entry.evidence.length > 0 && (
         <ul className={styles.evidence_list}>
           {entry.evidence.map((item) => (
-            <li key={item.id} className={styles.evidence_row}>
+            <li key={item.id} className={`${styles.evidence_row} ${styles.evidence_item}`}>
               {item.kind === 'link' && HREF_SCHEME.test(item.uri) ? (
-                <a href={item.uri} target="_blank" rel="noopener noreferrer">
-                  {item.label}
-                </a>
+                <>
+                  <span className={styles.evidence_icon} aria-hidden="true">
+                    ↗
+                  </span>
+                  {/* The site name sits beside the link, not in it, so the
+                      link's name is still just its label (CAP-38). */}
+                  <span className={styles.evidence_text}>
+                    <a href={item.uri} target="_blank" rel="noopener noreferrer">
+                      {item.label}
+                    </a>
+                    <span className={styles.evidence_host}>{host_of(item.uri)}</span>
+                  </span>
+                </>
               ) : (
-                <span>{item.label}</span>
+                <span className={styles.evidence_text}>{item.label}</span>
               )}
               {item.size_bytes !== null && (
                 <span className={styles.evidence_size}>
@@ -1019,7 +1071,7 @@ function CounterScorePanel({
   if (!mine && !open && !draft.error) return null;
 
   return (
-    <div className={styles.levels}>
+    <div className={`${styles.levels} ${styles.counter_block}`}>
       {mine ? (
         <>
           {/* Presented exactly as the student's self-score row above: the

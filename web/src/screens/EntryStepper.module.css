@@ -30,6 +30,27 @@
   margin-top: var(--space-24);
 }
 
+/* CAP-38: a reading column, not the full list width. */
+.page {
+  max-width: var(--content-width-read);
+  margin-inline: auto;
+}
+
+/* CAP-38: on a phone, Back and Next stay under the thumb rather than at
+   the end of a long card. Sticky, not fixed, so the bar never covers the
+   last field: it rests in its own place once the page ends. */
+@media (max-width: 40rem) {
+  .nav {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    margin-inline: calc(-1 * var(--space-16));
+    padding: var(--space-12) var(--space-16);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-sheet);
+  }
+}
+
 .empty {
   display: flex;
   flex-direction: column;
@@ -97,8 +118,17 @@
 
 .level_row {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: var(--space-8);
+}
+
+/* CAP-38: one level per line at every width. Wrapped across a wide card
+   the four descriptors scattered over two ragged rows; stacked, they read
+   as the scale they are, lowest first. */
+.level_row > * {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
 }
 
 .evidence_list {
@@ -183,4 +213,58 @@
   margin: var(--space-8) 0 0;
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
+}
+
+/* CAP-38: an evidence link as a row of its own -- a glyph, the label, and
+   the site it goes to -- instead of a bare browser-blue underline. The
+   save-all list reuses .evidence_row, so this is a separate class. */
+.evidence_item {
+  align-items: flex-start;
+  gap: var(--space-12);
+  padding: var(--space-12) var(--space-16);
+  border-radius: var(--radius-md);
+  background: var(--color-accent-evidence);
+}
+
+.evidence_icon {
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-tight);
+  color: var(--color-text);
+}
+
+.evidence_text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.evidence_text a {
+  color: var(--color-text);
+  font-weight: var(--font-weight-medium);
+  text-decoration: underline;
+  text-decoration-color: var(--color-border);
+  text-underline-offset: 0.2em;
+}
+
+.evidence_text a:hover {
+  text-decoration-color: currentColor;
+}
+
+.evidence_host {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+/* The student's read-only view of a counter-score (CAP-38): the same
+   chips-and-comment block the assessor sees, set off by a rule. */
+.counter_block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  margin-top: var(--space-16);
+  padding-top: var(--space-16);
+  border-top: var(--border-width-sm) solid var(--color-border);
 }

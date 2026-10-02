@@ -31,9 +31,21 @@ test('student stepper: every typed field is text, and a javascript: link is not 
   await expect(card.locator('p', { hasText: PAYLOAD }).first()).toHaveText(PAYLOAD);
   await expect(page.getByLabel('Your reflection')).toHaveValue(PAYLOAD);
   for (const value of [1, 2]) {
-    await expect(page.getByRole('button', { name: `${value} · ${PAYLOAD}` })).toBeVisible();
+    await expect(
+      page
+        .getByRole('group', { name: 'Self-score' })
+        .getByRole('button', { name: `${value} · ${PAYLOAD}` }),
+    ).toBeVisible();
   }
-  await expect(page.getByText(`${PAYLOAD}: level 1 — “${PAYLOAD}”`)).toBeVisible();
+  // The counter-score reads as the assessor sees it (CAP-38): the scorer's
+  // name labels a chip row and a read-only comment box, both still text.
+  const counter = page.getByRole('group', { name: `${PAYLOAD}'s score` });
+  for (const value of [1, 2]) {
+    await expect(
+      counter.getByRole('button', { name: `${value} · ${PAYLOAD}` }),
+    ).toBeVisible();
+  }
+  await expect(page.getByLabel(`${PAYLOAD}'s comment`)).toHaveValue(PAYLOAD);
   await expect(page.getByRole('listitem').filter({ hasText: PAYLOAD })).toHaveCount(2);
 
   // StoreEvidenceRequest refuses this scheme (F7), and the screen still
