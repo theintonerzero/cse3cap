@@ -53,13 +53,12 @@
   --color-surface-alt: #f1f1f1;
   --color-border: #d9d9d9;
   --color-text: #202020;
-  --color-text-muted: #666666; /* AA-adjusted from sampled #808080, then re-adjusted for CAP-23:
-    #717171 (the first adjustment) was 3.68:1 on bg; it cleared bg/surface but Task 2's
-    exhaustive pair sweep found it is also rendered as normal text on --color-surface-alt
-    (Submitted/DiaryHome/ReviewQueue empty-state bodies, AppShell's nav identity on hover),
-    on --color-success-bg (ExportSheet's job summary) and on --color-accent-lavender
-    (ExportSheet's building-status detail) -- all below 4.5:1 at #717171. Darkened further,
-    same grey, to clear the hardest of those real backgrounds. */
+  --color-text-muted: #666666; /* AA-adjusted from the sampled #808080 (3.68:1 on bg). The
+    first adjustment, #717171, cleared bg/surface but is still below 4.5:1 as normal text on
+    --color-surface-alt (Submitted/DiaryHome/ReviewQueue empty-state bodies, AppShell's nav
+    identity on hover), on --color-success-bg (ExportSheet's job summary) and on
+    --color-accent-lavender (ExportSheet's building-status detail). Darkened further, same
+    grey, to clear the hardest of those real backgrounds. */
   --color-text-inverse: #ffffff;
   --color-primary: #8053ad; /* AA-adjusted from sampled #9a76be (white button text was 3.68:1),
     then re-adjusted for CAP-23: #8c63b5 (the first adjustment) passed as a button fill but
@@ -173,7 +172,7 @@
        inversion, then independently re-verified against WCAG AA -- see
        Task 1 Step 2. Verified standalone, not chained off the light
        block's own AA-adjusted values, which is why e.g. --color-primary
-       here isn't a simple lighten of the light block's #8c63b5. No
+       here isn't a simple lighten of the light block's #8053ad. No
        Figma dark frame exists to sample instead. */
     --color-bg: #12151c;
     --color-surface: #242424;
