@@ -10,4 +10,5 @@ body {
   font-family: var(--font-family-base);
   background: var(--color-bg);
   color: var(--color-text);
+  line-height: var(--line-height-normal);
 }

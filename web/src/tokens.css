@@ -144,26 +144,41 @@
      fallbacks kept behind it -- the webfont itself isn't loaded anywhere
      yet, so today this still renders in the fallback until that's a
      deliberate follow-up (self-host vs Google Fonts is a decision, not
-     a default). --font-size-base and --font-size-sm measured identical
+     a default). Loaded self-hosted since CAP-38 (ADR #44). --font-size-base and --font-size-sm measured identical
      at 14px on the two layers checked ("1. Contribution" and "Alumly Pty
      Limited") -- kept as two tokens since they're different semantic
      roles, but flagging that the scale doesn't actually distinguish them
      at these two points. Line height measured 100% (unitless 1) on every
      text layer checked, heading and body alike, so all three tiers below
-     carry that same real value rather than three invented ones. */
-  --font-family-base: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-size-xs: 11px;
-  --font-size-sm: 14px;
-  --font-size-base: 14px;
-  --font-size-lg: 16px;
-  --font-size-xl: 20px;
-  --font-size-2xl: 32px;
+     carry that same real value rather than three invented ones.
+     Departed from on purpose in CAP-38, ADR #44: the measured scale did
+     not separate sm from base, and line height 1 cramps every multi-line
+     block. */
+  --font-family-base:
+    'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-size-xs: 12px;
+  --font-size-sm: 13px;
+  --font-size-base: 15px;
+  --font-size-lg: 17px;
+  --font-size-xl: 22px;
+  --font-size-2xl: 30px;
+  --font-size-3xl: 36px;
   --font-weight-regular: 400;
   --font-weight-medium: 600;
   --font-weight-bold: 700;
-  --line-height-tight: 1;
-  --line-height-normal: 1;
-  --line-height-relaxed: 1;
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.45;
+  --line-height-relaxed: 1.6;
+  --letter-spacing-label: 0.06em;
+
+  /* Layout and depth, CAP-38 (ADR #44). Content widths cap the reading
+     column and the list column on wide screens. Shadows are a soft lift
+     in light mode and become a hairline border in dark mode, where a
+     dark shadow on a dark page reads as nothing. */
+  --content-width-read: 47.5rem;
+  --content-width-list: 67.5rem;
+  --shadow-card: 0 1px 2px rgb(20 16 31 / 0.06), 0 4px 12px rgb(20 16 31 / 0.05);
+  --shadow-sheet: 0 -8px 24px rgb(20 16 31 / 0.12);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -199,6 +214,10 @@
     --color-accent-pink: #660059;
     --color-accent-lavender: #251452;
     --color-accent-evidence: #08335e;
+
+    /* CAP-38: a hairline instead of a shadow (see the light block). */
+    --shadow-card: 0 0 0 1px var(--color-border);
+    --shadow-sheet: 0 0 0 1px var(--color-border);
   }
 }
 
@@ -226,4 +245,8 @@
   --color-accent-pink: #660059;
   --color-accent-lavender: #251452;
   --color-accent-evidence: #08335e;
+
+  /* CAP-38: a hairline instead of a shadow (see the light block). */
+  --shadow-card: 0 0 0 1px var(--color-border);
+  --shadow-sheet: 0 0 0 1px var(--color-border);
 }

@@ -9,6 +9,7 @@
 .heading {
   margin: 0 0 var(--space-4);
   font-size: var(--font-size-xl);
+  line-height: var(--line-height-tight);
   font-weight: var(--font-weight-bold);
   color: var(--color-text);
 }
