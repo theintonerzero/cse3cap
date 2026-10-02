@@ -1,0 +1,30 @@
+/* Button.module.css carries the shape, size and focus ring; these rules
+   only undo what an anchor brings with it and add the quiet variant. */
+.link {
+  gap: var(--space-8);
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.link:hover {
+  text-decoration: none;
+}
+
+.chevron {
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-tight);
+}
+
+/* The back control (CAP-38): present, but quieter than an action. */
+.quiet {
+  min-height: 2.25rem;
+  padding: var(--space-8) var(--space-16);
+  background: transparent;
+  border: var(--border-width-sm) solid var(--color-border);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+}
+
+.quiet:hover {
+  background: var(--color-surface-alt);
+}

@@ -7,6 +7,7 @@
  * but nothing in the product links to it.
  */
 import { useState, type ReactNode } from 'react';
+import { MemoryRouter } from 'react-router';
 
 import { ApiError } from '../api/client.ts';
 import {
@@ -20,7 +21,9 @@ import {
   Skeleton,
   SkeletonGroup,
   type RadarAxis,
+  LinkButton,
   ProgressBar,
+  Select,
   TextArea,
 } from '../components/index.ts';
 import { getStoredTheme, setTheme, type Theme } from '../theme.ts';
@@ -84,6 +87,7 @@ export function Section({ title, children }: { title: string; children: ReactNod
 export default function Gallery() {
   const [theme, set_theme_state] = useState<Theme>(initial_theme);
   const [scope, set_scope] = useState('all');
+  const [picked, set_picked] = useState('');
   const [narrative, set_narrative] = useState('');
   const [unsaved_narrative, set_unsaved_narrative] = useState('');
   const [sheet_open, set_sheet_open] = useState(false);
@@ -144,6 +148,38 @@ export default function Gallery() {
           <Button full_width={false}>Inline width</Button>
         </div>
       </Section>
+      <Section title="LinkButton">
+        {/* A Link needs a router; the gallery has none of its own. */}
+        <MemoryRouter>
+          <LinkButton to="/">Open your diary for this gig</LinkButton>
+          <LinkButton to="/" variant="secondary">
+            Copy and edit
+          </LinkButton>
+          <LinkButton to="/" variant="quiet" back>
+            Frameworks
+          </LinkButton>
+        </MemoryRouter>
+      </Section>
+
+      <Section title="Select">
+        <Select id="gallery-gig" label="Gig" value={picked} on_change={set_picked}>
+          <option value="">All gigs</option>
+          <option value="a">Alumable onboarding redesign</option>
+          <option value="b">
+            Campus food-waste dashboard for the Bundoora sustainability office
+          </option>
+        </Select>
+        <Select
+          id="gallery-disabled"
+          label="Disabled"
+          value=""
+          on_change={() => {}}
+          disabled
+        >
+          <option value="">Nothing to choose</option>
+        </Select>
+      </Section>
+
       <Section title="TextArea">
         <div className={styles.stack}>
           <TextArea

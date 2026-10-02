@@ -8,6 +8,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import Gallery from './gallery/Gallery.tsx';
+import '@fontsource-variable/inter';
 import './index.css';
 import { initTheme } from './theme.ts';
 

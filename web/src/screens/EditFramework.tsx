@@ -27,7 +27,14 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 
 import { api, ApiError } from '../api/client.ts';
-import { Button, Card, ErrorNotice, Skeleton, SkeletonGroup } from '../components/index.ts';
+import {
+  Button,
+  Card,
+  ErrorNotice,
+  Select,
+  Skeleton,
+  SkeletonGroup,
+} from '../components/index.ts';
 import { group_frameworks, type Framework } from './framework-groups.ts';
 import {
   NAME_MAX,
@@ -255,15 +262,12 @@ function Editor({
   return (
     <div className={styles.form}>
       <div className={styles.field}>
-        <label className={styles.label} htmlFor="based-on">
-          Based on
-        </label>
-        <select
+        <Select
           id="based-on"
-          className={styles.control}
+          label="Based on"
           value={base.id}
           disabled={copy !== null || saving}
-          onChange={(event) => on_choose_base(event.target.value)}
+          on_change={on_choose_base}
         >
           <optgroup label="Templates">
             {templates.map((f) => (
@@ -281,7 +285,7 @@ function Editor({
               ))}
             </optgroup>
           )}
-        </select>
+        </Select>
         {copy !== null ? (
           <p className={styles.hint}>
             Your copy already exists, so its base is fixed. To start from another rubric, go
