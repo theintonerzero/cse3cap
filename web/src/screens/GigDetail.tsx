@@ -38,6 +38,7 @@ import {
   Button,
   Card,
   ErrorNotice,
+  LinkButton,
   Skeleton,
   SkeletonGroup,
 } from '../components/index.ts';
@@ -210,14 +211,17 @@ function GigHeader({ gig, me_id, on_history }: GigHeaderProps) {
 
   return (
     <header className={styles.header}>
-      {on_history && (
-        <div className={styles.header_actions}>
+      {/* Title and its one action on a line (CAP-38), as the frame draws
+          the pill and History together, rather than History floating
+          above the title on a line of its own. */}
+      <div className={styles.title_row}>
+        <h1 className={styles.heading}>{gig.title}</h1>
+        {on_history && (
           <Button variant="secondary" full_width={false} on_click={on_history}>
             History
           </Button>
-        </div>
-      )}
-      <h1 className={styles.heading}>{gig.title}</h1>
+        )}
+      </div>
       {meta.length > 0 && <p className={styles.sub}>{meta.join(' \u00b7 ')}</p>}
       <ParticipantList participants={gig.participants} me_id={me_id} />
     </header>
@@ -366,9 +370,9 @@ function DiaryCard({
         {!is_student && <p className={styles.diary_body}>{NOT_YOUR_DIARY}</p>}
 
         {is_student && (
-          <Link className={styles.diary_link} to={`/?gig_id=${gig.id}`}>
-            Open your diary for this gig
-          </Link>
+          <div className={styles.diary_action}>
+            <LinkButton to={`/?gig_id=${gig.id}`}>Open your diary for this gig</LinkButton>
+          </div>
         )}
       </Card>
     </section>

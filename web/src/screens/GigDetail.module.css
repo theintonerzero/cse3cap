@@ -13,6 +13,21 @@
   margin-bottom: var(--space-24);
 }
 
+.title_row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-16);
+}
+
+.title_row .heading {
+  margin: 0;
+}
+
+.diary_action {
+  margin-top: var(--space-16);
+}
+
 .sub {
   margin: 0;
   font-size: var(--font-size-sm);
@@ -41,20 +56,24 @@
    bordered chips ran to three rows of card and made the roster look like
    the subject of the screen, which it is not -- the sprints are. */
 .people {
-  display: block;
-  margin: var(--space-4) 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+  margin: var(--space-8) 0 0;
   padding: 0;
   font-size: var(--font-size-sm);
   list-style: none;
 }
 
+/* CAP-38: one pill per person, so seven names read as seven people rather
+   than one run-on sentence. Same text, same order. */
 .person {
-  display: inline;
-}
-
-.person:not(:last-child)::after {
-  content: ' · ';
-  color: var(--color-text-muted);
+  display: inline-flex;
+  align-items: baseline;
+  padding: var(--space-4) var(--space-12);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
 }
 
 .person_name {
@@ -131,7 +150,9 @@
 .row,
 .row_flat {
   display: grid;
-  grid-template-columns: 1fr auto auto var(--space-16);
+  /* Fixed status columns (CAP-38): with auto, every row and the heading
+     line sized their own, so the headings never sat over their words. */
+  grid-template-columns: minmax(0, 1fr) 6.5rem 6.5rem var(--space-16);
   align-items: center;
   gap: var(--space-12);
 }
@@ -217,22 +238,6 @@
   color: var(--color-text);
 }
 
-/* Matches .empty_link on the diary home: a link in this product is
-   --color-primary. This card is accent="pink" (Card.module.css); the
-   CAP-8 plan already measured and recorded --color-primary at 3.79:1 on
-   this exact tint (as .sprint_link, this element's earlier name) and left
-   it unfixed, the same deferred-finding pattern as the 3.93:1 lavender
-   pairing elsewhere in the product. --color-primary is darkened in
-   tokens.css specifically because it is rendered as normal link text on
-   --color-bg, --color-surface-alt and this --color-accent-pink tint, and
-   clears 4.5:1 on all three -- see check-contrast.mjs's --color-primary
-   entries. */
-.diary_link {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-primary);
-}
-
 .empty {
   display: flex;
   flex-direction: column;
@@ -262,10 +267,50 @@
   color: var(--color-text);
 }
 
-/* The History button (CAP-14), at the right of its own line above the
-   title, where the frame draws it beside the status pill this build does
-   not have. */
-.header_actions {
-  display: flex;
-  justify-content: flex-end;
+/* On a phone the two status columns leave the sprint itself no room, so
+   each row stacks: the sprint, then one line per status, with the column
+   names that screen readers already hear made visible in place of the
+   heading line (CAP-38). */
+@media (max-width: 40rem) {
+  .rows_head {
+    display: none;
+  }
+
+  .row,
+  .row_flat {
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: var(--space-4);
+  }
+
+  .row_sprint,
+  .row_state {
+    grid-column: 1;
+  }
+
+  .row_sprint {
+    margin-bottom: var(--space-4);
+  }
+
+  .chevron {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    align-self: center;
+  }
+
+  .row_state .sr_only {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    overflow: visible;
+    clip-path: none;
+    white-space: normal;
+    color: var(--color-text-muted);
+  }
+
+  /* The dash is a column's picture of "none"; with the label showing,
+     the word says it. */
+  .row_state > [aria-hidden='true'] {
+    display: none;
+  }
 }
