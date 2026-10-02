@@ -120,41 +120,47 @@ export function AppShell() {
   return (
     <div className={styles.shell}>
       <header className={styles.header}>
-        <div className={styles.identity}>
-          <button
-            type="button"
-            className={styles.who}
-            onClick={() => setSwitcherOpen(true)}
-            aria-haspopup="dialog"
-          >
-            <span className={styles.name}>{me.display_name}</span>
-            <span className={styles.roles}>{role_summary || 'no gigs'}</span>
-          </button>
+        <div className={styles.bar}>
+          {/* A name, not a heading or a link: each screen's h1 is its title,
+            and the nav below already goes everywhere this could. */}
+          <span className={styles.wordmark}>Reflection Diary</span>
 
-          <button
-            type="button"
-            className={styles.theme}
-            onClick={toggle_theme}
-            aria-pressed={theme === 'dark'}
-          >
-            {theme === 'dark' ? 'Light' : 'Dark'}
-          </button>
-        </div>
-
-        <nav className={styles.nav} aria-label="Main">
-          {items.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === '/'}
-              className={({ isActive }) =>
-                isActive ? `${styles.link} ${styles.active}` : styles.link
-              }
+          <div className={styles.identity}>
+            <button
+              type="button"
+              className={styles.who}
+              onClick={() => setSwitcherOpen(true)}
+              aria-haspopup="dialog"
             >
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
+              <span className={styles.name}>{me.display_name}</span>
+              <span className={styles.roles}>{role_summary || 'no gigs'}</span>
+            </button>
+
+            <button
+              type="button"
+              className={styles.theme}
+              onClick={toggle_theme}
+              aria-pressed={theme === 'dark'}
+            >
+              {theme === 'dark' ? 'Light' : 'Dark'}
+            </button>
+          </div>
+
+          <nav className={styles.nav} aria-label="Main">
+            {items.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.to === '/'}
+                className={({ isActive }) =>
+                  isActive ? `${styles.link} ${styles.active}` : styles.link
+                }
+              >
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
+        </div>
       </header>
 
       <main className={styles.main}>
