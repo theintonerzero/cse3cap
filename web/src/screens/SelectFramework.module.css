@@ -81,18 +81,42 @@
    marker, so it is bordered rather than filled: a tinted fill here would
    read as a status the way Badge's do. */
 .in_use {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
   color: var(--color-text-muted);
   border: var(--border-width-sm) solid var(--color-border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-full);
   padding: var(--space-4) var(--space-8);
   white-space: nowrap;
 }
 
-/* The Link wrapping a Button, so the anchor does not add its own
-   underline or colour on top of the button's. */
-.edit {
-  text-decoration: none;
+/* CAP-38: "In use" describes the rubric, so it sits with the name rather
+   than among the buttons. */
+.name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+/* On a phone the actions take their own full-width row under the name,
+   side by side, instead of wrapping one per line. */
+@media (max-width: 40rem) {
+  .actions {
+    width: 100%;
+  }
+
+  .actions > *,
+  .picker_options > * {
+    padding-inline: var(--space-12);
+    font-size: var(--font-size-base);
+  }
+
+  .actions > * {
+    flex: 1 1 0;
+    justify-content: center;
+    white-space: nowrap;
+  }
 }
 
 .empty {

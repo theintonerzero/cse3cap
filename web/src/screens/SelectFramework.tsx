@@ -22,10 +22,16 @@
  * it is not rediscovered as a bug.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router';
 
 import { api, ApiError } from '../api/client.ts';
-import { Button, Card, ErrorNotice, Skeleton, SkeletonGroup } from '../components/index.ts';
+import {
+  Button,
+  Card,
+  ErrorNotice,
+  LinkButton,
+  Skeleton,
+  SkeletonGroup,
+} from '../components/index.ts';
 import { useSession, type SessionUser } from '../session/useSession.ts';
 import { assignable_gigs, group_frameworks, type Framework } from './framework-groups.ts';
 import styles from './SelectFramework.module.css';
@@ -249,29 +255,28 @@ function FrameworkRow({
     <Card>
       <div className={styles.row}>
         <div className={styles.identity}>
-          <p className={styles.name}>{framework.name}</p>
+          <p className={styles.name}>
+            {framework.name}
+            {framework.in_use && (
+              <span className={styles.in_use} title="A reflection already uses this rubric">
+                In use
+              </span>
+            )}
+          </p>
           <p className={styles.meta}>
             {framework.fw_key} {'·'} {framework.version}
           </p>
         </div>
 
         <div className={styles.actions}>
-          {framework.in_use && (
-            <span className={styles.in_use} title="A reflection already uses this rubric">
-              In use
-            </span>
-          )}
-
           {/* Every row, in use or not. The editor never changes the rubric
               it starts from -- it copies it (ADR #16, CAP-16) -- so a
               reflection referencing this one is no reason to hide it. Both
               seeded templates are in use; gating on in_use left a freshly
               seeded database with no way into the editor at all. */}
-          <Link className={styles.edit} to={`/frameworks/${framework.id}/edit`}>
-            <Button variant="secondary" full_width={false}>
-              Copy and edit
-            </Button>
-          </Link>
+          <LinkButton to={`/frameworks/${framework.id}/edit`} variant="secondary">
+            Copy and edit
+          </LinkButton>
 
           {assignable.length > 0 && assign.status !== 'picking' && (
             <Button
