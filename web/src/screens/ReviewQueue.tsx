@@ -108,28 +108,38 @@ function EmptyState() {
 function ReviewQueueRow({ entry }: { entry: ReviewQueueEntry }) {
   const { student, gig_title, sprint_ordinal, progress } = entry;
 
+  // One link per row, the whole card the target (CAP-38), the way the
+  // diary's reflection list does it. "Score this" stays on the card as the
+  // label of what a tap does -- and the HO-6 shots wait for those words.
   return (
-    <li className={styles.row}>
-      <div className={styles.rowMain}>
-        <span className={styles.studentName}>{student.display_name}</span>
-        <span className={styles.rowMeta}>
-          {gig_title ?? 'Unknown gig'}
-          {sprint_ordinal != null ? ` · Sprint ${sprint_ordinal}` : ''}
-        </span>
-      </div>
-
-      <ProgressBar
-        current={progress.scored_by_me}
-        total={progress.entries}
-        label="Entries"
-      />
-
+    <li>
       {/* The assessor stepper (CAP-13), by reflection: the queue has nothing finer. */}
+      {/* Named once, plainly: read from its contents the card's name would
+          also pick up the progress bar's own value ("of 6 0"). */}
       <Link
-        className={styles.scoreLink}
+        className={styles.row}
         to={`/review-queue/reflections/${entry.reflection_id}`}
+        aria-label={`Score ${student.display_name}, ${gig_title ?? 'Unknown gig'}${
+          sprint_ordinal != null ? `, Sprint ${sprint_ordinal}` : ''
+        }: ${progress.scored_by_me} of ${progress.entries} entries scored`}
       >
-        Score this →
+        <span className={styles.rowMain}>
+          <span className={styles.studentName}>{student.display_name}</span>
+          <span className={styles.rowMeta}>
+            {gig_title ?? 'Unknown gig'}
+            {sprint_ordinal != null ? ` · Sprint ${sprint_ordinal}` : ''}
+          </span>
+        </span>
+
+        <span className={styles.rowProgress}>
+          <ProgressBar
+            current={progress.scored_by_me}
+            total={progress.entries}
+            label="Entries"
+          />
+        </span>
+
+        <span className={styles.scoreCue}>Score this →</span>
       </Link>
     </li>
   );

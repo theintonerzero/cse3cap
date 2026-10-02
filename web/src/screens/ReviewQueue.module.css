@@ -16,18 +16,47 @@
 }
 
 .row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 8rem auto;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-16);
   padding: var(--space-16);
   border: var(--border-width-sm) solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+  color: inherit;
+  text-decoration: none;
+}
+
+a.row:hover {
+  border-color: var(--color-primary);
+}
+
+a.row:focus-visible {
+  outline: 0.125rem solid var(--color-focus-ring);
+  outline-offset: 0.0625rem;
+}
+
+/* A fixed column, so every row's bar starts and ends in the same place. */
+.rowProgress {
+  min-width: 0;
+}
+
+/* On a phone the bar and the cue drop under the name. */
+@media (max-width: 40rem) {
+  .row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .rowMain {
+    grid-column: 1 / -1;
+  }
 }
 
 .rowMain {
   display: flex;
+  min-width: 0;
   flex-direction: column;
   gap: var(--space-4);
 }
@@ -43,10 +72,16 @@
   color: var(--color-text-muted);
 }
 
-.scoreLink {
+/* What a tap does, said on the card. A pill in the lavender accent with
+   --color-text, not --color-primary text: primary as small text on a tint
+   is the pairing ADR #43 had to fix. */
+.scoreCue {
+  padding: var(--space-4) var(--space-12);
+  border-radius: var(--radius-full);
+  background: var(--color-accent-lavender);
+  color: var(--color-text);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
-  color: var(--color-primary);
   white-space: nowrap;
 }
 
