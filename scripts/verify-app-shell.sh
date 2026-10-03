@@ -93,10 +93,46 @@ done
 # --------------------------------------------------------------------------
 say "3. GET /auth/me returns what the nav is built from"
 
-token=''
-if [ -f "$TOKENS" ]; then
-    token="$(grep -oE '[0-9]+\|[A-Za-z0-9]+' "$TOKENS" | head -1)"
-fi
+# The newest token on a line naming NAME. A token never holds a space, so
+# it is the last field, and every Sanctum token is id|secret, so a last
+# field without a | is one of ReflectionSeeder's lines, not a token. Read
+# by name and not by shape beyond that, because ADR #46's rdiary_ prefix
+# changed the shape once. The same line as #97's scripts/lib/token-for.sh.
+token_for() {
+    [ -f "$2" ] || return 0
+    { grep -F -- "$1" "$2" || true; } | tr -d '\r' | awk 'index($NF, "|") { t = $NF } END { if (t != "") print t }'
+}
+
+fake="$(printf 'a%.0s' $(seq 40))"
+fixture="$(mktemp)"
+trap 'rm -f "$fixture"' EXIT
+
+expect_token() {
+    if [ "$2" = "$3" ]; then ok "token read: $1"; else bad "token read: $1" "got '$2'"; fi
+}
+
+printf 'Jane N   7|rdiary_%s\n' "$fake" > "$fixture"
+expect_token "prefixed"            "$(token_for 'Jane N' "$fixture")" "7|rdiary_$fake"
+
+printf 'Jane N   7|%s\n' "$fake" > "$fixture"
+expect_token "unprefixed"          "$(token_for 'Jane N' "$fixture")" "7|$fake"
+
+printf 'Jane N   7|rdiary_%s\r\n' "$fake" > "$fixture"
+expect_token "CRLF line endings"   "$(token_for 'Jane N' "$fixture")" "7|rdiary_$fake"
+
+printf 'Jane N   7|old%s\nSam O    8|rdiary_%s\nJane N   9|rdiary_%s\n' "$fake" "$fake" "$fake" > "$fixture"
+expect_token "newest of two"       "$(token_for 'Jane N' "$fixture")" "9|rdiary_$fake"
+
+printf 'Sam O    8|rdiary_%s\n' "$fake" > "$fixture"
+expect_token "no line for Jane"    "$(token_for 'Jane N' "$fixture")" ""
+
+# php artisan db:seed prints ReflectionSeeder's lines after the tokens, and
+# each starts with the student's name, so the last line naming Jane is not
+# a token line.
+printf 'Jane N   7|rdiary_%s\nSam O    8|rdiary_%s\nJane N   Data migration audit   sprint 2  submitted\n' "$fake" "$fake" > "$fixture"
+expect_token "full db:seed output" "$(token_for 'Jane N' "$fixture")" "7|rdiary_$fake"
+
+token="$(token_for 'Jane N' "$TOKENS")"
 
 if [ -z "$token" ]; then
     meh "live check" "$dim""no token in $TOKENS$off"
