@@ -349,3 +349,19 @@ test('the bar title is 20px at phone and desktop widths', async ({ page }) => {
     ).toBe('20px');
   }
 });
+
+test("someone who supervises nothing gets an ordinary bar over /frameworks' Page not found", async ({
+  page,
+}) => {
+  // CAP-46 shows them NotFound there; the bar must not still announce the
+  // Frameworks section, tint it, or offer to leave from a "top screen".
+  await install(page, 'Ash');
+  await page.goto('/frameworks');
+  await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
+  const banner = page.getByRole('banner');
+  await expect(banner.getByText('Frameworks', { exact: true })).toHaveCount(0);
+  await expect(
+    banner.getByRole('link', { name: 'Back to Reflection Diary' }),
+  ).toBeVisible();
+  await expect(page.locator('[data-section]')).toHaveCount(0);
+});

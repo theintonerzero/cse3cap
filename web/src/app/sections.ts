@@ -30,7 +30,13 @@ function at(pattern: string, pathname: string): boolean {
   return matchPath({ path: pattern, end: true }, pathname) !== null;
 }
 
-export function section_for(pathname: string): Section {
+/**
+ * `supervises` mirrors routes.tsx's SupervisorOnly (CAP-46): for anyone
+ * else a frameworks path renders NotFound, so the bar gives it the same
+ * ordinary bar as any unknown page rather than announcing a section they
+ * cannot see.
+ */
+export function section_for(pathname: string, supervises = true): Section {
   if (at('/', pathname)) {
     return { title: 'Reflection Diary', parent: null, title_is_h1: true, tint: 'diary' };
   }
@@ -40,10 +46,10 @@ export function section_for(pathname: string): Section {
   if (at('/review-queue/*', pathname)) {
     return { title: 'Review queue', parent: QUEUE, title_is_h1: false, tint: null };
   }
-  if (at('/frameworks', pathname)) {
+  if (supervises && at('/frameworks', pathname)) {
     return { title: 'Frameworks', parent: null, title_is_h1: false, tint: 'frameworks' };
   }
-  if (at('/frameworks/*', pathname)) {
+  if (supervises && at('/frameworks/*', pathname)) {
     return { title: 'Frameworks', parent: FRAMEWORKS, title_is_h1: false, tint: null };
   }
   // /gigs/:id, /reflections/:id(/submitted), /entries/:id and anything

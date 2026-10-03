@@ -88,7 +88,10 @@ export function AppShell() {
   const [switcher_open, setSwitcherOpen] = useState(false);
   const [leave_open, setLeaveOpen] = useState(false);
   const location = useLocation();
-  const section = section_for(location.pathname);
+  // Same rule as routes.tsx's SupervisorOnly, so the bar never names a
+  // screen the router is about to replace with NotFound.
+  const supervises = me?.participations.some((p) => p.role === 'supervisor') ?? false;
+  const section = section_for(location.pathname, supervises);
 
   function toggle_theme() {
     const next: Theme = theme === 'dark' ? 'light' : 'dark';
