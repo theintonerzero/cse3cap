@@ -82,6 +82,16 @@ jobs:
       - name: Check the design-token check's cases
         run: python3 scripts/check-tokens.test.py
 
+      # The docs still describe the repository: relative links resolve,
+      # ./run commands exist, docs/ is in the README table, the ADR index
+      # matches the records, and the dependency register matches the
+      # lockfiles. The handover audit found every one of these broken by hand.
+      - name: Check the docs checker's cases
+        run: python3 scripts/check-docs.test.py
+
+      - name: Check the docs describe the repository
+        run: python3 scripts/check-docs.py
+
       # Nobody on the team runs Windows day to day, so the PowerShell
       # installer is the one file that can rot unnoticed until a new
       # teammate cannot start. pwsh ships on the GitHub runners.

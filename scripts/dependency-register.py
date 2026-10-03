@@ -19,6 +19,7 @@ one file and touches nothing else.
 """
 
 import datetime
+import hashlib
 import json
 import pathlib
 import subprocess
@@ -117,6 +118,16 @@ def npm_side():
     return packages, direct, advisories
 
 
+def lockfile_hashes(root):
+    """Each lockfile's sha256, so scripts/check-docs.py can tell when this file
+    was generated from lockfiles that have since changed (a Dependabot merge with
+    no ./run deps after it)."""
+    return ", ".join(
+        f"`{name}` sha256 `{hashlib.sha256((root / name).read_bytes()).hexdigest()}`"
+        for name in ("api/composer.lock", "web/package-lock.json")
+    )
+
+
 def is_permissive(expression):
     """An SPDX-style expression: OR means the user may pick any one, AND means all apply."""
     return any(all(part.strip("() ") in PERMISSIVE for part in option.split(" AND "))
@@ -158,6 +169,7 @@ def render(composer, npm):
         "| --- | --- |",
         f"| Generated | {now} |",
         f"| Commit | `{commit}` |",
+        "| Lockfiles | " + lockfile_hashes(ROOT) + " |",
         f"| Tools | {version(['php', '-v']).split(' (')[0]}, {version(['composer', '--version']).split(' 20')[0]}, "
         f"Node {version(['node', '-v'])}, npm {version(['npm', '-v'])} |",
         f"| Packages | {len(c_pkgs)} Composer ({len(c_direct)} direct), {len(n_pkgs)} npm ({len(n_direct)} direct) |",

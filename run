@@ -146,6 +146,11 @@ case "${1:-help}" in
     # network for the two audits. Commit the result.
     deps) need_api; need_web_deps; step python3 scripts/dependency-register.py ;;
 
+    # The docs still describe the repository: links resolve, ./run commands
+    # exist, docs/ is listed in the README, the ADR index matches the records,
+    # and the dependency register matches the lockfiles. No network needed.
+    docs) step python3 scripts/check-docs.py ;;
+
     test)  need_api; in_dir api php artisan test ;;
 
     # The frontend client against real servers, plus the compile-time
@@ -328,6 +333,8 @@ case "${1:-help}" in
         step python3 scripts/guard-docs-location.test.py
         step ./scripts/check-one-rule.sh
         step python3 scripts/check-tokens.test.py
+        step python3 scripts/check-docs.test.py
+        step python3 scripts/check-docs.py
         say "Backend"
         need_api
         in_dir api ./vendor/bin/pint --test
@@ -362,6 +369,7 @@ ${BLUE}Alumable Reflection Diary${RESET}
   ${GREEN}./run web${RESET}      frontend only
   ${GREEN}./run mock${RESET}     mock the contract on :4010, so web needs no backend
   ${GREEN}./run contract-drift${RESET}  schema.ts and Laravel's routes, both against the contract
+  ${GREEN}./run docs${RESET}     the docs still describe the repo: links, commands, ADR index, register
   ${GREEN}./run deps${RESET}     regenerate docs/Dependency-Register.md: licences and advisories
 
   ${GREEN}./run test${RESET}     backend test suite, against your own test database
