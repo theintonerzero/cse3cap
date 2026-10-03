@@ -211,7 +211,9 @@ test.describe('360px: no horizontal overflow (student scenario)', () => {
     // draws it; the gig's own URL says which radar this test is about.
     await page.goto(`/?gig_id=${GIG_ID}`);
 
-    await expect(page.getByRole('heading', { name: 'Your diary' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Reflection Diary' }),
+    ).toBeVisible();
     await expect(page.getByRole('button', { name: 'Export your record' })).toBeVisible();
 
     await expect(page.locator('table caption')).toHaveText(

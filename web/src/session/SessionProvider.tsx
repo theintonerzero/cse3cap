@@ -76,6 +76,20 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setState('no_token');
   }, []);
 
+  // Leave (CAP-38 R3): back to the token screen with every slot kept,
+  // including the one in use. forget empties that slot because a 401 has
+  // said its token is bad; nothing has said so here.
+  const leave = useCallback(() => {
+    set_active_slot(null);
+    setAuthToken(null);
+    setSlots(get_slots());
+    setActiveSlotState(null);
+    setToken(null);
+    setMe(null);
+    setError(null);
+    setState('no_token');
+  }, []);
+
   // A 401 from any request in the app, not just this one. `forget` is a
   // useCallback with an empty dependency array over stable references
   // (module-level imports and useState setters), so its identity never
@@ -176,6 +190,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       sign_in_with,
       switch_to,
       sign_out: forget,
+      leave,
       retry,
     }),
     [
@@ -188,6 +203,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       sign_in_with,
       switch_to,
       forget,
+      leave,
       retry,
     ],
   );

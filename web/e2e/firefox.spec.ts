@@ -102,3 +102,18 @@ test('phone: the radar-as-numbers caption is hidden, not drawn over the chart', 
   });
   expect(painted_is_caption, 'the caption is painted on screen').toBe(false);
 });
+
+test('phone: the bar keeps back, title and name on one row', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  const banner = page.getByRole('banner');
+  const back = (await banner
+    .getByRole('button', { name: 'Leave the Reflection Diary' })
+    .boundingBox())!;
+  const title = (await banner.getByRole('heading', { level: 1 }).boundingBox())!;
+  const name = (await banner.getByText('Ash', { exact: true }).boundingBox())!;
+  const middle = back.y + back.height / 2;
+  for (const box of [title, name]) {
+    expect(Math.abs(box.y + box.height / 2 - middle)).toBeLessThan(12);
+  }
+});

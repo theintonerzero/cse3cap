@@ -13,20 +13,48 @@
   box-shadow: var(--shadow-card);
 }
 
-/* CAP-38: one row on a wide screen -- name, nav, who you are -- and two on a
-   phone, where the nav takes its own line under the name. */
+/* CAP-38 R3: back | section title | who you are. Equal side columns keep
+   the title centred whatever each side holds, and minmax(0, ...) lets a
+   long name shrink instead of pushing the title. The nav pills, when
+   shown, take the row underneath. */
 .bar {
   display: grid;
-  grid-template-columns: auto 1fr auto;
-  grid-template-areas: 'mark nav id';
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-areas:
+    'back title id'
+    'nav nav nav';
   align-items: center;
-  gap: var(--space-8) var(--space-24);
+  gap: var(--space-8) var(--space-12);
   max-width: var(--content-width-list);
   margin: 0 auto;
 }
 
-.wordmark {
-  grid-area: mark;
+.back_slot {
+  grid-area: back;
+  justify-self: start;
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  color: var(--color-text);
+  background: none;
+  border: none;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+}
+
+.back:hover {
+  background: var(--color-surface-alt);
+}
+
+.title {
+  grid-area: title;
+  margin: 0;
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-bold);
   line-height: var(--line-height-tight);
@@ -34,12 +62,15 @@
   white-space: nowrap;
 }
 
+/* A phone has about 21rem for three columns, and the centred title takes
+   eight of them, so the sides tighten and the name drops a size. */
 @media (max-width: 40rem) {
   .bar {
-    grid-template-columns: auto minmax(0, 1fr);
-    grid-template-areas:
-      'mark id'
-      'nav nav';
+    column-gap: var(--space-8);
+  }
+
+  .title {
+    font-size: var(--font-size-base);
   }
 }
 
@@ -77,6 +108,7 @@
 
 .who:focus-visible,
 .theme:focus-visible,
+.back:focus-visible,
 .link:focus-visible {
   outline: var(--border-width-sm) solid var(--color-focus-ring);
   outline-offset: var(--space-4);
@@ -108,6 +140,7 @@
   grid-area: nav;
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: var(--space-8);
 }
 
@@ -146,17 +179,41 @@
   padding: var(--space-24) var(--space-16);
 }
 
-/* A long name wraps inside the header instead of pushing it off a phone
-   screen (CAP-38). */
+/* A long name truncates inside the header instead of pushing it off a
+   phone screen or into the centred title (CAP-38). */
 .identity {
   justify-self: end;
   min-width: 0;
+  max-width: 100%;
 }
 
 .who {
   min-width: 0;
+  max-width: 100%;
 }
 
-.name {
-  overflow-wrap: anywhere;
+.name,
+.roles {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leave_body {
+  margin: 0 0 var(--space-16);
+  color: var(--color-text);
+}
+
+.leave_actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+/* After .name's own rule, so it wins on a phone (see .bar's media query). */
+@media (max-width: 40rem) {
+  .name {
+    font-size: var(--font-size-sm);
+  }
 }

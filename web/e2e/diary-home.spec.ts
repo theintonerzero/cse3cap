@@ -147,7 +147,9 @@ test.describe('a student on two gigs', () => {
     radar_calls,
   }) => {
     await page.goto('/');
-    await expect(page.getByRole('heading', { name: 'Your diary' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Reflection Diary' }),
+    ).toBeVisible();
     await expect(page.getByText('Pick a gig to see its radar.')).toBeVisible();
     await expect(page.locator('table caption')).toHaveCount(0);
     // Both gigs' reflections are still listed: only the radar waits.

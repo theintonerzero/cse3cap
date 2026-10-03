@@ -108,7 +108,6 @@ export function DiaryHome() {
   if (load.status === 'loading') {
     return (
       <section>
-        <h1 className={styles.heading}>Your diary</h1>
         <LoadingState />
       </section>
     );
@@ -117,7 +116,6 @@ export function DiaryHome() {
   if (load.status === 'error') {
     return (
       <section>
-        <h1 className={styles.heading}>Your diary</h1>
         <ErrorNotice error={load.error} on_retry={retry} />
       </section>
     );
@@ -140,7 +138,6 @@ export function DiaryHome() {
   if (mine.length === 0) {
     return (
       <section>
-        <h1 className={styles.heading}>Your diary</h1>
         <NotAStudent display_name={me?.display_name ?? null} />
       </section>
     );
@@ -148,8 +145,8 @@ export function DiaryHome() {
 
   return (
     <section>
+      {/* The page's title is the shell's bar (CAP-38 R3). */}
       <div className={styles.page_head}>
-        <h1 className={styles.heading}>Your diary</h1>
         <Button variant="secondary" full_width={false} on_click={() => setExportOpen(true)}>
           Export your record
         </Button>

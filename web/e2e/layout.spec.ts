@@ -129,8 +129,9 @@ test('an open sheet covers the sticky header', async ({ page }) => {
   await page.getByRole('button', { name: 'History' }).click();
   await expect(page.getByRole('dialog', { name: 'History' })).toBeVisible();
 
-  const nav = page.getByRole('navigation', { name: 'Main' });
-  const box = (await nav.boundingBox())!;
+  // The back link, not the nav: a one-role student has no nav pills (R3).
+  const back = page.getByRole('link', { name: 'Back to Reflection Diary' });
+  const box = (await back.boundingBox())!;
   const on_top = await page.evaluate(
     ([x, y]) => document.elementFromPoint(x, y)?.closest('header') !== null,
     [box.x + box.width / 2, box.y + box.height / 2],
@@ -142,7 +143,9 @@ test('360px: a long display name keeps the header on screen', async ({ page }) =
   await install(page, person(LONG_NAME, 'student'), [gig('student')], [SUBMITTED]);
   await page.setViewportSize({ width: 360, height: 800 });
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Your diary' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Reflection Diary' }),
+  ).toBeVisible();
   expect(await horizontal_overflow(page)).toBe(0);
 });
 
@@ -165,7 +168,8 @@ test('wide screen: gig detail column headings share a baseline', async ({ page }
   await install(page, person('Jane D', 'student'), [gig('student')], [SUBMITTED]);
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto(`/gigs/${GIG}`);
-  await expect(page.getByText('Reflection diary')).toBeVisible();
+  // The card's heading, not the bar's "Reflection Diary" title (R3).
+  await expect(page.getByRole('heading', { name: 'Reflection diary' })).toBeVisible();
 
   const bottoms = await page
     .locator('[class*="rows_head"] > span')

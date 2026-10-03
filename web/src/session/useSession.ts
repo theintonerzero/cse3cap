@@ -51,6 +51,13 @@ export interface Session {
   switch_to: (slot: SlotId) => void;
   /** Forget the active token. What a 401 does, and what the header offers. */
   sign_out: () => void;
+  /**
+   * Step out to the token screen without forgetting anything: the active
+   * slot is deselected and its token kept, so coming back is one tap.
+   * The shell's Leave sheet (CAP-38 R3). Unlike sign_out, nothing here says
+   * the token is bad.
+   */
+  leave: () => void;
   /** Try GET /auth/me again after an error that was not a 401. */
   retry: () => void;
 }

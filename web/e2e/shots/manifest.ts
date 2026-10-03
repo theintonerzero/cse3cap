@@ -218,10 +218,10 @@ export const SHOTS: Shot[] = [
     route: '/',
     viewport: 'desktop',
     state: 'loaded',
-    // Not the "Your diary" h1: that heading renders in the loading branch
-    // too (same <section> wrapper for both), so waiting on it would resolve
-    // the instant the page mounts, before gigs/reflections actually load,
-    // and could screenshot the skeleton under a "loaded" name. This Button
+    // Not the page's h1: the shell's bar renders it in the loading branch
+    // too, so waiting on it would resolve the instant the page mounts,
+    // before gigs/reflections actually load, and could screenshot the
+    // skeleton under a "loaded" name. This Button
     // label only renders once `load.status === 'loaded'` and the caller is
     // a student on at least one gig.
     ready: 'Export your record',

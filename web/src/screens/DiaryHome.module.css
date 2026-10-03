@@ -1,11 +1,3 @@
-.heading {
-  margin: 0 0 var(--space-16);
-  font-size: var(--font-size-xl);
-  line-height: var(--line-height-tight);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text);
-}
-
 .chip_row {
   display: flex;
   flex-wrap: wrap;
@@ -134,19 +126,16 @@
   color: var(--color-text-muted);
 }
 
-/* CAP-38: the title and the page's one action share a row, rather than
-   the action sitting alone at the bottom of a long list. */
+/* CAP-38: the page's one action sits at the top, not alone at the bottom
+   of a long list. R3 moved the title into the shell's bar, so it sits at
+   the end of its own row. */
 .page_head {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: var(--space-12);
   margin-bottom: var(--space-16);
-}
-
-.page_head .heading {
-  margin: 0;
 }
 
 .gig_picker {
