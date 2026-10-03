@@ -2520,7 +2520,8 @@ assigns rubrics. A supervisor also builds them. `RoleResolver::PRECEDENCE` holds
 
 The list scopes agree with it. `Reflection::reviewerExists`, which both `visibleTo` and
 `reviewableBy` use, ignores a reviewer row when the same person is a student on that gig. So
-nobody lists work the policy would answer 404 for.
+nobody lists work the policy would answer 404 for. `/auth/me` lists each gig once, with the
+role `for()` decides, so the nav never offers what the policies refuse.
 
 Independently of the order, `counterScore` refuses the reflection's owner whatever role they
 resolve to. That holds even if the precedence changes later.
@@ -2528,13 +2529,18 @@ resolve to. That holds even if the precedence changes later.
 Consequences:
 Positive:
 The answer no longer depends on row order, and it is written down. A student can never review
-their classmates or themselves through a second row. The list, the queue, the policy and
-`my_role` all give the same answer, which is pinned by `DualRoleTest`. No migration, so
+their classmates or themselves through a second row. The list, the queue, the policy, `my_role`
+and `/auth/me` all give the same answer, which is pinned by `DualRoleTest`. No migration, so
 nothing changes on the shared db.
 
 Negative:
 A person who really is both a student and an assessor on one gig loses the assessor role there
-entirely, silently. Nothing tells them why the review queue is empty. The order among the
+entirely, silently. Nothing tells them why the review queue is empty. It is not quite
+entirely for a supervisor. `FrameworkPolicy::create` asks whether someone supervises anywhere
+(`holdsAnywhere`), not on this gig, so a student and supervisor on one gig can still build a
+rubric but cannot assign one there. A supervisor who is also an employer on one gig resolves as
+the employer, and loses whatever a supervisor alone may do there. Once rubric assignment is
+supervisor only, that means they cannot assign. The order among the
 reviewer roles is our judgement. Nobody asked the client, and if Alumable means an employer to
 outrank a supervisor, this is wrong for them. It also quietly treats a data shape as supported
 that the product never designed for, which may hide a data problem that ought to be loud.

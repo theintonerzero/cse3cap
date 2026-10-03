@@ -128,6 +128,19 @@ class DualRoleTest extends TestCase
         ])->assertStatus(201);
     }
 
+    public function test_auth_me_lists_a_dual_role_gig_once_as_student(): void
+    {
+        Sanctum::actingAs($this->dual);
+
+        $rows = collect($this->getJson('/api/v1/auth/me')->assertOk()->json('participations'))
+            ->where('gig_id', $this->gig->id)->values();
+
+        // The nav is built from these. A second, reviewer row would offer
+        // a review queue and a rubric picker the server then refuses.
+        $this->assertCount(1, $rows);
+        $this->assertSame('student', $rows[0]['role']);
+    }
+
     public function test_my_role_is_student_for_a_dual_role_user(): void
     {
         Sanctum::actingAs($this->dual);
