@@ -13,7 +13,7 @@
  * Scope lives in the URL (ADR #27). Everything that decides what a scope
  * means is in diary-scope.ts, deliberately free of React.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 
 import { api, ApiError } from '../api/client.ts';
@@ -44,6 +44,7 @@ import {
   type Gig,
   type ReflectionSummary,
   type Scope,
+  type Sprint,
 } from './diary-scope.ts';
 import styles from './DiaryHome.module.css';
 import { ExportSheet } from './ExportSheet.tsx';
@@ -330,83 +331,165 @@ function ScopeChips({
 
   return (
     <div>
-      {/* A dropdown, not a chip per gig (CAP-38): a row of chips grows a
-          line per gig on a phone, and a long title wraps inside its pill.
-          A native select scales to any number of gigs and opens the phone's
-          own picker. Same on_select either way, so the URL is unchanged. */}
-      <div className={styles.gig_picker}>
-        <Select
-          id="diary-gig"
-          label="Gig"
-          value={scope.gig_id ?? ''}
-          on_change={(value) =>
-            on_select(value === '' ? ALL_GIGS : { gig_id: value, sprint_id: null })
-          }
-        >
-          <option value="">All gigs</option>
-          {gigs.map((candidate) => (
-            <option key={candidate.id} value={candidate.id}>
-              {candidate.title}
-            </option>
-          ))}
-        </Select>
-      </div>
-
-      {gig && sprints.length > 0 && (
-        <div className={styles.chip_row} role="group" aria-label="Sprint">
-          <Chip
-            selected={scope.sprint_id === null}
-            on_click={() => on_select({ gig_id: gig.id, sprint_id: null })}
+      <div className={styles.picker_row}>
+        {/* A dropdown, not a chip per gig (CAP-38): a row of chips grows a
+            line per gig on a phone, and a long title wraps inside its pill.
+            A native select scales to any number of gigs and opens the phone's
+            own picker. Same on_select either way, so the URL is unchanged. */}
+        <div className={styles.gig_picker}>
+          <Select
+            id="diary-gig"
+            label="Gig"
+            value={scope.gig_id ?? ''}
+            on_change={(value) =>
+              on_select(value === '' ? ALL_GIGS : { gig_id: value, sprint_id: null })
+            }
           >
-            All sprints
-          </Chip>
-          {sprints.map((sprint) => (
-            <Chip
-              key={sprint.id}
-              selected={scope.sprint_id === sprint.id}
-              on_click={() => on_select({ gig_id: gig.id, sprint_id: sprint.id })}
-            >
-              Sprint {sprint.ordinal}
-            </Chip>
-          ))}
+            <option value="">All gigs</option>
+            {gigs.map((candidate) => (
+              <option key={candidate.id} value={candidate.id}>
+                {candidate.title}
+              </option>
+            ))}
+          </Select>
         </div>
-      )}
 
-      {/*
-       * The only way into the gig detail screen (CAP-8) from anywhere a
-       * student actually goes. It cannot live on a list row: the row is
-       * already a Link to a reflection, and a link inside a link is
-       * invalid markup and unusable with a screen reader. It cannot live
-       * in the nav either, because /gigs/:gig_id needs an id and the nav
-       * has no single gig to name. It belongs here because this is where
-       * "one gig is in scope" becomes true, and it closes the loop -- the
-       * gig screen links into the scoped diary, this comes back.
-       *
-       * CAP-3's Button rather than a styled link, and "Gig details"
-       * rather than a sentence: it is a destination the student chooses,
-       * and it sits beside the export Button, which is the same kind of
-       * control. Styling an anchor to look like a button would be a
-       * second button in the codebase, which is how the two drift. The
-       * cost is that it cannot be opened in a new tab -- the same cost
-       * the export Button already pays.
-       *
-       * Absent under "All gigs", which addresses no single gig. A brand
-       * new student with nothing written reaches the same screen through
-       * NothingWritten below, which has linked there since CAP-7 -- but
-       * only while they have written nothing, which is why that link is
-       * not enough on its own.
-       */}
-      {gig && (
-        <p className={styles.about_gig}>
+        {/*
+         * The only way into the gig detail screen (CAP-8) from anywhere a
+         * student actually goes. It cannot live on a list row: the row is
+         * already a Link to a reflection, and a link inside a link is
+         * invalid markup and unusable with a screen reader. It cannot live
+         * in the nav either, because /gigs/:gig_id needs an id and the nav
+         * has no single gig to name. It belongs here because this is where
+         * "one gig is in scope" becomes true, and it closes the loop -- the
+         * gig screen links into the scoped diary, this comes back.
+         *
+         * It now sits on the picker's row (CAP-38 R6), small and at the
+         * select's height, so choosing a gig puts it beside the choice
+         * rather than adding a line under the chips. Still CAP-3's Button
+         * rather than a styled link, and "Gig details" rather than a
+         * sentence: it is a destination the student chooses, and styling
+         * an anchor to look like a button would be a second button in the
+         * codebase, which is how the two drift. The cost is that it cannot
+         * be opened in a new tab.
+         *
+         * Absent under "All gigs", which addresses no single gig. A brand
+         * new student with nothing written reaches the same screen through
+         * NothingWritten below, which has linked there since CAP-7 -- but
+         * only while they have written nothing, which is why that link is
+         * not enough on its own.
+         */}
+        {gig && (
           <Button
             variant="secondary"
+            size="sm"
             full_width={false}
             on_click={() => navigate(`/gigs/${gig.id}`)}
           >
-            Gig details
+            Gig details ›
           </Button>
-        </p>
-      )}
+        )}
+      </div>
+
+      {/* Always exactly one line tall, so choosing a gig moves nothing
+          below it (CAP-38 R6). */}
+      <div className={styles.sprint_slot}>
+        {!gig && <p className={styles.sprint_hint}>Pick a gig to filter by sprint</p>}
+        {gig && sprints.length === 0 && (
+          <p className={styles.sprint_hint}>No sprint has opened yet</p>
+        )}
+        {gig && sprints.length > 0 && (
+          // Keyed by gig: a new gig is a new row, scrolled to its own selection
+          // and measured afresh, even when the sprint count is the same.
+          <SprintChips
+            key={gig.id}
+            gig={gig}
+            sprints={sprints}
+            scope={scope}
+            on_select={on_select}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The sprint chips on one scrolling line. The right-edge fade says "there is
+ * more this way", so it is on only while that is true: the row overflows and
+ * is not already scrolled to its end. Measured on render, on resize and on
+ * the row's own scroll, because a fade over a row with nothing further would
+ * dim its last chip for no reason (CAP-38 R6-b).
+ *
+ * The selected chip is kept in view too: a deep link to Sprint 8 must not
+ * open on a row that has scrolled it away. The row's own scrollLeft is set,
+ * rather than calling scrollIntoView, which may also scroll the page.
+ */
+function SprintChips({
+  gig,
+  sprints,
+  scope,
+  on_select,
+}: {
+  gig: Gig;
+  sprints: Sprint[];
+  scope: Scope;
+  on_select: (next: Scope) => void;
+}) {
+  const row = useRef<HTMLDivElement>(null);
+  const [more_to_the_right, setMoreToTheRight] = useState(false);
+
+  useLayoutEffect(() => {
+    const node = row.current;
+    if (!node) return;
+
+    const selected = node.querySelector<HTMLElement>('[aria-pressed="true"]');
+    if (selected) {
+      const edge = parseFloat(getComputedStyle(node).paddingLeft) || 0;
+      const box = node.getBoundingClientRect();
+      const chip = selected.getBoundingClientRect();
+      if (chip.left < box.left + edge) {
+        node.scrollLeft += chip.left - box.left - edge;
+      } else if (chip.right > box.right - edge) {
+        node.scrollLeft += chip.right - box.right + edge;
+      }
+    }
+
+    const measure = () =>
+      setMoreToTheRight(node.scrollLeft + node.clientWidth < node.scrollWidth - 1);
+    measure();
+    window.addEventListener('resize', measure);
+    node.addEventListener('scroll', measure, { passive: true });
+    return () => {
+      window.removeEventListener('resize', measure);
+      node.removeEventListener('scroll', measure);
+    };
+  }, [sprints.length, scope.sprint_id]);
+
+  return (
+    <div
+      ref={row}
+      className={
+        more_to_the_right ? `${styles.chip_line} ${styles.fades}` : styles.chip_line
+      }
+      role="group"
+      aria-label="Sprint"
+    >
+      <Chip
+        selected={scope.sprint_id === null}
+        on_click={() => on_select({ gig_id: gig.id, sprint_id: null })}
+      >
+        All sprints
+      </Chip>
+      {sprints.map((sprint) => (
+        <Chip
+          key={sprint.id}
+          selected={scope.sprint_id === sprint.id}
+          on_click={() => on_select({ gig_id: gig.id, sprint_id: sprint.id })}
+        >
+          Sprint {sprint.ordinal}
+        </Chip>
+      ))}
     </div>
   );
 }

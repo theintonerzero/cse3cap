@@ -53,3 +53,10 @@
   outline: 0.125rem solid var(--color-focus-ring);
   outline-offset: 0.0625rem;
 }
+
+/* CAP-38 R6: a compact button that sits beside a Select at the same
+   height (Select's min-height is 2.75rem too), with small text. */
+.sm {
+  padding: var(--space-8) var(--space-12);
+  font-size: var(--font-size-sm);
+}

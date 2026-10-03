@@ -148,6 +148,17 @@ export default function Gallery() {
             Back (disabled)
           </Button>
           <Button full_width={false}>Inline width</Button>
+          {/* CAP-38 R6: sizes, both variants. */}
+          <Button full_width={false}>Medium</Button>
+          <Button full_width={false} size="sm">
+            Small
+          </Button>
+          <Button full_width={false} variant="secondary">
+            Medium
+          </Button>
+          <Button full_width={false} variant="secondary" size="sm">
+            Small
+          </Button>
         </div>
       </Section>
       <Section title="LinkButton">
