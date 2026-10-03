@@ -76,7 +76,17 @@ class Reflection extends Model
             ->from('gig_participants')
             ->whereColumn('gig_participants.gig_id', 'reflections.gig_id')
             ->where('gig_participants.user_id', $user->id)
-            ->whereIn('gig_participants.role', RoleResolver::REVIEWER_ROLES);
+            ->whereIn('gig_participants.role', RoleResolver::REVIEWER_ROLES)
+            // A student on the gig is a student there, whatever else they
+            // hold (ADR #47, RoleResolver::PRECEDENCE). Without this a
+            // dual-role user would list classmates' reflections that the
+            // policy then answers 404 for.
+            ->whereNotExists(fn (QueryBuilder $student) => $student
+                ->selectRaw('1')
+                ->from('gig_participants as as_student')
+                ->whereColumn('as_student.gig_id', 'gig_participants.gig_id')
+                ->whereColumn('as_student.user_id', 'gig_participants.user_id')
+                ->where('as_student.role', 'student'));
     }
 
     public function owner(): BelongsTo

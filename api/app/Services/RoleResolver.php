@@ -32,6 +32,18 @@ class RoleResolver
      */
     public const REVIEWER_ROLES = ['assessor', 'supervisor', 'employer'];
 
+    /**
+     * When one person holds several roles on a gig, the least-privileged
+     * wins (ADR #47). One role per person per gig is the model, and the
+     * schema allows more only because Alumable supplies participants. The
+     * order makes the answer the same every time, instead of whichever row
+     * the index returns first. Among the reviewers: an assessor scores, an
+     * employer also assigns rubrics, a supervisor also builds them.
+     *
+     * @var list<string>
+     */
+    public const PRECEDENCE = ['student', 'assessor', 'employer', 'supervisor'];
+
     /** @var array<string, string|null> */
     private array $memo = [];
 
@@ -41,6 +53,13 @@ class RoleResolver
 
         return $this->memo[$key] ??= $gig->participants()
             ->where('user_id', $user->id)
+            ->orderByRaw(
+                'CASE role '.implode(' ', array_map(
+                    fn (int $rank) => "WHEN ? THEN {$rank}",
+                    array_keys(self::PRECEDENCE),
+                )).' END',
+                self::PRECEDENCE,
+            )
             ->value('role');
     }
 
