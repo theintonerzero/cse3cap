@@ -318,3 +318,20 @@ test.describe('section tint', () => {
     await expect(page.locator('[data-section="frameworks"]')).toHaveCount(1);
   });
 });
+
+test('with no nav pills the bar sits evenly in the header', async ({ page }) => {
+  await install(page, 'Ash');
+  await page.setViewportSize({ width: 390, height: 800 });
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  const gaps = await page.getByRole('banner').evaluate((header) => {
+    const outer = header.getBoundingClientRect();
+    const items = [...header.querySelectorAll('h1, button, a')].map((el) =>
+      el.getBoundingClientRect(),
+    );
+    const top = Math.min(...items.map((r) => r.top));
+    const bottom = Math.max(...items.map((r) => r.bottom));
+    return { above: top - outer.top, below: outer.bottom - bottom };
+  });
+  expect(Math.abs(gaps.above - gaps.below), JSON.stringify(gaps)).toBeLessThanOrEqual(1.5);
+});

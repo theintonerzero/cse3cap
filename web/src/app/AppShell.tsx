@@ -132,7 +132,9 @@ export function AppShell() {
   return (
     <div className={styles.shell} data-section={section.tint ?? undefined}>
       <header className={styles.header}>
-        <div className={styles.bar}>
+        <div
+          className={items.length >= 2 ? styles.bar : `${styles.bar} ${styles.single_row}`}
+        >
           <div className={styles.back_slot}>
             {section.parent ? (
               <Link

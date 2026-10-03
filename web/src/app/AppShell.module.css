@@ -29,6 +29,12 @@
   margin: 0 auto;
 }
 
+/* No pills, no second row: an empty row would still take the row gap and
+   leave more space under the bar than over it (round 2b). */
+.single_row {
+  grid-template-areas: 'back title id';
+}
+
 .back_slot {
   grid-area: back;
   justify-self: start;
