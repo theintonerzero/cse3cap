@@ -259,11 +259,13 @@ class FrameworkMutationTest extends TestCase
     }
 
     /**
-     * The matrix gives this row to a supervisor or an employer. Nothing in
-     * the seed carries an employer, so this is the only place that role is
-     * exercised against this endpoint at all.
+     * ADR #17 keeps employers out of the rubric: they are external to the
+     * university. ADR #48 says that covers choosing one, not only writing
+     * one. The employer can see the gig, so this is 403 rather than 404.
+     * Nothing in the seed carries an employer, so this is the only place
+     * that role is exercised against this endpoint at all.
      */
-    public function test_an_employer_can_also_assign_a_framework_to_their_gig(): void
+    public function test_an_employer_cannot_assign_a_framework_to_their_gig(): void
     {
         $lee = $this->actAsSupervisor();
         $copy = $this->copyFor($lee);
@@ -275,7 +277,9 @@ class FrameworkMutationTest extends TestCase
         $this->postJson('/api/v1/framework-assignments', [
             'framework_id' => $copy->id,
             'gig_id' => $gig->id,
-        ])->assertStatus(201)->assertJsonPath('framework_id', $copy->id);
+        ])->assertStatus(403)->assertJsonPath('error.code', 'ROLE_FORBIDDEN');
+
+        $this->assertNull($gig->fresh()->assignment);
     }
 
     public function test_assigning_the_same_framework_twice_is_a_conflict(): void

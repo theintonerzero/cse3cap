@@ -55,9 +55,11 @@ class GigPolicy
     }
 
     /**
-     * Which rubric this gig is scored against. Supervisor or employer,
-     * same as the matrix row -- a student or an assessor can see the gig
-     * but has no business changing what it is scored against.
+     * Which rubric this gig is scored against. Supervisor only, same as
+     * the matrix row. The supervisor is the educator (ADR #17), and
+     * choosing the rubric is part of the framework boundary that ADR #17
+     * keeps from employers, who are external to the university (ADR #48).
+     * Everyone else on the gig can see it, so they get 403, not 404.
      */
     public function assignFramework(User $user, Gig $gig): Response
     {
@@ -67,8 +69,8 @@ class GigPolicy
             return Response::denyAsNotFound();
         }
 
-        return in_array($role, ['supervisor', 'employer'], true)
+        return $role === 'supervisor'
             ? Response::allow()
-            : Response::deny('Only a supervisor or employer can assign this gig\'s framework.');
+            : Response::deny('Only a supervisor can assign this gig\'s framework.');
     }
 }

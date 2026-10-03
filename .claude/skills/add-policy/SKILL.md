@@ -36,7 +36,7 @@ method. If your endpoint is not covered by a row, add the row first, then the po
 | view a reflection | own | their gigs | their gigs | their gigs |
 | counter-score, review queue | - | yes | yes | yes |
 | create/edit frameworks (own copies, not in use) | - | - | yes | - |
-| assign framework to gig | - | - | yes | yes |
+| assign framework to gig | - | - | yes | - |
 | analytics and export | own | own | own | own |
 
 Supervisor covers the educator screens. There is no separate educator role.

@@ -16,7 +16,15 @@
  *
  * Every route is reachable by URL regardless of what the nav shows. That is
  * on purpose. Hiding a nav item is a convenience; the 403 is the rule.
+ *
+ * The framework screens are the one exception, and only for display. They
+ * are the supervisor's (ADR #17, ADR #48): everything on them, copying a
+ * rubric and assigning one, is refused by the server for anyone else. So
+ * someone who supervises no gig gets NotFound there instead of a screen
+ * made of buttons that 403. The server still decides; this decides only
+ * what is drawn.
  */
+import type { ReactNode } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
 
 import { DiaryHome } from '../screens/DiaryHome.tsx';
@@ -45,6 +53,19 @@ function Home() {
     return <Navigate to="/review-queue" replace />;
   }
   return <DiaryHome />;
+}
+
+/**
+ * The framework screens, for someone who supervises at least one gig, which
+ * is the same test the nav uses for its Frameworks link. Anyone else gets
+ * NotFound, and the screen never mounts, so its requests are never sent.
+ */
+function SupervisorOnly({ children }: { children: ReactNode }) {
+  const { me } = useSession();
+  const supervises = me?.participations.some(
+    (participation) => participation.role === 'supervisor',
+  );
+  return supervises ? children : <NotFound />;
 }
 
 export function AppRoutes() {
@@ -78,9 +99,23 @@ export function AppRoutes() {
           element={<EntryStepper mode="assessor" />}
         />
 
-        <Route path="frameworks" element={<SelectFramework />} />
+        <Route
+          path="frameworks"
+          element={
+            <SupervisorOnly>
+              <SelectFramework />
+            </SupervisorOnly>
+          }
+        />
 
-        <Route path="frameworks/:framework_id/edit" element={<EditFramework />} />
+        <Route
+          path="frameworks/:framework_id/edit"
+          element={
+            <SupervisorOnly>
+              <EditFramework />
+            </SupervisorOnly>
+          }
+        />
 
         <Route path="*" element={<NotFound />} />
       </Route>

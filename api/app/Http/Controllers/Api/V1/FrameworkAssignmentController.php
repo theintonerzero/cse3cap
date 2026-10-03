@@ -18,7 +18,7 @@ class FrameworkAssignmentController extends Controller
 
     /**
      * Which rubric a gig is scored against. The permission matrix gives
-     * this to a supervisor or an employer, and to nobody else.
+     * this to a supervisor and to nobody else (ADR #48).
      *
      * A gig takes one rubric. ak_fw_assignments enforces it and
      * FrameworkAssigner explains it; both surface as the same
