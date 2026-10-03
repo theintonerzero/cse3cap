@@ -37,7 +37,6 @@ import {
   ALL_GIGS,
   chippable_sprints,
   params_for_scope,
-  radar_caption,
   reflections_in_scope,
   rubric_line,
   scored_by,
@@ -240,7 +239,7 @@ function DownloadIcon() {
  * gives it a `key` built from the same two. Both are deliberate: the ids
  * are stable values an effect can depend on honestly, where a fresh
  * `{ gig_id, sprint_id }` object every render could not be, and the key
- * remounts this on a scope change so the caption and the polygon are never
+ * remounts this on a scope change so the "Scored by" line and the polygon are never
  * momentarily describing different things -- which is the exact ambiguity
  * criterion 2 exists to remove.
  */
@@ -259,7 +258,6 @@ function ScopedRadar({
   // optional read: without it the radar simply does not say.
   const [participants, setParticipants] = useState<Participant[]>([]);
   const named_gig = gig_id ?? (gigs.length === 1 ? gigs[0].id : null);
-  const scope: Scope = { gig_id, sprint_id };
 
   useEffect(() => {
     const controller = new AbortController();
@@ -318,10 +316,9 @@ function ScopedRadar({
 
   return (
     <div className={styles.radar_block}>
-      <div className={styles.radar_head}>
-        <p className={styles.caption}>{radar_caption(scope, gigs)}</p>
-        {by && <p className={styles.scored_by}>{by}</p>}
-      </div>
+      {/* Who scored it, in the place a scope label used to take: the picker
+          and the highlighted chip already say what is drawn (round 2b). */}
+      {by && <p className={styles.scored_by}>{by}</p>}
       <RadarPanel
         state="loaded"
         scale={{

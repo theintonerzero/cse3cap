@@ -109,22 +109,6 @@ export function reflections_in_scope(
 }
 
 /**
- * The label over the radar. The gig picker already names the gig and the
- * legend names whose polygon is whose, so this only says which scores are
- * drawn (CAP-38 R2): the latest per competency across a gig, or one
- * sprint's, which is the true self-against-counter comparison of the same
- * piece of work. With no gig in scope the screen shows the "Pick a gig"
- * prompt instead, except for a one-gig student, whose "all" is that gig.
- */
-export function radar_caption(scope: Scope, gigs: Gig[]): string {
-  const gig = gigs.find((candidate) => candidate.id === scope.gig_id);
-  if (!gig || !scope.sprint_id) return 'Latest scores';
-
-  const sprint = gig.sprints.find((candidate) => candidate.id === scope.sprint_id);
-  return sprint ? `Sprint ${sprint.ordinal} only` : 'This sprint only';
-}
-
-/**
  * Who gave the counter-scores the radar is drawing, in a few words
  * (round 2b, Patrick): "Scored by Sam O". The radar names only the role
  * that scored each axis (counter_role), so the name comes from the gig's

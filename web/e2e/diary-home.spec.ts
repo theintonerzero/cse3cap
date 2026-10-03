@@ -185,17 +185,21 @@ test.describe('a student on two gigs', () => {
     await expect(page).toHaveURL(new RegExp(`sprint_id=${SPRINT_TWO}`));
   });
 
-  test('the radar label says what is drawn, in two words', async ({ page }) => {
+  // Round 2b (Patrick): the picker and the highlighted chip already say
+  // what the radar draws, so it carries no scope label of its own.
+  test('the radar has no scope label, for a gig or a sprint', async ({ page }) => {
     await page.goto('/');
     await page.getByLabel('Gig').selectOption({ label: 'Gig one' });
-    await expect(page.getByText('Latest scores', { exact: true })).toBeVisible();
+    await expect(page.getByText(/^Levels 1–4 on E2E diary rubric/)).toBeVisible();
+    await expect(page.getByText('Latest scores', { exact: true })).toHaveCount(0);
 
     await page
       .getByRole('group', { name: 'Sprint' })
       .getByRole('button', { name: 'Sprint 1' })
       .click();
-    await expect(page.getByText('Sprint 1 only', { exact: true })).toBeVisible();
-    await expect(page.getByText(/on that sprint alone/)).toHaveCount(0);
+    await expect(page).toHaveURL(new RegExp(`sprint_id=${SPRINT_ONE}`));
+    await expect(page.getByText(/^Levels 1–4 on E2E diary rubric/)).toBeVisible();
+    await expect(page.getByText('Sprint 1 only', { exact: true })).toHaveCount(0);
   });
 });
 
@@ -209,9 +213,10 @@ test.describe('a student on one gig', () => {
     expect(radar_calls()).toBeGreaterThan(0);
   });
 
-  test('under All gigs the radar is labelled Latest scores', async ({ page }) => {
+  test('under All gigs the radar has no scope label either', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByText('Latest scores', { exact: true })).toBeVisible();
+    await expect(page.getByText(/^Levels 1–4 on E2E diary rubric/)).toBeVisible();
+    await expect(page.getByText('Latest scores', { exact: true })).toHaveCount(0);
   });
 });
 
@@ -224,8 +229,13 @@ test.describe('who scored it', () => {
 
     test('the radar says "Scored by" and their name', async ({ page }) => {
       await page.goto('/');
-      await expect(page.getByText('Latest scores', { exact: true })).toBeVisible();
-      await expect(page.getByText('Scored by Sam O', { exact: true })).toBeVisible();
+      await expect(page.getByText(/^Levels 1–4 on E2E diary rubric/)).toBeVisible();
+      const by = page.getByText('Scored by Sam O', { exact: true });
+      await expect(by).toBeVisible();
+      // It takes the label's old place: the first thing in the radar card.
+      const card = (await page.locator('[class*="radar_block"]').first().boundingBox())!;
+      const line = (await by.boundingBox())!;
+      expect(line.x - card.x, 'from the card edge').toBeLessThanOrEqual(24);
     });
 
     test('nothing is said before anyone has counter-scored', async ({ page }) => {
@@ -244,7 +254,7 @@ test.describe('who scored it', () => {
         }),
       );
       await page.goto('/');
-      await expect(page.getByText('Latest scores', { exact: true })).toBeVisible();
+      await expect(page.getByText(/^Levels 1–4 on E2E diary rubric/)).toBeVisible();
       await expect(page.getByText(/^Scored by/)).toHaveCount(0);
     });
   });
@@ -271,7 +281,7 @@ test.describe('coming back to the diary', () => {
       .getByRole('group', { name: 'Sprint' })
       .getByRole('button', { name: 'Sprint 1' })
       .click();
-    await expect(page.getByText('Sprint 1 only', { exact: true })).toBeVisible();
+    await expect(page.getByText(/^Levels 1–4 on E2E diary rubric/)).toBeVisible();
 
     await page
       .getByRole('link', { name: /Sprint 1/ })
@@ -285,6 +295,6 @@ test.describe('coming back to the diary', () => {
 
     await expect(page).toHaveURL(new RegExp(`gig_id=${GIG_TWO}`));
     await expect(page).toHaveURL(new RegExp(`sprint_id=${SPRINT_TWO}`));
-    await expect(page.getByText('Sprint 1 only', { exact: true })).toBeVisible();
+    await expect(page.getByText(/^Levels 1–4 on E2E diary rubric/)).toBeVisible();
   });
 });
