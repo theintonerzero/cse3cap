@@ -39,6 +39,7 @@ import {
   params_for_scope,
   reflections_in_scope,
   rubric_line,
+  named_gig,
   scored_by,
   scope_from_params,
   student_gigs,
@@ -99,6 +100,27 @@ export function DiaryHome() {
     setLoad({ status: 'loading' });
     setReloadKey((key) => key + 1);
   }, []);
+
+  // Who is on each gig, to name whoever counter-scored (round 2b). Read
+  // once per gig here rather than in ScopedRadar, which remounts on every
+  // chip. An optional read: until it lands, or if it fails, nothing is said.
+  const [participants, setParticipants] = useState<Record<string, Participant[]>>({});
+  const scored_gig =
+    load.status === 'loaded'
+      ? named_gig(scope_from_params(params, load.gigs), load.gigs)
+      : null;
+  const known = scored_gig !== null && scored_gig in participants;
+  useEffect(() => {
+    if (!scored_gig || known) return;
+    const controller = new AbortController();
+    api
+      .get('/gigs/{gig_id}', { path: { gig_id: scored_gig }, signal: controller.signal })
+      .then((gig) =>
+        setParticipants((seen) => ({ ...seen, [scored_gig]: gig.participants })),
+      )
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [scored_gig, known]);
 
   // The shell's "back to the diary" returns to this scope (round 2b).
   const me_id = me?.id ?? null;
@@ -186,6 +208,7 @@ export function DiaryHome() {
               gig_id={scope.gig_id}
               sprint_id={scope.sprint_id}
               gigs={mine}
+              participants={scored_gig ? (participants[scored_gig] ?? null) : null}
             />
           )}
           <ReflectionList rows={rows} show_gig={scope.gig_id === null} gigs={mine} />
@@ -247,17 +270,16 @@ function ScopedRadar({
   gig_id,
   sprint_id,
   gigs,
+  participants,
 }: {
   gig_id: string | null;
   sprint_id: string | null;
   gigs: Gig[];
+  /** Who is on the gig; null until known, and then "Scored by" says nothing. */
+  participants: Participant[] | null;
 }) {
   const [load, setLoad] = useState<RadarLoad>({ status: 'loading' });
   const [reload_key, setReloadKey] = useState(0);
-  // Who is on the gig, to name whoever counter-scored (round 2b). An
-  // optional read: without it the radar simply does not say.
-  const [participants, setParticipants] = useState<Participant[]>([]);
-  const named_gig = gig_id ?? (gigs.length === 1 ? gigs[0].id : null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -280,16 +302,6 @@ function ScopedRadar({
 
     return () => controller.abort();
   }, [gig_id, sprint_id, reload_key]);
-
-  useEffect(() => {
-    if (!named_gig) return;
-    const controller = new AbortController();
-    api
-      .get('/gigs/{gig_id}', { path: { gig_id: named_gig }, signal: controller.signal })
-      .then((gig) => setParticipants(gig.participants))
-      .catch(() => undefined);
-    return () => controller.abort();
-  }, [named_gig]);
 
   const retry = useCallback(() => {
     setLoad({ status: 'loading' });

@@ -2,9 +2,9 @@
  * Everything the diary home decides about scope, with no React in it.
  *
  * Split out so the screen file stays a screen: the parts worth reading
- * twice -- what a URL means, which rows are actually yours, and what the
- * caption under the radar should say -- are all here, in functions that
- * take their inputs and return a value.
+ * twice -- what a URL means, which rows are actually yours, and who the
+ * radar says scored it -- are all here, in functions that take their
+ * inputs and return a value.
  *
  * Scope lives in the URL (ADR #27), so every one of these is a pure
  * function of the query string and the payloads, which is what makes a
@@ -115,12 +115,25 @@ export function reflections_in_scope(
  * participants. It is only ever a name when exactly one person on the gig
  * holds that role; with two it says "your assessors" rather than guess, and
  * with no counter-score yet it says nothing (RadarPanel already says it is
- * awaited).
+ * awaited). Null participants means not known (yet, or the read failed),
+ * which also says nothing: a guess at the plural would be wrong for a gig
+ * with one assessor.
  */
+/**
+ * The gig whose people "Scored by" names: the one in scope, or a one-gig
+ * student's only gig, whose "All gigs" is that gig. Null under "All gigs"
+ * with two or more, where there is no radar to label.
+ */
+export function named_gig(scope: Scope, gigs: Gig[]): string | null {
+  const mine = student_gigs(gigs);
+  return scope.gig_id ?? (mine.length === 1 ? mine[0].id : null);
+}
+
 export function scored_by(
   counter_roles: (string | null)[],
-  participants: Participant[],
+  participants: Participant[] | null,
 ): string | null {
+  if (participants === null) return null;
   const roles = [...new Set(counter_roles.filter((role): role is string => role !== null))];
   if (roles.length === 0) return null;
 

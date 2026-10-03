@@ -259,6 +259,50 @@ test.describe('who scored it', () => {
     });
   });
 
+  test.describe('one assessor, and the gig is slow or fails to load', () => {
+    test.use({ gigs: [{ ...ONE, participants: [...ONE.participants, SAM] }] });
+    const FOOT = /^Levels 1–4 on E2E diary rubric/;
+
+    test('a slow gig read never shows "your assessors" in the meantime', async ({
+      page,
+    }) => {
+      await page.route(`**/api/v1/gigs/${GIG_ONE}`, async (route) => {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        await route.fallback();
+      });
+      await page.goto('/');
+      await expect(page.getByText(FOOT)).toBeVisible();
+      // Read once, without retrying: the wrong wording would only be there
+      // until the slow read lands.
+      expect(await page.getByText('Scored by your assessors').count()).toBe(0);
+      await expect(page.getByText('Scored by Sam O', { exact: true })).toBeVisible();
+    });
+
+    test('a failed gig read leaves the line off', async ({ page }) => {
+      await page.route(`**/api/v1/gigs/${GIG_ONE}`, (route) => route.abort('failed'));
+      await page.goto('/');
+      await expect(page.getByText(FOOT)).toBeVisible();
+      await expect(page.getByText(/^Scored by/)).toHaveCount(0);
+    });
+
+    test('a sprint chip does not read the gig again', async ({ page }) => {
+      let reads = 0;
+      page.on('request', (request) => {
+        if (request.url().endsWith(`/api/v1/gigs/${GIG_ONE}`)) reads += 1;
+      });
+      await page.goto(`/?gig_id=${GIG_ONE}`);
+      await expect(page.getByText('Scored by Sam O', { exact: true })).toBeVisible();
+      const before = reads;
+      await page
+        .getByRole('group', { name: 'Sprint' })
+        .getByRole('button', { name: 'Sprint 1' })
+        .click();
+      await expect(page).toHaveURL(new RegExp(`sprint_id=${SPRINT_ONE}`));
+      await expect(page.getByText('Scored by Sam O', { exact: true })).toBeVisible();
+      expect(reads, 'gig reads after the chip').toBe(before);
+    });
+  });
+
   test.describe('two assessors on the gig', () => {
     test.use({ gigs: [{ ...ONE, participants: [...ONE.participants, SAM, KIM] }] });
 
