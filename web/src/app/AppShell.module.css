@@ -61,7 +61,7 @@
 .title {
   grid-area: title;
   margin: 0;
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-title);
   font-weight: var(--font-weight-bold);
   line-height: var(--line-height-tight);
   color: var(--color-text);
@@ -69,14 +69,10 @@
 }
 
 /* A phone has about 21rem for three columns, and the centred title takes
-   eight of them, so the sides tighten and the name drops a size. */
+   about ten of them, so the sides tighten and the name drops a size. */
 @media (max-width: 40rem) {
   .bar {
     column-gap: var(--space-8);
-  }
-
-  .title {
-    font-size: var(--font-size-base);
   }
 }
 

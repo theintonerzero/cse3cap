@@ -166,6 +166,9 @@
   --font-size-sm: 13px;
   --font-size-base: 15px;
   --font-size-lg: 17px;
+  /* Round 2b, ADR #49: the app bar's title, measured off Alumable's bar
+     (about 1.3x body text). The one step between lg and xl. */
+  --font-size-title: 20px;
   --font-size-xl: 22px;
   --font-size-2xl: 30px;
   --font-size-3xl: 36px;

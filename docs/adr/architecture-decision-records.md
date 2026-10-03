@@ -54,6 +54,7 @@ Index
 #44 Type, line height and control shape leave Figma . Proposed
 #47 One Firefox check beside the Chromium suite .. Proposed
 #48 Section tints on the top screens ............. Proposed
+#49 A 20px title step for the app bar ............ Proposed
 
 ===============================================================
 
@@ -2366,3 +2367,43 @@ the wash that dark mode can't carry.
 
 Leave the sections to the top bar title. No colour risk and nothing to maintain, but it
 leaves the diary and the review queue looking like the same page with different cards.
+
+
+ADR #49: A 20px title step for the app bar
+Status: Proposed
+Date: 2026-10-03
+
+Context:
+ADR #44 set the type scale: xs 12, sm 13, base 15, lg 17, xl 22, 2xl 30, 3xl 36. CAP-38's
+second round gave the app a top bar with the section's name centred in it, at lg on a
+desktop and base on a phone, where it had to share three columns with a back arrow and the
+user's name.
+
+Patrick reviewed it on his phone and found the bar title too small. Measured against the
+body text in the same Alumable screenshots, Alumable's own bar titles ("My Gig",
+"Notifications") are about 1.3 times the body size. On our 15px body that is about 20px.
+Neither neighbouring step is close: lg is 1.13 times body and xl is 1.47 times.
+
+Decision:
+Add --font-size-title: 20px to :root in web/src/tokens.css, between lg and xl, and use it for
+the app bar's title at every width. Nothing else uses it. The phone override that dropped the
+title to base is removed. This extends #44 and changes no existing size.
+
+Consequences:
+Positive:
+The bar reads as the page's title the way Alumable's does, on a phone as well as a desktop.
+One token holds the decision, so a later change is one line.
+
+Negative:
+The scale gains a step that only one element uses, which is one more value to keep in mind
+when someone picks a size. On a 390-wide phone the bigger title leaves less room for the
+user's name beside it, which already truncates. Patrick accepted that ("if the name gets cut
+off so be it"). The 20px came from screenshots, not from Alumable's source, so it is an
+estimate.
+
+Alternatives:
+Use xl (22px). No new token, but at 1.47 times body it is noticeably bigger than Alumable's
+and takes more of the phone bar from the name.
+
+Undo the phone override and keep lg (17px). The smallest change, but it is still smaller than
+the reference, which was the point of the review.

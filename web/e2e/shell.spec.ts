@@ -335,3 +335,17 @@ test('with no nav pills the bar sits evenly in the header', async ({ page }) => 
   });
   expect(Math.abs(gaps.above - gaps.below), JSON.stringify(gaps)).toBeLessThanOrEqual(1.5);
 });
+
+test('the bar title is 20px at phone and desktop widths', async ({ page }) => {
+  await install(page, 'Ash');
+  for (const width of [390, 1440]) {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto('/');
+    const title = page.getByRole('heading', { level: 1, name: 'Reflection Diary' });
+    await expect(title).toBeVisible();
+    expect(
+      await title.evaluate((node) => getComputedStyle(node).fontSize),
+      `at ${width}`,
+    ).toBe('20px');
+  }
+});
