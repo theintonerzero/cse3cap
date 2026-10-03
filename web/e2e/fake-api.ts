@@ -152,6 +152,18 @@ export class FakeApi {
         : reply(route, 404, envelope('NOT_FOUND', 'That framework does not exist.'));
     }
 
+    // The list DiaryHome calls on mount (HO-6, shots Task 2): every gig the
+    // fake's `me` participates in, in the list shape (Gig), not the detail
+    // shape (GigDetail) GET /gigs/:id returns -- same relationship as
+    // summary() below stripping FrameworkDetail down to Framework.
+    if (key === 'GET /gigs') {
+      return reply(
+        route,
+        200,
+        this.gigs.map(({ participants: _participants, ...gig }) => gig),
+      );
+    }
+
     if (key === 'GET /gigs/:id') {
       const gig = this.gigs.find((g) => g.id === id);
       return gig
@@ -159,13 +171,26 @@ export class FakeApi {
         : reply(route, 404, envelope('NOT_FOUND', 'No such gig, or it is not yours.'));
     }
 
+    // CAP-21 (shots): Review Queue's own `loaded` shot is real-sourced
+    // (manifest.ts has no fixture for a populated queue), so this fake
+    // always answers empty -- enough to produce review-queue-empty, and a
+    // base for review-queue-error and review-queue-loading, both of which
+    // intercept above via fault()/hold() before this line is ever reached.
+    if (key === 'GET /review-queue') return reply(route, 200, []);
+
     if (key === 'GET /reflections') {
+      // ReflectionController::index only applies the gig_id filter when the
+      // query param is actually present (`->when($request->query('gig_id'),
+      // ...)`); with none, it returns every reflection the caller may see,
+      // not just the ones whose own gig_id happens to be null. Diary Home
+      // calls this with no gig_id at all, for exactly that "everything I
+      // own" list (HO-6, shots Task 2) -- discovered because no earlier spec
+      // called this route without one.
       const gig_id = new URL(request.url()).searchParams.get('gig_id');
-      return reply(
-        route,
-        200,
-        this.reflections.filter((r) => r.gig_id === gig_id).map(summary_of),
-      );
+      const rows = gig_id
+        ? this.reflections.filter((r) => r.gig_id === gig_id)
+        : this.reflections;
+      return reply(route, 200, rows.map(summary_of));
     }
 
     if (key === 'GET /reflections/:id/events') {

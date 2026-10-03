@@ -136,6 +136,11 @@ case "${1:-help}" in
     # The contract mocked, so the frontend does not need the backend.
     mock)  step npx -y @stoplight/prism-cli mock docs/openapi.yaml ;;
 
+    # Both halves of the seam against the contract (CAP-25): schema.ts is
+    # what the contract generates, and Laravel's routes are its operations.
+    # Needs api/vendor and api/.env for route:list; never the database.
+    contract-drift) need_api; step ./scripts/check-contract-drift.sh ;;
+
     test)  need_api; in_dir api php artisan test ;;
 
     # The frontend client against real servers, plus the compile-time
@@ -225,6 +230,20 @@ case "${1:-help}" in
         in_dir web npx playwright test ${@+"$@"}
         ;;
 
+    # HO-6: screenshots for the User Manual and SMD, against a separate
+    # config so this never runs under CI or ./run check. Writes PNGs to
+    # web/e2e/shots/output/, named by web/e2e/shots/manifest.ts's ids --
+    # see web/e2e/shots/README.md for what those ids mean and when to run
+    # this for real (after the UI freeze on 7 Oct, then again before
+    # submission).
+    shots)
+        need_web_deps
+        in_dir web node --experimental-strip-types e2e/shots/manifest.test.ts
+        in_dir web npx playwright install chromium
+        shift
+        in_dir web npx playwright test --config=playwright.shots.config.ts ${@+"$@"}
+        ;;
+
     # Proves your Jira credentials work, over plain HTTP, independently of
     # the atlassian MCP server. Run it when Jira misbehaves: it separates a
     # wrong token from a broken MCP server, which look identical otherwise.
@@ -295,6 +314,9 @@ case "${1:-help}" in
     check)
         say "Contract"
         step npx -y @redocly/cli@latest lint docs/openapi.yaml
+        step python3 scripts/contract-routes.test.py
+        need_api
+        step ./scripts/check-contract-drift.sh
         say "Guards"
         step python3 scripts/guard-shared-db.test.py
         step python3 scripts/guard-docs-location.test.py
@@ -328,6 +350,7 @@ ${BLUE}Alumable Reflection Diary${RESET}
   ${GREEN}./run api${RESET}      backend only
   ${GREEN}./run web${RESET}      frontend only
   ${GREEN}./run mock${RESET}     mock the contract on :4010, so web needs no backend
+  ${GREEN}./run contract-drift${RESET}  schema.ts and Laravel's routes, both against the contract
 
   ${GREEN}./run test${RESET}     backend test suite, against your own test database
   ${GREEN}./run smoke${RESET}    end-to-end over HTTP. Needs a server already running
@@ -342,6 +365,7 @@ ${BLUE}Alumable Reflection Diary${RESET}
   ${GREEN}./run verify-frameworks${RESET}  the select framework screen: groups, in_use, the 409
   ${GREEN}./run verify-framework-edit${RESET}  the edit framework screen: copy then edit, scope, retries
   ${GREEN}./run e2e${RESET}      browser checks in headless Chromium against a fake API (no server)
+  ${GREEN}./run shots${RESET}    screenshots for the User Manual, against a separate config (HO-6)
   ${GREEN}./run swap${RESET}     the framework swap: SFIA against La Trobe, over HTTP
   ${GREEN}./run bundle-secrets${RESET}  proves a production build carries no token
   ${GREEN}./run lint${RESET}     pint, oxlint and prettier, checking only

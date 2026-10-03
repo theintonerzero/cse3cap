@@ -72,8 +72,10 @@
   padding: var(--space-12);
   font-size: var(--font-size-sm);
   line-height: var(--line-height-normal);
-  /* Not --color-danger on this background: see ErrorNotice.module.css, same
-     AA shortfall. The fill carries the alarm, the text stays readable. */
+  /* Not --color-danger on this background: see ErrorNotice.module.css --
+     same pair, same reasoning, and the same CAP-23 fix to --color-danger
+     in tokens.css that cleared the AA shortfall both used to have. The
+     fill carries the alarm, the text stays readable. */
   color: var(--color-text);
   background: var(--color-danger-bg);
   border-radius: var(--radius-md);

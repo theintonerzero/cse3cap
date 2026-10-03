@@ -53,19 +53,49 @@
   --color-surface-alt: #f1f1f1;
   --color-border: #d9d9d9;
   --color-text: #202020;
-  --color-text-muted: #717171; /* AA-adjusted from sampled #808080 (was 3.68:1 on bg) */
+  --color-text-muted: #666666; /* AA-adjusted from the sampled #808080 (3.68:1 on bg). The
+    first adjustment, #717171, cleared bg/surface but is still below 4.5:1 as normal text on
+    --color-surface-alt (Submitted/DiaryHome/ReviewQueue empty-state bodies, AppShell's nav
+    identity on hover), on --color-success-bg (ExportSheet's job summary) and on
+    --color-accent-lavender (ExportSheet's building-status detail). Darkened further, same
+    grey, to clear the hardest of those real backgrounds. */
   --color-text-inverse: #ffffff;
-  --color-primary: #8c63b5; /* AA-adjusted from sampled #9a76be -- white button text was 3.68:1 */
-  --color-primary-hover: #734a9b; /* generated: no hover variant in the Figma file (confirmed
-    directly in Design mode). Same hue/saturation as --color-primary (270 deg, 35.7%),
-    lightness moved -10 points (54.9% -> 44.9%). Darker on hover in light mode, lighter in
-    dark mode below -- same direction the rest of this file already uses. */
-  --color-danger: #a5612d; /* AA-adjusted from sampled #c9793b (was 3.12:1 on bg) */
+  --color-primary: #8053ad; /* AA-adjusted from sampled #9a76be (white button text was 3.68:1),
+    then re-adjusted for CAP-23: #8c63b5 (the first adjustment) passed as a button fill but
+    Task 2's exhaustive pair sweep found it is also rendered as normal link text directly on
+    --color-bg (EditFramework's back link), --color-surface-alt (DiaryHome/Submitted empty-state
+    links) and --color-accent-pink (GigDetail's diary link, previously an acknowledged 3.93:1
+    finding against a tint the card no longer uses -- the card is pink now, where the real
+    number was 3.79:1) -- all below 4.5:1 at #8c63b5. Same hue/saturation (270 deg, 35.7%).
+    --color-accent-pink is the binding constraint of the three (lowest luminance, so hardest to
+    clear at this hue/saturation): lightness moved only as far as clearing it needs (54.9% ->
+    50.3%), not further to cover every accent tint in the file -- this is the deliberately
+    narrow, same-as-danger/success-below fix the CAP-23 review asked for, in place of an
+    earlier, broader re-adjustment to 50% that also happened to clear tints nothing actually
+    renders text on. If a future screen puts this link style on a new tint, re-run
+    check-contrast.mjs rather than assuming this value still covers it. */
+  --color-primary-hover: #734a9b; /* generated when --color-primary was #8c63b5: no hover variant
+    in the Figma file (confirmed directly in Design mode). Same hue/saturation as --color-primary
+    (270 deg, 35.7%), lightness moved -10 points (54.9% -> 44.9%). Darker on hover in light mode,
+    lighter in dark mode below -- same direction the rest of this file already uses. Not
+    regenerated against the CAP-23 primary re-adjustment above: the hover fill is never itself a
+    text colour in any pair check-contrast.mjs tracks, so there was nothing to clear. */
+  --color-danger: #8c5226; /* AA-adjusted from sampled #c9793b (was 3.12:1 on bg), then
+    re-adjusted for CAP-23: #a5612d (the first adjustment) passed on bg/surface but Task 2's
+    exhaustive pair sweep found it is also rendered directly on its own --color-danger-bg
+    (ExportSheet's failed-export message, EntryStepper's offending-card field error) at
+    3.97:1. Same hue/saturation (26 deg, 57.1%), darkened further to clear that. */
   --color-danger-bg: #ffe5c4;
-  --color-success: #37803a; /* AA-adjusted from sampled #4baf4f (was 2.60:1 on bg) */
+  --color-success: #317234; /* AA-adjusted from sampled #4baf4f (was 2.60:1 on bg), then
+    re-adjusted for CAP-23: #37803a (the first adjustment) passed on bg/surface but Task 2's
+    exhaustive pair sweep found TextArea's "Saved" status can render on --color-danger-bg too
+    (the narrative field sits inside EntryStepper's offending card, whose own field-error text
+    is a separate, independent piece of state from the autosave status) at 4.00:1. Same
+    hue/saturation (122.5 deg, 39.9%), darkened further to clear that. */
   --color-success-bg: #e9f4ee;
-  --color-focus-ring: #8c63b5; /* confirmed: no focus variant in the Figma file either. Reuses
-    --color-primary by deliberate team decision (2026-08-26), not a default fallback. */
+  --color-focus-ring: #8053ad; /* confirmed: no focus variant in the Figma file either. Reuses
+    --color-primary by deliberate team decision (2026-08-26), not a default fallback. Kept equal
+    to --color-primary through the CAP-23 re-adjustment above. */
 
   /* Dashboard card accents -- decorative backgrounds, sampled as-is.
      Heading text (--color-text) sits directly on these at 13:1+, so no
@@ -142,14 +172,16 @@
        inversion, then independently re-verified against WCAG AA -- see
        Task 1 Step 2. Verified standalone, not chained off the light
        block's own AA-adjusted values, which is why e.g. --color-primary
-       here isn't a simple lighten of the light block's #8c63b5. No
+       here isn't a simple lighten of the light block's #8053ad. No
        Figma dark frame exists to sample instead. */
     --color-bg: #12151c;
     --color-surface: #242424;
     --color-surface-alt: #303030;
     --color-border: #3d3d3d;
     --color-text: #f0f0f0;
-    --color-text-muted: #a8a8a8;
+    --color-text-muted: #b4b4b4; /* lightened for CAP-23: #a8a8a8 passed every other real
+      pairing but measured 4.11:1 on --color-danger-bg (EntryStepper's offending-card text,
+      same real site as the light-mode re-adjustment above) */
     --color-text-inverse: #1f1f1f;
     --color-primary: #bea6d5;
     --color-primary-hover: #d7c9e5; /* generated: same hue/saturation as dark --color-primary
@@ -176,7 +208,7 @@
   --color-surface-alt: #303030;
   --color-border: #3d3d3d;
   --color-text: #f0f0f0;
-  --color-text-muted: #a8a8a8;
+  --color-text-muted: #b4b4b4; /* lightened for CAP-23, see the media-query block above */
   --color-text-inverse: #1f1f1f;
   --color-primary: #bea6d5;
   --color-primary-hover: #d7c9e5; /* generated: same hue/saturation as dark --color-primary

@@ -177,8 +177,11 @@
   color: var(--color-text);
 }
 
-/* --color-text-muted on --color-surface-alt fails AA in light mode, so the
-   body copy stays --color-text. Same reasoning as SelectFramework. */
+/* --color-text-muted on --color-surface-alt measured under AA in light mode
+   before CAP-23 darkened --color-text-muted (tokens.css); that pair now
+   clears 4.5:1 -- see check-contrast.mjs -- so this --color-text choice is
+   a style preference now, not an AA requirement. Same reasoning as
+   SelectFramework. */
 .empty_body {
   margin: 0;
   font-size: var(--font-size-sm);

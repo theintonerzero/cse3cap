@@ -144,6 +144,28 @@ function LoadedRadar({ scale, axes }: { scale: RadarScale; axes: RadarAxis[] }) 
           <Legend />
         </RadarChart>
       </ResponsiveContainer>
+      <table className={styles.sr_only}>
+        <caption>
+          {`The radar above, as numbers: self-score and counter-score per competency, ` +
+            `on a ${scale.min} to ${scale.max} scale.`}
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Competency</th>
+            <th scope="col">Self</th>
+            <th scope="col">Counter-score</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map((axis) => (
+            <tr key={axis.code}>
+              <th scope="row">{axis.short_label ?? axis.code}</th>
+              <td>{axis.self ?? 'Not yet scored'}</td>
+              <td>{axis.counter ?? 'Not yet scored'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

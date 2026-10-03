@@ -81,11 +81,10 @@ test('back to diary', async ({ page }) => {
   // supervisor with no student participation anywhere, so landing on "/"
   // itself redirects on to /review-queue (routes.tsx's Home: "someone who is
   // not a student on any gig ... is sent to their review queue"), and that
-  // screen calls GET /review-queue, which this shared fake does not serve --
-  // it was built for edit-framework.spec.ts and Task 1's additions, neither
-  // of which visits it. Extending the fake to grow a route this ticket does
-  // not otherwise need is out of scope, so this test verifies the one thing
-  // that is this screen's: the link's real target is home.
+  // screen calls GET /review-queue, which the shared fake now serves (added
+  // for CAP-21's review-queue shots) -- but this test still only checks the
+  // one thing that is this screen's: the link's real target is home, not
+  // what the redirected-to screen renders.
   await expect(page.getByRole('link', { name: 'Back to diary' })).toHaveAttribute(
     'href',
     '/',

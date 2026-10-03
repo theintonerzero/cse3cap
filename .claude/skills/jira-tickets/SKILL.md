@@ -13,7 +13,7 @@ Reached through the `atlassian` MCP server in `.mcp.json`, which authenticates a
 
 The server is given twelve tools, not its default sixty-three: read an issue, search, read
 a project's or board's or sprint's issues, list and perform transitions, comment, create,
-and update a ticket's fields (ADR #43). **Deleting an issue is deliberately not among
+and update a ticket's fields (ADR #44). **Deleting an issue is deliberately not among
 them.** If you need something outside that list, that is a change to `.mcp.json` and a
 conversation, not a workaround. The developer's API token can reach the rest of Jira over
 HTTP; using it for what the allowlist leaves out is that workaround.
