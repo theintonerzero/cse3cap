@@ -278,6 +278,14 @@ case "${1:-help}" in
         step ./scripts/smoke.sh
         ;;
 
+    # CAP-31. Walks the permission matrix with the three seeded tokens and
+    # checks the refusals. Reads and refusals only, so safe on the shared db.
+    pentest)
+        curl -fsS -o /dev/null "http://localhost:8000/up" 2>/dev/null \
+            || die "Nothing is serving on :8000. Start it with ./run api"
+        step ./scripts/pentest.sh
+        ;;
+
     # CAP-20. The rubric is data, not code: same endpoints, two gigs, two
     # frameworks, different axes and scale. Needs a server and Jane's token.
     swap)
@@ -374,6 +382,7 @@ ${BLUE}Alumable Reflection Diary${RESET}
 
   ${GREEN}./run test${RESET}     backend test suite, against your own test database
   ${GREEN}./run smoke${RESET}    end-to-end over HTTP. Needs a server already running
+  ${GREEN}./run pentest${RESET}  the permission matrix over HTTP, refusals only. Needs a server running
   ${GREEN}./run one-rule${RESET}  no business rule implemented twice
   ${GREEN}./run verify${RESET}   the typed API client, against both servers and the compiler
   ${GREEN}./run verify-shell${RESET}  the app shell: token ownership, routes, /auth/me
