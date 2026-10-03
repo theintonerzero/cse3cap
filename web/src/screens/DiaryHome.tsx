@@ -425,6 +425,7 @@ function ScopeChips({
           size="sm"
           full_width={false}
           disabled={!gig}
+          described_by={gig ? undefined : 'sprint-hint'}
           on_click={() => {
             if (gig) navigate(`/gigs/${gig.id}`);
           }}
@@ -436,7 +437,11 @@ function ScopeChips({
       {/* Always exactly one line tall, so choosing a gig moves nothing
           below it (CAP-38 R6). */}
       <div className={styles.sprint_slot}>
-        {!gig && <p className={styles.sprint_hint}>Pick a gig to filter by sprint</p>}
+        {!gig && (
+          <p id="sprint-hint" className={styles.sprint_hint}>
+            Pick a gig to filter by sprint
+          </p>
+        )}
         {gig && sprints.length === 0 && (
           <p className={styles.sprint_hint}>No sprint has opened yet</p>
         )}

@@ -15,6 +15,9 @@ export interface ButtonProps {
    *  sitting inline beside other content, e.g. ErrorNotice's retry. */
   full_width?: boolean;
   on_click?: () => void;
+  /** The id of text that says more, e.g. why a disabled button is
+   *  unavailable (aria-describedby). */
+  described_by?: string;
   /** For moving focus to a button that appeared after a state change. */
   ref?: Ref<HTMLButtonElement>;
 }
@@ -27,6 +30,7 @@ export function Button({
   disabled = false,
   full_width = true,
   on_click,
+  described_by,
   ref,
 }: ButtonProps) {
   const class_name = [
@@ -44,6 +48,7 @@ export function Button({
       type={type}
       className={class_name}
       disabled={disabled}
+      aria-describedby={described_by}
       onClick={on_click}
     >
       {children}

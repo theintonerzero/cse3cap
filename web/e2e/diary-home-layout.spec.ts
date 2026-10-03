@@ -256,6 +256,8 @@ test.describe('scope controls do not move the page', () => {
     const details = page.getByRole('button', { name: /Gig details/ });
     await expect(details).toBeVisible();
     await expect(details).toBeDisabled();
+    // A screen reader hears why, not just "unavailable".
+    await expect(details).toHaveAccessibleDescription('Pick a gig to filter by sprint');
   });
 
   test('the gig select keeps its width between All gigs and one gig', async ({ page }) => {
