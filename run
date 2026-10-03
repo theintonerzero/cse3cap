@@ -327,6 +327,7 @@ case "${1:-help}" in
         step python3 scripts/guard-shared-db.test.py
         step python3 scripts/guard-docs-location.test.py
         step ./scripts/check-one-rule.sh
+        step python3 scripts/check-tokens.test.py
         say "Backend"
         need_api
         in_dir api ./vendor/bin/pint --test
@@ -340,6 +341,10 @@ case "${1:-help}" in
             step node scripts/check-contrast.mjs
             in_dir web npm run build
             step scripts/check-bundle-secrets.sh
+            for check in app-shell diary-home gig-detail entry-stepper assessor-stepper \
+                         export-sheet history-sheet select-framework edit-framework; do
+                step "./scripts/verify-$check.sh"
+            done
             in_dir web npx playwright install chromium
             in_dir web npm run test:e2e
         fi

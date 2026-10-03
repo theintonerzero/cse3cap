@@ -147,6 +147,8 @@ switch ($Command) {
         Say 'Guards'
         Step $null 'python3' @('scripts/guard-shared-db.test.py')
         Step $null 'python3' @('scripts/guard-docs-location.test.py')
+        Step $null 'bash' @('scripts/check-one-rule.sh')
+        Step $null 'python3' @('scripts/check-tokens.test.py')
         Say 'Backend'
         Need-Api
         Step 'api' './vendor/bin/pint' @('--test')

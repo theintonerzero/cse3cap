@@ -258,7 +258,7 @@ Once set up, everything runs from the repository root. No `cd` into `api/` or `w
 ```bash
 ./run dev            # both servers. api on :8000, web on :5173. Ctrl-C stops both
 ./run test           # the backend test suite
-./run check          # what CI runs, in CI's order, plus one-rule and bundle secrets
+./run check          # everything CI runs, in CI's order
 ./run                # the full list
 ```
 

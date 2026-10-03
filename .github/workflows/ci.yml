@@ -21,7 +21,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: '24'
+          node-version-file: .nvmrc
 
       # openapi.yaml is what the frontend generates its types from and what
       # prism mocks. A contract that does not parse breaks both, and it
@@ -74,6 +74,13 @@ jobs:
 
       - name: Check the docs-location guard
         run: python3 scripts/guard-docs-location.test.py
+
+      # Each business rule has exactly one home (CLAUDE.md). Pure grep.
+      - name: Check every business rule has one home
+        run: bash scripts/check-one-rule.sh
+
+      - name: Check the design-token check's cases
+        run: python3 scripts/check-tokens.test.py
 
       # Nobody on the team runs Windows day to day, so the PowerShell
       # installer is the one file that can rot unnoticed until a new
@@ -183,7 +190,7 @@ jobs:
       - uses: actions/setup-node@v7
         if: steps.web.outputs.exists == 'true'
         with:
-          node-version: '24'
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: web/package-lock.json
 
@@ -214,6 +221,24 @@ jobs:
         if: steps.web.outputs.exists == 'true'
         working-directory: web
         run: npm run build
+
+      # F1 in docs/Security-Review.md: a production build must not carry a
+      # bearer token. Reads the build above.
+      - name: Check the build carries no token
+        if: steps.web.outputs.exists == 'true'
+        run: bash scripts/check-bundle-secrets.sh
+
+      # Each screen's static invariants and its pure modules, compiled and
+      # run. Their live halves need a server and a token, so they skip
+      # themselves here. Before CI ran them, verify-app-shell had been
+      # failing unnoticed on a renamed route.
+      - name: Per-screen checks
+        if: steps.web.outputs.exists == 'true'
+        run: |
+          for check in app-shell diary-home gig-detail entry-stepper assessor-stepper \
+                       export-sheet history-sheet select-framework edit-framework; do
+            bash "scripts/verify-$check.sh" || exit 1
+          done
 
       # ADR #42. Browser checks against a fake API: no backend, no database
       # and no token, so they run here exactly as they run locally. The

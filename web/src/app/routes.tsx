@@ -1,7 +1,6 @@
 /**
- * Every screen in docs/Stack-and-Build-Scope.md 4.3 has a route here, each
- * rendering a placeholder until its own ticket lands. Two are no longer
- * placeholders: the diary home (CAP-7) and the gig detail screen (CAP-8).
+ * Every screen in docs/Stack-and-Build-Scope.md 4.3 has a route here, and
+ * every one is built. An unknown address renders NotFound.
  *
  * Nested per ADR #27 so gig-then-sprint-then-entry stays linkable and
  * back-button-correct: an assessor working a queue moves in and out of
@@ -9,7 +8,7 @@
  * Data loaders are deliberately NOT used (ADR #27) -- fetching lives in the
  * typed API client and each screen owns its own.
  *
- * Two of the twelve screens are not here. The history sheet (CAP-14) and the
+ * Two of the ten screens are not here. The history sheet (CAP-14) and the
  * export sheet (CAP-18) are described in 4.3 as sheets, and BottomSheet
  * exists for exactly that: they open over the diary rather than navigating
  * away from it. If either decides it wants a linkable URL, it is one line in
@@ -29,7 +28,7 @@ import { ReviewQueue } from '../screens/ReviewQueue.tsx';
 import { SelectFramework } from '../screens/SelectFramework.tsx';
 import { Submitted } from '../screens/Submitted.tsx';
 import { useSession } from '../session/useSession.ts';
-import { Placeholder } from './Placeholder.tsx';
+import { NotFound } from './NotFound.tsx';
 
 /**
  * Where "/" lands. The diary is the student's own record, so someone who
@@ -56,18 +55,12 @@ export function AppRoutes() {
 
         <Route path="gigs/:gig_id" element={<GigDetail />} />
 
-        <Route
-          path="entries/:entry_id"
-          element={<Placeholder screen="Entry stepper" ticket="CAP-11" />}
-        />
-
         {/*
-         * The diary home links here rather than to entries/:entry_id:
-         * GET /reflections carries no entry ids, so a row could not
-         * address an entry without a request per row, and CAP-11's
-         * stepper is one reflection with N competency steps anyway
-         * ("Competency 3 of 6"). CAP-11 owns both routes and is free to
-         * keep one, the other, or both.
+         * By reflection, not by entry: GET /reflections carries no entry
+         * ids, so a row could not address an entry without a request per
+         * row, and the stepper is one reflection with N competency steps
+         * anyway ("Competency 3 of 6"). The entries/:entry_id placeholder
+         * that once sat beside this was retired once CAP-11 chose this one.
          */}
         <Route path="reflections/:reflection_id" element={<EntryStepper />} />
 
@@ -89,7 +82,7 @@ export function AppRoutes() {
 
         <Route path="frameworks/:framework_id/edit" element={<EditFramework />} />
 
-        <Route path="*" element={<Placeholder screen="Not found" ticket="No ticket" />} />
+        <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
   );
