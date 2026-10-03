@@ -143,3 +143,19 @@ test.describe('Back and Next', () => {
     await expect(page.getByText('Contribution', { exact: true })).not.toBeFocused();
   });
 });
+
+test.describe('the heading', () => {
+  test('names the gig and the sprint', async ({ page }) => {
+    await page.goto(`/reflections/${DRAFT}`);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+      'Develop AI use cases · Sprint 2',
+    );
+  });
+
+  test('still names the sprint when the gig cannot be read', async ({ page, api }) => {
+    api.fail('GET /gigs/:id', { kind: 'network' });
+    await page.goto(`/reflections/${DRAFT}`);
+    await expect(page.getByText('Competency 1 of 2')).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Sprint 2');
+  });
+});

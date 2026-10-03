@@ -22,7 +22,9 @@ test('student stepper: every typed field is text, and a javascript: link is not 
   page,
 }) => {
   await page.goto(`/reflections/${HOSTILE_REFLECTION}`);
-  await expect(page.getByRole('heading', { name: 'Reflection' })).toBeVisible();
+  // The heading is "<gig title> · Sprint N" and the gig title is the payload:
+  // it has to arrive as text (round 2b).
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(`${PAYLOAD} · Sprint 1`);
 
   // One assertion per rendered field, so each one is shown to be on the page
   // as text: the competency name, the narrative, every level descriptor, the
@@ -56,7 +58,7 @@ test('student stepper: every typed field is text, and a javascript: link is not 
 
 test("assessor stepper: the student's name and work are text", async ({ page }) => {
   await page.goto(`/review-queue/reflections/${HOSTILE_REFLECTION}`);
-  await expect(page.getByRole('heading', { name: 'Score reflection' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(`${PAYLOAD} · Sprint 1`);
 
   // The owner's display name comes from Alumable, and the assessor screen
   // puts it in the status line and in two field labels.

@@ -149,7 +149,10 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
   // Set once "Save all scores" has been pressed: from then the list of what
   // is still missing shows, and stays current as the assessor fills it in.
   const [save_all_tried, setSaveAllTried] = useState(false);
-  const heading = mode === 'assessor' ? 'Score reflection' : 'Reflection';
+  // The gig's title, for the heading. A second, optional read: the
+  // reflection carries only the gig's id, and the screen works without it.
+  const [gig_title, setGigTitle] = useState<string | null>(null);
+  const heading = stepper_heading(mode, load, gig_title);
 
   // An obvious way out of the assessor screen from any step, and from its
   // error and empty states, without saving or stepping back through every
@@ -186,6 +189,16 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
           })
           .then((framework) => {
             setLoad({ status: 'loaded', reflection, framework });
+            if (reflection.gig_id) {
+              api
+                .get('/gigs/{gig_id}', {
+                  path: { gig_id: reflection.gig_id },
+                  signal: controller.signal,
+                })
+                .then((gig) => setGigTitle(gig.title))
+                // Without the title the heading still names the sprint.
+                .catch(() => undefined);
+            }
             // An assessor lands on the first entry they still owe a score,
             // so a part-scored reflection does not reopen on finished work.
             if (mode === 'assessor' && me_id) {
@@ -1193,4 +1206,19 @@ function CounterScorePanel({
       )}
     </div>
   );
+}
+
+/**
+ * "<Gig> · Sprint N" once both are known (round 2b, Patrick): the page says
+ * which piece of work it is. "Sprint N" while the gig's title is on its way
+ * or could not be read, "<Gig>" for a whole-gig reflection, and the screen's
+ * plain name before the reflection itself has loaded.
+ */
+function stepper_heading(mode: StepperMode, load: Load, gig_title: string | null): string {
+  if (load.status !== 'loaded')
+    return mode === 'assessor' ? 'Score reflection' : 'Reflection';
+  const ordinal = load.reflection.sprint_ordinal;
+  const sprint = ordinal == null ? null : `Sprint ${ordinal}`;
+  if (!gig_title) return sprint ?? 'Whole gig';
+  return sprint ? `${gig_title} · ${sprint}` : gig_title;
 }
