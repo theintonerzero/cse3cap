@@ -23,6 +23,9 @@ const ORIGIN = `http://127.0.0.1:${PORT}`;
 
 export default defineConfig({
   testDir: './e2e',
+  // HO-6's screenshot pipeline (playwright.shots.config.ts) owns this
+  // subtree: a separate config, run only by ./run shots, never by CI.
+  testIgnore: ['**/shots/**'],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   // No retries. A check that passes on its second attempt is a flaky check,

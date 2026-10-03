@@ -43,10 +43,21 @@
   border-radius: var(--radius-full);
 }
 
+/* Inside a flex-row parent (every row-style loading state has one), an
+   unsized flex item shrinks to its content's intrinsic width before the
+   browser can resolve the percentage widths .skeleton's `text` bars are
+   given below -- percentages inside an auto-sized flex item resolve
+   against zero, so the bars vanish. flex: 1 1 auto plus min-width: 0
+   matches the grow-and-shrink idiom this codebase already uses for a
+   flex item holding text (EntryStepper's .evidence_input,
+   SelectFramework's .identity), so .lines claims the same room the real
+   row content -- .row_main / .rowMain -- would occupy once loaded. */
 .lines {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: var(--space-8);
+  min-width: 0;
 }
 
 /* Visually hidden, not display:none -- a screen reader still announces it.

@@ -115,6 +115,8 @@ switch ($Command) {
 
     'verify' { Fail 'verify needs bash. Use Git Bash or WSL: ./scripts/verify-client.sh' }
 
+    'shots' { Fail 'shots needs bash. Use Git Bash or WSL: ./run shots' }
+
     'lint' {
         Need-Api
         Step 'api' './vendor/bin/pint' @('--test')
@@ -139,6 +141,7 @@ switch ($Command) {
         Say 'Contract'
         Step $null 'npx' @('-y', '@redocly/cli@latest', 'lint', 'docs/openapi.yaml')
         Step $null 'python3' @('scripts/contract-routes.test.py')
+        Step $null 'python3' @('scripts/dependency-register.test.py')
         Need-Api
         Step $null 'bash' @('scripts/check-contract-drift.sh')
         Say 'Guards'
@@ -172,6 +175,7 @@ switch ($Command) {
         Write-Host '  ./run.ps1 mock     mock the contract on :4010'
         Write-Host ''
         Write-Host '  ./run.ps1 test     backend test suite'
+        Write-Host '  ./run.ps1 shots    screenshots for the User Manual (HO-6). Needs bash: ./run shots'
         Write-Host '  ./run.ps1 lint     pint, oxlint and prettier, checking only'
         Write-Host '  ./run.ps1 fmt      the same, writing changes'
         Write-Host '  ./run.ps1 build    production build of the frontend'

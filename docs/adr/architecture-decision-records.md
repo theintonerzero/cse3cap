@@ -51,6 +51,8 @@ Index
 #39 PDF export renders with dompdf ............... Accepted
 #40 Policies for records, query scopes for lists .. Accepted
 #42 Browser checks with Playwright, fake API ..... Accepted
+#43 AA palette lives in tokens.css ............ Proposed
+#44 Agents set ticket fields, not wording ...... Proposed
 
 ===============================================================
 
@@ -2114,3 +2116,191 @@ Rejected because the limit is structural. A grep can prove a string is in a file
 compiled module can prove a function's output. Neither can prove what a rendered screen does
 when a button is pressed, which is where both CAP-16 bugs were.
 
+
+ADR #43: The AA-compliant palette is tokens.css's, not any one screen's
+
+Status: Proposed
+Date: 2026-10-02
+
+Context:
+CAP-8's plan recorded three light-mode AA failures of `--color-primary` as link text
+(3.93:1 on the lavender tint, 4.07-4.29:1 on surface-alt/bg) and deliberately did not fix
+them. That plan quotes why directly: this branch tried changing `.diary_link` and
+`.empty_link` to `--color-text` plus an underline, and Patrick reverted it on 2026-09-14 --
+"imagine if everyone did small changes to the css our design would end up fucked." The CAP-8
+plan's own conclusion: "the link treatment is a property of the design system, so five
+people each fixing it locally produces five link styles and no fix... adding a failing row
+would turn a recorded team finding into a red build, which is also not one person's call."
+`scripts/check-contrast.mjs`'s `PAIRS` list stayed hand-kept and nobody added those rows, so
+the failures stayed invisible to CI rather than forcing a decision nobody had agreed to make.
+
+CAP-23 (accessibility and responsive pass) re-checked the premise that `PAIRS` was complete
+rather than assuming CAP-1 had already covered it. It was not: a systematic sweep of every
+`color: var(--color-*)` declaration in `web/src/**/*.module.css` against its actual rendered
+background found 10 real pairs missing, 3 of which genuinely fail AA -- including exactly
+the `--color-primary`-as-link-text failure CAP-8 recorded and left open, now also found on a
+fourth background (`--color-accent-pink`, 3.79:1, the lowest of the four and the binding
+constraint), plus two more failures on `--color-text-muted` and on `--color-danger`/
+`--color-success` against their own tinted backgrounds.
+
+Decision:
+Fix all three by adjusting the token values in `web/src/tokens.css`, not by overriding any
+one screen's CSS. This is deliberately the layer CAP-8's objection pointed at: Patrick's
+complaint was about five people each patching their own screen, not about fixing the shared
+token once, consistently, everywhere it is used. A token-level fix is one change, one owner
+of record (this ADR), and every consumer of `--color-primary` moves together rather than
+drifting into five link styles.
+
+Light theme: `--color-primary` #8c63b5 -> #8053ad (same hue/saturation, 270deg/35.7%,
+lightness 54.9% -> 50.3%, the minimum needed to clear `--color-accent-pink`, the hardest of
+the four real backgrounds -- not pushed further to cover every accent tint in the file,
+including ones nothing currently renders text on). `--color-focus-ring` moves with it,
+preserving the existing 2026-08-26 team decision that the focus ring reuses
+`--color-primary` rather than its own value. `--color-text-muted` #717171 -> #666666 (clears
+new findings on `--color-surface-alt`, `--color-success-bg` and `--color-accent-lavender`).
+`--color-danger` and `--color-success` each darkened narrowly to clear one new finding apiece
+against their own tinted backgrounds (`--color-danger-bg`). Dark theme: `--color-text-muted`
+lightened to clear the same class of finding there. `scripts/check-contrast.mjs`'s `PAIRS`
+gained the 10 missing rows, so this class of failure is now checked by CI rather than
+hand-kept and easy to miss, the same gap that let CAP-8's finding sit unenforced.
+
+This status is Proposed, not Accepted, on purpose. CAP-8 explicitly said this change is
+"not one person's call" and named the palette as something a team member owns. CAP-23's
+agent-driven sweep found and fixed the failure because its own mandate was "re-checked
+rather than assumed, nothing deferred" -- but that mandate does not retroactively grant the
+authority CAP-8 said this decision needs. This record exists so a human (Patrick, or
+whoever is asked to look at it) can review the actual before/after values below and either
+ratify this ADR to Accepted, or correct it before it merges.
+
+Consequences:
+Positive:
+One consistent link/focus colour across the whole product, not five local overrides. Every
+pair `check-contrast.mjs` knows about now passes AA in both themes, verified by running the
+script, not assumed. The failure CAP-8 recorded 18 days earlier stops being a known, unfixed
+gap sitting outside CI's view.
+
+Negative:
+`--color-primary-hover` (#734a9b) was not regenerated against the new base value. The
+contrast step from primary to its hover state is now about 1.18x, down from about 1.45x
+before this change -- hover feedback on buttons and chips is visibly subtler than it was.
+Whether that needs its own adjustment is open, and is not decided by this ADR.
+
+The brand's primary colour and every focus ring in the product are visibly different
+(darker, in light mode) than they were before this ticket. That is a real design change,
+made by an automated accessibility sweep rather than by the palette's owner, and is exactly
+the shape of decision CAP-8 said should not happen that way -- the mitigation here is this
+ADR making the change visible and reversible before merge, not that the change avoided being
+unilateral in the first place.
+
+Dark-mode `--color-danger` on `--color-danger-bg` now measures 4.5019:1 -- a genuine pass,
+dark-theme tokens were untouched by this change, but the margin is one part in ten thousand.
+Worth a glance if either token moves again.
+
+Alternatives:
+Leave the three failures recorded but unfixed, as CAP-8 did, and open a separate ticket
+naming a palette owner to decide. Rejected for this branch because CAP-23's own acceptance
+criteria require contrast to be "re-checked rather than assumed" with nothing deferred out
+of the ticket, and a verification task that finds a real, newly-confirmed AA failure and
+ships without fixing it fails that bar on its own terms. The compromise taken instead is to
+make the fix and flag it for explicit human sign-off via this ADR, rather than either
+silently shipping it as settled or leaving a known, now-doubly-confirmed failure unfixed
+again.
+
+Per-screen overrides (the same approach CAP-8 tried and Patrick reverted). Rejected for the
+reason already on record: it does not fix the shared problem, it just relocates it to
+whichever screen last touched it.
+
+===============================================================
+
+ADR #44: Agents may set a ticket's fields, not rewrite its wording
+
+Status: Proposed
+Date: 2026-09-30
+Extends: #38
+
+Context:
+#38 let agents read the board and move tickets, through an `atlassian` server in
+`.mcp.json` limited to eleven tools. None of the eleven can change a ticket once it exists.
+Assignee, story points and sprint can be set when a ticket is created and never after.
+
+That gap is where the board has drifted since. CAP-37 was finished, merged and closed on
+2026-09-24 and was still unassigned a week later. CAP-33 to CAP-37 carry no story points.
+CAP-21 to CAP-32 sit in no sprint. Each of those is a one-field fix that an agent working
+the ticket could see, name and not make, so it went into a list for a person to do in Jira,
+and the list did not get done.
+
+The developer's token can already make those edits. It is a plain Atlassian API token in
+the shell environment, and `./run jira` uses it over HTTP. An agent that wanted to could set
+an assignee with curl. That is the wrong way for this to happen: an edit through curl is
+invisible to the allowlist in `.mcp.json`, which is the one place the team can see what
+agents are allowed to do.
+
+The tool that fixes it, `jira_update_issue` in mcp-atlassian 0.23.1, is broader than the
+gap. It takes any field, so the same call that sets an assignee can rewrite a summary, a
+description or a list of acceptance criteria. On an assessed board that last one matters
+most. A criterion rewritten to match what was built is a criterion that stops being
+checked, and it would read as if it had always said that.
+
+One more change to #38 has already happened without a record. #38 says agents never move
+somebody else's ticket. The jira-tickets skill was changed on 2026-09-27 (PR #64) to allow it
+when the person names that ticket, after four teammates' tickets were closed that way at
+Tony's request, each with the evidence in a comment. This record makes that change explicit
+rather than leaving it only in the skill.
+
+Decision:
+Add `jira_update_issue` to ENABLED_TOOLS, making twelve. Deleting an issue stays out.
+
+How it is used lives in `.claude/skills/jira-tickets`, like every other Jira rule:
+
+- Assignee: an agent may assign a ticket to the developer running it, when that developer
+  did or is taking the work. Anyone else only when the person names the ticket and the
+  assignee.
+- Story points: only a number the team agreed, given by the person. An agent never
+  estimates.
+- Sprint: only when the person asks, by ticket.
+- Summary, description and acceptance criteria: an agent does not edit them. A criterion
+  that is wrong gets a comment saying so, and a person changes it.
+- Every edit is said out loud in the same message as the work, and an edit to a teammate's
+  ticket also gets a comment on it saying who made it and why.
+
+And from #64: a teammate's ticket may be moved when the person names it, on the same
+evidence as the developer's own, with a comment, and with its assignee left alone. A general
+request like "fix the board" names nothing and gets a proposal, not moves.
+
+Consequences:
+Positive:
+The fields that drift can be fixed by the agent that notices, in the same pass as the work.
+A ticket finished by an agent can be closed with its assignee set, instead of waiting for
+someone to remember.
+
+The allowlist in `.mcp.json` still says exactly what agents can do, and `./run jira` still
+checks the server answers with the tools it lists, so the new power is visible and checked
+rather than exercised through a token nobody sees used.
+
+The practice already in use since #64 now has a record, so #38 no longer contradicts the
+skill.
+
+Negative:
+The guard on wording is a rule, not a permission. The tool can rewrite an acceptance
+criterion, and the only thing stopping an agent is the skill telling it not to. #38 said the
+same of transitions, and it is more true here, because a moved ticket is visible on the board
+and a quietly edited description is not.
+
+Agents can now change more of what four other people see. An assignee changed on the wrong
+ticket misattributes work on a board that is assessed. The summary-search sharp edge from
+#38 makes that easier to get wrong: `summary ~ "CAP-3"` matches CAP-30 to CAP-37 too.
+
+Every developer's session needs a restart to pick up the new tool list, and one with an old
+session keeps eleven tools without knowing it.
+
+Alternatives:
+Keep the eleven and have people make field edits in Jira. The status quo, and genuinely the
+safest option. Rejected because the drift it leaves is the failure #38 set out to fix, moved
+from status to the fields next to it.
+
+Let agents use the API token directly for the edits the allowlist does not cover. No config
+change and nothing for the team to agree. Rejected because it makes the allowlist a
+description of what agents usually do rather than what they can do, and nothing checks it.
+
+Enable the tool with no limits in the skill. Simplest, and rejected because it puts
+acceptance criteria within reach of the agent being judged against them.
