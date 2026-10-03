@@ -147,7 +147,9 @@ test('starting one posts the sprint and opens the new draft in the stepper', asy
 
   await expect(page).toHaveURL(/\/reflections\/e2e00000-/);
   // CAP-38: the stepper is headed "<gig> · Sprint N" once it has loaded.
-  await expect(page.getByRole('heading', { level: 1, name: /Sprint 2$/ })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+    'Develop AI use cases · Sprint 2',
+  );
   await expect(page.getByLabel('Your reflection')).toBeEditable();
 
   const posts = api.writes().filter((call) => call.route === 'POST /reflections');
