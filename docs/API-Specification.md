@@ -154,12 +154,13 @@ competencies and changing level counts is out of scope (see Stack-and-Build-Scop
 ### PATCH /levels/{level_id}: same guards
 `{ "descriptor": "…" }`. Reword a level descriptor.
 
-### POST /framework-assignments: supervisor or employer
+### POST /framework-assignments: supervisor only
 `{ "framework_id": "…", "gig_id": "…" }` → 201. 409 `DUPLICATE_ASSIGNMENT` if the gig
 already has a rubric, whether that is the same one again or a different one:
 **a gig is scored against exactly one**. `details.framework_id` names the one it has.
 Assigning is what eventually flips a framework's `in_use` (the first reflection created
-under it does).
+under it does). Anyone else on the gig, an employer included, gets 403: choosing the rubric
+sits inside the framework boundary ADR #17 keeps from employers (ADR #48).
 
 ---
 
@@ -365,7 +366,7 @@ Notifications are derived (review queue + status changes), never stored.
 | view a reflection | own | on their gigs | on their gigs | on their gigs |
 | counter-score, review queue | - | ✓ | ✓ | ✓ |
 | create / edit frameworks (own copies, not in use) | - | - | ✓ | - |
-| assign framework to gig | - | - | ✓ | ✓ |
+| assign framework to gig | - | - | ✓ | - |
 | analytics + export | own record | own record | own record | own record |
 
 ## 12. Status lifecycle

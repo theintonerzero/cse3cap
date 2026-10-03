@@ -29,6 +29,7 @@ cd "$ROOT"
 
 BASE="${BASE:-http://127.0.0.1:8000/api/v1}"
 TOKENS="${TOKENS:-$HOME/reflection-diary-tokens.txt}"
+. "$(dirname "${BASH_SOURCE[0]}")/lib/token-for.sh"
 SHEET="web/src/screens/ExportSheet.tsx"
 POLL="web/src/screens/export-poll.ts"
 DIARY="web/src/screens/DiaryHome.tsx"
@@ -229,7 +230,7 @@ fi
 say "5. Request, poll, download, live"
 
 TOKEN=""
-[ -f "$TOKENS" ] && TOKEN="$(grep -s 'Jane N' "$TOKENS" | awk '{print $NF}')"
+[ -f "$TOKENS" ] && TOKEN="$(token_for 'Jane N' "$TOKENS")"
 
 if [ -z "$TOKEN" ]; then
     meh "live export checks" "no token for Jane N in $TOKENS"

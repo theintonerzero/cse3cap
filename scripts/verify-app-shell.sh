@@ -25,6 +25,7 @@ cd "$ROOT"
 
 BASE="${BASE:-http://127.0.0.1:8000/api/v1}"
 TOKENS="${TOKENS:-$HOME/reflection-diary-tokens.txt}"
+. "$(dirname "${BASH_SOURCE[0]}")/lib/token-for.sh"
 
 if [ -t 1 ]; then
     blu=$'\033[1;34m'; grn=$'\033[1;32m'; red=$'\033[1;31m'
@@ -93,15 +94,9 @@ done
 # --------------------------------------------------------------------------
 say "3. GET /auth/me returns what the nav is built from"
 
-# The newest token on a line naming NAME. A token never holds a space, so
-# it is the last field, and every Sanctum token is id|secret, so a last
-# field without a | is one of ReflectionSeeder's lines, not a token. Read
-# by name and not by shape beyond that, because ADR #46's rdiary_ prefix
-# changed the shape once. The same line as #97's scripts/lib/token-for.sh.
-token_for() {
-    [ -f "$2" ] || return 0
-    { grep -F -- "$1" "$2" || true; } | tr -d '\r' | awk 'index($NF, "|") { t = $NF } END { if (t != "") print t }'
-}
+# token_for comes from scripts/lib/token-for.sh, sourced at the top: the
+# newest token on a line naming NAME. These checks pin it from this script
+# as well, since this is the script CAP-44 found broken.
 
 fake="$(printf 'a%.0s' $(seq 40))"
 fixture="$(mktemp)"
