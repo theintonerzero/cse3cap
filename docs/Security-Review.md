@@ -10,6 +10,72 @@ fixes what it finds leaves no record that the class of problem existed.
 
 ---
 
+## 2026-10-03 · The permission matrix, probed over HTTP
+
+**Reviewer:** Tony To · **Ticket:** CAP-31 · **Commit reviewed:** `09a03c5`
+
+### Scope
+
+Whether the running API refuses what the capability table in `docs/api-reference.html` says
+it refuses. That's six rows, four roles, and real bearer tokens, not `Sanctum::actingAs`. The
+test suite asserts what its authors believed. CAP-19 merged green with its central criterion
+false, which is why this was asked for separately.
+
+### Method
+
+`scripts/pentest.sh` (`./run pentest`) ran against a local `php artisan serve` on the shared
+database, with the three seeded tokens. It is written so a hole cannot do damage there:
+
+- It probes refusals and reads only.
+- Writes aimed at someone else's work target submitted or assessed reflections.
+- Framework edits send the current value back unchanged.
+- The one create a hole could let through is deleted again if it lands.
+
+It finds every id through the API, so it runs against any team member's database.
+
+**36 probes, 36 hold, 0 break.** By row:
+
+| Row | Probed | Result |
+| --- | --- | --- |
+| Create, edit, submit, delete own reflection; self-score; evidence | Jane on someone else's reflection: read, edit narrative, self-score, add evidence, submit, delete. Sam and Dr Lee editing, self-scoring and deleting what they can see. Sam starting a reflection | **Holds.** Every not-yours is 404 `NOT_FOUND`. Every can-see-but-not-yours-to-do is 403 `ROLE_FORBIDDEN` |
+| View a reflection | Sam on the gig he is not on: a reflection, its history, the gig, the filtered list. Each list scoped to its caller. Dr Lee on Jane's (allowed) | **Holds.** 404s, and no row of the other gig in any list |
+| Counter-score, review queue | Jane's queue, Jane counter-scoring her own entry, Sam counter-scoring off his gig | **Holds.** Empty queue, 403, 404 |
+| Create and edit frameworks | Jane and Sam copying. Dr Lee editing an in-use framework, competency and level. Jane editing Dr Lee's own copy | **Holds, with a gap below.** 403 throughout |
+| Assign a framework | Jane and Sam assigning | **Holds.** 403 |
+| Analytics and export | Jane's radar (allowed). Sam and Dr Lee reaching Jane's export and its download | **Holds.** 404 to anyone but the owner, her supervisor included |
+| No token, a made-up token | read and write | **Holds.** 401 `UNAUTHENTICATED` |
+
+IDOR, as the ticket names it: Jane reading another student's reflection is 404. Sam reaching
+the gig he is not on is 404. A student counter-scoring her own entry is 403.
+
+### Findings
+
+No new findings. Not-yours is 404 everywhere it was probed, and no 403 leaks that a resource
+exists.
+
+**One gap, stated rather than passed.** The three framework-edit probes were refused by
+*ownership* (403), because the frameworks in use on the shared database are the seeded base
+rubrics, which Dr Lee does not own. The in-use rule itself (409 `FRAMEWORK_IN_USE` on an
+owned copy that a reflection references) is not reached over HTTP here. Reaching it would
+mean making one of Dr Lee's copies in use, which writes to the shared database.
+`api/tests/Feature/FrameworkMutationTest::test_one_reflection_freezes_the_framework_everywhere`
+proves it through all three edit endpoints: framework, competency and level.
+
+### What is already right
+
+- The 404 versus 403 rule is applied consistently, including on exports, where a supervisor
+  of the student still gets 404.
+- Lists are scoped in the query, not filtered afterwards (ADR #40). Sam's lists contain
+  nothing from the gig he is not on, rather than hiding it after fetching it.
+- Every refusal arrives in the error envelope with its documented code.
+
+### Sign-off
+
+CAP-31's criteria are met, apart from the framework gap above, which the test suite covers.
+`./run pentest` can be rerun by anyone, against any seeded database, before a release.
+
+---
+
 ## 2026-09-29 · The last three screens, and injection under test
 
 **Reviewer:** Tony To · **Ticket:** CAP-24 · **Commit reviewed:** `8318624`
