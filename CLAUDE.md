@@ -187,7 +187,7 @@ back, which is where the rework comes from.
 | Hand the work over | `superpowers:requesting-code-review` | Before opening the PR, not after somebody complains. |
 | Take the feedback | `superpowers:receiving-code-review` | Verify the criticism, then fix. Agreeing without checking is not review, and neither is arguing without checking. |
 | Close it out | `superpowers:finishing-a-development-branch` | PR into `dev`, worktree removed. It does not merge; see below. |
-| Build new tooling | `superpowers:writing-skills` | New skills go in `.claude/skills/`, alongside the six above. |
+| Build new tooling | `superpowers:writing-skills` | New skills go in `.claude/skills/`, alongside the seven above. |
 
 **An agent that is told to load a skill needs the `Skill` tool, or the instruction
 silently does nothing.** The three that do real work carry it, so their definitions point
