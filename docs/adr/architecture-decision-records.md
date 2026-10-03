@@ -55,6 +55,7 @@ Index
 #44 Agents set ticket fields, not wording ...... Proposed
 #45 The demo deploys by hand, one origin ......... Proposed
 #46 Seeded tokens expire, carry a prefix, keep * .. Proposed
+#49 No draft-then-submit or save popups ........... Proposed
 
 ===============================================================
 
@@ -2483,3 +2484,78 @@ for whoever needs read-only tokens rather than a hardening tweak.
 Leave all three as they were and record the risk. Defensible for a student project with no
 real records. Rejected because CAP-26 makes the demo public, and the only thing standing
 between a leaked permanent token and the shared database would be somebody noticing.
+
+===============================================================
+
+ADR #49: No draft-then-submit, and no save popups, for an entry or a counter-score
+Status: Proposed
+Date: 2026-10-03
+
+Context:
+The Figma prototype draws both sides of the diary as draft then submit. A student's entry
+is one long page with "Save draft" and "Submit entry", and saving shows a "Draft saved"
+popup saying nothing has gone to the assessor yet (`142:2570`). Scoring is the same shape:
+"Save draft" and "Submit scores", a "Draft saved" popup part way through (`142:3207`,
+`142:3675`), and a "Scores submitted" popup at the end (`97:1665`, `97:1103`).
+
+None of that was built, and no record says so. `docs/Design-Inventory.md` (CAP-40) maps
+those frames and carries a TODO for Amenah and Patrick on each, because the reason was never
+written down. What was built follows from things that were recorded:
+
+- CAP-11's acceptance criteria (COA4-69) and `docs/Stack-and-Build-Scope.md` §4.3 specify
+  the narrative with a debounced autosave through `PATCH /entries/{id}`, with a visible
+  saved, saving or failed indicator. A reflection is a draft until it is submitted, so the
+  student's work is always saved and always a draft. There is no save step to confirm.
+- The contract has no draft state for a counter-score. `POST /entries/{id}/scores` writes a
+  final row, a repeat is 409 `ALREADY_SCORED`, and re-scoring is out of scope (CLAUDE.md).
+  ADR #34 closes counter-scoring once the reflection is assessed, which happens when the
+  last entry has one.
+- CAP-13 (Patrick, `f4914b1`) keeps what an assessor has picked and typed per entry in the
+  stepper, so it survives Back and Next, and adds "Save all scores" on the last step. That
+  holding is in the browser only. Nothing reaches the server until a score is saved.
+
+Decision:
+The diary has no draft-then-submit and no save popups for an entry or a counter-score.
+
+A student's narrative autosaves, and the stepper's own indicator says whether it saved. The
+reflection is submitted once, through the submit gate, and the confirmation is the Submitted
+page (CAP-12), not a popup.
+
+An assessor's counter-score is saved as it is made, one `POST` per competency, through
+"Save score" or "Save all scores". Each one is final. When the last one flips the reflection
+to assessed, the stepper says so in place: "That was the last one", and the reflection has
+left the review queue (`EntryStepper.tsx`). There is no "Draft saved" or "Scores submitted"
+popup.
+
+This records the build as it stands. Why the popups themselves were dropped, rather than
+kept as confirmations of an autosave or of the final save, was not recorded at the time,
+and this record doesn't supply a reason. The inventory TODOs stay open for the people who
+built those screens.
+
+Consequences:
+Positive:
+A student can't lose a narrative to a forgotten Save, and a half-written reflection is
+never mistaken for a submitted one, because the only way out of draft is the gate. Scores
+need no second state on the server, no table change and no extra endpoint, and the rules
+in `Scoring` see each score once. One fewer modal on a phone screen at every save.
+
+Negative:
+An assessor can't park a partly scored reflection on the server. Picks held in the browser
+are lost on a reload or another device, and the student never sees a partial set either way.
+Each counter-score is final the moment it is saved, so a mis-tap is permanent until
+re-scoring is built. The prototype's popups carried facts the build doesn't show anywhere
+else: the scoring close date, the largest self-versus-counter gap, the count left to score,
+and "Score next participant". A reader of the handover report sees frames marked dropped
+or changed with no reason beyond this record.
+
+Alternatives:
+Build the drafts as drawn. A `status` on scores and a submit step would match the
+prototype and let an assessor park work. Not done: the `scores` table has never had a
+status (`db/01-schema.sql`), and the views that read scores (`v_entry_score` and
+`v_coverage_gaps` directly, `v_radar` and `v_calibration_gap` through `v_entry_score`)
+count every row. Adding one is a schema change with its own ADR, a new state in the
+contract, and a filter in those views so a parked score isn't charted.
+
+Keep the popups as confirmations over the autosave and the final save. Cheap, and closer
+to the design. Not done, for reasons nobody recorded. This is the one a team could still
+add without touching the API.
