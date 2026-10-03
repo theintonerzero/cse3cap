@@ -243,11 +243,29 @@ test.describe('scope controls do not move the page', () => {
     expect(new Set(ys.map(Math.round)).size).toBe(1);
   });
 
-  test('All gigs: a plain-text placeholder, not a dead control', async ({ page }) => {
+  test('All gigs: a plain-text placeholder for the sprints', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByText('Pick a gig to filter by sprint')).toBeVisible();
     await expect(page.getByRole('group', { name: 'Sprint' })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: /Gig details/ })).toHaveCount(0);
+  });
+
+  // Round 2c (Patrick): Gig details stays on the row under "All gigs",
+  // greyed out and unusable, so the row keeps its shape between scopes.
+  test('All gigs: Gig details is there but greyed out and unusable', async ({ page }) => {
+    await page.goto('/');
+    const details = page.getByRole('button', { name: /Gig details/ });
+    await expect(details).toBeVisible();
+    await expect(details).toBeDisabled();
+  });
+
+  test('the gig select keeps its width between All gigs and one gig', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/');
+    const all = (await page.getByLabel('Gig').boundingBox())!.width;
+    await page.getByLabel('Gig').selectOption({ label: 'Gig one' });
+    await expect(page.getByRole('button', { name: /Gig details/ })).toBeEnabled();
+    const one = (await page.getByLabel('Gig').boundingBox())!.width;
+    expect(Math.abs(one - all), 'select width').toBeLessThanOrEqual(1);
   });
 
   test('Gig details sits beside the picker and still navigates', async ({ page }) => {

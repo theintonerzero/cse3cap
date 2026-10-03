@@ -414,22 +414,23 @@ function ScopeChips({
          * codebase, which is how the two drift. The cost is that it cannot
          * be opened in a new tab.
          *
-         * Absent under "All gigs", which addresses no single gig. A brand
-         * new student with nothing written reaches the same screen through
-         * NothingWritten below, which has linked there since CAP-7 -- but
-         * only while they have written nothing, which is why that link is
-         * not enough on its own.
+         * Under "All gigs", which addresses no single gig, it stays on the
+         * row but disabled (round 2c, Patrick): the row keeps its shape
+         * between scopes instead of the select widening and narrowing. A
+         * brand new student with nothing written reaches the same screen
+         * through NothingWritten below, which has linked there since CAP-7.
          */}
-        {gig && (
-          <Button
-            variant="secondary"
-            size="sm"
-            full_width={false}
-            on_click={() => navigate(`/gigs/${gig.id}`)}
-          >
-            Gig details ›
-          </Button>
-        )}
+        <Button
+          variant="secondary"
+          size="sm"
+          full_width={false}
+          disabled={!gig}
+          on_click={() => {
+            if (gig) navigate(`/gigs/${gig.id}`);
+          }}
+        >
+          Gig details ›
+        </Button>
       </div>
 
       {/* Always exactly one line tall, so choosing a gig moves nothing
