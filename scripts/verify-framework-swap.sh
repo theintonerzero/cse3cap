@@ -48,6 +48,7 @@ set -uo pipefail
 
 BASE="${BASE:-http://127.0.0.1:8000/api/v1}"
 TOKENS="${TOKENS:-$HOME/reflection-diary-tokens.txt}"
+. "$(dirname "${BASH_SOURCE[0]}")/lib/token-for.sh"
 
 if [ -t 1 ]; then
     dim=$'\033[2m'; red=$'\033[1;31m'; green=$'\033[1;32m'
@@ -96,7 +97,7 @@ check() {
 JANE="${JANE:-}"
 if [ -z "$JANE" ]; then
     [ -r "$TOKENS" ] || die "No token. Set JANE=..., or point TOKENS at the file the seeder wrote."
-    JANE="$(grep 'Jane N' "$TOKENS" | awk '{print $NF}')"
+    JANE="$(token_for 'Jane N' "$TOKENS")"
 fi
 [ -n "$JANE" ] || die "Could not find Jane's token in $TOKENS"
 

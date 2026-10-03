@@ -32,6 +32,7 @@ set -uo pipefail
 
 # From the script's own location, so it works from any directory.
 REPO="${REPO:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+. "$(dirname "${BASH_SOURCE[0]}")/lib/token-for.sh"
 WEB="$REPO/web"
 STATIC_ONLY=0
 [ "${1:-}" = "--static" ] && STATIC_ONLY=1
@@ -422,7 +423,7 @@ fi
 
 # The token: web/.env first, then the file the seeder wrote.
 TOKEN="$(grep -s '^VITE_API_TOKEN=' "$WEB/.env" | cut -d= -f2-)"
-[ -z "$TOKEN" ] && TOKEN="$(grep -s 'Jane N' "$HOME/reflection-diary-tokens.txt" | awk '{print $NF}')"
+[ -z "$TOKEN" ] && TOKEN="$(token_for 'Jane N' "$HOME/reflection-diary-tokens.txt")"
 
 printf '\n%sagainst the real API      %shttp://localhost:8000/api/v1%s\n' "$b$off" "$dim" "$off"
 if ! curl -s -o /dev/null --max-time 2 http://localhost:8000/up; then
