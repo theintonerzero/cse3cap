@@ -95,7 +95,7 @@ class ReflectionController extends Controller
      */
     public function destroy(Reflection $reflection): JsonResponse
     {
-        Gate::authorize('delete', $reflection);
+        // MUTATION (throwaway branch): authorize removed to prove the new test fails.
 
         if ($reflection->status !== 'draft') {
             throw new ApiException(
