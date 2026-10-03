@@ -74,6 +74,8 @@ Becomes **1.0.0**, planned for 12 October 2026: `dev` merged to `main` and tagge
 ### Changed
 - Assigning a rubric to a gig is supervisor only. An employer now gets 403, and the framework
   screens show NotFound to anyone who supervises no gig (CAP-46, ADR #48).
+- `docs/Stack-and-Build-Scope.md` §4.3 matches the gig page as built, and ADR #49 records
+  that an entry and a counter-score have no draft-then-submit and no save popups (CAP-47).
 - Dependency updates: Laravel 13.25 to 13.34, which cleared four Composer advisories; React
   19.3; React Router 8.4; Vite 8.3; `@types/node` 26; GitHub Actions checkout and setup-node v7,
   cache v6, upload-artifact v7 (#68, #33, #53, #9, #66).
