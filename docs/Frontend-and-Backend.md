@@ -136,7 +136,7 @@ Business rules live in `api/app/Services/`, once each. The frontend's job is to 
 them, never to enforce them.
 
 The counter-score comment rule is the clearest example. `Scoring.php` refuses a lower
-counter-score without a comment and returns `409 COMMENT_REQUIRED`. The frontend should
+counter-score without a comment and returns `400 COMMENT_REQUIRED`. The frontend should
 absolutely disable the submit button and show the comment field, because making a user
 submit to discover a requirement is bad design. But that button state is a *convenience*.
 The rule is the 409. Never move the rule into the component, and never assume the backend
@@ -156,7 +156,7 @@ These are the failures that do not announce themselves.
 | A field camelCased in `web/` | Value is `undefined`, renders blank | Code review. There is no mapping layer to blame |
 | Vite on a port other than 5173 | CORS failure with an unhelpful console error | `FRONTEND_URL` in `api/.env` |
 | A rule reimplemented in a component | Passes until the backend rule changes | Code review, and the rule map in `CLAUDE.md` |
-| Raw hex in a component | Dark mode silently broken | Review against `web/src/tokens.css` |
+| Raw hex in a component | Dark mode silently broken | `scripts/check-tokens.sh`, in CI and `./run check` |
 
 ## Which agent to use
 

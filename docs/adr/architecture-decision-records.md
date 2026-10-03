@@ -2126,8 +2126,8 @@ Context:
 CAP-8's plan recorded three light-mode AA failures of `--color-primary` as link text
 (3.93:1 on the lavender tint, 4.07-4.29:1 on surface-alt/bg) and deliberately did not fix
 them. That plan quotes why directly: this branch tried changing `.diary_link` and
-`.empty_link` to `--color-text` plus an underline, and Patrick reverted it on 2026-09-14 --
-"imagine if everyone did small changes to the css our design would end up fucked." The CAP-8
+`.empty_link` to `--color-text` plus an underline, and Patrick reverted it on 2026-09-14,
+pointing out that if everyone made small local CSS changes the design would fall apart. The CAP-8
 plan's own conclusion: "the link treatment is a property of the design system, so five
 people each fixing it locally produces five link styles and no fix... adding a failing row
 would turn a recorded team finding into a red build, which is also not one person's call."

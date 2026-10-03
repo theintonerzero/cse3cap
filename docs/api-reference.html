@@ -381,7 +381,7 @@
       <li><a href="#rules">The business rules</a></li>
       <li><a href="#testing">Testing it</a></li>
       <li><a href="#conventions">Conventions</a></li>
-      <li><a href="#notbuilt">Not built yet</a></li>
+      <li><a href="#notbuilt">Status at v1.0.0</a></li>
     </ol>
   </nav>
 
@@ -834,7 +834,7 @@ curl -H "Authorization: Bearer $JANE" \
       <h2>Testing it</h2>
 
       <h3>The suite</h3>
-      <p>110 feature tests against real MySQL, not sqlite: the schema uses generated columns, <code>CHECK</code> constraints and window functions that sqlite cannot express, so an in-memory suite would be testing a different database from the one we ship on.</p>
+      <p>138 feature tests and 6 unit tests against real MySQL, not sqlite: the schema uses generated columns, <code>CHECK</code> constraints and window functions that sqlite cannot express, so an in-memory suite would be testing a different database from the one we ship on.</p>
 <pre><code>cd api && php artisan test</code></pre>
       <p>They test the denials, not just the permissions. A policy that returns true for everyone passes every happy-path test ever written.</p>
 
@@ -842,7 +842,7 @@ curl -H "Authorization: Bearer $JANE" \
       <p>The suite proves the rules in isolation with <code>Sanctum::actingAs</code>. That cannot see wiring: middleware order, the guest redirect, content negotiation, anything that only exists once a request crosses HTTP. So there is a script that drives the whole product with the three real tokens.</p>
 <pre><code>cd api && php artisan serve &amp;
 ./scripts/smoke.sh</code></pre>
-      <p>It writes a reflection as Jane, submits it through the gate, counter-scores it as Sam, watches it flip to assessed, reads all four analytics endpoints, then exports and downloads the record, checking the refusals on the way past. 51 checks, each printing the status it got against the status it wanted, so a failure names the call that broke.</p>
+      <p>It writes a reflection as Jane, submits it through the gate, counter-scores it as Sam, watches it flip to assessed, reads all four analytics endpoints, then exports and downloads the record, checking the refusals on the way past. 55 checks, each printing the status it got against the status it wanted, so a failure names the call that broke.</p>
       <p>It picks a sprint Jane has not used yet, so you can run it more than once against the same database.</p>
 
       <h3>The mock</h3>
@@ -872,24 +872,9 @@ curl -H "Authorization: Bearer $JANE" \
     </section>
 
     <section id="notbuilt">
-      <h2>Not built yet</h2>
-      <p>The API is complete. Two things are deliberately outstanding, listed so nobody builds against something that is not there.</p>
-      <div class="tablewrap">
-        <table>
-          <thead><tr><th>Thing</th><th>Where it stands</th></tr></thead>
-          <tbody>
-            <tr>
-              <td>PDF export</td>
-              <td>The schema and the contract both allow <code>pdf</code>, and <code>exports.format</code> accepts it. Rendering one needs dompdf, and adding a package is the team's decision rather than something to slip into a commit, so <code>POST /exports</code> refuses <code>pdf</code> clearly instead of quietly producing JSON.</td>
-            </tr>
-            <tr>
-              <td>The frontend</td>
-              <td>A Vite scaffold in <code>web/</code> that renders one word, and no screens. The contract mocks itself, so every endpoint on this page can be built against today.</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <p>Also worth deciding before the demo: whether completing a reflection should close it for every scorer, or only for the one who finished. The current behaviour follows the specification exactly, and is described under the review queue above.</p>
+      <h2>Status at v1.0.0</h2>
+      <p>Everything on this page is built. PDF export renders with dompdf (ADR #39), and the frontend has every screen in the build scope. Whether completing a reflection closes it for every scorer is settled: counter-scores close when the reflection does (ADR #34).</p>
+      <p>Known limitations at handover are listed in <code>docs/CHANGELOG.md</code> and <code>docs/Security-Review.md</code>.</p>
     </section>
 
   <footer>

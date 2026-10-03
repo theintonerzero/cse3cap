@@ -168,9 +168,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # web/ does not exist yet. The job is here so the first frontend PR
-      # arrives to a pipeline that already runs, rather than having to
-      # build one under time pressure.
+      # Written before web/ existed, so the first frontend PR arrived to a
+      # pipeline that already ran. The guard stays harmless now that it does.
       - name: Check whether there is a frontend yet
         id: web
         run: |

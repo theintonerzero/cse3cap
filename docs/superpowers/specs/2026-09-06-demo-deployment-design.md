@@ -3,7 +3,9 @@
 **Date:** 2026-09-06
 **Status:** Parked 2026-09-08, blocked on access to the host. Design agreed; four decisions
 open in §9. Not ready for an implementation plan until §9 is closed, and §9.4 blocks the
-rest of them.
+rest of them. **Not built at v1.0.0:** `scripts/deploy.sh`, `docs/Deployment.md`,
+`scripts/check-db-tls.sh` and `./run deploy` below exist only on the unmerged
+`feat/CAP-26-deploy-kit` branch, not on `dev`.
 **Ticket:** CAP-26, Sprint 5, 8 points. Epic: Demo Data, Hardening and Release.
 
 ## What this is for

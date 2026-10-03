@@ -66,7 +66,7 @@ nothing to install locally. Everyone connects to the same instance with credenti
   adr/                   architecture decision records
   erd.png
 .claude/settings.json    shared plugins + marketplaces for the team
-.mcp.json                Context7, MySQL MCP
+.mcp.json                MySQL (read-only) and the atlassian Jira server
 README.md                setup, connection details, the three tokens
 ```
 
@@ -99,8 +99,8 @@ README.md                setup, connection details, the three tokens
       than restating it, and is recorded as already-run on the shared instance
 - [x] Base model: `HasUuids`, `$keyType = 'string'`, `$incrementing = false`
 - [x] Exception renderer producing the single error envelope
-- [x] `RoleResolver::for(User, Gig)`. `GigPolicy` done; the remaining rows arrive with the
-      resources they govern
+- [x] `RoleResolver::for(User, Gig)`, behind every policy. Every permission-matrix row has
+      a policy method (CAP-19)
 
 **Endpoints** (full detail in API spec v2)
 - [x] `GET /auth/me`
@@ -115,7 +115,7 @@ README.md                setup, connection details, the three tokens
 - [x] `GET /review-queue`
 - [x] `GET /me/radar`, `/me/progress`, `/me/calibration`, `/me/coverage`
 - [x] `POST /exports`, `GET /exports/{id}`, `GET /exports`, `GET /exports/{id}/download`.
-      JSON only; PDF needs dompdf, which is a package decision for the team
+      JSON and PDF; PDF renders with dompdf (ADR #39, CAP-17)
 - [x] `GET /reflections/{id}/events`
 
 **Business rules, one implementation each**
@@ -230,7 +230,9 @@ four-states evidence is CAP-21 (#74)
 - [x] CI running Pint, oxlint, Prettier and both builds, set up before the first feature PR.
       `.github/workflows/ci.yml`. The backend job brings up its own MySQL 9.7 service
       container rather than touching the shared instance, because the suite runs
-      `migrate:fresh`. The frontend job is written and skips itself until `web/` exists.
+      `migrate:fresh`. The frontend job runs lint, prettier, the token and contrast checks,
+      the build and the Playwright browser checks. The contract job also checks for
+      contract drift (CAP-25).
 - [x] `openapi.yaml` written from API spec v2 for the read path, mock server running
       (`prism mock`) and serving the seeded data as examples
 - [x] `.claude/settings.json` with shared plugins, permissions and the shared-database

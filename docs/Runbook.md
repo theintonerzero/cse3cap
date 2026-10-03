@@ -16,9 +16,10 @@ The reasoning behind each choice lives elsewhere and is linked rather than repea
 | Frontend | React 19 and Vite, `web/` | `http://localhost:5173` locally |
 | Database | MySQL 9.7 LTS on a shared VPS | `rddb.darkovski.dev:3306`, database `reflection_diary` |
 
-There is no deployed instance in this runbook yet. CAP-26 (demo deploy) is designed in
-`docs/superpowers/specs/2026-09-06-demo-deployment-design.md` and in progress on its own
-branch. When it lands, its deploy and rollback steps belong here.
+There is no deployed instance. A demo deployment is designed in
+`docs/superpowers/specs/2026-09-06-demo-deployment-design.md`, but it was not deployed by
+v1.0.0: it needs shell access to the VPS that the team never confirmed. If it is built, its
+deploy and rollback steps belong here.
 
 ## Start it
 
@@ -37,8 +38,9 @@ Every time after:
 ./run dev            # API on :8000 and web on :5173. Ctrl-C stops both
 ```
 
-Or one half at a time with `./run api` and `./run web`. Windows: `./run.ps1` takes the same
-commands.
+Or one half at a time with `./run api` and `./run web`. Windows: `./run.ps1` takes the
+everyday commands (dev, api, web, test, check, setup). `smoke`, `verify`, `e2e`, `deps`,
+`jira` and the per-screen `verify-*` checks need bash.
 
 **Check it is up:**
 
