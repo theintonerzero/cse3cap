@@ -79,6 +79,7 @@ import type {
   ReflectionEntry,
   ReflectionStatus,
 } from './entry-stepper-logic.ts';
+import { sprint_dates, type DatedSprint } from './gig-timing.ts';
 import styles from './EntryStepper.module.css';
 
 /**
@@ -156,6 +157,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
   // only for lists). A second, optional read; the screen works without it.
   const [gig, setGig] = useState<HeadingGig | null>(null);
   const heading = stepper_heading(mode, load, gig);
+  const dates = sprint_window(load, gig);
 
   // An obvious way out of the assessor screen from any step, and from its
   // error and empty states, without saving or stepping back through every
@@ -468,6 +470,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
     <section className={styles.page}>
       {exit_to_queue}
       <h1 className={styles.heading}>{heading}</h1>
+      {dates && <p className={styles.sprint_dates}>{dates}</p>}
       <div className={styles.status_row}>
         {/* The student's status matters to the student. An assessor only
             ever scores submitted work, so on their screen the badge would
@@ -1212,10 +1215,24 @@ function CounterScorePanel({
   );
 }
 
-/** The two things the heading needs from GET /gigs/{gig_id}. */
+/** What the heading and the line under it need from GET /gigs/{gig_id}. */
 interface HeadingGig {
   title: string;
-  sprints: { id: string; ordinal: number }[];
+  sprints: (DatedSprint & { id: string; ordinal: number })[];
+}
+
+/**
+ * "15 Aug – 28 Aug" under the heading (round 2c, Patrick): which stretch
+ * of the gig this reflection covers. From the gig's sprints, the same way
+ * the gig page words it (sprint_dates); null until the gig has loaded, or
+ * for a whole-gig reflection or an undated sprint.
+ */
+function sprint_window(load: Load, gig: HeadingGig | null): string | null {
+  if (load.status !== 'loaded' || !gig) return null;
+  const sprint = gig.sprints.find(
+    (candidate) => candidate.id === load.reflection.sprint_id,
+  );
+  return sprint ? sprint_dates(sprint) : null;
 }
 
 /**

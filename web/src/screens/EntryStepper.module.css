@@ -6,6 +6,13 @@
   color: var(--color-text);
 }
 
+/* Round 2c: the sprint's dates, a quiet line tucked under the heading. */
+.sprint_dates {
+  margin: calc(-1 * var(--space-12)) 0 var(--space-16);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
 .status_row {
   margin-bottom: var(--space-16);
 }

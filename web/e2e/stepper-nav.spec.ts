@@ -160,6 +160,18 @@ test.describe('the heading', () => {
   });
 });
 
+test.describe('under the heading', () => {
+  test.use({ locale: 'en-AU' });
+
+  test("a small line gives the sprint's start and end dates", async ({ page }) => {
+    await page.goto(`/reflections/${DRAFT}`);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+      'Develop AI use cases · Sprint 2',
+    );
+    await expect(page.getByText('15 Aug – 28 Aug', { exact: true })).toBeVisible();
+  });
+});
+
 test("the student's card leads with the self-score, then the reflection", async ({
   page,
 }) => {
