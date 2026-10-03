@@ -77,7 +77,8 @@ say "2. Reachable from the diary, and scoped on the way back"
 # nav cannot carry one because /gigs/:gig_id needs an id and the nav has
 # no single gig to name.
 #
-# Checked as the always-visible control in .about_gig, NOT as any link to
+# Checked as the always-visible control on the gig picker's row
+# (.picker_row since CAP-38 R6; .about_gig before), NOT as any link to
 # /gigs/. The diary home has carried one since CAP-7, inside NothingWritten,
 # which only renders for a student who has written nothing -- so a bare grep
 # for '/gigs/' passes while every student with a reflection still has no way
@@ -85,8 +86,8 @@ say "2. Reachable from the diary, and scoped on the way back"
 #
 # It is a Button that navigates, not an anchor, so the assertion is on the
 # navigate() call rather than on a `to=` prop.
-if grep -q 'styles.about_gig' "$DIARY" && grep -q 'navigate(`/gigs/' "$DIARY"; then
-    ok "the diary home reaches /gigs/:gig_id" "a Button beside the scope chips"
+if grep -q 'styles.picker_row' "$DIARY" && grep -q 'navigate(`/gigs/' "$DIARY"; then
+    ok "the diary home reaches /gigs/:gig_id" "a Button on the gig picker's row"
 else
     bad "the diary home reaches /gigs/:gig_id" "the screen would be URL-only"
 fi
