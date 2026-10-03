@@ -141,6 +141,11 @@ case "${1:-help}" in
     # Needs api/vendor and api/.env for route:list; never the database.
     contract-drift) need_api; step ./scripts/check-contract-drift.sh ;;
 
+    # Rewrites docs/Dependency-Register.md from composer and npm: licences and
+    # known advisories, dated and tied to a commit (SMD 8.6, CAP-32). Needs the
+    # network for the two audits. Commit the result.
+    deps) need_api; need_web_deps; step python3 scripts/dependency-register.py ;;
+
     test)  need_api; in_dir api php artisan test ;;
 
     # The frontend client against real servers, plus the compile-time
@@ -315,6 +320,7 @@ case "${1:-help}" in
         say "Contract"
         step npx -y @redocly/cli@latest lint docs/openapi.yaml
         step python3 scripts/contract-routes.test.py
+        step python3 scripts/dependency-register.test.py
         need_api
         step ./scripts/check-contract-drift.sh
         say "Guards"
@@ -351,6 +357,7 @@ ${BLUE}Alumable Reflection Diary${RESET}
   ${GREEN}./run web${RESET}      frontend only
   ${GREEN}./run mock${RESET}     mock the contract on :4010, so web needs no backend
   ${GREEN}./run contract-drift${RESET}  schema.ts and Laravel's routes, both against the contract
+  ${GREEN}./run deps${RESET}     regenerate docs/Dependency-Register.md: licences and advisories
 
   ${GREEN}./run test${RESET}     backend test suite, against your own test database
   ${GREEN}./run smoke${RESET}    end-to-end over HTTP. Needs a server already running
