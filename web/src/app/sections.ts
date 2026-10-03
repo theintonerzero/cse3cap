@@ -18,6 +18,8 @@ export interface Section {
   parent: { to: string; title: string } | null;
   /** The bar title is the page's h1 only on the diary home, this round. */
   title_is_h1: boolean;
+  /** Which background tint the shell wears (CAP-38 R8). Top screens only. */
+  tint: 'diary' | 'review' | 'frameworks' | null;
 }
 
 const DIARY = { to: '/', title: 'Reflection Diary' };
@@ -30,21 +32,21 @@ function at(pattern: string, pathname: string): boolean {
 
 export function section_for(pathname: string): Section {
   if (at('/', pathname)) {
-    return { title: 'Reflection Diary', parent: null, title_is_h1: true };
+    return { title: 'Reflection Diary', parent: null, title_is_h1: true, tint: 'diary' };
   }
   if (at('/review-queue', pathname)) {
-    return { title: 'Review queue', parent: null, title_is_h1: false };
+    return { title: 'Review queue', parent: null, title_is_h1: false, tint: 'review' };
   }
   if (at('/review-queue/*', pathname)) {
-    return { title: 'Review queue', parent: QUEUE, title_is_h1: false };
+    return { title: 'Review queue', parent: QUEUE, title_is_h1: false, tint: null };
   }
   if (at('/frameworks', pathname)) {
-    return { title: 'Frameworks', parent: null, title_is_h1: false };
+    return { title: 'Frameworks', parent: null, title_is_h1: false, tint: 'frameworks' };
   }
   if (at('/frameworks/*', pathname)) {
-    return { title: 'Frameworks', parent: FRAMEWORKS, title_is_h1: false };
+    return { title: 'Frameworks', parent: FRAMEWORKS, title_is_h1: false, tint: null };
   }
   // /gigs/:id, /reflections/:id(/submitted), /entries/:id and anything
   // unknown are all deeper diary screens.
-  return { title: 'Reflection Diary', parent: DIARY, title_is_h1: false };
+  return { title: 'Reflection Diary', parent: DIARY, title_is_h1: false, tint: null };
 }

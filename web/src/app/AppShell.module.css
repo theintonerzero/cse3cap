@@ -196,3 +196,28 @@
     font-size: var(--font-size-sm);
   }
 }
+
+/* CAP-38 R8 (ADR #48): a top screen's tint, fading into the page over the
+   first 20rem. Deeper screens and sheets stay plain. The sticky header
+   takes the tint's top colour so it blends rather than reading as a slab. */
+.shell[data-section='diary'] {
+  --section-tint: var(--section-tint-diary);
+}
+
+.shell[data-section='review'] {
+  --section-tint: var(--section-tint-review);
+}
+
+.shell[data-section='frameworks'] {
+  --section-tint: var(--section-tint-frameworks);
+}
+
+.shell[data-section] {
+  background:
+    linear-gradient(to bottom, var(--section-tint) 0, var(--color-bg) 20rem) no-repeat,
+    var(--color-bg);
+}
+
+.shell[data-section] .header {
+  background: var(--section-tint);
+}

@@ -108,6 +108,12 @@
   --color-accent-lavender: #efebfa;
   --color-accent-evidence: #e9f3fd;
 
+  /* CAP-38 R8, ADR #48: the top screens' background tint says which
+     section you are in. Light: the accents themselves. */
+  --section-tint-diary: #efebfa;
+  --section-tint-review: #e9f4ee;
+  --section-tint-frameworks: #ffe8d6;
+
   /* Spacing, 4px grid. --space-20 is measured, not interpolated: it is
      both the page's horizontal margin and the gap between dashboard
      cards, confirmed at four separate card boundaries on the Home
@@ -235,6 +241,12 @@
     --color-accent-lavender: #251452;
     --color-accent-evidence: #08335e;
 
+    /* = color-mix(in srgb, <dark accent> 35%, --color-bg): a hint, not the
+       raw dark accent's wash. Hex so check-contrast.mjs can measure it. */
+    --section-tint-diary: #19152f;
+    --section-tint-review: #182523;
+    --section-tint-frameworks: #2f1d12;
+
     /* CAP-38: a hairline instead of a shadow (see the light block). */
     --shadow-card: 0 0 0 1px var(--color-border);
     --shadow-sheet: 0 0 0 1px var(--color-border);
@@ -265,6 +277,12 @@
   --color-accent-pink: #660059;
   --color-accent-lavender: #251452;
   --color-accent-evidence: #08335e;
+
+  /* = color-mix(in srgb, <dark accent> 35%, --color-bg): a hint, not the
+     raw dark accent's wash. Hex so check-contrast.mjs can measure it. */
+  --section-tint-diary: #19152f;
+  --section-tint-review: #182523;
+  --section-tint-frameworks: #2f1d12;
 
   /* CAP-38: a hairline instead of a shadow (see the light block). */
   --shadow-card: 0 0 0 1px var(--color-border);

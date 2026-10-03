@@ -53,6 +53,7 @@ Index
 #42 Browser checks with Playwright, fake API ..... Accepted
 #44 Type, line height and control shape leave Figma . Proposed
 #47 One Firefox check beside the Chromium suite .. Proposed
+#48 Section tints on the top screens ............. Proposed
 
 ===============================================================
 
@@ -2303,3 +2304,65 @@ save sends.
 
 Check Firefox by hand before each review. No cost in CI, but it's the gap that let this bug
 through, and a check only one person runs is a check the team doesn't have.
+
+
+ADR #48: Section tints on the top screens
+Status: Proposed
+Date: 2026-10-03
+
+Context:
+ADR #44 made the CAP-38 visual pass colour-neutral because ADR #43 tuned the palette for AA.
+The live Alumable app tints its pages in colours that don't mean anything. Ours has three
+top screens that are different sections, the diary, the review queue and frameworks, and the
+only thing telling them apart is the title in the top bar. The accent colours already exist
+and every one of them was measured against --color-text, so a tint that reuses them needs
+no new judgment about the palette. This is an experiment. The team hasn't seen it on a
+phone in someone's hand yet.
+
+Decision:
+Three tokens, --section-tint-diary, --section-tint-review and --section-tint-frameworks,
+used on the three top screens only. The shell sets data-section from section_for() in
+sections.ts and nothing else changes. The tint is a gradient from the tint down to
+--color-bg over the first 20rem, and the sticky header takes the tint's top colour so it
+blends into the page and doesn't read as a slab. Gig detail, the stepper, history and
+every sheet stay plain, because they are deeper than a section. This extends #44 and
+changes nothing in it. No existing colour token changes.
+
+Light values are the lavender, mint and peach accents themselves. Dark values are the dark
+accents mixed toward --color-bg at 35%, written as hex with the formula in a comment.
+check-contrast.mjs reads hex only and every pair has to be measured, so color-mix() was
+not an option for the value itself. 35% was the only mix rendered, judged by eye on the
+390 and 1440 captures. No other percentage was compared. Peach at 35% is already clearly
+brown in dark mode, so the mix was not raised.
+
+Consequences:
+Positive:
+The page's colour says which section you're in, alongside the bar title. It
+costs three tokens and about 25 lines of CSS and adds no markup. Six new pairs are in
+check-contrast.mjs, measured as --color-text then --color-text-muted on each tint.
+Light: text 13.91:1 on diary, 14.46:1 on review, 13.78:1 on frameworks. Muted 4.90:1,
+5.10:1 and 4.86:1. Dark: text 15.49:1, 13.88:1 and 14.12:1. Muted 8.51:1, 7.63:1 and
+7.76:1. All pass 4.5:1 in both modes. No existing token changed value. The whole
+experiment is one commit and one git revert removes it.
+
+Negative:
+The light muted pairs are close to the line. 4.86:1 on the peach is the narrowest margin
+in the section set, so any later darkening of a tint or lightening of --color-text-muted
+will fail the check. The gradient fades toward --color-bg, so text lower on the page sits
+on a lighter colour than the one measured. That only helps the ratio, but the ratios here
+are for the worst point. The tint is a new colour in the product, and the dark brown for
+frameworks is the most noticeable of the three. The three tint hexes are mixed once and
+copied, so if a dark accent ever changes the tint won't follow it unless someone reruns the
+formula.
+
+Alternatives:
+Use color-mix() in the stylesheet so the tint follows the accent. That would keep the dark
+values in step automatically, but the contrast script can't parse it, and a pair that isn't
+measured isn't covered by ADR #43.
+
+Tint the whole page with a flat colour. Simpler, and the section reads even more clearly,
+but a full-bleed colour behind cards fights the card accents on gig detail and is closer to
+the wash that dark mode can't carry.
+
+Leave the sections to the top bar title. No colour risk and nothing to maintain, but it
+leaves the diary and the review queue looking like the same page with different cards.

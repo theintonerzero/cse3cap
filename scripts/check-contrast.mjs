@@ -69,6 +69,14 @@ const PAIRS = [
   // A status colour rendered on its own tinted fill, or on the other status's fill.
   ['--color-danger', '--color-danger-bg', 'normal'], // ExportSheet .failed_message; EntryStepper .field_error inside .card_offending
   ['--color-success', '--color-danger-bg', 'normal'], // TextArea's own .saved, when the narrative it autosaves sits inside EntryStepper's .card_offending
+
+  // CAP-38 R8 (ADR #48): page text over the top screens' section tint.
+  ['--color-text', '--section-tint-diary', 'normal'],
+  ['--color-text', '--section-tint-review', 'normal'],
+  ['--color-text', '--section-tint-frameworks', 'normal'],
+  ['--color-text-muted', '--section-tint-diary', 'normal'],
+  ['--color-text-muted', '--section-tint-review', 'normal'],
+  ['--color-text-muted', '--section-tint-frameworks', 'normal'],
 ];
 
 const THRESHOLD = { normal: 4.5, large: 3.0 };

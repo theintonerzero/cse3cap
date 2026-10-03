@@ -129,7 +129,7 @@ export function AppShell() {
   const role_summary = [...new Set(me.participations.map((p) => p.role))].join(', ');
 
   return (
-    <div className={styles.shell}>
+    <div className={styles.shell} data-section={section.tint ?? undefined}>
       <header className={styles.header}>
         <div className={styles.bar}>
           <div className={styles.back_slot}>

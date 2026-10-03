@@ -295,3 +295,26 @@ test.describe('⋮ menu', () => {
     await expect(banner.getByRole('button', { name: /^(Dark|Light)$/ })).toHaveCount(0);
   });
 });
+
+test.describe('section tint', () => {
+  test('diary home carries data-section="diary"; a deeper screen carries none', async ({
+    page,
+  }) => {
+    await install(page, 'Ash');
+    await page.goto('/');
+    await expect(page.locator('[data-section="diary"]')).toHaveCount(1);
+    await page.goto(`/gigs/${GIG}`);
+    await expect(
+      page.getByRole('link', { name: 'Back to Reflection Diary' }),
+    ).toBeVisible();
+    await expect(page.locator('[data-section]')).toHaveCount(0);
+  });
+
+  test('review queue and frameworks carry their own section', async ({ page }) => {
+    await install(page, 'Dr Lee', 'supervisor');
+    await page.goto('/review-queue');
+    await expect(page.locator('[data-section="review"]')).toHaveCount(1);
+    await page.goto('/frameworks');
+    await expect(page.locator('[data-section="frameworks"]')).toHaveCount(1);
+  });
+});
