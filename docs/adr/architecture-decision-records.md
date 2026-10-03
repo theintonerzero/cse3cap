@@ -2493,18 +2493,20 @@ Date: 2026-10-03
 
 Context:
 The Figma prototype draws both sides of the diary as draft then submit. A student's entry
-is one long page with "Save draft" and "Submit entry", and saving shows a "Draft saved"
-popup saying nothing has gone to the assessor yet (`142:2570`). Scoring is the same shape:
-"Save draft" and "Submit scores", a "Draft saved" popup part way through (`142:3207`,
-`142:3675`), and a "Scores submitted" popup at the end (`97:1665`, `97:1103`).
+is one long page with "Save draft" and "Submit entry" (`21:326`), saving shows a "Draft
+saved" popup saying nothing has gone to the assessor yet (`142:2570`), and submitting shows
+an "Entry submitted" popup (`142:2863`). Scoring is the same shape: "Save draft" and
+"Submit scores" (`97:1416`), a "Draft saved" popup part way through that says the student
+can't see the scores yet (`142:3207`, `142:3675`), and a "Scores submitted" popup at the
+end (`97:1665`, `97:1103`).
 
 None of that was built, and no record says so. `docs/Design-Inventory.md` (CAP-40) maps
 those frames and carries a TODO for Amenah and Patrick on each, because the reason was never
 written down. What was built follows from things that were recorded:
 
-- CAP-11's acceptance criteria (COA4-69) and `docs/Stack-and-Build-Scope.md` §4.3 specify
-  the narrative with a debounced autosave through `PATCH /entries/{id}`, with a visible
-  saved, saving or failed indicator. A reflection is a draft until it is submitted, so the
+- CAP-11's acceptance criteria (COA4-69) specify the narrative with a debounced autosave
+  through `PATCH /entries/{id}`, with a visible saved, saving or failed indicator.
+  `docs/Stack-and-Build-Scope.md` §4.3 says "narrative with debounced autosave". A reflection is a draft until it is submitted, so the
   student's work is always saved and always a draft. There is no save step to confirm.
 - The contract has no draft state for a counter-score. `POST /entries/{id}/scores` writes a
   final row, a repeat is 409 `ALREADY_SCORED`, and re-scoring is out of scope (CLAUDE.md).
@@ -2541,21 +2543,25 @@ in `Scoring` see each score once. One fewer modal on a phone screen at every sav
 
 Negative:
 An assessor can't park a partly scored reflection on the server. Picks held in the browser
-are lost on a reload or another device, and the student never sees a partial set either way.
-Each counter-score is final the moment it is saved, so a mis-tap is permanent until
-re-scoring is built. The prototype's popups carried facts the build doesn't show anywhere
-else: the scoring close date, the largest self-versus-counter gap, the count left to score,
-and "Score next participant". A reader of the handover report sees frames marked dropped
+are lost on a reload or another device. Each saved counter-score is visible to the student
+at once, on the stepper and on the radar (`ReflectionDetailResource` returns every score,
+and `v_radar` has no status filter), so a student can see a partly scored reflection. That
+is the opposite of what `142:3207` drew, a draft the student cannot see yet. A
+counter-score is final once "Save score" is pressed, so a wrong level saved is
+permanent. Re-scoring is out of scope. The prototype's popups carried facts the build
+doesn't show anywhere else: the scoring close date, the largest self-versus-counter gap,
+the number of participants still to score, and "Score next participant". A reader of the handover report sees frames marked dropped
 or changed with no reason beyond this record.
 
 Alternatives:
 Build the drafts as drawn. A `status` on scores and a submit step would match the
-prototype and let an assessor park work. Not done: the `scores` table has never had a
-status (`db/01-schema.sql`), and the views that read scores (`v_entry_score` and
-`v_coverage_gaps` directly, `v_radar` and `v_calibration_gap` through `v_entry_score`)
-count every row. Adding one is a schema change with its own ADR, a new state in the
-contract, and a filter in those views so a parked score isn't charted.
+prototype, let an assessor park work, and keep partial scores from the student. What it
+would need: the `scores` table has never had a status (`db/01-schema.sql`), and the views
+that read scores (`v_entry_score` and `v_coverage_gaps` directly, `v_radar` and
+`v_calibration_gap` through `v_entry_score`) have no status filter. Adding one is a schema
+change with its own ADR, a new state in the contract, and a filter in those views so a
+parked score isn't charted.
 
 Keep the popups as confirmations over the autosave and the final save. Cheap, and closer
-to the design. Not done, for reasons nobody recorded. This is the one a team could still
+to the design. Not built, and no reason was recorded. This is the one a team could still
 add without touching the API.
