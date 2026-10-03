@@ -196,6 +196,9 @@
      where it is used. */
   --duration-quick: 180ms;
   --z-sheet: 100;
+  /* CAP-38 R7: how long a sheet takes to slide up, and to spring back after
+     a short drag. Off under prefers-reduced-motion where it is used. */
+  --duration-sheet: 220ms;
 }
 
 @media (prefers-color-scheme: dark) {

@@ -126,3 +126,22 @@ test('phone: the floating Export button is fixed at the bottom right', async ({ 
   expect(box.y + box.height).toBeLessThanOrEqual(844);
   expect(box.y + box.height).toBeGreaterThan(844 - 80);
 });
+
+test('phone: dragging a sheet by its handle closes it', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Leave the Reflection Diary' }).click();
+  const sheet = page.getByRole('dialog', { name: 'Leave the Reflection Diary?' });
+  await expect(sheet).toBeVisible();
+  await expect.poll(() => sheet.evaluate((n) => n.getAnimations().length)).toBe(0);
+  const height = (await sheet.boundingBox())!.height;
+  const grab = (await sheet.locator('[data-sheet-grab]').boundingBox())!;
+  const x = grab.x + grab.width / 2;
+  const y = grab.y + grab.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  for (let step = 1; step <= 10; step++)
+    await page.mouse.move(x, y + (height * 0.6 * step) / 10);
+  await page.mouse.up();
+  await expect(sheet).toHaveCount(0);
+});
