@@ -67,10 +67,10 @@ routes_live="$(grep -v '^[[:space:]]*\*' web/src/app/routes.tsx)"
 for route in \
     'index' \
     'gigs/:gig_id' \
-    'entries/:entry_id' \
+    'reflections/:reflection_id' \
     'reflections/:reflection_id/submitted' \
     'review-queue' \
-    'review-queue/entries/:entry_id' \
+    'review-queue/reflections/:reflection_id' \
     'frameworks' \
     'frameworks/:framework_id/edit'
 do
