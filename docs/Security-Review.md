@@ -10,6 +10,189 @@ fixes what it finds leaves no record that the class of problem existed.
 
 ---
 
+## 2026-10-03 · Every finding re-verified, by reviewers who did not write them
+
+**Reviewer:** Tony To, via Claude Code · **Tickets raised:** CAP-42, CAP-43, CAP-44 ·
+**Commit reviewed:** `b8e2210`
+
+### Scope
+
+Every entry below, F1 to F10 and the CAP-31 and CAP-32 results, re-checked against current
+`dev` by four fresh agents that had not written any of it: one each for the tokens (F1 to
+F5), the PDF and evidence (F6 to F8), authorisation with F9, F10 and the pentest, and one
+critic for what no entry ever looked at. The method and severity scale are Cloudflare's
+`security-audit` skill (github.com/cloudflare/security-audit-skill), in its guidance mode.
+Its rule that matters most here is that the agent checking a finding is never the agent
+that found it.
+
+### Method
+
+Source only. Nothing in the repository was run, no deployed endpoint or shared service was
+probed, and nothing was written to the shared database. The skill forbids running target
+code without an OS-enforced sandbox, and this review had none. One read-only query was run
+through `diary_ro`, quoted under F13. Every new claim below was re-read by hand before it
+was written here.
+
+The skill's severity anchors are stricter than the ones this file has used. A gap with no
+reachable boundary violation is a hardening note, not a finding, and severity cannot exceed
+demonstrated impact. Re-rating against them is most of what changed.
+
+### Verdicts on the existing findings
+
+| Finding | Was | Now | Why |
+| --- | --- | --- | --- |
+| F1 | High, fixed | **Fix verified** | `client.ts:153-155` still gates the token on `import.meta.env.DEV`. Two blind spots in the check below |
+| F2 | Medium | **Hardening note, fix verified** | Sanctum 4.3.3's guard enforces a token's own `expires_at` when the global setting is null. No expiry matters only after a leak, which crosses no boundary by itself |
+| F3 | Medium | **Informational** | This file already says it is not an escalation. There is no concrete damage to point to |
+| F4 | Low | **Hardening note, fix verified** | And the 2026-10-03 method claim below it is wrong, see CAP-44 |
+| F5 | Low, accepted | **Informational** | The same person already has that token in `web/.env` |
+| F6 | Low, fixed | **Fix verified** | `PdfRenderer.php:37,43`. `chroot` is left at dompdf's default |
+| F7 | Low, fixed | **Fix verified** | `StoreEvidenceRequest.php:30`, and the stepper's own `^https?://` guard |
+| F8 | Low today | **Precondition, not a finding** | Still no route serves an evidence file back. One addition below |
+| F9, F10 | Low, fixed | **Fixes verified** | Each test fails with its fix removed |
+
+**Two claims in this file were wrong.**
+
+- The CAP-32 entry says nothing in `web/` or `scripts/` parses a token's shape.
+  `scripts/verify-app-shell.sh:98` does, with `[0-9]+\|[A-Za-z0-9]+`, and against an
+  `rdiary_` token it extracts `7|rdiary`. Its live check will 401 the day the tokens are
+  reissued, and CI skips that half. **CAP-44**, to merge before the reissue.
+- The CAP-31 entry says not-yours is 404 everywhere it was probed. That holds for what was
+  probed, but F12 is a route where it does not.
+
+The CAP-31 framework gap is smaller than that entry states.
+`FrameworkMutationTest::test_one_reflection_freezes_the_framework_everywhere` sends real
+`PATCH` requests through the routes, middleware, policy and `assertEditable`. It is HTTP in
+process. What it skips is a real bearer token, which the pentest covers elsewhere.
+
+F1's check has two blind spots, neither of which weakens the fix in `client.ts`. If
+`VITE_API_TOKEN` is already set in the shell, Vite prefers it to `.env.production.local`, so
+the canary is never compiled and `check-bundle-secrets.sh:70` passes without testing
+anything. And the script knows only that one variable name.
+
+F8 gains one condition for whichever ticket first serves evidence back: the rubric allowlist
+checks the extension the uploader typed (`EvidenceController.php:65`), but `putFile` names
+the stored file from its contents. An HTML file called `x.pdf` passes a PDF-only rubric and
+is stored as `.html`. The served type must come from the server, never the stored name.
+
+### Findings
+
+#### F11 · Evidence and export files are never deleted, and nothing bounds them — needs validation
+
+> **Raised as CAP-42 (COA4-112).**
+
+`DELETE /evidence/{id}` deletes the row and never the file (`EvidenceController.php:57`), and
+the `Evidence` model has no deleting hook. Deleting a reflection leaves every file the same
+way. `max_file_bytes` is per file, there is no cap on files per entry, and there is no
+`throttle` anywhere in `api/`. `POST /exports` writes a file per call and nothing prunes
+them. So a student token can upload, delete and repeat, and what it leaves is invisible to
+every API path. Two of the four reviewers reached this separately.
+
+`Retention-and-Erasure.md` already notes that a deleted row leaves its file. That is this
+root cause seen from erasure. Seen from here, it is unbounded disk use on the box that
+runs the shared MySQL.
+
+**What decides the severity** is whether `/var/www/diary/shared/storage` and the MySQL data
+directory share a filesystem. The same device is Medium, because a shared service stops. A
+separate device is Low. That needs a shell, the same one CAP-41 is waiting on, and the
+check is a read-only `df -h` on both, written out in CAP-42.
+
+#### F12 · A classmate counter-scoring gets 403 where 404 belongs — Informational
+
+> **Raised as CAP-43 (COA4-113), where it is N1.**
+
+`ReflectionPolicy::counterScore` (`ReflectionPolicy.php:94-96`) resolves a classmate on the
+same gig as `student` and returns `deny`, a 403. `view` gives the same person 404. The 403
+confirms that an entry id belongs to a reflection on one of their gigs. It needs an entry
+UUID the API never shows a classmate, so the gain is small. The pentest probed a student on
+her own entry and an assessor off his gig, not a classmate.
+
+#### F13 · A user holding two roles on a gig could counter-score their own work — needs validation
+
+> **Raised as CAP-43 (COA4-113), where it is N4.**
+
+`gig_participants` is unique on `(gig_id, user_id, role)` (`01-schema.sql:73`), so one user
+can hold two roles on a gig. `RoleResolver::for` returns `->value('role')` with no ordering,
+and `counterScore` never checks that the caller is not the owner. Whichever row comes back
+first decides.
+
+No such user exists on the shared database:
+`SELECT gig_id, user_id FROM gig_participants GROUP BY 1,2 HAVING COUNT(*) > 1` returned no
+rows on 2026-10-03. And no endpoint writes participants. Whether Alumable can produce one is
+the client's question. An owner check in `counterScore` is right either way.
+
+#### F14 · Two existence checks answer before the policy — Informational
+
+Not raised as a ticket on its own. It belongs with CAP-43 if that ticket's owner wants it.
+
+`StoreReflectionRequest` and `StoreFrameworkAssignmentRequest` validate `exists:gigs`, so a
+gig id that does not exist gets 400 where a real gig the caller is not on gets 404.
+`ReflectionCreator::resolveContext` runs before `Gate::authorize`, and a sprint paired with
+the wrong gig answers 400 with `details.sprint_gig_id`. That tells a non-participant which
+gig the sprint belongs to.
+
+### Hardening notes
+
+None of these crosses a boundary on its own.
+
+- **The draft rule lives in four places.** `ReflectionPolicy::update`'s docblock says "only
+  while it is a draft" and the method does not check it. `EntryController`,
+  `EvidenceController`, `ScoreController` and `ReflectionController::destroy` each carry
+  their own copy. Every copy is present today, but this is the shape CAP-19 had.
+- **A supervisor can assign another supervisor's framework copy.** `GigPolicy::assignFramework`
+  checks the role on the gig, not who owns the framework. Until a reflection freezes it, the
+  owner's edits change the other gig's rubric. Whether that is intended is a product call.
+- **The demo can be held by slow uploads.** Caddy accepts a 101 MiB body on `/api/*` before
+  any token is checked. The pool has five workers and no `request_terminate_timeout`, and
+  exports render in the request because the queue is `sync`. Whether Caddy buffers the body
+  first is not in the repository. Reproduce it on a local copy of the two config files,
+  never on the VPS.
+- **CI** has no top-level `permissions:` block, and `shivammathur/setup-php@v2` is pinned by
+  a moving tag rather than a commit.
+- **`diary_app`** is the demo's account and every developer's. The Runbook has people
+  migrate with it, which implies DDL on the data the demo serves. `SHOW GRANTS FOR
+  'diary_app'@'%'` settles it.
+- **No `Content-Security-Policy`** in the Caddyfile. Injection is already under test, so
+  this would be a second layer.
+- **`'serve' => true`** on the private `local` disk registers a signed `/storage/{path}`
+  route that nothing signs for. Caddy sends `/storage/*` to the frontend anyway, but `false`
+  says what is meant.
+- **Sign-out is client-side.** There is no logout route, so forgetting a token in the tab
+  revokes nothing on the server.
+- **Whether Caddy logs the `Authorization` header** depends on its version (2.5 and later
+  redact it). That is a `caddy version` on the box.
+
+### What is already right
+
+- **Every route has a guard.** All 33 are behind `auth:sanctum`, and each one that touches
+  a resource either calls a policy or runs a query scoped to the caller.
+- **The business rules hold from source.** Counter-scoring twice is 409 `ALREADY_SCORED`
+  through the unique index. A draft cannot be counter-scored, and a submitted reflection
+  cannot be edited, self-scored or deleted. A level from another competency is refused on
+  both score endpoints. No generated column is fillable.
+- **Exports reach their owner only**, the student's own supervisor included, and carry
+  nothing above what the student may see.
+- **The deploy kit refuses the obvious mistakes.** It will not ship a `.env` with
+  `APP_DEBUG=true`, a `VITE_API_TOKEN`, or an `APP_KEY` or database password in the built
+  frontend. Caddy serves `web/dist` and sends only `/api/*` to PHP. `.env`, storage and
+  `.git` sit outside both roots.
+- **A 500 leaks nothing.** The exception handler maps fixed messages, and an unmapped
+  `QueryException` falls through to Laravel's generic page with debug off.
+- **CI runs on `pull_request`, never `pull_request_target`**, and uses no secrets.
+
+### Sign-off
+
+Every fix in this file still holds. Four ratings were too high for what the findings
+demonstrate, and two claims were wrong. One is corrected by CAP-44, and the other is
+answered by F12. F11 is the one that matters, and its severity waits on a `df` nobody can
+run yet. That makes three things blocked on the same shell access: CAP-26, CAP-41 and CAP-42.
+
+CAP-31 stays In Review. F12 is a counterexample to its criterion "Not-yours returns 404
+rather than 403, everywhere", and that ticket's own last criterion says what does not hold
+is raised, not passed.
+
+---
+
 ## 2026-10-03 · Security posture: tokens, the VPS and the dependency tree
 
 **Reviewer:** Tony To · **Ticket:** CAP-32 · **Commit reviewed:** `09a03c5`
@@ -477,6 +660,11 @@ evidence link in CAP-11 should also render it with `rel="noopener noreferrer"`.
 
 #### F8 · Evidence files: any type, and no rule yet for serving them — Low today, High the day a download lands
 
+> **Re-rated 2026-10-03: a precondition, not a finding.** Still no route serves a file back.
+> The condition gains one line: the stored name's extension comes from the file's contents,
+> not the name the uploader typed. See the re-verification entry, and F11 for files that are
+> never deleted.
+
 `EvidenceController::storeFile` accepts any extension when the rubric's
 `accepted_file_types` is null, which it is for the seeded rubrics, so an `.html` or `.svg`
 upload is stored. That is harmless now for one reason only: **no endpoint serves an evidence
@@ -630,6 +818,9 @@ looks wrong, and no error is raised, so this fails silently and indefinitely.
 
 > **Raised as CAP-32 (COA4-90), decided 2026-10-03 (ADR #46, Proposed).** Seeded tokens now
 > expire 60 days after issue; the global setting stays null. Live once the tokens are reissued.
+>
+> **Re-rated 2026-10-03: a hardening note.** No expiry matters only after a leak. See the
+> re-verification entry.
 
 `api/config/sanctum.php:53` sets `'expiration' => null`. A token is valid until it is
 manually revoked, and Sanctum stores only a hash, so a leaked token cannot be recognised
@@ -644,6 +835,8 @@ which is CAP-26. Worth an explicit decision rather than a default.
 
 > **Raised as CAP-32 (COA4-90), decided 2026-10-03 (ADR #46, Proposed).** Kept `['*']` on
 > purpose: an ability check would be a second place authorisation lives.
+>
+> **Re-rated 2026-10-03: informational.** See the re-verification entry.
 
 `api/database/seeders/DemoSeeder.php:120` calls `$user->createToken('demo')` with no
 abilities, so Sanctum grants `['*']`.
@@ -657,6 +850,9 @@ a screenshot session, and a leaked token can do everything its owner can, includ
 
 > **Raised as CAP-32 (COA4-90), fixed 2026-10-03 (ADR #46).** New tokens carry `rdiary_`.
 > Live for the seeded three once they are reissued.
+>
+> **Re-rated 2026-10-03: a hardening note.** `scripts/verify-app-shell.sh` cannot read a
+> prefixed token yet. That is CAP-44, and it must merge before the reissue.
 
 `api/config/sanctum.php:68` leaves `token_prefix` empty. Sanctum supports a prefix precisely
 so that secret scanners — GitHub push protection among them — can recognise a token in a
@@ -664,6 +860,9 @@ commit, a paste or a log. Setting it costs one environment variable and buys aut
 detection of exactly the leak F1 describes.
 
 #### F5 · A real token reaches disk during `./run verify` — Low, accepted
+
+> **Re-rated 2026-10-03: informational.** The same person already holds that token in
+> `web/.env`.
 
 `scripts/verify-client.sh` builds bundles with the real token into `.verify-out/`. There is a
 `cleanup()` trap on `EXIT`, `INT` and `TERM`, and the directory is gitignored, so it cannot
