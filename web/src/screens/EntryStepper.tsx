@@ -35,8 +35,8 @@
  * item gets an <a>, and it carries rel="noopener noreferrer" per the same
  * comment.
  */
-import { useCallback, useEffect, useState } from 'react';
-import type { ChangeEvent, FormEvent, ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { ChangeEvent, FormEvent, ReactNode, SetStateAction } from 'react';
 import { useNavigate, useParams } from 'react-router';
 
 import { api, ApiError } from '../api/client.ts';
@@ -115,6 +115,25 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
   const [load, setLoad] = useState<Load>({ status: 'loading' });
   const [reload_key, setReloadKey] = useState(0);
   const [step, setStep] = useState(0);
+
+  // Back, Next and "Go to …" move to another competency, and two
+  // competencies' chips can look nearly the same. So a move goes to the
+  // top and puts focus on the new competency's name, which a screen reader
+  // then reads out (round 2b). Opening the page or saving does not.
+  const moved_by_reader = useRef(false);
+  const go_to_step = useCallback((next: SetStateAction<number>) => {
+    moved_by_reader.current = true;
+    setStep(next);
+  }, []);
+  useEffect(() => {
+    if (!moved_by_reader.current) return;
+    moved_by_reader.current = false;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
+    document
+      .querySelector<HTMLElement>('[data-competency-name]')
+      ?.focus({ preventScroll: true });
+  }, [step]);
   const [offending, setOffending] = useState<readonly string[] | null>(null);
   const [submit_error, setSubmitError] = useState<ApiError | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -550,7 +569,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
                   <Button
                     variant="secondary"
                     full_width={false}
-                    on_click={() => setStep(gap.index)}
+                    on_click={() => go_to_step(gap.index)}
                   >
                     Go to {gap.entry.competency_name}
                   </Button>
@@ -568,7 +587,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
           variant="secondary"
           full_width={false}
           disabled={current_index === 0 || counter_saving}
-          on_click={() => setStep((s) => Math.max(0, s - 1))}
+          on_click={() => go_to_step((s) => Math.max(0, s - 1))}
         >
           Back
         </Button>
@@ -577,7 +596,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
           <Button
             full_width={false}
             disabled={counter_saving}
-            on_click={() => setStep((s) => s + 1)}
+            on_click={() => go_to_step((s) => s + 1)}
           >
             Next
           </Button>
@@ -780,7 +799,11 @@ function EntryCard({
 
   return (
     <div className={offending ? `${styles.card} ${styles.card_offending}` : styles.card}>
-      <p className={styles.competency_name}>{entry.competency_name}</p>
+      {/* Focus lands here after Back or Next (tabIndex -1: focusable by
+          script, not a Tab stop). */}
+      <p className={styles.competency_name} data-competency-name tabIndex={-1}>
+        {entry.competency_name}
+      </p>
 
       {/* A student writes before they score, so their own screen leads with
           the narrative (CAP-11). An assessor reads both answers the same
