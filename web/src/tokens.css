@@ -186,6 +186,15 @@
      sheet over everything, since a modal dialog covers the whole page. */
   --z-sticky-bar: 5;
   --z-header: 10;
+  /* CAP-38 R5: a floating action sits over page content and the sticky
+     header (50 > 10), and under every sheet. The header's menu drops from
+     the top and the button sits at the bottom, so the two meet only on a
+     very short window. */
+  --z-fab: 50;
+  --size-fab: 3.5rem;
+  /* CAP-38: the one motion length; prefers-reduced-motion turns it off
+     where it is used. */
+  --duration-quick: 180ms;
   --z-sheet: 100;
 }
 

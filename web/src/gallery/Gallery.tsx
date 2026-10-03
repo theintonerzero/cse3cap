@@ -17,6 +17,7 @@ import {
   Card,
   Chip,
   ErrorNotice,
+  FloatingAction,
   RadarPanel,
   Skeleton,
   SkeletonGroup,
@@ -239,6 +240,27 @@ export default function Gallery() {
             </Button>
           </div>
         </BottomSheet>
+      </Section>
+      <Section title="FloatingAction">
+        {/* Fixed to the viewport's bottom right, so it floats over this
+            whole page rather than sitting inside the section. Fine on a
+            scratch page. */}
+        <FloatingAction
+          label="Export record"
+          icon={
+            <svg viewBox="0 0 24 24" width="1.5rem" height="1.5rem">
+              <path
+                d="M12 4v11m0 0l-4-4m4 4l4-4M5 19h14"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          }
+          on_click={() => {}}
+        />
       </Section>
       <Section title="Menu">
         {/* The shell's ⋮ (CAP-38 R4). Same two items, wired to this page:

@@ -24,6 +24,7 @@ import {
   Button,
   Chip,
   ErrorNotice,
+  FloatingAction,
   LinkButton,
   RadarPanel,
   Select,
@@ -144,14 +145,7 @@ export function DiaryHome() {
   }
 
   return (
-    <section>
-      {/* The page's title is the shell's bar (CAP-38 R3). */}
-      <div className={styles.page_head}>
-        <Button variant="secondary" full_width={false} on_click={() => setExportOpen(true)}>
-          Export your record
-        </Button>
-      </div>
-
+    <section className={styles.with_fab}>
       <ScopeChips gigs={mine} scope={scope} on_select={go_to} />
 
       {/*
@@ -188,14 +182,36 @@ export function DiaryHome() {
         </div>
       )}
 
+      <FloatingAction
+        label="Export record"
+        icon={<DownloadIcon />}
+        on_click={() => setExportOpen(true)}
+      />
+
       <BottomSheet
         open={export_open}
-        title="Export your record"
+        title="Export record"
         onClose={() => setExportOpen(false)}
       >
         <ExportSheet reflections={whole_record} />
       </BottomSheet>
     </section>
+  );
+}
+
+/** An arrow into a tray. */
+function DownloadIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="1.5rem" height="1.5rem">
+      <path
+        d="M12 4v11m0 0l-4-4m4 4l4-4M5 19h14"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 

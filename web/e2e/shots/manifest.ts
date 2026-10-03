@@ -221,10 +221,10 @@ export const SHOTS: Shot[] = [
     // Not the page's h1: the shell's bar renders it in the loading branch
     // too, so waiting on it would resolve the instant the page mounts,
     // before gigs/reflections actually load, and could screenshot the
-    // skeleton under a "loaded" name. This Button
-    // label only renders once `load.status === 'loaded'` and the caller is
+    // skeleton under a "loaded" name. The floating Export record button
+    // only renders once `load.status === 'loaded'` and the caller is
     // a student on at least one gig.
-    ready: 'Export your record',
+    ready: 'Export record',
     scenario: { source: 'real', slot: 'student' },
   },
   {
@@ -233,7 +233,7 @@ export const SHOTS: Shot[] = [
     route: '/',
     viewport: 'mobile',
     state: 'loaded',
-    ready: 'Export your record',
+    ready: 'Export record',
     scenario: { source: 'real', slot: 'student' },
   },
   {
@@ -608,10 +608,10 @@ export const SHOTS: Shot[] = [
   // (CAP-21; no loading entry at all -- see that state's own comment below
   // for why). Not a route of its own either -- a BottomSheet
   // over Diary Home (Stack-and-Build-Scope.md: Diary Home's "export link...
-  // opens the sheet CAP-18 fills in"), opened by DiaryHome's "Export your
-  // record" Button. `route` is Diary Home's own route and `open` is that
-  // button's exact visible text. `ready` is "Request a PDF export" (the
-  // idle-state Button inside the sheet itself), not "Export your record"
+  // opens the sheet CAP-18 fills in"), opened by DiaryHome's floating
+  // "Export record" button. `route` is Diary Home's own route and `open` is
+  // that button's exact visible text (its full label, at the top of the page). `ready` is "Request a PDF export" (the
+  // idle-state Button inside the sheet itself), not "Export record"
   // again -- that text is also the trigger, so it is already visible before
   // the click and would make the wait resolve immediately regardless of
   // whether the sheet actually opened.
@@ -619,7 +619,7 @@ export const SHOTS: Shot[] = [
     id: 'export-sheet-loaded',
     screen: 'Export sheet',
     route: '/',
-    open: 'Export your record',
+    open: 'Export record',
     viewport: 'desktop',
     state: 'loaded',
     ready: 'Request a PDF export',
@@ -635,7 +635,7 @@ export const SHOTS: Shot[] = [
     id: 'export-sheet-loaded-mobile',
     screen: 'Export sheet',
     route: '/',
-    open: 'Export your record',
+    open: 'Export record',
     viewport: 'mobile',
     state: 'loaded',
     ready: 'Request a PDF export',
@@ -659,7 +659,7 @@ export const SHOTS: Shot[] = [
     id: 'export-sheet-empty',
     screen: 'Export sheet',
     route: '/',
-    open: 'Export your record',
+    open: 'Export record',
     viewport: 'desktop',
     state: 'empty',
     ready: 'Nothing to export yet.',
@@ -682,7 +682,7 @@ export const SHOTS: Shot[] = [
     id: 'export-sheet-error',
     screen: 'Export sheet',
     route: '/',
-    open: ['Export your record', 'Request a PDF export'],
+    open: ['Export record', 'Request a PDF export'],
     viewport: 'desktop',
     state: 'error',
     ready: 'Something went wrong.',

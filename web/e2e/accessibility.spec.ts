@@ -159,11 +159,11 @@ test.describe('BottomSheet: keyboard focus trap', () => {
   }) => {
     await page.goto('/');
 
-    const trigger = page.getByRole('button', { name: 'Export your record' });
+    const trigger = page.getByRole('button', { name: 'Export record' });
     await expect(trigger).toBeVisible();
     await trigger.click();
 
-    const dialog = page.getByRole('dialog', { name: 'Export your record' });
+    const dialog = page.getByRole('dialog', { name: 'Export record' });
     await expect(dialog).toBeVisible();
 
     const pdf_chip = dialog.getByRole('button', { name: 'PDF', exact: true });
@@ -214,7 +214,7 @@ test.describe('360px: no horizontal overflow (student scenario)', () => {
     await expect(
       page.getByRole('heading', { level: 1, name: 'Reflection Diary' }),
     ).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Export your record' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Export record' })).toBeVisible();
 
     await expect(page.locator('table caption')).toHaveText(
       'The radar above, as numbers: self-score and counter-score per competency, ' +
@@ -257,9 +257,9 @@ test.describe('360px: no horizontal overflow (student scenario)', () => {
   test('Export Sheet, opened from Diary Home', async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 800 });
     await page.goto('/');
-    await page.getByRole('button', { name: 'Export your record' }).click();
+    await page.getByRole('button', { name: 'Export record' }).click();
 
-    await expect(page.getByRole('dialog', { name: 'Export your record' })).toBeVisible();
+    await expect(page.getByRole('dialog', { name: 'Export record' })).toBeVisible();
     await expect_no_horizontal_overflow(page);
   });
 });

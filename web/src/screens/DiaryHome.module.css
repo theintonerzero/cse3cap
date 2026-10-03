@@ -126,16 +126,9 @@
   color: var(--color-text-muted);
 }
 
-/* CAP-38: the page's one action sits at the top, not alone at the bottom
-   of a long list. R3 moved the title into the shell's bar, so it sits at
-   the end of its own row. */
-.page_head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-12);
-  margin-bottom: var(--space-16);
+/* Room under the last row for the floating Export button (CAP-38 R5). */
+.with_fab {
+  padding-bottom: calc(var(--size-fab) + var(--space-24) + env(safe-area-inset-bottom, 0));
 }
 
 .gig_picker {
