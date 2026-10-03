@@ -165,6 +165,7 @@ chance one applies, load it. Announce which one and follow it.
 | Any seeder or demo data | `/seed-data` |
 | Any decision worth recording | `/write-adr` |
 | Any question about a ticket's state, or finishing one | `/jira-tickets` |
+| Any question about the design or a prototype frame | `/design-inventory` |
 
 ### The superpowers workflow
 
@@ -187,7 +188,7 @@ back, which is where the rework comes from.
 | Hand the work over | `superpowers:requesting-code-review` | Before opening the PR, not after somebody complains. |
 | Take the feedback | `superpowers:receiving-code-review` | Verify the criticism, then fix. Agreeing without checking is not review, and neither is arguing without checking. |
 | Close it out | `superpowers:finishing-a-development-branch` | PR into `dev`, a reviewer requested, worktree removed. Merging your own is allowed; see below. |
-| Build new tooling | `superpowers:writing-skills` | New skills go in `.claude/skills/`, alongside the seven above. |
+| Build new tooling | `superpowers:writing-skills` | New skills go in `.claude/skills/`, alongside the eight above. |
 
 **An agent that is told to load a skill needs the `Skill` tool, or the instruction
 silently does nothing.** The three that do real work carry it, so their definitions point
