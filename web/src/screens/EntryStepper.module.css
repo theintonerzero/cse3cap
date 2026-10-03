@@ -62,7 +62,11 @@
     min-width: 8rem;
   }
 
-  /* The bar's height (a 2.75rem button and its padding) plus a gap. */
+  /* Room for the bar under the last field. The bar is about 4.5rem tall (a
+     large-size label at line height 1.45 plus 1.5rem of padding), more if a label
+     wraps; this padding plus the shell's 4rem under <main> keeps the last
+     field clear of it, and scroll-padding-bottom (index.css) keeps a
+     focused field clear. */
   .page {
     padding-bottom: calc(2.75rem + 2 * var(--space-12) + env(safe-area-inset-bottom, 0));
   }
