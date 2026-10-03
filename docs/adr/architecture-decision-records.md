@@ -53,6 +53,7 @@ Index
 #42 Browser checks with Playwright, fake API ..... Accepted
 #43 AA palette lives in tokens.css ............ Proposed
 #44 Agents set ticket fields, not wording ...... Proposed
+#45 The demo deploys by hand, one origin ......... Proposed
 
 ===============================================================
 
@@ -2304,3 +2305,110 @@ description of what agents usually do rather than what they can do, and nothing 
 
 Enable the tool with no limits in the skill. Simplest, and rejected because it puts
 acceptance criteria within reach of the agent being judged against them.
+
+===============================================================
+
+ADR #45: The demo deploys by hand, one origin, no containers
+
+Status: Proposed
+Date: 2026-09-30
+
+Context:
+CAP-26 asks for a demo on the VPS: the built frontend and the API over TLS, the three seeded
+tokens working against it, the MySQL TLS connection holding there, a documented rollback,
+and nothing secret in the repository. The design was agreed on 2026-09-06
+(docs/superpowers/specs/2026-09-06-demo-deployment-design.md) and then parked, because
+nobody could get a shell on the box. It is still parked for that reason. What changed is
+that the design's own fallback is now being taken: build a reviewed, reproducible deploy in
+the repository, and whoever holds the box runs it.
+
+Three things about the box shape every choice below. It already runs MySQL for all five of
+us. It already runs a Caddy, and ADR #21 records that this Caddy issues the certificate
+MySQL serves, so a bad edit to its configuration takes the shared database out, not just the
+demo. And it is one small VPS with no second host anywhere.
+
+The spec said the choices with a live alternative would be recorded in an ADR numbered when
+written. This is that record. It also records four decisions the build added.
+
+Decision:
+One origin. The frontend is served at / and /api/* goes to Laravel, so the bundle calls the
+relative /api/v1 (web/.env.production) and no hostname is compiled into it. There is no CORS
+preflight to get wrong.
+
+Deploys are triggered by hand. scripts/deploy.sh takes a user@host and a tag, and refuses a
+tag that is not on origin at the same commit, so what runs is something the team can read.
+It sends the tag with git archive over ssh and builds on the box. Neither GitHub nor the box
+holds a key for the other. CI does not deploy, and there is no ./run deploy: the menu entry
+prints the real command and exits (spec §9.2).
+
+No containers for the application. Caddy serves the build, and PHP-FPM runs the API in its
+own pool as its own user (deploy/php-fpm/diary.pool.conf). Releases sit under
+/var/www/diary/releases, a `current` symlink picks one, and shared/ holds the .env and
+Laravel's storage so uploads outlive a deploy.
+
+Four decisions the build added. scripts/rollback.sh is the only thing that moves `current`,
+and a deploy switches by calling it, so every deploy runs the rollback path. A deploy never
+edits the Caddy configuration, which is installed by hand through the procedure in
+docs/Deployment.md, because that file also serves the database certificate. A deploy never
+runs migrations. It checks for pending ones and stops, because the demo uses the team's
+shared database and CLAUDE.md says a migration there is announced and run by a person. And
+the demo runs with QUEUE_CONNECTION=sync, as development does (ADR #30), so there is no
+queue worker to keep alive.
+
+Consequences:
+Positive:
+The whole deploy is in a pull request. A reviewer can read the site block, the pool and the
+script, which they cannot do with a server they have no account on, and CAP-29 can check it.
+Nothing about deploying lives in one person's shell history.
+
+A deploy fails closed. It refuses a .env with APP_DEBUG on, a bundle with a token shape or
+one of the box's secrets in it, a database session without TLS, and a schema that is behind
+the code, all before anything public changes. If the site does not answer after the switch,
+it goes back to the previous release by itself.
+
+A rollback is one command that does not rebuild, and it is never a procedure nobody has run.
+
+Caddy needs no reload for a release switch. It resolves `current` on every request. So the
+one file that can take out the database is touched only when the site block itself changes.
+
+Negative:
+It needs Node, npm, Composer and PHP 8.5 on a box whose main job is MySQL for five people,
+and a build there competes with that MySQL for a few minutes. Deploys should not happen
+while someone is running the test suite or giving a demo.
+
+The demo reads and writes the team's shared reflection_diary database. Whatever a visitor
+does to the demo lands in the data we develop against, and a smoke run against the demo
+writes rows the way it does locally. A separate demo database would fix that and was not in
+the ticket.
+
+Refusing to migrate means a release that needs a schema change cannot be deployed until
+someone runs the migration on the shared database. That is the rule working as intended,
+and it is also a second step somebody has to remember.
+
+It is still unrun. Nobody on the team can get a shell on the box (spec §9.4), so the kit is
+tested everywhere except the one place it matters. scripts/deploy.test.py covers the
+decisions the scripts make, and a local Caddy serving the real site block covered routing
+and headers, but PHP-FPM, sudo, the database and the real certificate are proved only by
+the first deploy.
+
+The sync queue means a PDF export runs inside the request that asks for it. For a demo with
+a handful of users that is fine. It would not be for real use.
+
+Alternatives:
+Split subdomains, diary for the frontend and rdapi for the API. Closer to how Alumable would
+run it, and the 2026-08-11 API spec anticipated it. Rejected because the API origin is baked
+into the bundle at build time and every mistake in it shows up as an opaque CORS error in
+front of the client.
+
+Deploy from CI on merge to main. Fewer steps and nobody has to remember to do it. Rejected
+because it needs an SSH key to the box stored in GitHub, for a box that also holds everyone's
+database, and because a deploy that happens without a person choosing the moment can land
+in the middle of a demo.
+
+Containers for the application, with Compose next to the MySQL container already there.
+Reproducible, and the toolchains would not need installing on the box. Rejected because it
+brings in a container story the project has nowhere else, to prove what a symlink proves.
+
+Let the deploy edit the Caddy configuration from the release, so a site-block change ships
+like any other. Less to remember. Rejected because a mistake there is an outage for the
+shared database, and a deploy is exactly when nobody is thinking about the database.

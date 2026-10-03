@@ -92,6 +92,13 @@ jobs:
       - name: Check the docs describe the repository
         run: python3 scripts/check-docs.py
 
+      # The deploy's refusals: an unsafe .env, a token in the bundle, a
+      # release switch to something unbuilt, a tag that is not on origin.
+      # No box is involved; see docs/Deployment.md for what only a real
+      # deploy proves.
+      - name: Check the deploy scripts
+        run: python3 scripts/deploy.test.py
+
       # Nobody on the team runs Windows day to day, so the PowerShell
       # installer is the one file that can rot unnoticed until a new
       # teammate cannot start. pwsh ships on the GitHub runners.

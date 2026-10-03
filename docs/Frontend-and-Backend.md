@@ -114,6 +114,10 @@ cd web && npm run dev            # http://localhost:5173
 VITE_API_BASE_URL=http://localhost:8000/api/v1
 ```
 
+A production build (`npm run build`) reads `web/.env.production` over `web/.env`, which
+sets the relative `/api/v1`. That is the demo's single origin (ADR #45). To look at a
+production build against your local API, override it with `VITE_API_BASE_URL=... npm run build`.
+
 Cross-origin requests work because the backend allows the Vite dev origin explicitly.
 `FRONTEND_URL` in `api/.env` is what that CORS configuration reads, so if you run Vite on a
 port other than 5173 you have to change it there too. A request that fails with no useful
