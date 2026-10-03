@@ -244,6 +244,20 @@ class ReflectionWritePathTest extends TestCase
         $this->assertSame('draft', $reflection->fresh()->status);
     }
 
+    public function test_nobody_else_deletes_someone_elses_reflection(): void
+    {
+        // A draft, so the only thing standing between a reviewer and the
+        // delete is the policy: NOT_DRAFT would refuse a submitted one anyway.
+        $reflection = $this->draftForJane();
+
+        $this->refusedToAReviewerAndAStranger(fn () => $this->deleteJson(
+            "/api/v1/reflections/{$reflection->id}",
+        ));
+
+        $this->assertNotNull(Reflection::find($reflection->id));
+        $this->assertSame(6, $reflection->entries()->count());
+    }
+
     public function test_the_gate_refuses_an_empty_narrative_and_names_the_entries(): void
     {
         $reflection = $this->draftForJane();
