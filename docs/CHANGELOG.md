@@ -72,6 +72,8 @@ Becomes **1.0.0**, planned for 12 October 2026: `dev` merged to `main` and tagge
   writes instead of only checking the controls are disabled (#79).
 
 ### Changed
+- Assigning a rubric to a gig is supervisor only. An employer now gets 403, and the framework
+  screens show NotFound to anyone who supervises no gig (CAP-46, ADR #48).
 - Dependency updates: Laravel 13.25 to 13.34, which cleared four Composer advisories; React
   19.3; React Router 8.4; Vite 8.3; `@types/node` 26; GitHub Actions checkout and setup-node v7,
   cache v6, upload-artifact v7 (#68, #33, #53, #9, #66).

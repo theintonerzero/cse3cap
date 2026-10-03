@@ -56,10 +56,13 @@ done
 # --------------------------------------------------------------------------
 say "1. The screen is mounted"
 
-if grep -q 'path="frameworks/:framework_id/edit" element={<EditFramework />}' "$ROUTES"; then
+# The route wraps the screen in SupervisorOnly (CAP-46, ADR #48), so the
+# element spans several lines: look at the lines after the path.
+if grep -A6 'path="frameworks/:framework_id/edit"' "$ROUTES" | grep -q '<EditFramework />' \
+   && grep -A6 'path="frameworks/:framework_id/edit"' "$ROUTES" | grep -q '<SupervisorOnly>'; then
     ok "routes.tsx renders EditFramework"
 else
-    bad "routes.tsx renders EditFramework" "still a placeholder?"
+    bad "routes.tsx renders EditFramework" "still a placeholder, or no SupervisorOnly?"
 fi
 
 if grep -q 'screen="Edit framework" ticket="CAP-16"' "$ROUTES"; then

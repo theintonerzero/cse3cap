@@ -55,6 +55,7 @@ Index
 #44 Agents set ticket fields, not wording ...... Proposed
 #45 The demo deploys by hand, one origin ......... Proposed
 #46 Seeded tokens expire, carry a prefix, keep * .. Proposed
+#48 Choosing a rubric is the supervisor's ......... Proposed
 
 ===============================================================
 
@@ -2483,3 +2484,70 @@ for whoever needs read-only tokens rather than a hardening tweak.
 Leave all three as they were and record the risk. Defensible for a student project with no
 real records. Rejected because CAP-26 makes the demo public, and the only thing standing
 between a leaked permanent token and the shared database would be somebody noticing.
+
+===============================================================
+
+ADR #48: Choosing a gig's rubric is the supervisor's, not the employer's
+Status: Proposed
+Date: 2026-10-03
+Extends: #17
+
+Context:
+ADR #17 mapped the design's educator to the `supervisor` role and gave it framework
+management, on the grounds that the person supervising a gig is the natural one to decide
+which rubric applies to it. It rejected giving that to `employer`: employers are external
+to the university, so letting them define assessment rubrics is the wrong permission
+boundary.
+
+What got built split the boundary in two. Creating and editing a copy is supervisor only
+(`FrameworkPolicy`, through `RoleResolver::holdsAnywhere`). Assigning a rubric to a gig was
+not. The permission matrix in `docs/API-Specification.md` §11 gave
+`POST /framework-assignments` to "supervisor or employer", `GigPolicy::assignFramework`
+allowed both, a feature test asserted an employer's 201, and the frameworks picker offered
+an employer their gigs. Only the nav kept employers out, by showing the Frameworks link to
+supervisors alone, and the route took anyone who typed it. The 3 October handover review
+found the gap, and `docs/Design-Inventory.md` recorded it.
+
+Nobody in the seed is an employer, so the demo never exercised it. A gig's rubric is also
+permanent once assigned (ADR #33, #35), so whoever assigns first decides what every student
+on that gig is scored against, for good.
+
+Decision:
+Assigning a rubric to a gig is part of the boundary ADR #17 drew, so it's supervisor only.
+`GigPolicy::assignFramework` allows `supervisor` and nobody else. An employer, assessor or
+student on the gig gets 403 `ROLE_FORBIDDEN`, and anyone not on it still gets 404. The
+matrix row, the endpoint's heading in `API-Specification.md`, the contract's summary and
+the `/add-policy` skill's copy of the matrix all say supervisor only.
+
+In `web/`, the picker offers supervised gigs only, and `/frameworks` and
+`/frameworks/:framework_id/edit` render NotFound for someone who supervises no gig. That
+guard decides only what is drawn. The server still refuses.
+
+Employers keep everything else the matrix gives them: viewing reflections on their gigs,
+counter-scoring and the review queue.
+
+Consequences:
+Positive:
+One rule for the rubric instead of two halves that disagreed. An organisation outside the
+university can no longer fix what a cohort is assessed against, on a gig where that choice
+can't be undone. The framework screens now match the nav, so nobody lands on a page made of
+buttons that 403.
+
+Negative:
+A gig with an employer and no supervisor has nobody who can give it a rubric, and with no
+rubric no student can start a reflection on it (`FRAMEWORK_NOT_ASSIGNED`). Today that gig
+can only be fixed by adding a supervisor, which nothing in the API does. If Alumable runs
+employer-led gigs with no university supervisor, this is the wrong call for them and needs
+revisiting with the client. The client was not asked before this was decided. The route
+guard is also the first exception to "every route is reachable by URL", which
+`routes.tsx` now has to explain.
+
+Alternatives:
+Keep the matrix as built and accept employers assigning, fixing only the nav so they can
+reach the screen. Smallest change, and it matches the contract as it stood. Rejected
+because it leaves ADR #17's reasoning applying to writing a rubric but not to choosing one,
+when choosing is the step with the lasting effect.
+
+Leave the code and only file it for the team. Cheapest now, and keeps the client question
+open. Rejected because the gap was already recorded in the design inventory and the API
+tests, and the handover report would have described a permission the ADRs argue against.

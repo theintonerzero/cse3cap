@@ -149,7 +149,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Assign a rubric to a gig, supervisor or employer */
+        /** Assign a rubric to a gig, supervisor only */
         post: operations["assignFramework"];
         delete?: never;
         options?: never;
