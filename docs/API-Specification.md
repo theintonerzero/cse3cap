@@ -1,8 +1,8 @@
 # Reflection Diary: API specification v2
 
-Base path `/api/v1`. JSON in and out. This is the human-readable contract; `docs/openapi.yaml`
-is generated from it and is the machine source of truth for the mock server and both
-implementations.
+Base path `/api/v1`. JSON in and out. This is the human-readable companion to
+`docs/openapi.yaml`, which is the machine source of truth for the mock server and both
+implementations. Where the two disagree, `openapi.yaml` wins (CLAUDE.md, "Sources of truth").
 
 Changes from v1: login endpoint removed (three seeded tokens instead), framework editing
 added (copy-then-edit with an in-use guard), educator mapped to the supervisor role, new
@@ -323,7 +323,7 @@ been measured against.
 ### POST /exports
 `{ "format": "pdf" | "json", "reflection_id": null }` (null = whole record) →
 **202** `{ "id": "…", "status": "pending" }`. Queued job; the `exports` row is the job
-record. JSON ships first, PDF follows.
+record. Both formats are built; PDF renders with dompdf (ADR #39).
 
 ### GET /exports/{export_id}
 `{ "id": "…", "format": "json", "status": "complete",

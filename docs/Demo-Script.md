@@ -93,7 +93,7 @@ asks for it.
 | Can an assessor change a score later? | No. A submitted counter-score is final, by design |
 | What happens when a student graduates? | The record stays theirs, and export is the guarantee (`docs/Retention-and-Erasure.md`) |
 | Can we add our own framework? | Yes, by copying a seeded one and rewording it. Adding or removing competencies was cut from scope |
-| Is it live on the internet? | Not yet. CAP-26 is the demo deployment |
+| Is it live on the internet? | Not yet. A demo deployment is designed, and today it runs from a laptop against the shared database |
 
 ## After the demo
 

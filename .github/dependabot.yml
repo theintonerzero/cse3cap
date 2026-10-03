@@ -73,9 +73,10 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: chore(web)
-    # Same split. Almost all of web/ is toolchain right now, so most of
-    # these will be lint, build and type-checker versions that the frontend
-    # job proves by running. React and TypeScript majors come alone.
+    # Same split. Minor and patch updates are grouped, and the frontend job
+    # proves them by running lint, the build and the browser checks. React
+    # and TypeScript majors come alone. After merging any of these, rerun
+    # ./run deps so docs/Dependency-Register.md matches (CAP-32).
     groups:
       minor-and-patch:
         patterns:

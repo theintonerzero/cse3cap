@@ -25,9 +25,33 @@ Becomes **1.0.0**, planned for 12 October 2026: `dev` merged to `main` and tagge
 - Demo data shaped to show calibration gaps, three seeded tokens in place of a login
   (ADR #15), and a runbook and client demo script (`docs/Runbook.md`, `docs/Demo-Script.md`).
 
+### Known limitations at 1.0.0
+
+- No login screen. Access is three seeded Sanctum tokens (ADR #15). Tokens never expire,
+  carry every ability and have no prefix a secret scanner can match (F2 to F4 in
+  `docs/Security-Review.md`).
+- No rule yet for serving evidence files, and any file type is accepted (F8). It becomes
+  high severity the day a download lands.
+- No live Alumable integration. The `external_ref` columns are empty because the team never
+  had access to the platform.
+- No erasure or anonymisation. The `RESTRICT` constraints make deleting a student a
+  deliberate act, and none of it is implemented (`docs/Retention-and-Erasure.md`).
+- The seeded SFIA 9 copy uses levels 1 to 7 for every skill until Alumable supplies the real
+  ranges. Whether the radar should show each skill's own range is ADR #41, still open
+  (`docs/Framework-Swap-Verification.md`).
+- `GET /me/progress`, `/me/calibration` and `/me/coverage` are built and tested, but no
+  screen shows them yet.
+- No deployed instance. The demo deployment is designed but not built
+  (`docs/superpowers/specs/2026-09-06-demo-deployment-design.md`).
+- The seeded gigs run 3 August to 26 October 2026, so after that the demo shows only past
+  gigs.
+- Each `./run smoke` leaves a renamed framework copy in the database it runs against.
+
 ## Sprint 5: 30 September to 13 October 2026
 
 ### Added
+- A student can start a reflection from the gig page. Until then nothing in the UI created
+  one (#80, CAP-39).
 - Runbook and client demo script (#72, CAP-30).
 - Generated dependency, licence and advisory register, rebuilt by `./run deps` (#76, #77,
   CAP-32).
@@ -42,7 +66,8 @@ Becomes **1.0.0**, planned for 12 October 2026: `dev` merged to `main` and tagge
 
 ### Fixed
 - The entry stepper is read-only for anyone but the reflection's owner. A reviewer was being
-  offered controls the server then refused (#70, CAP-36, finding F9).
+  offered controls the server then refused (#70, CAP-36, finding F9). Its test now tries the
+  writes instead of only checking the controls are disabled (#79).
 
 ### Changed
 - Dependency updates: Laravel 13.25 to 13.34, which cleared four Composer advisories; React

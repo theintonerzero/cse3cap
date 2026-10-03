@@ -237,7 +237,9 @@ notation cannot show. Schema with inline reasoning:
 ### Quick setup
 
 One command does the clone, the environment files and the Claude Code variable. It asks
-for the two passwords and installs nothing itself, only telling you what is missing.
+for the two passwords and installs the project's own dependencies (`composer install`,
+`npm install`). It installs no system tools: a missing PHP, Composer or Node is reported
+with the command to install it.
 
 ```bash
 curl -fsSL https://dl.darkovski.dev/git/cse3cap/install.sh | bash    # Linux, macOS
@@ -604,7 +606,7 @@ and the reasoning behind the unusual decisions.
 | [`.claude/skills/jira-tickets/`](.claude/skills/jira-tickets/)   | How agents read and move COA4 tickets (ADR #38)               |
 | [`docs/erd.png`](docs/erd.png)                                   | Entity relationship diagram, with a legend of hidden constraints |
 | [`docs/superpowers/specs/`](docs/superpowers/specs/)             | Design specs for each build slice                             |
-| [`docs/superpowers/plans/`](docs/superpowers/plans/)             | Implementation plans, and the current sequencing plan          |
+| [`docs/superpowers/plans/`](docs/superpowers/plans/)             | Implementation plans as executed. History: the code wins where they differ |
 | [`docs/jira/`](docs/jira/)                                       | The Jira CSV **imports**, historical. Ticket status lives in Jira, not here (ADR #38) |
 | [`db/01-schema.sql`](db/01-schema.sql)                           | The schema, with inline reasoning                             |
 
