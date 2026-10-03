@@ -260,3 +260,31 @@ test.describe('who scored it', () => {
     });
   });
 });
+
+test.describe('coming back to the diary', () => {
+  test('the bar back arrow returns to the gig and sprint you had picked', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await page.getByLabel('Gig').selectOption({ label: 'Gig two' });
+    await page
+      .getByRole('group', { name: 'Sprint' })
+      .getByRole('button', { name: 'Sprint 1' })
+      .click();
+    await expect(page.getByText('Sprint 1 only', { exact: true })).toBeVisible();
+
+    await page
+      .getByRole('link', { name: /Sprint 1/ })
+      .first()
+      .click();
+    await expect(page).toHaveURL(/\/reflections\//);
+    await page
+      .getByRole('banner')
+      .getByRole('link', { name: 'Back to Reflection Diary' })
+      .click();
+
+    await expect(page).toHaveURL(new RegExp(`gig_id=${GIG_TWO}`));
+    await expect(page).toHaveURL(new RegExp(`sprint_id=${SPRINT_TWO}`));
+    await expect(page.getByText('Sprint 1 only', { exact: true })).toBeVisible();
+  });
+});

@@ -43,6 +43,7 @@ import { getStoredTheme, setTheme, type Theme } from '../theme.ts';
 import { TokenGate } from '../session/TokenGate.tsx';
 import { useSession, type SessionUser } from '../session/useSession.ts';
 import styles from './AppShell.module.css';
+import { diary_href } from './diary-return.ts';
 import { section_for } from './sections.ts';
 
 interface NavItem {
@@ -135,7 +136,7 @@ export function AppShell() {
           <div className={styles.back_slot}>
             {section.parent ? (
               <Link
-                to={section.parent.to}
+                to={section.parent.to === '/' ? diary_href(me.id) : section.parent.to}
                 className={styles.back}
                 aria-label={`Back to ${section.parent.title}`}
               >
@@ -190,7 +191,7 @@ export function AppShell() {
               {items.map((item) => (
                 <NavLink
                   key={item.to}
-                  to={item.to}
+                  to={item.to === '/' ? diary_href(me.id) : item.to}
                   end={item.to === '/'}
                   className={({ isActive }) =>
                     isActive ? `${styles.link} ${styles.active}` : styles.link

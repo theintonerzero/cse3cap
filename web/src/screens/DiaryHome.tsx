@@ -31,6 +31,7 @@ import {
   Skeleton,
   SkeletonGroup,
 } from '../components/index.ts';
+import { remember_diary_scope } from '../app/diary-return.ts';
 import { useSession } from '../session/useSession.ts';
 import {
   ALL_GIGS,
@@ -99,6 +100,13 @@ export function DiaryHome() {
     setLoad({ status: 'loading' });
     setReloadKey((key) => key + 1);
   }, []);
+
+  // The shell's "back to the diary" returns to this scope (round 2b).
+  const me_id = me?.id ?? null;
+  const search = params.toString();
+  useEffect(() => {
+    if (me_id) remember_diary_scope(me_id, search);
+  }, [me_id, search]);
 
   /*
    * Replace rather than push: a student clicking along four sprint chips
