@@ -217,3 +217,22 @@ test('phone: at the end of the page the stepper bar still sits on the bottom edg
   );
   expect(Math.abs(bar_bottom - 600), 'gap under the bar').toBeLessThanOrEqual(1);
 });
+
+test('phone: Back and the forward button are wide and kept off the screen edges', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 600 });
+  await page.goto(`/reflections/${DRAFT}`);
+  const back = page.getByRole('button', { name: 'Back', exact: true });
+  const submit = page.getByRole('button', { name: 'Submit' });
+  await expect(submit).toBeVisible();
+  const b = (await back.boundingBox())!;
+  const s = (await submit.boundingBox())!;
+  const rem = await page.evaluate(() =>
+    parseFloat(getComputedStyle(document.documentElement).fontSize),
+  );
+  expect(b.width, 'Back width').toBeGreaterThanOrEqual(8 * rem - 1);
+  expect(s.width, 'Submit width').toBeGreaterThanOrEqual(8 * rem - 1);
+  expect(b.x, 'Back from the left edge').toBeGreaterThanOrEqual(24);
+  expect(390 - (s.x + s.width), 'Submit from the right edge').toBeGreaterThanOrEqual(24);
+});

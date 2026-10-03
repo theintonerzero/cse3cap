@@ -49,10 +49,17 @@
     left: 0;
     z-index: var(--z-sticky-bar);
     margin: 0;
-    padding: var(--space-12) var(--space-16)
+    /* Inset from the screen edges so the buttons are not jammed into
+       the corners (round 2b). */
+    padding: var(--space-12) var(--space-24)
       calc(var(--space-12) + env(safe-area-inset-bottom, 0));
     background: var(--color-surface);
     box-shadow: var(--shadow-sheet);
+  }
+
+  /* Wide enough to hit easily with a thumb (round 2b). */
+  .nav > * {
+    min-width: 8rem;
   }
 
   /* The bar's height (a 2.75rem button and its padding) plus a gap. */
