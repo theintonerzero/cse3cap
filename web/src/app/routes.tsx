@@ -18,7 +18,7 @@
  * on purpose. Hiding a nav item is a convenience; the 403 is the rule.
  *
  * The framework screens are the one exception, and only for display. They
- * are the supervisor's (ADR #17, ADR #48): everything on them, copying a
+ * are the supervisor's (ADR #17, ADR #48): every action on them, copying a
  * rubric and assigning one, is refused by the server for anyone else. So
  * someone who supervises no gig gets NotFound there instead of a screen
  * made of buttons that 403. The server still decides; this decides only

@@ -10,10 +10,10 @@ use Illuminate\Auth\Access\Response;
 /**
  * Authorisation for gigs lives here, not in the controller.
  *
- * The matrix in docs/API-Specification.md section 11 gives every role
- * "their gigs" and nothing else. There is no capability on a gig that one
- * participant has and another does not, so this policy is one method; the
- * per-role distinctions start with reflections and scoring.
+ * The matrix in docs/API-Specification.md section 11 decides each method.
+ * Every participant can see the gig. Writing a reflection on it is the
+ * student's, and choosing its rubric is the supervisor's. Anyone not on the
+ * gig gets 404 from all three, never 403.
  */
 class GigPolicy
 {
