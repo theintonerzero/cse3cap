@@ -842,7 +842,7 @@ curl -H "Authorization: Bearer $JANE" \
       <p>The suite proves the rules in isolation with <code>Sanctum::actingAs</code>. That cannot see wiring: middleware order, the guest redirect, content negotiation, anything that only exists once a request crosses HTTP. So there is a script that drives the whole product with the three real tokens.</p>
 <pre><code>cd api && php artisan serve &amp;
 ./scripts/smoke.sh</code></pre>
-      <p>It writes a reflection as Jane, submits it through the gate, counter-scores it as Sam, watches it flip to assessed, reads all four analytics endpoints, then exports and downloads the record, checking the refusals on the way past. 55 checks, each printing the status it got against the status it wanted, so a failure names the call that broke.</p>
+      <p>It writes a reflection as Jane, submits it through the gate, counter-scores it as Sam, watches it flip to assessed, reads all four analytics endpoints, then exports and downloads the record, checking the refusals on the way past. 67 checks, run in CI on every pull request, each printing the status it got against the status it wanted, so a failure names the call that broke.</p>
       <p>It picks a sprint Jane has not used yet, so you can run it more than once against the same database.</p>
 
       <h3>The mock</h3>

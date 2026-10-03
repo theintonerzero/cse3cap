@@ -230,16 +230,16 @@ for e in entries:
     print("%s %s %s" % (e["entry"], by_value[3], by_value[2]))
 PY
 
+    # Checked like every other call. These used to be raw curl with the status
+    # thrown away, so a write that failed only surfaced later, as the gate
+    # refusing a reflection the loop claimed to have filled.
     n=0
     while read -r entry self_level counter_level; do
         n=$((n + 1))
-        curl -s -o /dev/null -X PATCH -H "Authorization: Bearer $JANE" \
-             -H 'Content-Type: application/json' -H 'Accept: application/json' \
-             -d '{"narrative":"What I did, and what I would do differently."}' \
-             "$BASE/entries/$entry"
-        curl -s -o /dev/null -X PUT -H "Authorization: Bearer $JANE" \
-             -H 'Content-Type: application/json' -H 'Accept: application/json' \
-             -d "{\"level_id\":\"$self_level\"}" "$BASE/entries/$entry/scores/self"
+        call "entry $n: write the narrative"  200 "$JANE" PATCH "/entries/$entry" \
+             '{"narrative":"What I did, and what I would do differently."}'
+        call "entry $n: self-score it"         200 "$JANE" PUT "/entries/$entry/scores/self" \
+             "{\"level_id\":\"$self_level\"}"
     done < /tmp/smoke-plan.$$
     printf '       %sfilled and self-scored %s entries%s\n' "$dim" "$n" "$off"
 

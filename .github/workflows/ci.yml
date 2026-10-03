@@ -179,6 +179,55 @@ jobs:
           MYSQL_ATTR_SSL_CA: ''
         run: php artisan test
 
+      # The suite proves each rule with Sanctum::actingAs. scripts/smoke.sh
+      # proves the pieces fit over real HTTP with real tokens: middleware,
+      # the token guard, the queued export, the download. It used to run
+      # only by hand, so "55 smoke checks" was a claim nobody re-checked.
+      #
+      # Same throwaway container, rebuilt: migrate:fresh --seed lays down the
+      # demo, which leaves Jane's third La Trobe sprint free so the write path
+      # runs rather than being skipped. DemoSeeder prints the three tokens
+      # once; that output is the file smoke.sh reads them from.
+      # --drop-views because the schema migration creates the analytics views
+      # and migrate:fresh drops only tables by default; the suite does the
+      # same with $dropViews in tests/TestCase.php. shell: bash adds pipefail,
+      # so a failed seed cannot hide behind the tee.
+      - name: Seed the demo for the smoke run
+        shell: bash
+        working-directory: api
+        env:
+          DB_CONNECTION: mysql_test
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_USERNAME: root
+          DB_PASSWORD: ci
+          DB_TEST_DATABASE: reflection_diary_test_ci
+          MYSQL_ATTR_SSL_CA: ''
+        run: php artisan migrate:fresh --drop-views --seed --force --no-interaction --no-ansi | tee "$RUNNER_TEMP/seed.txt"
+
+      - name: Smoke test over HTTP
+        shell: bash
+        env:
+          DB_CONNECTION: mysql_test
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_USERNAME: root
+          DB_PASSWORD: ci
+          DB_TEST_DATABASE: reflection_diary_test_ci
+          MYSQL_ATTR_SSL_CA: ''
+          TOKENS: ${{ runner.temp }}/seed.txt
+        run: |
+          (cd api && php artisan serve --host=127.0.0.1 --port=8000 > "$RUNNER_TEMP/serve.log" 2>&1 &)
+          for _ in $(seq 1 30); do
+            curl -fsS -o /dev/null http://127.0.0.1:8000/up && break
+            sleep 1
+          done
+          bash scripts/smoke.sh
+
+      - name: Show the API log if the smoke run failed
+        if: failure()
+        run: cat "$RUNNER_TEMP/serve.log" || true
+
   frontend:
     name: Frontend
     runs-on: ubuntu-latest
