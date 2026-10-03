@@ -26,3 +26,5 @@ export { LinkButton } from './LinkButton/LinkButton.tsx';
 export type { LinkButtonProps, LinkButtonVariant } from './LinkButton/LinkButton.tsx';
 export { Select } from './Select/Select.tsx';
 export type { SelectProps } from './Select/Select.tsx';
+export { Menu } from './Menu/Menu.tsx';
+export type { MenuProps, MenuItem } from './Menu/Menu.tsx';

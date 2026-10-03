@@ -185,3 +185,113 @@ test.describe('title and nav', () => {
     ).toBe(0);
   });
 });
+
+test.describe('⋮ menu', () => {
+  test('keyboard: ArrowDown opens on the first item, arrows move, Escape returns to ⋮', async ({
+    page,
+  }) => {
+    await install(page, 'Ash');
+    await page.goto('/');
+    const trigger = page.getByRole('button', { name: 'More options' });
+    await expect(trigger).toHaveAttribute('aria-haspopup', 'menu');
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    await trigger.focus();
+    await page.keyboard.press('ArrowDown');
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    const switch_user = page.getByRole('menuitem', { name: 'Switch user' });
+    const dark = page.getByRole('menuitemcheckbox', { name: 'Dark mode' });
+    await expect(switch_user).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await expect(dark).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await expect(switch_user).toBeFocused();
+    await page.keyboard.press('End');
+    await expect(dark).toBeFocused();
+    await page.keyboard.press('Home');
+    await expect(switch_user).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('menu')).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+  });
+
+  test('Enter opens it too, and Tab closes it', async ({ page }) => {
+    await install(page, 'Ash');
+    await page.goto('/');
+    const trigger = page.getByRole('button', { name: 'More options' });
+    await trigger.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('menuitem', { name: 'Switch user' })).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('menu')).toHaveCount(0);
+  });
+
+  test('a click outside closes it', async ({ page }) => {
+    await install(page, 'Ash');
+    await page.goto('/');
+    await page.getByRole('button', { name: 'More options' }).click();
+    await expect(page.getByRole('menu')).toBeVisible();
+    await page.mouse.click(5, 400);
+    await expect(page.getByRole('menu')).toHaveCount(0);
+  });
+
+  test('Dark mode toggles the theme and survives a reload', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'light' });
+    await install(page, 'Ash');
+    await page.goto('/');
+    await page.getByRole('button', { name: 'More options' }).click();
+    const dark = page.getByRole('menuitemcheckbox', { name: 'Dark mode' });
+    await expect(dark).toHaveAttribute('aria-checked', 'false');
+    await dark.click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await page.reload();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await page.getByRole('button', { name: 'More options' }).click();
+    await expect(page.getByRole('menuitemcheckbox', { name: 'Dark mode' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+  });
+
+  test('Dark mode reflects the system theme before any choice', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await install(page, 'Ash');
+    await page.goto('/');
+    await page.getByRole('button', { name: 'More options' }).click();
+    const dark = page.getByRole('menuitemcheckbox', { name: 'Dark mode' });
+    await expect(dark).toHaveAttribute('aria-checked', 'true');
+    await dark.click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  });
+
+  test('Switch user opens the sheet, and focus comes back to ⋮', async ({ page }) => {
+    await install(page, 'Ash');
+    await page.goto('/');
+    const trigger = page.getByRole('button', { name: 'More options' });
+    await trigger.click();
+    await page.getByRole('menuitem', { name: 'Switch user' }).click();
+    const sheet = page.getByRole('dialog', { name: 'Switch user' });
+    await expect(sheet).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(sheet).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+  });
+
+  test('360: the open menu stays inside the viewport', async ({ page }) => {
+    await install(page, LONG_NAME);
+    await page.setViewportSize({ width: 360, height: 800 });
+    await page.goto('/');
+    await page.getByRole('button', { name: 'More options' }).click();
+    const box = (await page.getByRole('menu').boundingBox())!;
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(360);
+  });
+
+  test('the name is text, not a button', async ({ page }) => {
+    await install(page, 'Ash');
+    await page.goto('/');
+    const banner = page.getByRole('banner');
+    await expect(banner.getByText('Ash', { exact: true })).toBeVisible();
+    await expect(banner.getByRole('button', { name: /Ash/ })).toHaveCount(0);
+    await expect(banner.getByRole('button', { name: /^(Dark|Light)$/ })).toHaveCount(0);
+  });
+});

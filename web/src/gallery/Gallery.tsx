@@ -22,6 +22,7 @@ import {
   SkeletonGroup,
   type RadarAxis,
   LinkButton,
+  Menu,
   ProgressBar,
   Select,
   TextArea,
@@ -238,6 +239,26 @@ export default function Gallery() {
             </Button>
           </div>
         </BottomSheet>
+      </Section>
+      <Section title="Menu">
+        {/* The shell's ⋮ (CAP-38 R4). Same two items, wired to this page:
+            the switch is the gallery's own theme, the item opens the sheet above. */}
+        <Menu
+          label="More options"
+          items={[
+            {
+              kind: 'item',
+              label: 'Open the sheet',
+              on_select: () => set_sheet_open(true),
+            },
+            {
+              kind: 'checkbox',
+              label: 'Dark mode',
+              checked: theme === 'dark',
+              on_select: toggle_theme,
+            },
+          ]}
+        />
       </Section>
       <Section title="Skeleton">
         <div className={styles.stack}>

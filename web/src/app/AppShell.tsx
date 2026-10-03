@@ -19,7 +19,8 @@
  * See docs/Frontend-and-Backend.md, "Roles never cross".
  *
  * The theme toggle here came from App.tsx, which said to move it into the
- * real shell when this ticket landed. This is that.
+ * real shell when this ticket landed. This is that. Since CAP-38 R4 it and
+ * Switch user live in the ⋮ menu, and the name is plain text.
  *
  * CAP-38 R3: the bar names the section (sections.ts) and its back arrow
  * goes up one fixed level. On a top screen there is no level above inside
@@ -34,6 +35,7 @@ import {
   BottomSheet,
   Button,
   ErrorNotice,
+  Menu,
   Skeleton,
   SkeletonGroup,
 } from '../components/index.ts';
@@ -161,24 +163,26 @@ export function AppShell() {
           )}
 
           <div className={styles.identity}>
-            <button
-              type="button"
-              className={styles.who}
-              onClick={() => setSwitcherOpen(true)}
-              aria-haspopup="dialog"
-            >
+            <div className={styles.who}>
               <span className={styles.name}>{me.display_name}</span>
               <span className={styles.roles}>{role_summary || 'no gigs'}</span>
-            </button>
-
-            <button
-              type="button"
-              className={styles.theme}
-              onClick={toggle_theme}
-              aria-pressed={theme === 'dark'}
-            >
-              {theme === 'dark' ? 'Light' : 'Dark'}
-            </button>
+            </div>
+            <Menu
+              label="More options"
+              items={[
+                {
+                  kind: 'item',
+                  label: 'Switch user',
+                  on_select: () => setSwitcherOpen(true),
+                },
+                {
+                  kind: 'checkbox',
+                  label: 'Dark mode',
+                  checked: theme === 'dark',
+                  on_select: toggle_theme,
+                },
+              ]}
+            />
           </div>
 
           {items.length >= 2 && (
