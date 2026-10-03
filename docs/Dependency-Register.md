@@ -7,8 +7,9 @@ rebuilds this file from `composer licenses`, `composer audit`, `web/package-lock
 
 | | |
 | --- | --- |
-| Generated | 2026-10-03 08:29 UTC |
-| Commit | `aec4118` |
+| Generated | 2026-10-03 10:10 UTC |
+| Commit | `09a03c5` |
+| Lockfiles | `api/composer.lock` sha256 `4c8be6e73f61d8df8a0bf537f8dd7f9a5e0c882db2dffbe84505c158de5ac79b`, `web/package-lock.json` sha256 `22dd2b616b11a3ee06144462604287608f8062c263329685dfe9ff186a38c787` |
 | Tools | PHP 8.5.9, Composer version 2.10.2, Node v26.7.0, npm 11.19.0 |
 | Packages | 117 Composer (12 direct), 116 npm (13 direct) |
 | Advisories | none |
@@ -79,7 +80,7 @@ The permissive list is in `scripts/dependency-register.py`: 0BSD, Apache-2.0, BS
 | Package | Constraint | Installed | Licence | Dev only |
 | --- | --- | --- | --- | --- |
 | `@playwright/test` | `1.63.0` | 1.63.0 | Apache-2.0 | yes |
-| `@types/node` | `^26.6.3` | 26.6.3 | MIT | yes |
+| `@types/node` | `^24.19.1` | 24.19.1 | MIT | yes |
 | `@types/react` | `^19.3.0` | 19.3.0 | MIT | yes |
 | `@types/react-dom` | `^19.3.0` | 19.3.0 | MIT | yes |
 | `@vitejs/plugin-react` | `^6.1.1` | 6.1.1 | MIT | yes |

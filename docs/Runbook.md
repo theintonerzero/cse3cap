@@ -272,7 +272,11 @@ New credentials go to the new owner out of band, never into this repository or a
   date for no code reason, the runner image is the first suspect.
 - **Dependabot** (`.github/dependabot.yml`) opens grouped updates for GitHub Actions, Composer
   and npm every Monday at 09:00 Melbourne time, against `dev`. After merging any of them, run
-  `./run deps` and commit the regenerated `docs/Dependency-Register.md`.
+  `./run deps` and commit the regenerated `docs/Dependency-Register.md`. CI fails until you
+  do: `./run docs` compares the register's recorded lockfile hashes with the lockfiles.
+- **Docs drift:** `./run docs` (`scripts/check-docs.py`) also fails CI on a broken relative
+  link, a `./run` command that does not exist, a file in `docs/` missing from the README
+  table, or an ADR index that disagrees with the records.
 - **Branch protection:** the `protected-branches` ruleset requires a pull request into `dev`
   and `main` and forbids force pushes, but requires no approving review (CONTRIBUTING).
   Request a reviewer anyway.
