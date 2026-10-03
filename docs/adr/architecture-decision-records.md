@@ -57,7 +57,7 @@ Index
 #46 Seeded tokens expire, carry a prefix, keep * .. Proposed
 #48 Choosing a rubric is the supervisor's ......... Proposed
 #49 No draft-then-submit or save popups ........... Proposed
-#50 Type, line height and control shape leave Figma . Proposed
+#50 Type, line height and control shape leave Figma .. Proposed
 #51 One Firefox check beside the Chromium suite .. Proposed
 #52 Section tints on the top screens ............. Proposed
 #53 A 20px title step for the app bar ............ Proposed

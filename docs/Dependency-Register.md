@@ -7,11 +7,11 @@ rebuilds this file from `composer licenses`, `composer audit`, `web/package-lock
 
 | | |
 | --- | --- |
-| Generated | 2026-10-03 10:10 UTC |
-| Commit | `09a03c5` |
-| Lockfiles | `api/composer.lock` sha256 `4c8be6e73f61d8df8a0bf537f8dd7f9a5e0c882db2dffbe84505c158de5ac79b`, `web/package-lock.json` sha256 `22dd2b616b11a3ee06144462604287608f8062c263329685dfe9ff186a38c787` |
-| Tools | PHP 8.5.9, Composer version 2.10.2, Node v26.7.0, npm 11.19.0 |
-| Packages | 117 Composer (12 direct), 116 npm (13 direct) |
+| Generated | 2026-10-03 13:56 UTC |
+| Commit | `625d3b5` |
+| Lockfiles | `api/composer.lock` sha256 `4c8be6e73f61d8df8a0bf537f8dd7f9a5e0c882db2dffbe84505c158de5ac79b`, `web/package-lock.json` sha256 `7dd8f1596e8bea7901c93ef509325d86695b68161237a8395e8395a380e64f35` |
+| Tools | PHP 8.5.4, Composer version 2.9.5, Node v24.19.0, npm 11.17.0 |
+| Packages | 117 Composer (12 direct), 117 npm (14 direct) |
 | Advisories | none |
 
 Why each direct dependency is here, and which ones were deliberately not taken, is ADR #31
@@ -34,12 +34,14 @@ None at the time of generation.
 | LGPL-2.1 | 1 |
 | LGPL-2.1-or-later | 1 |
 | LGPL-3.0-or-later | 1 |
+| OFL-1.1 | 1 |
 | MIT AND ISC | 1 |
 
 **Not on the permissive list, so a person should check each one:**
 
 | Package | Licence | Ecosystem |
 | --- | --- | --- |
+| `@fontsource-variable/inter` | OFL-1.1 | npm |
 | `dompdf/dompdf` | LGPL-2.1 | Composer |
 | `dompdf/php-font-lib` | LGPL-2.1-or-later | Composer |
 | `dompdf/php-svg-lib` | LGPL-3.0-or-later | Composer |
@@ -79,6 +81,7 @@ The permissive list is in `scripts/dependency-register.py`: 0BSD, Apache-2.0, BS
 
 | Package | Constraint | Installed | Licence | Dev only |
 | --- | --- | --- | --- | --- |
+| `@fontsource-variable/inter` | `^5.3.0` | 5.3.0 | OFL-1.1 | no |
 | `@playwright/test` | `1.63.0` | 1.63.0 | Apache-2.0 | yes |
 | `@types/node` | `^24.19.1` | 24.19.1 | MIT | yes |
 | `@types/react` | `^19.3.0` | 19.3.0 | MIT | yes |
