@@ -42,7 +42,8 @@ The point to make: the record belongs to the student and survives the subject.
 
 1. Open the **La Trobe** gig. The sprints are listed with their due dates; sprints 1 and 2
    are assessed. **History** shows every submission and assessment, dated.
-2. On sprint 3, press **Start**. The stepper goes one competency at a time.
+2. Sprint 3 has no reflection yet, so its row offers **Start reflection**. Press it: the draft
+   is created and opens in the stepper, which goes one competency at a time.
 3. For the first competency: write two sentences of narrative, add evidence with **Add a
    link** (any `https://` address), and choose a self-score. Each level shows its
    descriptor, so the student is scoring against words rather than a number.
