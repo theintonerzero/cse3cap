@@ -366,3 +366,8 @@ test.describe('a student who also assesses', () => {
     await expect(pill).toHaveAttribute('href', new RegExp(`sprint_id=${SPRINT_TWO}`));
   });
 });
+
+test('the gig picker says what to do: "Select a gig"', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('combobox', { name: 'Select a gig' })).toBeVisible();
+});

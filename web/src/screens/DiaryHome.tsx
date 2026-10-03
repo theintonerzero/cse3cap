@@ -380,7 +380,7 @@ function ScopeChips({
         <div className={styles.gig_picker}>
           <Select
             id="diary-gig"
-            label="Gig"
+            label="Select a gig"
             value={scope.gig_id ?? ''}
             on_change={(value) =>
               on_select(value === '' ? ALL_GIGS : { gig_id: value, sprint_id: null })
