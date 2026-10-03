@@ -36,6 +36,7 @@ cd "$ROOT" || exit 1
 
 BASE="${BASE:-http://127.0.0.1:8000/api/v1}"
 TOKENS="${TOKENS:-$HOME/reflection-diary-tokens.txt}"
+. "$(dirname "${BASH_SOURCE[0]}")/lib/token-for.sh"
 SCREEN="web/src/screens/SelectFramework.tsx"
 RULE="web/src/screens/framework-groups.ts"
 ROUTES="web/src/app/routes.tsx"
@@ -332,7 +333,7 @@ fi
 say "7. The API really carries what the screen reads"
 
 TOKEN=""
-[ -f "$TOKENS" ] && TOKEN="$(grep -s 'Dr Lee' "$TOKENS" | awk '{print $NF}')"
+[ -f "$TOKENS" ] && TOKEN="$(token_for 'Dr Lee' "$TOKENS")"
 
 if [ -z "$TOKEN" ]; then
     meh "live framework checks" "no token for Dr Lee in $TOKENS"

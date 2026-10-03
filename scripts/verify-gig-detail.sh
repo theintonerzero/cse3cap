@@ -35,6 +35,7 @@ cd "$ROOT"
 
 BASE="${BASE:-http://127.0.0.1:8000/api/v1}"
 TOKENS="${TOKENS:-$HOME/reflection-diary-tokens.txt}"
+. "$(dirname "${BASH_SOURCE[0]}")/lib/token-for.sh"
 SCREEN="web/src/screens/GigDetail.tsx"
 TIMING="web/src/screens/gig-timing.ts"
 SCOPE="web/src/screens/diary-scope.ts"
@@ -436,7 +437,7 @@ fi
 say "6. GET /gigs/{gig_id} carries what the header renders"
 
 TOKEN=""
-[ -f "$TOKENS" ] && TOKEN="$(grep -s 'Jane N' "$TOKENS" | awk '{print $NF}')"
+[ -f "$TOKENS" ] && TOKEN="$(token_for 'Jane N' "$TOKENS")"
 
 if [ -z "$TOKEN" ]; then
     meh "live gig checks" "no token for Jane N in $TOKENS"

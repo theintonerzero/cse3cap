@@ -354,6 +354,7 @@ case "${1:-help}" in
         step python3 scripts/deploy.test.py
         step ./scripts/check-one-rule.sh
         step python3 scripts/check-tokens.test.py
+        step python3 scripts/token-for.test.py
         step python3 scripts/check-docs.test.py
         step python3 scripts/check-docs.py
         say "Backend"
