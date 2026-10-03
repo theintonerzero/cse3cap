@@ -36,7 +36,6 @@ import type { components } from '../api/schema.ts';
 import {
   BottomSheet,
   Button,
-  Card,
   ErrorNotice,
   LinkButton,
   Skeleton,
@@ -291,9 +290,13 @@ function TimelineCard({ gig }: { gig: Gig }) {
   if (!gig.starts_on || !gig.ends_on) return null;
 
   return (
+    // No card (round 2c, Patrick): the frame's blue Timeline card read as a
+    // different app beside the rest of the diary, worst in dark mode. A
+    // quiet section label and label-over-value facts, as Alumable's own
+    // gig page sets out GIG DETAILS and TIMELINE.
     <section className={styles.block}>
-      <Card accent="evidence">
-        <h2 className={styles.card_heading}>Timeline</h2>
+      <div>
+        <h2 className={styles.section_label}>Timeline</h2>
         <dl className={styles.timeline}>
           <div className={styles.timeline_cell}>
             <dt className={styles.fact_label}>Start</dt>
@@ -312,7 +315,7 @@ function TimelineCard({ gig }: { gig: Gig }) {
             </div>
           )}
         </dl>
-      </Card>
+      </div>
     </section>
   );
 }
@@ -350,8 +353,10 @@ function DiaryCard({
   const is_student = gig.my_role === 'student';
 
   return (
+    // A plain card, as the radar sits in on the diary home, not the frame's
+    // pink one (round 2c, Patrick).
     <section className={styles.block}>
-      <Card accent="pink">
+      <div className={styles.diary_card}>
         <h2 className={styles.card_heading}>Reflection diary</h2>
 
         <p className={styles.framework}>
@@ -390,7 +395,7 @@ function DiaryCard({
             <LinkButton to={`/?gig_id=${gig.id}`}>Open your diary for this gig</LinkButton>
           </div>
         )}
-      </Card>
+      </div>
     </section>
   );
 }

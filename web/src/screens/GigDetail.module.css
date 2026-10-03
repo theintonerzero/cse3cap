@@ -96,8 +96,8 @@
   margin-top: var(--space-24);
 }
 
-/* The heading inside one of the frame's three cards. Sits on an accent
-   tint, so it is --color-text rather than anything muted. */
+/* The diary card's heading. Round 2c: on a plain surface card now, not
+   the frame's accent tint. */
 .card_heading {
   margin: 0 0 var(--space-12);
   font-size: var(--font-size-lg);
@@ -105,12 +105,34 @@
   color: var(--color-text);
 }
 
+/* Round 2c: a muted label over its value, the way Alumable's gig page
+   sets out Start, End and Duration. The section label above carries the
+   uppercase. */
 .fact_label {
   margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+/* TIMELINE: a quiet uppercase section label, Alumable's GIG DETAILS and
+   TIMELINE style, on the page background with no card. */
+.section_label {
+  margin: 0 0 var(--space-12);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
+  letter-spacing: var(--letter-spacing-label);
   text-transform: uppercase;
-  color: var(--color-text);
+  color: var(--color-text-muted);
+}
+
+/* The diary card: the same plain surface, hairline and soft shadow as the
+   radar's card on the diary home, so the two screens read as one app. */
+.diary_card {
+  padding: var(--space-16);
+  border: var(--border-width-sm) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
 }
 
 /* START | END | DURATION. Wraps rather than squeezing three dates across

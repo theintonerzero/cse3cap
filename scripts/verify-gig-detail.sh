@@ -191,12 +191,16 @@ else
     bad "no Gig details card" "it repeats the header"
 fi
 
-# Each card is a Card with one of CAP-1's accents, which is what makes them
-# read as cards rather than as sections. The frame tints them blue and pink.
-if [ "$(grep -c '<Card accent=' "$SCREEN")" -ge 2 ]; then
-    ok "each card carries an accent"
+# No accent fills (CAP-38 round 2c, Patrick): the frame tints the two cards
+# blue and pink, and beside the rest of the diary that read as a different
+# app, worst in dark mode. Timeline is a section label with its facts on the
+# page; the diary sits in a plain card like the diary home's radar. Asserted
+# so the tints do not drift back without a reason.
+if ! grep -q '<Card accent=' "$SCREEN" && grep -q 'styles.section_label' "$SCREEN" \
+    && grep -q 'styles.diary_card' "$SCREEN"; then
+    ok "no accent fills" "Timeline as a section, the diary in a plain card"
 else
-    bad "each card carries an accent" "want 2 accented Cards"
+    bad "no accent fills" "an accented Card is back, or a section lost its class"
 fi
 
 # Criterion 1 asks for the participant roles in the HEADER, which is also
