@@ -8,9 +8,9 @@
  * `sessionStorage`, not `localStorage`, for two reasons. Each browser tab
  * gets its own identity, so the student and the assessor can be open side by
  * side, which is how a counter-score arriving on the radar is actually
- * demonstrated. And a credential that docs/Security-Review.md records as
- * never expiring and unscoped (findings F2 and F3) should not outlive the
- * tab that used it. `theme.ts` is the structural model here, including its
+ * demonstrated. And a credential that lasts 60 days and carries every
+ * ability (findings F2 and F3, ADR #46) should not outlive the tab that
+ * used it. `theme.ts` is the structural model here, including its
  * try/catch around storage being unavailable; it just makes the other
  * choice about which store to use, because a theme is not a credential.
  *

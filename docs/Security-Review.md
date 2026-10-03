@@ -10,6 +10,73 @@ fixes what it finds leaves no record that the class of problem existed.
 
 ---
 
+## 2026-10-03 · Security posture: tokens, the VPS and the dependency tree
+
+**Reviewer:** Tony To · **Ticket:** CAP-32 · **Commit reviewed:** `09a03c5`
+
+### Scope
+
+The token findings F2, F3 and F4 from the 2026-09-08 entry, decided rather than left open
+before CAP-26 puts the demo on a public URL. The VPS controls ADR #21 relies on, verified
+instead of assumed. The dependency tree against ADR #31. Git history, for credentials of the
+kind F1 found in a bundle.
+
+### Method
+
+- **Tokens.** Read `api/config/sanctum.php` and `DemoSeeder::issueTokens`, and checked that
+  nothing in `web/` or `scripts/` parses a token's shape (the frontend only trims it). The
+  decision is ADR #46 and the change is tested in `api/tests/Feature/TokenPostureTest.php`.
+  That test goes through the real Sanctum guard with a bearer header, not `actingAs`.
+- **VPS, from outside.** `nc -z rddb.darkovski.dev 3306` connects. Through the read-only
+  account: `@@require_secure_transport = 1`, MySQL 9.7.2, and this session's `Ssl_cipher` is
+  `TLS_AES_128_GCM_SHA256`. The per-account `REQUIRE SSL` could not be read: `mysql.user` is
+  denied to `diary_ro`, as it should be, and the server-wide setting refuses unencrypted
+  connections regardless.
+- **VPS, needing a shell.** Whether fail2ban still watches the MySQL log and bans in
+  `DOCKER-USER` cannot be seen from outside, and nobody has confirmed shell access. Raised as
+  **CAP-41** rather than assumed.
+- **Dependencies.** `docs/Dependency-Register.md`, generated at `09a03c5` by `./run deps`
+  from `composer audit` and `npm audit`: 117 Composer and 116 npm packages, **no
+  advisories**. No Dependabot pull request is open, as all five were merged on 2026-10-03.
+- **History.** gitleaks over every ref (263 commits with a diff; merges have none), redacted:
+  no leaks. Then a grep of every added line in `git log --all -p` for the shapes generic
+  scanners miss: Sanctum tokens, `APP_KEY=base64:`, `DB_PASSWORD`/`MYSQL_*PASSWORD`
+  assignments, private keys, Atlassian and GitHub tokens. The only hits are fixtures: the CI
+  service container's password `ci`, `scripts/deploy.test.py`'s test values, a blank
+  placeholder in `docs/Deployment.md` and a `case` pattern in `scripts/setup.sh`. The only
+  env file ever committed apart from the examples is `web/.env.production`, which holds
+  `VITE_API_BASE_URL=/api/v1` and nothing else.
+
+### Findings
+
+No new findings. F2, F3 and F4 are decided below and marked where they are listed. One control
+is unverified, and that gap is CAP-41.
+
+- **F2: tokens expire.** `DemoSeeder` issues each token 60 days out. The global setting stays
+  null so nothing already issued dies at once.
+- **F3: every ability, on purpose.** A scoped token would need a `tokenCan()` check outside
+  the policies, a second place authorisation lives.
+- **F4: tokens carry `rdiary_`.** A leaked one is caught by secret scanning.
+
+### What is already right
+
+- The server refuses unencrypted connections outright, not just per account. A client that
+  forgets the CA fails rather than silently connecting in the clear.
+- `diary_ro` cannot read `mysql.user`. The read-only account is read-only on the data and
+  blind to the grant tables.
+- No credential has ever been committed, across every branch.
+
+### Sign-off
+
+The token decisions are Proposed, as ADR #46, until the team accepts them. They reach the
+shared database only when the three tokens are reissued. The seeder skips a user who already
+has one, so until then the live tokens are unprefixed and never expire. Reissuing is
+announced, then done once: revoke the `demo` tokens, run `php artisan db:seed`, and pin the
+new ones. CAP-32 is done when ADR #46 is accepted and the tokens are reissued. CAP-41 is
+separate, and blocked on shell access.
+
+---
+
 ## 2026-10-03 · The permission matrix, probed over HTTP
 
 **Reviewer:** Tony To · **Ticket:** CAP-31 · **Commit reviewed:** `09a03c5`
@@ -561,8 +628,8 @@ looks wrong, and no error is raised, so this fails silently and indefinitely.
 
 #### F2 · Tokens never expire — Medium
 
-> **Raised as CAP-32 (COA4-90),** the security posture review, which carries F2, F3 and F4
-> as acceptance criteria.
+> **Raised as CAP-32 (COA4-90), decided 2026-10-03 (ADR #46, Proposed).** Seeded tokens now
+> expire 60 days after issue; the global setting stays null. Live once the tokens are reissued.
 
 `api/config/sanctum.php:53` sets `'expiration' => null`. A token is valid until it is
 manually revoked, and Sanctum stores only a hash, so a leaked token cannot be recognised
@@ -575,8 +642,8 @@ which is CAP-26. Worth an explicit decision rather than a default.
 
 #### F3 · Tokens carry every ability — Medium
 
-> **Raised as CAP-32 (COA4-90),** the security posture review, which carries F2, F3 and F4
-> as acceptance criteria.
+> **Raised as CAP-32 (COA4-90), decided 2026-10-03 (ADR #46, Proposed).** Kept `['*']` on
+> purpose: an ability check would be a second place authorisation lives.
 
 `api/database/seeders/DemoSeeder.php:120` calls `$user->createToken('demo')` with no
 abilities, so Sanctum grants `['*']`.
@@ -588,8 +655,8 @@ a screenshot session, and a leaked token can do everything its owner can, includ
 
 #### F4 · No token prefix, so a leak is not machine-detectable — Low
 
-> **Raised as CAP-32 (COA4-90),** the security posture review, which carries F2, F3 and F4
-> as acceptance criteria.
+> **Raised as CAP-32 (COA4-90), fixed 2026-10-03 (ADR #46).** New tokens carry `rdiary_`.
+> Live for the seeded three once they are reissued.
 
 `api/config/sanctum.php:68` leaves `token_prefix` empty. Sanctum supports a prefix precisely
 so that secret scanners — GitHub push protection among them — can recognise a token in a

@@ -37,6 +37,14 @@ use Illuminate\Support\Carbon;
  */
 class DemoSeeder extends Seeder
 {
+    /**
+     * How long a seeded token lives (F2, ADR #46). Long enough to outlast a
+     * semester and its handover, so nobody's setup breaks mid-sprint; short
+     * enough that a token pinned in a channel or leaked from a public demo
+     * stops working on its own. Reissue by revoking and seeding again.
+     */
+    public const TOKEN_LIFETIME_DAYS = 60;
+
     public function run(): void
     {
         $jane = User::firstOrCreate(['display_name' => 'Jane N']);
@@ -117,7 +125,13 @@ class DemoSeeder extends Seeder
                 continue;
             }
 
-            $token = $user->createToken('demo')->plainTextToken;
+            // Every ability on purpose (F3): authorisation is the policies',
+            // so a student's token still cannot do an assessor's work.
+            $token = $user->createToken(
+                'demo',
+                ['*'],
+                now()->addDays(self::TOKEN_LIFETIME_DAYS),
+            )->plainTextToken;
             $this->command?->info(sprintf('%-8s %s', $user->display_name, $token));
         }
     }
