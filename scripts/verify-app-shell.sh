@@ -93,10 +93,38 @@ done
 # --------------------------------------------------------------------------
 say "3. GET /auth/me returns what the nav is built from"
 
-token=''
-if [ -f "$TOKENS" ]; then
-    token="$(grep -oE '[0-9]+\|[A-Za-z0-9]+' "$TOKENS" | head -1)"
-fi
+# The token on the last line naming NAME. A token never holds a space, so
+# it is the last field. Same read as smoke.sh and pentest.sh, by name and
+# not by shape, because ADR #46's rdiary_ prefix changed the shape once.
+token_for() {
+    [ -f "$2" ] || return 0
+    grep -F "$1" "$2" | tr -d '\r' | awk '{print $NF}' | tail -n 1
+}
+
+fake="$(printf 'a%.0s' $(seq 40))"
+fixture="$(mktemp)"
+trap 'rm -f "$fixture"' EXIT
+
+expect_token() {
+    if [ "$2" = "$3" ]; then ok "token read: $1"; else bad "token read: $1" "got '$2'"; fi
+}
+
+printf 'Jane N   7|rdiary_%s\n' "$fake" > "$fixture"
+expect_token "prefixed"            "$(token_for 'Jane N' "$fixture")" "7|rdiary_$fake"
+
+printf 'Jane N   7|%s\n' "$fake" > "$fixture"
+expect_token "unprefixed"          "$(token_for 'Jane N' "$fixture")" "7|$fake"
+
+printf 'Jane N   7|rdiary_%s\r\n' "$fake" > "$fixture"
+expect_token "CRLF line endings"   "$(token_for 'Jane N' "$fixture")" "7|rdiary_$fake"
+
+printf 'Jane N   7|old%s\nSam O    8|rdiary_%s\nJane N   9|rdiary_%s\n' "$fake" "$fake" "$fake" > "$fixture"
+expect_token "newest of two"       "$(token_for 'Jane N' "$fixture")" "9|rdiary_$fake"
+
+printf 'Sam O    8|rdiary_%s\n' "$fake" > "$fixture"
+expect_token "no line for Jane"    "$(token_for 'Jane N' "$fixture")" ""
+
+token="$(token_for 'Jane N' "$TOKENS")"
 
 if [ -z "$token" ]; then
     meh "live check" "$dim""no token in $TOKENS$off"
