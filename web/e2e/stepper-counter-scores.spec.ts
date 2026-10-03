@@ -198,3 +198,19 @@ test('evidence is still a link to its own URL, in a new tab', async ({ page }) =
   await expect(link).toHaveAttribute('target', '_blank');
   await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
 });
+
+test('the card reads self-score, reflection, then the counter-score and its comment', async ({
+  page,
+}) => {
+  // Patrick, round 2b: each person's score, then the words behind it.
+  await page.goto(`/reflections/${ASSESSED}`);
+  const order = [
+    page.getByRole('group', { name: 'Self-score' }),
+    page.getByRole('textbox', { name: 'Your reflection' }),
+    page.getByRole('group', { name: `${SAM.display_name}'s score` }),
+    page.getByRole('textbox', { name: `${SAM.display_name}'s comment` }),
+  ];
+  const tops: number[] = [];
+  for (const field of order) tops.push((await field.boundingBox())!.y);
+  expect(tops, 'top edges in reading order').toEqual([...tops].sort((a, b) => a - b));
+});

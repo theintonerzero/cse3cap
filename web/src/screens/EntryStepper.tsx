@@ -766,6 +766,14 @@ function EntryCard({
           {score_error}
         </p>
       )}
+    </div>
+  );
+
+  // The counter-scores, each with its comment, read-only. Their own block
+  // now, after the narrative, so each person's score sits beside their own
+  // words (round 2b).
+  const counter_scores = (
+    <>
       {read_only &&
         counter_scores_of(entry)
           // In assessor mode the viewer's own score is shown by the panel
@@ -810,7 +818,7 @@ function EntryCard({
               </div>
             );
           })}
-    </div>
+    </>
   );
 
   return (
@@ -821,21 +829,14 @@ function EntryCard({
         {entry.competency_name}
       </p>
 
-      {/* A student writes before they score, so their own screen leads with
-          the narrative (CAP-11). An assessor reads both answers the same
-          way -- score chips, then the words behind them -- so the student's
-          half matches the assessor's half below it (Patrick, PR #56). */}
-      {mode === 'assessor' ? (
-        <>
-          {self_score_row}
-          {narrative}
-        </>
-      ) : (
-        <>
-          {narrative}
-          {self_score_row}
-        </>
-      )}
+      {/* Score first, then the words behind it, for both people and in
+          both views: self-score, reflection, then the counter-score and its
+          comment below. Patrick, round 2b, extending PR #56's assessor order
+          to the student, whose screen used to lead with the narrative
+          (CAP-11): the score is the first choice either of them makes. */}
+      {self_score_row}
+      {narrative}
+      {counter_scores}
 
       <EvidenceList
         entry={entry}

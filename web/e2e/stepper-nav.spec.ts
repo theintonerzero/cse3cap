@@ -160,6 +160,19 @@ test.describe('the heading', () => {
   });
 });
 
+test("the student's card leads with the self-score, then the reflection", async ({
+  page,
+}) => {
+  // Patrick, round 2b: score first, words second, for both people, the way
+  // the assessor's view already reads.
+  await page.goto(`/reflections/${DRAFT}`);
+  const score = (await page.getByRole('group', { name: 'Self-score' }).boundingBox())!;
+  const words = (await page
+    .getByRole('textbox', { name: 'Your reflection' })
+    .boundingBox())!;
+  expect(score.y, 'self-score above the reflection').toBeLessThan(words.y);
+});
+
 // The assessor's side: a submitted reflection with nothing counter-scored,
 // so "Save all scores" lists a "Go to <competency>" for every entry.
 const SAM: Me = {
