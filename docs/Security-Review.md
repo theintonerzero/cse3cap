@@ -169,6 +169,11 @@ sweep above being run again.
 > opens Jane's draft as Sam and finds no editable control and no write sent, and
 > `scripts/verify-entry-stepper.sh` asserts the condition. Both were red with the ownership
 > term removed.
+>
+> **Corrected 2026-10-03.** "No write sent" was asserted after the page loaded, before
+> anything had been tried, so it proved only that loading writes nothing. The spec now also
+> force-clicks every self-score chip as Sam and asserts that no request left the page. With
+> the ownership term removed, that test alone fails on two `PUT /entries/:id/scores/self`.
 
 `EntryStepper` decides `read_only` from the mode and the status alone:
 

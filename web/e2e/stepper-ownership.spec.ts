@@ -185,7 +185,29 @@ test.describe('a reviewer on the gig', () => {
     await expect(page.getByText('Attach a file')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Submit' })).toHaveCount(0);
 
-    // Every write the screen could make would be refused with a 403; none leaves.
+    // Nothing has been tried yet, so this only says loading wrote nothing. The
+    // test below is the one that tries.
+    expect(api.writes()).toEqual([]);
+  });
+
+  test("tries to self-score a student's draft: no write leaves the page", async ({
+    page,
+    api,
+  }) => {
+    await page.goto(`/reflections/${DRAFT}`);
+    const chips = page.getByRole('group', { name: 'Self-score' }).getByRole('button');
+    await expect(chips.first()).toBeVisible();
+
+    // force skips Playwright's "is it enabled" wait, so the click reaches the
+    // button whatever its state. An enabled chip would PUT the score at once
+    // (choose_level in EntryStepper); a disabled one does nothing.
+    for (const chip of await chips.all()) {
+      await chip.click({ force: true });
+    }
+    await page.waitForLoadState('networkidle');
+
+    // The server would refuse each of these with 403 ROLE_FORBIDDEN; the screen
+    // must not send them at all (F9).
     expect(api.writes()).toEqual([]);
   });
 });
