@@ -564,7 +564,15 @@ function StartReflection({
 
   return (
     <div className={styles.row_start}>
-      <Button variant="secondary" full_width={false} disabled={starting} on_click={start}>
+      {/* Small (round 2c): a row action, sized like the diary's Gig
+          details beside its picker, not a page's main button. */}
+      <Button
+        variant="secondary"
+        size="sm"
+        full_width={false}
+        disabled={starting}
+        on_click={start}
+      >
         {starting ? 'Starting\u2026' : 'Start reflection'}
       </Button>
       {error && (
