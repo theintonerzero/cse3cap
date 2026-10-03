@@ -263,6 +263,87 @@ with tempfile.TemporaryDirectory() as tmp:
     result = run(ROLLBACK, "--to", A, env={"DIARY_ROOT": str(root)})
     check("a failed reload is a failure, not a warning", result.returncode != 0, result.stderr)
 
+with tempfile.TemporaryDirectory() as tmp:
+    import fcntl
+
+    root, log = box(tmp, [A, B])
+    env = {"DIARY_ROOT": str(root)}
+    run(ROLLBACK, "--to", A, env=env)
+    with open(root / ".deploy.lock", "w") as held:
+        fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        result = run(ROLLBACK, "--to", B, env=env)
+    check("while a deploy holds the lock, a rollback refuses and current does not move",
+          result.returncode != 0 and current(root) == f"releases/{A}"
+          and "running" in result.stderr,
+          result.stdout + result.stderr)
+
+
+# ---------------------------------------------------------------------------
+print("\nGoing live: switch, check, and back out")
+# ---------------------------------------------------------------------------
+
+
+def live_box(tmp, reload="true"):
+    """A box where A is live and B is built and waiting; each has the real rollback.sh."""
+    root, log = box(tmp, [A, B])
+    for n in (A, B):
+        (root / "releases" / n / "scripts").mkdir()
+        shutil.copy(ROLLBACK, root / "releases" / n / "scripts" / "rollback.sh")
+    (root / "shared" / "deploy.conf").write_text(f'PHP_FPM_RELOAD="{reload}"\n')
+    run(ROLLBACK, "--to", A, env={"DIARY_ROOT": str(root)})
+    return root
+
+
+with tempfile.TemporaryDirectory() as tmp:
+    root = live_box(tmp)
+    result = run(DEPLOY, "--go-live", root / "releases" / B, A, env={"DIARY_LIVE_CHECK": "true"})
+    check("a release that answers stays live",
+          result.returncode == 0 and current(root) == f"releases/{B}",
+          result.stdout + result.stderr)
+
+with tempfile.TemporaryDirectory() as tmp:
+    root = live_box(tmp)
+    result = run(DEPLOY, "--go-live", root / "releases" / B, A, env={"DIARY_LIVE_CHECK": "false"})
+    check("a release that fails its live check: current goes back to the previous one",
+          result.returncode != 0 and current(root) == f"releases/{A}",
+          result.stdout + result.stderr)
+    check("and the failed release is removed, so a rollback can never pick it",
+          not (root / "releases" / B).exists(), str(sorted(p.name for p in (root / "releases").iterdir())))
+
+with tempfile.TemporaryDirectory() as tmp:
+    root = live_box(tmp, reload="false")
+    result = run(DEPLOY, "--go-live", root / "releases" / B, A, env={"DIARY_LIVE_CHECK": "true"})
+    check("a PHP-FPM reload that fails on the switch: current goes back to the previous one",
+          result.returncode != 0 and current(root) == f"releases/{A}",
+          result.stdout + result.stderr)
+
+with tempfile.TemporaryDirectory() as tmp:
+    root = live_box(tmp)
+    result = run(DEPLOY, "--go-live", root / "releases" / B, "", env={"DIARY_LIVE_CHECK": "false"})
+    check("with no previous release it says so and fails, rather than pretending",
+          result.returncode != 0 and "no previous release" in result.stderr,
+          result.stdout + result.stderr)
+
+
+# ---------------------------------------------------------------------------
+print("\nThe config cache")
+# ---------------------------------------------------------------------------
+
+with tempfile.TemporaryDirectory() as tmp:
+    api = pathlib.Path(tmp) / "api"
+    (api / "bootstrap" / "cache").mkdir(parents=True)
+    cached = api / "bootstrap" / "cache" / "config.php"
+    cached.write_text("<?php return ['database' => 'password-in-plaintext'];")
+    cached.chmod(0o644)
+    result = run(DEPLOY, "--lock-config", api)
+    check("config.php (which holds DB_PASSWORD and APP_KEY) is made readable by its owner only",
+          result.returncode == 0 and stat.S_IMODE(cached.stat().st_mode) == 0o600,
+          oct(stat.S_IMODE(cached.stat().st_mode)) + "\n" + result.stderr)
+
+with tempfile.TemporaryDirectory() as tmp:
+    result = run(DEPLOY, "--lock-config", pathlib.Path(tmp) / "api")
+    check("a missing config cache is refused, not skipped", result.returncode != 0, result.stderr)
+
 
 # ---------------------------------------------------------------------------
 print("\nPruning")
@@ -286,6 +367,18 @@ with tempfile.TemporaryDirectory() as tmp:
     result = run(DEPLOY, "--prune", releases, names[0])
     left = sorted(p.name for p in releases.iterdir())
     check("never removes the release it was told to keep", names[0] in left, f"{left}")
+
+with tempfile.TemporaryDirectory() as tmp:
+    releases = pathlib.Path(tmp) / "releases"
+    names = [f"2026-10-{d:02d}-000000-{d:07d}" for d in range(1, 9)]
+    for n in names:
+        (releases / n).mkdir(parents=True)
+    # After a rollback to an old release, that release is what a failed next
+    # deploy goes back to. Pruning it would leave nothing known good.
+    result = run(DEPLOY, "--prune", releases, names[-1], names[1])
+    left = sorted(p.name for p in releases.iterdir())
+    check("keeps the previous live release too, however old",
+          names[1] in left and names[-1] in left, f"{left}\n{result.stderr}")
 
 
 # ---------------------------------------------------------------------------

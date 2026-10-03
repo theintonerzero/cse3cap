@@ -41,7 +41,9 @@
 #
 #   scripts/deploy.sh --check-env <file>             the shared/.env rules
 #   scripts/deploy.sh --check-bundle <dist> <file>   the bundle grep
-#   scripts/deploy.sh --prune <releases> <keep>      the pruning
+#   scripts/deploy.sh --prune <releases> <keep>...   the pruning
+#   scripts/deploy.sh --lock-config <api>            the config cache's mode
+#   scripts/deploy.sh --go-live <release> <previous> switch, check, back out
 
 set -euo pipefail
 
@@ -196,6 +198,14 @@ on_box() {
               printf "\n  %sRemoved %s. The live site did not change.%s\n" "$red" "$name" "$off" >&2
           fi' EXIT
 
+    # One deploy or rollback at a time: two would build on the database box
+    # at once and share current.next. rollback.sh is told the lock is held,
+    # because this deploy moves current through it.
+    exec 9>"$root/.deploy.lock"
+    flock -n 9 || die "another deploy or a rollback is running on this box"
+    DIARY_LOCK_HELD=1
+    export DIARY_LOCK_HELD
+
     printf '%s %s\n' "$tag" "$sha" > "$release/RELEASE"
 
     say "Checking shared/.env"
@@ -218,6 +228,7 @@ on_box() {
     # Caches resolve MYSQL_ATTR_SSL_CA to this release's absolute path, which
     # is correct: each release carries its own db/letsencrypt-roots.pem.
     ( cd "$release/api" && run php artisan optimize --quiet )
+    lock_config "$release/api"
     ok "composer and caches done"
 
     say "Building the frontend, with VITE_API_TOKEN unset"
@@ -230,7 +241,10 @@ on_box() {
 
     say "Checking migrations. They are never run from here"
     local status_out
-    status_out="$(cd "$release/api" && php artisan migrate:status --no-ansi)"
+    if ! status_out="$(cd "$release/api" && php artisan migrate:status --no-ansi 2>&1)"; then
+        printf '%s\n' "$status_out" | sed 's/^/          /' >&2
+        die "could not read the migration status"
+    fi
     if printf '%s\n' "$status_out" | grep -q 'Pending'; then
         printf '%s\n' "$status_out" | grep 'Pending' | sed 's/^/          /' >&2
         die "the schema is behind this release. Migrations on the shared database are announced and run by a person (CLAUDE.md), then deploy again"
@@ -240,23 +254,13 @@ on_box() {
     previous="$(readlink "$root/current" 2>/dev/null || true)"
     previous="${previous:+$(basename "$previous")}"
 
-    say "Switching to $name"
+    # From here a failure is handled by go_live, which puts current back and
+    # removes this release itself; the EXIT trap must not touch it again.
     switched=1
-    "$release/scripts/rollback.sh" --to "$name"
-
-    say "Checking $DIARY_URL"
-    if ! check_live "$DIARY_URL"; then
-        if [ -n "$previous" ]; then
-            fail "the new release is not answering properly. Going back to $previous"
-            "$release/scripts/rollback.sh" --to "$previous"
-        else
-            fail "the new release is not answering properly, and there is no previous release to go back to"
-        fi
-        exit 1
-    fi
+    go_live "$release" "$previous" || exit 1
 
     say "Pruning to the newest $KEEP_RELEASES releases"
-    prune "$releases" "$name"
+    prune "$releases" "$name" "$previous"
 
     printf '\n%sDeployed %s (%s) as %s.%s\n' "$green" "$tag" "${sha:0:7}" "$name" "$off"
     printf '%sRoll back with: scripts/rollback.sh <user@host>%s\n' "$dim" "$off"
@@ -288,15 +292,73 @@ check_live() {
 }
 
 # Keeps the newest KEEP_RELEASES by name, which starts with a UTC timestamp,
-# and never the one just deployed.
+# and never one of the releases named after the directory: the one just
+# deployed, and the one that was live before it, which is what the next
+# rollback goes back to however old it is.
 prune() {
-    local releases="$1" keep="$2" old
+    local releases="$1" old k skip
+    shift
     # shellcheck disable=SC2012
     ls -1 "$releases" | sort -r | tail -n +$((KEEP_RELEASES + 1)) | while read -r old; do
-        [ "$old" = "$keep" ] && continue
+        skip=0
+        for k in "$@"; do [ "$old" = "$k" ] && skip=1; done
+        [ "$skip" -eq 1 ] && continue
         rm -rf -- "${releases:?}/$old"
         ok "removed $old"
     done
+}
+
+# The config cache holds DB_PASSWORD and APP_KEY in plaintext, written with
+# the default umask, under directories Caddy has to be able to read. PHP-FPM
+# runs as the owner, so nobody else needs it.
+lock_config() {
+    local file="$1/bootstrap/cache/config.php"
+    [ -f "$file" ] || die "$file was not written. Did php artisan optimize fail?"
+    chmod 600 "$file"
+    ok "the config cache is readable by its owner only"
+}
+
+# Switch `current` to the release, then check it answers. If either fails,
+# go back to the previous release and remove this one, so it can never be
+# what a rollback picks. DIARY_LIVE_CHECK replaces the live check in
+# scripts/deploy.test.py.
+go_live() {
+    local release="$1" previous="$2" name
+    name="$(basename "$release")"
+    DIARY_ROOT="$(dirname "$(dirname "$release")")"
+    export DIARY_ROOT
+
+    say "Switching to $name"
+    if ! "$release/scripts/rollback.sh" --to "$name"; then
+        back_out "$release" "$previous" "the switch or the PHP-FPM reload failed"
+        return 1
+    fi
+
+    say "Checking ${DIARY_URL:-the site}"
+    if ! eval "${DIARY_LIVE_CHECK:-check_live \"\$DIARY_URL\"}"; then
+        back_out "$release" "$previous" "the new release is not answering properly"
+        return 1
+    fi
+}
+
+back_out() {
+    local release="$1" previous="$2" why="$3" name now
+    name="$(basename "$release")"
+    if [ -z "$previous" ]; then
+        fail "$why, and there is no previous release to go back to. current is $name"
+        return 0
+    fi
+    fail "$why. Going back to $previous"
+    # rollback.sh moves current before it reloads, so even if the reload
+    # fails again, current is on the previous release. Check, then tidy.
+    "$release/scripts/rollback.sh" --to "$previous" || true
+    now="$(readlink "$DIARY_ROOT/current" 2>/dev/null || true)"
+    if [ "$(basename "${now:-none}")" = "$previous" ]; then
+        rm -rf -- "$release"
+        fail "current is $previous again, and $name was removed. If PHP-FPM did not reload, reload it by hand"
+    else
+        fail "could not go back: current is ${now:-missing}. Run scripts/rollback.sh --to $previous on the box"
+    fi
 }
 
 # --------------------------------------------------------------------------
@@ -349,9 +411,13 @@ case "${1:-}" in
                     check_env "$2" ;;
     --check-bundle) [ $# -eq 3 ] || die "usage: deploy.sh --check-bundle <dist> <env-file>"
                     check_bundle "$2" "$3" ;;
-    --prune)        [ $# -eq 3 ] || die "usage: deploy.sh --prune <releases> <keep>"
-                    prune "$2" "$3" ;;
-    ''|-h|--help)   sed -n '2,47p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    --prune)        [ $# -ge 3 ] || die "usage: deploy.sh --prune <releases> <keep>..."
+                    shift; prune "$@" ;;
+    --lock-config)  [ $# -eq 2 ] || die "usage: deploy.sh --lock-config <api-dir>"
+                    lock_config "$2" ;;
+    --go-live)      [ $# -eq 3 ] || die "usage: deploy.sh --go-live <release-dir> <previous-name>"
+                    go_live "$(cd "$2" && pwd -P)" "$3" ;;
+    ''|-h|--help)   sed -n '2,46p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
                     [ $# -gt 0 ] ;;
     -*)             die "unknown option $1" ;;
     *)              [ $# -eq 2 ] || die "usage: scripts/deploy.sh <user@host> <tag>"

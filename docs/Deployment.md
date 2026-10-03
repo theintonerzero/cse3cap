@@ -46,13 +46,16 @@ procedure, run by a person:
 1. Say in the team channel that you are about to change Caddy on the database box.
 2. Back up: `sudo cp -a /etc/caddy/Caddyfile /etc/caddy/Caddyfile.bak-$(date -u +%F)`, and
    the same for `/etc/caddy/diary.caddyfile` if it exists.
-3. Copy the site block from the release you are about to deploy:
-   `sudo cp /var/www/diary/releases/<release>/deploy/caddy/diary.caddyfile /etc/caddy/diary.caddyfile`.
+3. Copy the site block from your checkout of the tag you are deploying (the box has no
+   checkout, and before the first deploy it has no release either):
+   `scp deploy/caddy/diary.caddyfile you@rddb.darkovski.dev:/tmp/diary.caddyfile`, then on
+   the box `sudo install -m 644 /tmp/diary.caddyfile /etc/caddy/diary.caddyfile`.
 4. Validate the **whole** configuration, not just the block:
    `sudo caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile`.
    If it fails, restore the backup. Stop.
-5. `sudo systemctl reload caddy`. **Reload, never restart.** A restart drops every
-   certificate Caddy holds, including the database's, until it gets them back.
+5. `sudo systemctl reload caddy`. **Reload, never restart.** A reload that fails leaves the
+   running configuration serving, untouched. A restart that fails leaves Caddy down, and
+   with it the certificate the database presents to everyone.
 6. Prove the database certificate still verifies, from your laptop:
    `./run db-tls`. It must print `ok ... the session to rddb.darkovski.dev is encrypted`.
    If it does not, restore the backup, validate, reload, and run it again.
@@ -61,7 +64,9 @@ Undoing it is the same six steps with the backup as the source.
 
 ## First-time setup
 
-Done once, by someone with sudo on the box. Read the box first, which writes nothing:
+Done once, by someone with sudo on the box, **in this order, all six steps before the first
+deploy.** A deploy checks the live site through Caddy and the pool, and the first one has no
+earlier release to fall back to. Read the box first, which writes nothing:
 
 ```bash
 ./run check-host you@rddb.darkovski.dev
@@ -123,6 +128,12 @@ generated once, here, and kept across every release. Then:
 chmod 600 /var/www/diary/shared/.env
 ```
 
+**The database is on this same box,** reached by `DB_HOST=rddb.darkovski.dev`, the box's own
+public name. A cloud VPS often cannot reach its own public address. Keep the name (the
+certificate is issued for it, so `127.0.0.1` fails verification) and, if
+`scripts/check-db-tls.sh` cannot connect from the box, add `127.0.0.1 rddb.darkovski.dev` to
+`/etc/hosts`.
+
 `scripts/deploy.sh` refuses to deploy against this file if `APP_DEBUG` is anything but
 `false`, `APP_ENV` is not `production`, it is readable by anyone else, or it has a
 `VITE_API_TOKEN` line. `scripts/deploy.test.py` lists every rule.
@@ -137,8 +148,16 @@ PHP_FPM_RELOAD="sudo -n systemctl reload php8.5-fpm"
 
 ### 4. The PHP-FPM pool
 
+From your checkout, since the box has none:
+
 ```bash
-sudo cp deploy/php-fpm/diary.pool.conf /etc/php/8.5/fpm/pool.d/diary.conf
+scp deploy/php-fpm/diary.pool.conf you@rddb.darkovski.dev:/tmp/diary.pool.conf
+```
+
+Then on the box:
+
+```bash
+sudo install -m 644 /tmp/diary.pool.conf /etc/php/8.5/fpm/pool.d/diary.conf
 sudo php-fpm8.5 -t
 sudo systemctl reload php8.5-fpm
 ls -l /run/php/diary-fpm.sock     # owner diary, group caddy, srw-rw----
@@ -185,7 +204,8 @@ What it does, and where it stops. Nothing public changes before step 7.
 2. Sends it with `git archive` over ssh into a new release directory.
 3. Checks `shared/.env` (above).
 4. Links `api/.env` and `api/storage` into `shared/`, then `composer install --no-dev` and
-   `php artisan optimize`.
+   `php artisan optimize`. The cached `bootstrap/cache/config.php` holds `DB_PASSWORD` and
+   `APP_KEY` in plaintext, so it is made mode `600` (the pool runs as its owner).
 5. Builds the frontend with `VITE_API_TOKEN` unset, then fails if the bundle holds anything
    shaped like a token or the value of `APP_KEY` or `DB_PASSWORD`.
 6. Runs `scripts/check-db-tls.sh` against the new release, and `php artisan migrate:status`.
@@ -193,11 +213,13 @@ What it does, and where it stops. Nothing public changes before step 7.
    and run by a person (CLAUDE.md). Run it, then deploy again.
 7. Switches `current` with `scripts/rollback.sh --to <release>` and reloads PHP-FPM.
 8. Checks the site through the box's own Caddy: `/` answers 200 and `/api/v1/auth/me`
-   answers 401 in the error envelope, which proves Laravel is behind `/api`. **If either fails it switches back to the
-   previous release** and exits non-zero.
-9. Deletes all but the newest five releases.
+   answers 401 in the error envelope, which proves Laravel is behind `/api`.
+   **If the switch, the reload or this check fails, it switches back to the previous
+   release, deletes the new one** (so a rollback can never land on it) and exits non-zero.
+9. Deletes all but the newest five releases, never the new one or the one it replaced.
 
-A failure before step 7 deletes the half-built release and leaves the live site alone.
+A failure before step 7 deletes the half-built release and leaves the live site alone. One
+deploy or rollback runs at a time: a second one is refused while the first holds the lock.
 
 ## Rolling back
 
@@ -230,7 +252,10 @@ ticket.
       paragraph, not a rollback.
 - [ ] `curl -sI https://diary.darkovski.dev/` shows `Strict-Transport-Security` and
       `Cache-Control: no-cache`.
-- [ ] Nothing secret in the repository: `git grep -n "DB_PASSWORD=." -- ':!*.example'` is empty.
+- [ ] Nothing secret in the repository:
+      `git grep -nE '^[[:space:]]*DB_PASSWORD=[^[:space:]]' -- ':!*.example' ':!scripts/deploy.test.py'`
+      is empty (the test file's password is a fixture), and on the box
+      `ls -l /var/www/diary/current/api/bootstrap/cache/config.php` shows `-rw-------`.
 
 ## When it goes wrong
 

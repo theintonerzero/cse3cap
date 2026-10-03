@@ -93,6 +93,14 @@ esac
 [ -f "$RELEASES/$want/web/dist/index.html" ] || die "$want has no built frontend. It is not a finished release"
 [ -f "$RELEASES/$want/api/vendor/autoload.php" ] || die "$want has no built API. It is not a finished release"
 
+# One deploy or rollback at a time. Two would share current.next and each
+# could check the other's release. A deploy takes the lock for its whole run
+# and says so in DIARY_LOCK_HELD, because it moves current through here.
+if [ -z "${DIARY_LOCK_HELD:-}" ]; then
+    exec 9>"$ROOT/.deploy.lock"
+    flock -n 9 || die "a deploy or another rollback is running. Nothing was changed; try again when it finishes"
+fi
+
 if [ "$want" = "$current" ]; then
     ok "$want is already current"
 else
