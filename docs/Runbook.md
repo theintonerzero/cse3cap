@@ -166,9 +166,26 @@ cd api && php artisan tinker
 What the token can do comes from that user's rows in `gig_participants`, resolved per gig
 on the server (`api/app/Services/RoleResolver.php`). The token itself carries no role.
 
-Tokens never expire (`api/config/sanctum.php`, `expiration => null`) and carry every
-ability. That is finding F2 to F4 in `docs/Security-Review.md`, tracked as CAP-32, and it
-matters before any instance is reachable from the internet.
+**Seeded tokens expire 60 days after they are issued** (`DemoSeeder::TOKEN_LIFETIME_DAYS`,
+ADR #46). All three are issued together, so they expire together. That looks like everyone
+being signed out at once, which is the cue to reissue, not an outage. See when the current
+ones end:
+
+```bash
+cd api && php artisan tinker --execute 'echo Laravel\Sanctum\PersonalAccessToken::where("name","demo")->min("expires_at");'
+```
+
+Tokens issued since ADR #46 start `<id>|rdiary_`, so a leaked one is recognised by secret
+scanning. They carry every ability on purpose: what a token can do is decided by the
+policies, never by the token. A token from before ADR #46 has no prefix and no expiry until
+it is reissued.
+
+**To reissue the three, announced first** (everyone pastes new ones afterwards):
+
+```bash
+cd api && php artisan tinker --execute 'Laravel\Sanctum\PersonalAccessToken::where("name","demo")->delete();'
+php artisan db:seed --class=DemoSeeder        # prints the three new tokens, once
+```
 
 ## Credentials
 

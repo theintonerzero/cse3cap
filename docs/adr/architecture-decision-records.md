@@ -54,6 +54,7 @@ Index
 #43 AA palette lives in tokens.css ............ Proposed
 #44 Agents set ticket fields, not wording ...... Proposed
 #45 The demo deploys by hand, one origin ......... Proposed
+#46 Seeded tokens expire, carry a prefix, keep * .. Proposed
 
 ===============================================================
 
@@ -2412,3 +2413,73 @@ brings in a container story the project has nowhere else, to prove what a symlin
 Let the deploy edit the Caddy configuration from the release, so a site-block change ships
 like any other. Less to remember. Rejected because a mistake there is an outage for the
 shared database, and a deploy is exactly when nobody is thinking about the database.
+
+===============================================================
+
+ADR #46: Seeded tokens expire, carry a prefix, and keep every ability
+
+Status: Proposed
+Date: 2026-10-03
+
+Context:
+ADR #15 put three seeded Sanctum tokens in place of a login screen. The CAP-24 security
+review left three findings on them open in docs/Security-Review.md, all raised as CAP-32.
+F2: `sanctum.expiration` is null and the seeder sets no `expires_at`, so a token lives until
+someone revokes it. F3: `createToken('demo')` grants every ability. F4: `token_prefix` is
+empty, so a leaked token has no shape a secret scanner recognises.
+
+None of these mattered much while the tokens lived in a private team channel and the API ran
+on laptops. They start to matter with CAP-26, which puts the app on a public URL, and with
+handover, after which nobody on this team is watching the tokens at all.
+
+Two facts constrain the answer. Reissuing a token breaks everyone's setup at once, because
+the plain text is printed once and pasted by hand (the seed-data skill says keep them
+stable). And authorisation lives in `api/app/Policies/` and nowhere else (CLAUDE.md), with
+the role resolved per gig, so a student's token already cannot do an assessor's work whatever
+abilities it carries.
+
+Decision:
+F4: new tokens carry the prefix `rdiary_`. `sanctum.token_prefix` defaults to it, and
+`SANCTUM_TOKEN_PREFIX` can override it. Sanctum puts it after the id, so a token reads
+`<id>|rdiary_<40 characters><crc32>`. The prefix is not a secret.
+
+F2: `DemoSeeder` issues each token with `expires_at` 60 days out
+(`DemoSeeder::TOKEN_LIFETIME_DAYS`). The global `sanctum.expiration` stays null, so it does
+not override the per-token date and nothing else changes for anyone mid-sprint. Reissuing
+is revoking the three `demo` tokens and running the seeder again, announced first.
+
+F3: the seeded tokens keep `['*']`, on purpose. Nothing checks token abilities. Doing so
+would put an authorisation decision outside the policies.
+
+Tokens already on the shared database are not touched by this. The seeder skips a user who
+has a token, so the change reaches the shared database only when the team reissues.
+
+Consequences:
+Positive:
+A token pasted into a commit, an issue or a log is now caught by GitHub's secret scanning and
+anything else that looks for a known prefix. A token leaked from a public demo, or forgotten
+in a channel after handover, stops working on its own within 60 days. The two changes cost
+nothing at runtime and no client changes: the frontend treats a token as an opaque string.
+
+Negative:
+Sixty days after a reissue the three tokens stop working for everyone at the same moment,
+which will look like an outage to whoever is using them, possibly mid-demo. The runbook has to
+say when the current ones expire. The prefix only helps on tokens issued after this lands,
+and until the team reissues, the live tokens are exactly as they were. Keeping `['*']` means
+a leaked token can do everything its owner can, including delete a draft. There is still no
+read-only token for a screenshot session.
+
+Alternatives:
+Set `sanctum.expiration` in minutes instead. One config line and it covers every token, not
+just seeded ones. Rejected because it applies to tokens already issued, so the day it lands
+every existing token older than the window dies at once, on every laptop.
+
+Scope abilities, for instance a read-only token for demos. Real defence in depth, and Sanctum
+supports it directly. Rejected for now because enforcing an ability means a `tokenCan()` check
+in middleware or a controller, a second place that decides what a caller may do. Done
+properly it belongs inside the policies, as a condition they read, which is a design change
+for whoever needs read-only tokens rather than a hardening tweak.
+
+Leave all three as they were and record the risk. Defensible for a student project with no
+real records. Rejected because CAP-26 makes the demo public, and the only thing standing
+between a leaked permanent token and the shared database would be somebody noticing.
