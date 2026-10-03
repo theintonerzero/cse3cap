@@ -592,6 +592,7 @@ and the reasoning behind the unusual decisions.
 | [`docs/PROJECT-CONTEXT.md`](docs/PROJECT-CONTEXT.md)             | Background briefing: product, vocabulary, architecture, traps |
 | [`docs/API-Specification.md`](docs/API-Specification.md)         | The annotated API contract                                    |
 | [`docs/api-reference.html`](docs/api-reference.html)             | Single-page API reference, including which class owns each rule |
+| [`docs/Architecture.md`](docs/Architecture.md)                   | The system and the request path as diagrams, and which class owns each rule |
 | [`docs/Frontend-and-Backend.md`](docs/Frontend-and-Backend.md)   | How `api/` and `web/` couple, and what drifts silently        |
 | [`docs/Retention-and-Erasure.md`](docs/Retention-and-Erasure.md) | What is kept, what can be deleted, and what cannot            |
 | [`docs/Framework-Swap-Verification.md`](docs/Framework-Swap-Verification.md) | Proof the rubric is data, and what the seed cannot prove |
