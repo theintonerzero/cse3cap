@@ -56,7 +56,8 @@ demonstrated impact. Re-rating against them is most of what changed.
 - The CAP-32 entry says nothing in `web/` or `scripts/` parses a token's shape.
   `scripts/verify-app-shell.sh:98` does, with `[0-9]+\|[A-Za-z0-9]+`, and against an
   `rdiary_` token it extracts `7|rdiary`. Its live check will 401 the day the tokens are
-  reissued, and CI skips that half. **CAP-44**, to merge before the reissue.
+  reissued, and CI skips that half. **CAP-44**, to merge before the reissue. Fixed in #96:
+  the script reads the token by name, and five offline checks hold it in CI.
 - The CAP-31 entry says not-yours is 404 everywhere it was probed. That holds for what was
   probed, but F12 is a route where it does not.
 
