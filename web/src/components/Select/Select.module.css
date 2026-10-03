@@ -5,8 +5,10 @@
   min-width: 0;
 }
 
+/* Round 2b (Patrick): the label reads as the control's name and the value
+   steps down beside it, so a long gig title does not out-shout the page. */
 .label {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-base);
   font-weight: var(--font-weight-medium);
   color: var(--color-text);
 }
@@ -39,6 +41,7 @@
   background: var(--color-surface);
   color: var(--color-text);
   font: inherit;
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   text-overflow: ellipsis;
   cursor: pointer;
