@@ -101,6 +101,11 @@ check is a read-only `df -h` on both, written out in CAP-42.
 #### F12 · A classmate counter-scoring gets 403 where 404 belongs — Informational
 
 > **Raised as CAP-43 (COA4-113), where it is N1.**
+>
+> **Fixed in #99.** `counterScore` now answers 404 unless `view` allows.
+> `ScoringTest::test_a_classmate_gets_404_rather_than_403` was red with 403, and
+> `./run pentest` gains the probe: 36 holds and 1 break against the old policy, 37 holds
+> against the fix.
 
 `ReflectionPolicy::counterScore` (`ReflectionPolicy.php:94-96`) resolves a classmate on the
 same gig as `student` and returns `deny`, a 403. `view` gives the same person 404. The 403
@@ -111,6 +116,11 @@ her own entry and an assessor off his gig, not a classmate.
 #### F13 · A user holding two roles on a gig could counter-score their own work — needs validation
 
 > **Raised as CAP-43 (COA4-113), where it is N4.**
+>
+> **Fixed in #99, and it was reachable.** With a student and an assessor row on one gig, the
+> owner's counter-score of their own reflection returned 201 before the fix. `counterScore` now
+> refuses the owner whatever their role, and ADR #47 makes the student role win over row order.
+> The lists and `/auth/me` agree, held by `DualRoleTest`.
 
 `gig_participants` is unique on `(gig_id, user_id, role)` (`01-schema.sql:73`), so one user
 can hold two roles on a gig. `RoleResolver::for` returns `->value('role')` with no ordering,
