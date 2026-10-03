@@ -28,8 +28,8 @@
  * can compile it and call it with dates the seed does not contain. Every
  * seeded sprint is already past due.
  */
-import { useCallback, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router';
 
 import { api, ApiError } from '../api/client.ts';
 import type { components } from '../api/schema.ts';
@@ -133,6 +133,10 @@ export function GigDetail() {
     setReloadKey((key) => key + 1);
   }, []);
 
+  // Re-reads in place, without the skeleton: the page is already drawn and
+  // only a row's state has changed underneath it (CAP-39's 409).
+  const refresh = useCallback(() => setReloadKey((key) => key + 1), []);
+
   // Before the load states, because with no id there is no load: the
   // effect above deliberately does nothing and `load` would sit on
   // 'loading' for ever.
@@ -173,7 +177,12 @@ export function GigDetail() {
         on_history={gig.my_role === 'student' ? () => setHistoryOpen(true) : null}
       />
       <TimelineCard gig={gig} />
-      <DiaryCard gig={gig} reflections={reflections} today={new Date()} />
+      <DiaryCard
+        gig={gig}
+        reflections={reflections}
+        today={new Date()}
+        on_refresh={refresh}
+      />
 
       <BottomSheet
         open={history_open}
@@ -327,10 +336,12 @@ function DiaryCard({
   gig,
   reflections,
   today,
+  on_refresh,
 }: {
   gig: Gig;
   reflections: Reflection[];
   today: Date;
+  on_refresh: () => void;
 }) {
   const is_student = gig.my_role === 'student';
 
@@ -358,7 +369,12 @@ function DiaryCard({
             </p>
           </div>
         ) : is_student ? (
-          <SprintRows sprints={gig.sprints} reflections={reflections} today={today} />
+          <SprintRows
+            sprints={gig.sprints}
+            reflections={reflections}
+            today={today}
+            on_refresh={on_refresh}
+          />
         ) : (
           <SprintCalendar sprints={gig.sprints} today={today} />
         )}
@@ -398,17 +414,20 @@ const NOT_YOUR_DIARY =
  * header line above carries the column names, and every row shares its
  * grid template, so they line up as the frame draws them.
  *
- * A sprint with no reflection is not a link: there is nothing yet to
- * address, and creating one is the stepper's job, not this screen's.
+ * A sprint with no reflection is not a link, because there is nothing yet to
+ * address. It offers Start reflection instead (CAP-39), which creates the
+ * draft and opens it in the stepper.
  */
 function SprintRows({
   sprints,
   reflections,
   today,
+  on_refresh,
 }: {
   sprints: Sprint[];
   reflections: Reflection[];
   today: Date;
+  on_refresh: () => void;
 }) {
   // One reflection per student per sprint -- the (user_id, gig_key,
   // sprint_key) unique index is what guarantees it, so a Map is safe.
@@ -470,12 +489,80 @@ function SprintRows({
                   {body}
                 </Link>
               ) : (
-                <div className={styles.row_flat}>{body}</div>
+                <div className={styles.row_unstarted}>
+                  <div className={styles.row_flat}>{body}</div>
+                  <StartReflection sprint_id={sprint.id} on_refresh={on_refresh} />
+                </div>
               )}
             </li>
           );
         })}
       </ul>
+    </div>
+  );
+}
+
+const NO_RUBRIC = 'This gig has no rubric yet. Ask your supervisor to assign one.';
+
+/**
+ * Starts a reflection on one sprint and opens it in the stepper (CAP-39).
+ *
+ * Offered on every sprint without a reflection. Which sprints may be
+ * started is not decided here: the server allows any, and
+ * GigPolicy::createReflection decides who. The ref, not just the disabled
+ * state, stops a double press sending twice, because two clicks can land
+ * before React re-renders the button disabled.
+ */
+function StartReflection({
+  sprint_id,
+  on_refresh,
+}: {
+  sprint_id: string;
+  on_refresh: () => void;
+}) {
+  const navigate = useNavigate();
+  const in_flight = useRef(false);
+  const [starting, setStarting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function start() {
+    if (in_flight.current) return;
+    in_flight.current = true;
+    setStarting(true);
+    setError(null);
+    try {
+      const reflection = await api.post('/reflections', { body: { sprint_id } });
+      navigate(`/reflections/${reflection.id}`);
+    } catch (caught) {
+      if (!(caught instanceof ApiError)) throw caught;
+      switch (caught.code) {
+        case 'DUPLICATE_REFLECTION':
+          // Started somewhere else since this page loaded. Re-reading turns
+          // this row into the link to it, which is the useful answer.
+          on_refresh();
+          break;
+        case 'FRAMEWORK_NOT_ASSIGNED':
+          setError(NO_RUBRIC);
+          break;
+        default:
+          setError(caught.message);
+      }
+    } finally {
+      in_flight.current = false;
+      setStarting(false);
+    }
+  }
+
+  return (
+    <div className={styles.row_start}>
+      <Button variant="secondary" full_width={false} disabled={starting} on_click={start}>
+        {starting ? 'Starting\u2026' : 'Start reflection'}
+      </Button>
+      {error && (
+        <p className={styles.row_error} role="alert">
+          {error}
+        </p>
+      )}
     </div>
   );
 }
