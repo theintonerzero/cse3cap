@@ -55,6 +55,7 @@ Index
 #44 Agents set ticket fields, not wording ...... Proposed
 #45 The demo deploys by hand, one origin ......... Proposed
 #46 Seeded tokens expire, carry a prefix, keep * .. Proposed
+#47 One role per person per gig, student first .. Proposed
 
 ===============================================================
 
@@ -2483,3 +2484,71 @@ for whoever needs read-only tokens rather than a hardening tweak.
 Leave all three as they were and record the risk. Defensible for a student project with no
 real records. Rejected because CAP-26 makes the demo public, and the only thing standing
 between a leaked permanent token and the shared database would be somebody noticing.
+
+===============================================================
+
+ADR #47: One role per person per gig, and the student role wins
+
+Status: Proposed
+Date: 2026-10-03
+
+Context:
+Roles are per gig and resolve server-side in `RoleResolver::for` (ADR #23, ADR #40). The method
+returns one role, and five places depend on that single answer: `ReflectionPolicy::view` and
+`counterScore`, `GigPolicy` for starting a reflection (needs student) and assigning a rubric,
+`GigResource`'s `my_role` (which drives the nav), and `ScoreController`, which stamps the
+scorer's role onto the score row.
+
+The schema does not promise one role. `gig_participants` is unique on `(gig_id, user_id, role)`,
+so one person can be both a student and an assessor on the same gig. Nothing in this app writes
+participants. They come from Alumable, and nobody has asked the client whether that shape can
+arrive. On 2026-10-03 the shared db had no such person.
+
+When it does happen, `for()` returned whichever row the index gave first. That was
+alphabetical, so an assessor row beat a student row. The 2026-10-03 re-verification of
+docs/Security-Review.md raised it as F13, and CAP-43 showed what it meant. A student who also
+held an assessor row could counter-score their own reflection (201), open and list
+classmates' work, review it, and could not start a reflection of their own. Not a hole anyone
+has walked through, because the data shape does not exist yet. But the behaviour was decided
+by an index, not by anyone.
+
+Decision:
+A person has one role per gig. Where the data says more, the least-privileged role wins, in
+this order: student, assessor, employer, supervisor. An assessor scores. An employer also
+assigns rubrics. A supervisor also builds them. `RoleResolver::PRECEDENCE` holds the order and
+`for()` sorts by it with a portable `CASE`, not MySQL's `FIELD()`.
+
+The list scopes agree with it. `Reflection::reviewerExists`, which both `visibleTo` and
+`reviewableBy` use, ignores a reviewer row when the same person is a student on that gig. So
+nobody lists work the policy would answer 404 for.
+
+Independently of the order, `counterScore` refuses the reflection's owner whatever role they
+resolve to. That holds even if the precedence changes later.
+
+Consequences:
+Positive:
+The answer no longer depends on row order, and it is written down. A student can never review
+their classmates or themselves through a second row. The list, the queue, the policy and
+`my_role` all give the same answer, which is pinned by `DualRoleTest`. No migration, so
+nothing changes on the shared db.
+
+Negative:
+A person who really is both a student and an assessor on one gig loses the assessor role there
+entirely, silently. Nothing tells them why the review queue is empty. The order among the
+reviewer roles is our judgement. Nobody asked the client, and if Alumable means an employer to
+outrank a supervisor, this is wrong for them. It also quietly treats a data shape as supported
+that the product never designed for, which may hide a data problem that ought to be loud.
+
+Alternatives:
+The reviewer role wins. Keeps the reviewer's work, which is arguably the more valuable of the
+two on a gig. Rejected because the person then cannot start their own reflection on that gig,
+and a student's record is the thing this product exists to protect.
+
+Make `gig_participants` unique on `(gig_id, user_id)`. The strongest answer, because the shape
+could never exist and nothing would need to choose. Rejected for now because it is a migration
+on the shared db, and a constraint Alumable's data may not meet. It's worth revisiting once the
+client says whether two roles can arrive.
+
+Return every role from `for()` and let each caller decide. The honest model. Rejected because
+every caller changes, and the permission matrix has no rows for combinations. Someone would
+have to design what a student-assessor may do first.
