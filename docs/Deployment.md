@@ -1,0 +1,252 @@
+# Deployment
+
+How the demo gets onto the VPS, how it comes back off, and how to change the one file on
+that box that can take out everyone's database. CAP-26. Design:
+[`superpowers/specs/2026-09-06-demo-deployment-design.md`](superpowers/specs/2026-09-06-demo-deployment-design.md).
+Decision record: [ADR #45](adr/architecture-decision-records.md).
+
+**Status, 2026-09-30: built, not yet run.** Nobody on the team has a working shell on the
+box (spec §9.4). Everything here is written to be run by whoever does. Until the first
+deploy has happened and been rolled back once, treat this document as a procedure that has
+been reviewed, not one that has been proved.
+
+## What is on the box
+
+```
+/var/www/diary/
+  releases/
+    2026-10-02-091500-2ab8f24/   a full release, built on the box
+    2026-10-01-164210-83875c5/   the previous one, kept for rollback
+  shared/
+    .env                         api/.env, mode 0600. The only secret on the box
+    deploy.conf                  box settings for the scripts. Not secret
+    storage/                     Laravel's storage/. Outlives every deploy
+  current -> releases/2026-10-02-091500-2ab8f24
+```
+
+Each release's `api/.env` and `api/storage` are symlinks into `shared/`. The `storage` link
+is what keeps evidence uploads (`storage/app/private`) alive across deploys. Release names
+start with the UTC time of the deploy and end with the commit.
+
+| In the repository | Installed on the box as |
+| --- | --- |
+| `deploy/caddy/diary.caddyfile` | `/etc/caddy/diary.caddyfile`, imported by `/etc/caddy/Caddyfile` |
+| `deploy/php-fpm/diary.pool.conf` | `/etc/php/8.5/fpm/pool.d/diary.conf` |
+| `scripts/deploy.sh`, `scripts/rollback.sh` | nothing. Each release carries its own copy |
+
+## The one real risk: Caddy also serves the database certificate
+
+ADR #21: the certificate MySQL presents on `rddb.darkovski.dev`, the one every teammate's
+`MYSQL_ATTR_SSL_CA` validates against, is issued by the **same Caddy** that will serve the
+demo. A broken Caddy configuration is an outage for all five people, not for the demo.
+
+So `scripts/deploy.sh` never touches Caddy, and nothing else does either except this
+procedure, run by a person:
+
+1. Say in the team channel that you are about to change Caddy on the database box.
+2. Back up: `sudo cp -a /etc/caddy/Caddyfile /etc/caddy/Caddyfile.bak-$(date -u +%F)`, and
+   the same for `/etc/caddy/diary.caddyfile` if it exists.
+3. Copy the site block from the release you are about to deploy:
+   `sudo cp /var/www/diary/releases/<release>/deploy/caddy/diary.caddyfile /etc/caddy/diary.caddyfile`.
+4. Validate the **whole** configuration, not just the block:
+   `sudo caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile`.
+   If it fails, restore the backup. Stop.
+5. `sudo systemctl reload caddy`. **Reload, never restart.** A restart drops every
+   certificate Caddy holds, including the database's, until it gets them back.
+6. Prove the database certificate still verifies, from your laptop:
+   `./run db-tls`. It must print `ok ... the session to rddb.darkovski.dev is encrypted`.
+   If it does not, restore the backup, validate, reload, and run it again.
+
+Undoing it is the same six steps with the backup as the source.
+
+## First-time setup
+
+Done once, by someone with sudo on the box. Read the box first, which writes nothing:
+
+```bash
+./run check-host you@rddb.darkovski.dev
+```
+
+Anything it reports as `block` stops here. Anything reported as `decide` goes to the team.
+
+### 1. The user
+
+The demo runs as its own user, `diary`, and deploys log in as it. Put the deployer's public
+key in its `authorized_keys`.
+
+```bash
+sudo adduser --disabled-password --gecos "Reflection Diary demo" diary
+sudo install -d -m 700 -o diary -g diary /home/diary/.ssh
+sudo tee -a /home/diary/.ssh/authorized_keys < deployer.pub
+sudo chown diary:diary /home/diary/.ssh/authorized_keys && sudo chmod 600 /home/diary/.ssh/authorized_keys
+```
+
+It may reload PHP-FPM and nothing else. `sudo visudo -f /etc/sudoers.d/diary`:
+
+```
+diary ALL=(root) NOPASSWD: /usr/bin/systemctl reload php8.5-fpm
+```
+
+### 2. Toolchains
+
+PHP 8.5 with FPM and the extensions CI uses (`pdo_mysql`, `mbstring`, `xml`, `intl`, `zip`,
+`sodium`), Composer, and Node 20.19 or newer with npm (the build is `tsc -b && vite build`).
+Ubuntu does not ship PHP 8.5, so it likely comes from `ppa:ondrej/php`. `api/composer.json`
+accepts `^8.3`, so if 8.5 fights the existing Docker or Caddy installation, use the newest
+8.3+ the box has, change `8.5` everywhere in this document and in `deploy.conf`, and write
+the difference here.
+
+### 3. The directories and the secret
+
+```bash
+sudo install -d -m 755 -o diary -g diary /var/www/diary /var/www/diary/releases /var/www/diary/shared
+sudo -iu diary
+```
+
+As `diary`, write `/var/www/diary/shared/.env` from the repository root's `.env.example`,
+changing these:
+
+```
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://diary.darkovski.dev
+APP_KEY=            # php -r 'echo "base64:".base64_encode(random_bytes(32)), PHP_EOL;'
+DB_PASSWORD=        # diary_app's, from the team channel
+FRONTEND_URL=https://diary.darkovski.dev
+LOG_LEVEL=warning
+```
+
+Leave out `DB_READONLY_PASSWORD`, `DB_TEST_DATABASE` and every `VITE_` line. `APP_KEY` is
+generated once, here, and kept across every release. Then:
+
+```bash
+chmod 600 /var/www/diary/shared/.env
+```
+
+`scripts/deploy.sh` refuses to deploy against this file if `APP_DEBUG` is anything but
+`false`, `APP_ENV` is not `production`, it is readable by anyone else, or it has a
+`VITE_API_TOKEN` line. `scripts/deploy.test.py` lists every rule.
+
+Box settings the scripts read, in `/var/www/diary/shared/deploy.conf` (only if they differ
+from these defaults):
+
+```bash
+DIARY_URL="https://diary.darkovski.dev"
+PHP_FPM_RELOAD="sudo -n systemctl reload php8.5-fpm"
+```
+
+### 4. The PHP-FPM pool
+
+```bash
+sudo cp deploy/php-fpm/diary.pool.conf /etc/php/8.5/fpm/pool.d/diary.conf
+sudo php-fpm8.5 -t
+sudo systemctl reload php8.5-fpm
+ls -l /run/php/diary-fpm.sock     # owner diary, group caddy, srw-rw----
+```
+
+### 5. DNS
+
+`diary.darkovski.dev` must resolve to the box. It did on 2026-09-30 (`207.211.146.230`, the
+same address as `rddb`), which answers spec §9.1, but confirm with Jesse that the record is
+meant to stay.
+
+### 6. Caddy
+
+Run [the Caddy procedure](#the-one-real-risk-caddy-also-serves-the-database-certificate)
+once, and in step 3 also do this in `/etc/caddy/Caddyfile`:
+
+- **delete** the old commented `rdapi.darkovski.dev` block. Its upstream was a placeholder
+  that is wrong for Laravel, and the spec says it is rewritten, not extended;
+- add one line: `import /etc/caddy/diary.caddyfile`.
+
+The first deploy has to have run before the site answers. Until then Caddy serves a 404 for
+`diary.darkovski.dev`, which is harmless.
+
+## Deploying
+
+Deploys are of tags, and the tag has to be on origin. Tag a commit that is on `main`:
+
+```bash
+git switch main && git pull
+git tag -a demo-2026-10-02 -m "Demo: what changed"
+git push origin demo-2026-10-02
+scripts/deploy.sh diary@rddb.darkovski.dev demo-2026-10-02
+```
+
+There is no `./run deploy`, on purpose (spec §9.2). Typing the script's path is the
+confirmation.
+
+Don't deploy during a demo, or while anyone is running the test suite: the build shares the
+box with everyone's MySQL for a few minutes.
+
+What it does, and where it stops. Nothing public changes before step 7.
+
+1. Checks the tag is on origin at the same commit as yours.
+2. Sends it with `git archive` over ssh into a new release directory.
+3. Checks `shared/.env` (above).
+4. Links `api/.env` and `api/storage` into `shared/`, then `composer install --no-dev` and
+   `php artisan optimize`.
+5. Builds the frontend with `VITE_API_TOKEN` unset, then fails if the bundle holds anything
+   shaped like a token or the value of `APP_KEY` or `DB_PASSWORD`.
+6. Runs `scripts/check-db-tls.sh` against the new release, and `php artisan migrate:status`.
+   **A pending migration stops the deploy.** Migrations on the shared database are announced
+   and run by a person (CLAUDE.md). Run it, then deploy again.
+7. Switches `current` with `scripts/rollback.sh --to <release>` and reloads PHP-FPM.
+8. Checks the site through the box's own Caddy: `/` answers 200 and `/api/v1/auth/me`
+   answers 401 in the error envelope, which proves Laravel is behind `/api`. **If either fails it switches back to the
+   previous release** and exits non-zero.
+9. Deletes all but the newest five releases.
+
+A failure before step 7 deletes the half-built release and leaves the live site alone.
+
+## Rolling back
+
+```bash
+scripts/rollback.sh diary@rddb.darkovski.dev                        # to the release before current
+scripts/rollback.sh diary@rddb.darkovski.dev --list                 # what is there
+scripts/rollback.sh diary@rddb.darkovski.dev --to <release-name>    # a named one
+```
+
+It switches `current` and reloads PHP-FPM. It does not rebuild, so it takes seconds. It does
+not touch the database: if the release you roll away from needed a migration, the schema
+stays migrated, and the older code has to cope with it. On this project, where migrations
+are rare and additive, it will. Check before relying on it.
+
+## Proving it: the first deploy
+
+CAP-26 is done when each of these has been seen, not before. Paste the output into the
+ticket.
+
+- [ ] `./run check-host` read the box, and §9.3 of the spec (PHP, Node) is answered.
+- [ ] The Caddy procedure ran, and `./run db-tls` passed **after** the reload.
+- [ ] `scripts/deploy.sh` ran to `Deployed ...` from a tag on `main`.
+- [ ] On the box, `scripts/check-db-tls.sh /var/www/diary/current/api` prints a cipher.
+- [ ] `BASE=https://diary.darkovski.dev/api/v1 ./scripts/smoke.sh` passes with the three
+      seeded tokens. It writes to the shared database, as it does locally.
+- [ ] The app loads at `https://diary.darkovski.dev`, a token pasted into the shell signs
+      in, and a deep link such as `/review-queue` survives a reload.
+- [ ] **Rollback, once, on purpose:** deploy a second tag, run `scripts/rollback.sh`, see
+      the previous release served, then deploy forward again. A rollback nobody has run is a
+      paragraph, not a rollback.
+- [ ] `curl -sI https://diary.darkovski.dev/` shows `Strict-Transport-Security` and
+      `Cache-Control: no-cache`.
+- [ ] Nothing secret in the repository: `git grep -n "DB_PASSWORD=." -- ':!*.example'` is empty.
+
+## When it goes wrong
+
+| Symptom | Likely cause |
+| --- | --- |
+| Every `/api` request is 502 | The pool is down or Caddy cannot open its socket. `systemctl status php8.5-fpm`, and check the socket is group `caddy` with mode `0660` |
+| `Access denied` from the database | Almost never the password. `MYSQL_ATTR_SSL_CA` is missing or wrong, so PDO never negotiated TLS. `scripts/check-db-tls.sh` says which |
+| The deploy says it worked and the old version is served | PHP-FPM was not reloaded, so OPcache still has the old paths. `sudo systemctl reload php8.5-fpm` |
+| Evidence uploads vanished after a deploy | `api/storage` in the release is a directory, not the link into `shared/`. The deploy makes the link, so something replaced it |
+| `./run db-tls` fails after a Caddy change | The Caddy change broke the database certificate. Restore the backup, validate, reload, now |
+| The deploy stops on pending migrations | Working as intended. Announce it, run the migration, deploy again |
+
+## What this does not do
+
+No monitoring, alerting or log shipping. Laravel logs to `shared/storage/logs`, Caddy to
+`/var/log/caddy/diary.log`. No backups beyond whatever the box already does for MySQL.
+Uploaded files in `shared/storage` are not backed up by anything. No
+Content-Security-Policy header yet: one worth having needs checking against every screen
+first, and a wrong one breaks the demo quietly. No staging environment and no second demo.
