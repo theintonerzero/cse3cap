@@ -50,6 +50,8 @@ Becomes **1.0.0**, planned for 12 October 2026: `dev` merged to `main` and tagge
 ## Sprint 5: 30 September to 13 October 2026
 
 ### Added
+- Design inventory: every Figma prototype frame by node ID, what the build did with it and
+  why, and the `/design-inventory` skill that refreshes it (CAP-40).
 - A student can start a reflection from the gig page. Until then nothing in the UI created
   one (#80, CAP-39).
 - Runbook and client demo script (#72, CAP-30).
