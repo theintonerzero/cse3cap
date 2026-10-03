@@ -119,11 +119,13 @@
   box-shadow: var(--shadow-card);
 }
 
+/* CAP-38 R2: a small muted label over the chart, not a sentence. */
 .caption {
   margin: 0 0 var(--space-8);
   font-size: var(--font-size-sm);
-  line-height: var(--line-height-relaxed);
-  color: var(--color-text);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-tight);
+  color: var(--color-text-muted);
 }
 
 .footnote {

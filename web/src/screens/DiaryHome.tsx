@@ -273,12 +273,9 @@ function ScopedRadar({
     );
   }
 
-  const counter_role =
-    load.radar.axes.find((axis) => axis.counter_role !== null)?.counter_role ?? null;
-
   return (
     <div className={styles.radar_block}>
-      <p className={styles.caption}>{radar_caption(scope, gigs, counter_role)}</p>
+      <p className={styles.caption}>{radar_caption(scope, gigs)}</p>
       <RadarPanel
         state="loaded"
         scale={{

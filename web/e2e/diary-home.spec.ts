@@ -182,6 +182,19 @@ test.describe('a student on two gigs', () => {
       .click();
     await expect(page).toHaveURL(new RegExp(`sprint_id=${SPRINT_TWO}`));
   });
+
+  test('the radar label says what is drawn, in two words', async ({ page }) => {
+    await page.goto('/');
+    await page.getByLabel('Gig').selectOption({ label: 'Gig one' });
+    await expect(page.getByText('Latest scores', { exact: true })).toBeVisible();
+
+    await page
+      .getByRole('group', { name: 'Sprint' })
+      .getByRole('button', { name: 'Sprint 1' })
+      .click();
+    await expect(page.getByText('Sprint 1 only', { exact: true })).toBeVisible();
+    await expect(page.getByText(/on that sprint alone/)).toHaveCount(0);
+  });
 });
 
 test.describe('a student on one gig', () => {
@@ -192,5 +205,10 @@ test.describe('a student on one gig', () => {
     await expect(page.locator('table caption')).toBeVisible();
     await expect(page.getByText('Pick a gig to see its radar.')).toHaveCount(0);
     expect(radar_calls()).toBeGreaterThan(0);
+  });
+
+  test('under All gigs the radar is labelled Latest scores', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByText('Latest scores', { exact: true })).toBeVisible();
   });
 });

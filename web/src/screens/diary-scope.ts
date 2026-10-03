@@ -108,39 +108,19 @@ export function reflections_in_scope(
 }
 
 /**
- * What the polygon is summarising, in a sentence, because an unlabelled
- * radar is ambiguous: across the whole record and within one gig it is the
- * latest score per competency, and only within one sprint is it a true
- * self-against-counter comparison of the same piece of work. The API
- * scopes it exactly that way (AnalyticsController::radar) and this says so
- * out loud.
- *
- * `counter_role` is whichever role actually counter-scored, from the radar
- * payload, so the sentence says "supervisor" when a supervisor scored it.
- * Null means nobody has yet, and the clause is left off -- RadarPanel
- * already says "Still awaiting a counter-score" above the chart, and
- * saying it twice in different words reads as a fault.
+ * The label over the radar. The gig picker already names the gig and the
+ * legend names whose polygon is whose, so this only says which scores are
+ * drawn (CAP-38 R2): the latest per competency across a gig, or one
+ * sprint's, which is the true self-against-counter comparison of the same
+ * piece of work. With no gig in scope the screen shows the "Pick a gig"
+ * prompt instead, except for a one-gig student, whose "all" is that gig.
  */
-export function radar_caption(
-  scope: Scope,
-  gigs: Gig[],
-  counter_role: string | null,
-): string {
+export function radar_caption(scope: Scope, gigs: Gig[]): string {
   const gig = gigs.find((candidate) => candidate.id === scope.gig_id);
-
-  if (!gig) {
-    return 'The latest score on each competency, across your whole record.';
-  }
-
-  if (!scope.sprint_id) {
-    return `The latest score on each competency on ${gig.title}.`;
-  }
+  if (!gig || !scope.sprint_id) return 'Latest scores';
 
   const sprint = gig.sprints.find((candidate) => candidate.id === scope.sprint_id);
-  const which = sprint ? `Sprint ${sprint.ordinal}` : 'This sprint';
-  const against = counter_role ? ` against your ${counter_role}'s` : '';
-
-  return `${which} on ${gig.title}: your own score${against}, on that sprint alone.`;
+  return sprint ? `Sprint ${sprint.ordinal} only` : 'This sprint only';
 }
 
 /**
