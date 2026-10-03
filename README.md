@@ -470,7 +470,7 @@ in the repository is the copy that everyone can read, and the one to edit.
 
 ```bash
 ./run test                          # 138 feature and 6 unit tests, against real MySQL
-./run smoke                         # 55 checks, over HTTP, with the three real tokens
+./run smoke                         # 67 checks, over HTTP, with the three real tokens (CI runs it too)
 ./run verify                        # 28 checks on the typed API client, both servers
 ./run e2e                           # 33 browser checks, Playwright against a fake API
 ./run check                         # the suite, lint, contract, guards, build and browser checks

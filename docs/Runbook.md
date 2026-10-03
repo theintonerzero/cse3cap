@@ -263,7 +263,8 @@ New credentials go to the new owner out of band, never into this repository or a
   - **Contract:** lints `docs/openapi.yaml`, checks the generated types and Laravel's routes
     against it (`./run contract-drift`), and runs the guard and rule checks.
   - **Backend:** Pint, then the PHPUnit suite against a throwaway MySQL 9.7 container, never
-    the shared database.
+    the shared database. Then the same container is reseeded, the API is served on :8000,
+    and `scripts/smoke.sh` walks the product over HTTP with the three seeded tokens.
   - **Frontend:** lint, Prettier, design tokens, contrast, the build, the bundle-secrets
     check, the per-screen checks and the Playwright browser checks.
 
