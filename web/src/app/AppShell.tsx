@@ -86,7 +86,8 @@ export function AppShell() {
   const [theme, setThemeState] = useState<Theme>(initial_theme);
   const [switcher_open, setSwitcherOpen] = useState(false);
   const [leave_open, setLeaveOpen] = useState(false);
-  const section = section_for(useLocation().pathname);
+  const location = useLocation();
+  const section = section_for(location.pathname);
 
   function toggle_theme() {
     const next: Theme = theme === 'dark' ? 'light' : 'dark';
@@ -127,6 +128,9 @@ export function AppShell() {
   if (!me) return null;
 
   const items = nav_items_for(me);
+  // On the diary itself its own URL is the newest scope; storage is only
+  // written after the diary renders, so it lags one filter behind there.
+  const diary_to = location.pathname === '/' ? `/${location.search}` : diary_href(me.id);
   const role_summary = [...new Set(me.participations.map((p) => p.role))].join(', ');
 
   return (
@@ -193,7 +197,7 @@ export function AppShell() {
               {items.map((item) => (
                 <NavLink
                   key={item.to}
-                  to={item.to === '/' ? diary_href(me.id) : item.to}
+                  to={item.to === '/' ? diary_to : item.to}
                   end={item.to === '/'}
                   className={({ isActive }) =>
                     isActive ? `${styles.link} ${styles.active}` : styles.link

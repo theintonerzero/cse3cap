@@ -75,7 +75,7 @@ function me(gigs: GigDetail[]): Me {
     participations: gigs.map((g) => ({
       gig_id: g.id,
       gig_title: g.title,
-      role: 'student',
+      role: g.my_role,
     })),
   };
 }
@@ -340,5 +340,29 @@ test.describe('coming back to the diary', () => {
     await expect(page).toHaveURL(new RegExp(`gig_id=${GIG_TWO}`));
     await expect(page).toHaveURL(new RegExp(`sprint_id=${SPRINT_TWO}`));
     await expect(page.getByText(/^Levels 1–4 on E2E diary rubric/)).toBeVisible();
+  });
+});
+
+test.describe('a student who also assesses', () => {
+  // Wrapped as [value, options]: a bare array of objects reads as that tuple.
+  test.use({
+    gigs: [
+      [ONE, TWO, { ...gig(id('000b'), 'Gig assessed', id('000c')), my_role: 'assessor' }],
+      { scope: 'test' },
+    ],
+  });
+
+  test('the Diary pill keeps the filter you are looking at', async ({ page }) => {
+    await page.goto('/');
+    await page.getByLabel('Gig').selectOption({ label: 'Gig two' });
+    await page
+      .getByRole('group', { name: 'Sprint' })
+      .getByRole('button', { name: 'Sprint 1' })
+      .click();
+    await expect(page).toHaveURL(new RegExp(`sprint_id=${SPRINT_TWO}`));
+    const pill = page
+      .getByRole('navigation', { name: 'Main' })
+      .getByRole('link', { name: 'Diary' });
+    await expect(pill).toHaveAttribute('href', new RegExp(`sprint_id=${SPRINT_TWO}`));
   });
 });
