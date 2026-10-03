@@ -52,6 +52,7 @@ Index
 #40 Policies for records, query scopes for lists .. Accepted
 #42 Browser checks with Playwright, fake API ..... Accepted
 #44 Type, line height and control shape leave Figma . Proposed
+#47 One Firefox check beside the Chromium suite .. Proposed
 
 ===============================================================
 
@@ -2256,3 +2257,49 @@ screen stylesheet, which is the five-variants problem ADR #43 already named.
 
 Load Inter from Google Fonts. Less to install, but it puts a third-party request on every
 page load and fails offline, and the demo can't depend on venue wifi.
+
+
+ADR #47: One Firefox check beside the Chromium suite
+Status: Proposed
+Date: 2026-10-03
+
+Context:
+ADR #42 runs every browser check in headless Chromium. That was enough while the checks were
+about requests and states, which don't depend on the engine. CAP-38 made them about layout
+too, and Patrick reviews the build on Firefox for Android.
+
+The first engine difference arrived on 2026-10-03. The radar's screen-reader table was hidden
+by a visually-hidden class on the table itself. Firefox lays a table's caption outside the
+table's own box, so the clip hid the cells and left the caption, a full sentence, painted
+over the chart at phone width. Chromium clips the caption with the table, so all 53 checks
+passed while the bug was on screen for the person reviewing it. Nothing in the suite could
+have caught it.
+
+Decision:
+Add a firefox project to web/playwright.config.ts with testMatch limited to one file,
+web/e2e/firefox.spec.ts. The chromium project ignores that file, so each check runs in one
+engine only. A check goes in the Firefox file when its risk is engine-specific: table and
+caption layout, position: fixed and sticky, and pointer events. Everything else stays in the
+Chromium suite. CI installs Firefox beside Chromium in the same step. This extends #42 and
+changes nothing else it decided: same fake API, same specs folder, same commands.
+
+Consequences:
+Positive:
+The engine the client-facing review happens in is now under test for the things most likely
+to differ. The first check is the caption bug itself, so it can't come back quietly. Running
+one file rather than the whole suite keeps the cost small.
+
+Negative:
+CI downloads and installs a second browser on every run, roughly 80MB and some tens of
+seconds. Someone has to judge which checks have an engine-specific risk, and a wrong call in
+either direction either misses a bug or slows the run. A Firefox-only failure will look like
+flake to anyone who doesn't know this record exists. WebKit, which is what Safari on an
+iPhone runs, is still untested.
+
+Alternatives:
+Run the whole suite in both engines. That's the most coverage for no judgment, but it doubles
+the run time for checks that are engine-neutral by construction, such as which requests a
+save sends.
+
+Check Firefox by hand before each review. No cost in CI, but it's the gap that let this bug
+through, and a check only one person runs is a check the team doesn't have.
