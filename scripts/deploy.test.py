@@ -32,6 +32,32 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 DEPLOY = ROOT / "scripts" / "deploy.sh"
 ROLLBACK = ROOT / "scripts" / "rollback.sh"
 
+# The switch to a release is `mv -T` (scripts/rollback.sh), which is GNU
+# coreutils: the VPS is Ubuntu and so is CI, so it is right for the box. A
+# Mac's BSD mv has no -T, so here every case after the first switch would
+# fail for a reason that says nothing about the scripts. Use Homebrew's GNU
+# coreutils if it is installed; otherwise say so loudly and leave it to CI,
+# which runs this on Linux on every pull request.
+GNUBIN = (
+    "/opt/homebrew/opt/coreutils/libexec/gnubin",
+    "/usr/local/opt/coreutils/libexec/gnubin",
+)
+
+
+def ensure_gnu_mv():
+    if subprocess.run(["mv", "--version"], capture_output=True).returncode == 0:
+        return
+    for gnubin in GNUBIN:
+        if (pathlib.Path(gnubin) / "mv").exists():
+            os.environ["PATH"] = gnubin + os.pathsep + os.environ["PATH"]
+            return
+    print("SKIPPED: these cases need GNU mv (-T), as on the VPS and in CI.")
+    print("CI runs them on Linux. To run them here: brew install coreutils")
+    sys.exit(0)
+
+
+ensure_gnu_mv()
+
 GOOD_ENV = """\
 APP_NAME="Reflection Diary"
 APP_ENV=production
