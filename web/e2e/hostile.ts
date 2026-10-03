@@ -44,10 +44,20 @@ export async function assertInert(page: Page): Promise<void> {
   ).toBeUndefined();
 }
 
+// Also a supervisor on a second gig, because the edit-framework check plays a
+// supervisor saving a copy: the framework screens are the supervisor's
+// (ADR #48), and only a supervisor's copy would be accepted by the server.
 const ME: components['schemas']['Me'] = {
   id: '99990007-0000-4999-8999-999999999999',
   display_name: 'Reviewer',
-  participations: [{ gig_id: HOSTILE_GIG, gig_title: PAYLOAD, role: 'assessor' }],
+  participations: [
+    { gig_id: HOSTILE_GIG, gig_title: PAYLOAD, role: 'assessor' },
+    {
+      gig_id: '99990010-0000-4999-8999-999999999999',
+      gig_title: 'A supervised gig',
+      role: 'supervisor',
+    },
+  ],
 };
 
 const FRAMEWORK: FrameworkDetail = {

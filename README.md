@@ -19,21 +19,22 @@ after the subject closes and after they graduate.
 | Part | State |
 | --- | --- |
 | Database | Applied and verified on the shared instance. 14 tables, 5 views |
-| Backend | **Complete.** 30 endpoints, all seven business rules, 110 feature tests |
+| Backend | **Complete.** 30 endpoints, all seven business rules, 145 feature tests and 6 unit tests |
 | Contract | `docs/openapi.yaml` matches the served routes, checked mechanically |
-| Frontend | **Foundation done, screens starting.** Design tokens, all ten core components, the typed client, the app shell. Two of twelve screens built |
+| Frontend | **Complete.** Design tokens, the ten core components, the typed client, the app shell and every screen in the build scope, with 47 Playwright browser checks |
+| Release | v1.0.0 planned for 12 October 2026. Changes are in [`docs/CHANGELOG.md`](docs/CHANGELOG.md) |
 
-The API is finished and stable enough to build against. The contract is the agreement, so a
-screen can be built against `prism mock docs/openapi.yaml` without waiting for anything.
+The API is finished and stable. The contract is the agreement, so a screen can be built
+against `prism mock docs/openapi.yaml` without waiting for anything.
 
-The frontend foundation is complete: `tokens.css`, the ten core components with a gallery at
-`web/gallery.html`, the typed client generated from the contract, and the app shell every
-screen mounts into. Of the twelve screens, two are built and mounted: the student's diary
-home at `/` and the gig detail screen at `/gigs/:gig_id`. The assessor review queue is
-built but still waiting on the one-line route swap that is CAP-10's follow-up.
+The frontend is complete: `tokens.css`, the ten core components with a gallery at
+`web/gallery.html`, the typed client generated from the contract, the app shell, and every
+screen in the build scope, mounted and reachable by URL. That is the diary home, the gig page
+with its history sheet, the entry stepper in student and assessor mode, the submitted
+confirmation, the review queue, framework selection and copy-then-edit, and the export sheet.
 
-Not built on the backend: PDF export, which needs dompdf and is a package decision for the
-team.
+Export produces JSON or PDF. The PDF is rendered with dompdf, with the radar drawn
+server-side (ADR #39).
 
 How the two folders fit together, and what breaks quietly when they drift, is
 [`docs/Frontend-and-Backend.md`](docs/Frontend-and-Backend.md).
@@ -143,7 +144,7 @@ A Reflection Diary module inside Alumable where:
 | Database | MySQL 9.7 LTS, self-hosted on an Oracle Cloud VPS |
 | Auth     | Laravel Sanctum bearer tokens     |
 | Contract | OpenAPI 3, mock-first with Prism  |
-| Design   | Figma                             |
+| Design   | Figma, mapped to the build in [`docs/Design-Inventory.md`](docs/Design-Inventory.md) |
 | Tracking | Jira                              |
 
 PHP, Laravel and MySQL were set by the client so the Reflection Diary integrates cleanly
@@ -174,6 +175,8 @@ The rubric is data, not code. Competency names, scales and level descriptions sh
 appear anywhere in application logic. `levels` hangs off `competencies` rather than
 `frameworks`, because SFIA skills are each valid over only part of the seven levels. One
 skill might run 3 to 5 and another 2 to 7, so the valid range has to live in the data.
+The seeded SFIA copy uses the full 1 to 7 for every skill until Alumable supplies the real
+ranges (`docs/Framework-Swap-Verification.md`).
 `framework_assignments` records which rubric applies to which gig, as a table rather than a
 column, so we also capture who assigned it and when.
 
@@ -219,9 +222,10 @@ notation cannot show. Schema with inline reasoning:
 .
 ├── api/          # Laravel 13 backend
 ├── web/          # React + Vite + TypeScript frontend
-├── db/           # Schema, patches and seed data
+├── db/           # Schema, patches and the TLS root bundle
 ├── docs/         # Brief, ERD, API spec, ADRs. Every document lives here
-├── scripts/      # Setup, the smoke and client checks, the two agent guards
+├── scripts/      # Setup, smoke, the client and per-screen checks, CI checks, two agent guards, the deploy
+├── deploy/       # The demo's Caddy site block and PHP-FPM pool (CAP-26)
 ├── run           # Task runner. ./run dev starts everything (run.ps1 on Windows)
 ├── .claude/      # Shared agent configuration: agents, skills, permissions
 ├── .github/      # CI, and Dependabot's weekly dependency pass
@@ -234,7 +238,9 @@ notation cannot show. Schema with inline reasoning:
 ### Quick setup
 
 One command does the clone, the environment files and the Claude Code variable. It asks
-for the two passwords and installs nothing itself, only telling you what is missing.
+for the two passwords and installs the project's own dependencies (`composer install`,
+`npm install`). It installs no system tools: a missing PHP, Composer or Node is reported
+with the command to install it.
 
 ```bash
 curl -fsSL https://dl.darkovski.dev/git/cse3cap/install.sh | bash    # Linux, macOS
@@ -257,7 +263,8 @@ Once set up, everything runs from the repository root. No `cd` into `api/` or `w
 ./run                # the full list
 ```
 
-Windows: `./run.ps1` takes the same commands.
+Windows: `./run.ps1` takes the everyday commands (dev, test, check and the rest). `jira`,
+`deps`, `e2e` and the per-screen `verify-*` checks are bash only.
 
 `api/` and `web/` are still two separate applications with two separate toolchains, and
 `./run` does not pretend otherwise. It prints every command before running it, so you can
@@ -451,9 +458,6 @@ Every non-2xx response is the same envelope, including 401 and 404:
 declares and the routes the application serves are compared mechanically and agree
 exactly, so `prism mock docs/openapi.yaml` is a truthful stand-in rather than a wish list.
 
-Not built: PDF export, which needs dompdf and is a package decision for the team, and the
-frontend.
-
 [`docs/api-reference.html`](docs/api-reference.html) is a single-page reference covering
 auth, the permission matrix, the error envelope, every endpoint with a real response, and
 which service class owns each business rule. Open it in a browser, no server needed.
@@ -466,10 +470,11 @@ in the repository is the copy that everyone can read, and the one to edit.
 ### Testing it
 
 ```bash
-./run test                          # 110 feature tests, against real MySQL
-./run smoke                         # 51 checks, over HTTP, with the three real tokens
+./run test                          # 145 feature and 6 unit tests, against real MySQL
+./run smoke                         # 67 checks, over HTTP, with the three real tokens (CI runs it too)
 ./run verify                        # 28 checks on the typed API client, both servers
-./run check                         # the first, plus lint, contract and the guards
+./run e2e                           # 47 browser checks, Playwright against a fake API
+./run check                         # the suite, lint, contract, guards, build and browser checks
 ```
 
 The suite runs `migrate:fresh`, so it needs a database of its own. `scripts/setup.sh` sets
@@ -512,7 +517,8 @@ The repository ships shared configuration so everyone gets the same setup.
 `.claude/settings.json` enables ten plugins from the official Anthropic marketplace: the PHP
 and TypeScript language servers, Context7, frontend design, Playwright, superpowers, security
 guidance, GitHub, commit commands, and the PR review toolkit. `.mcp.json` adds a read-only
-MySQL connection so agents can inspect the real schema instead of guessing.
+MySQL connection so agents can inspect the real schema instead of guessing, and the
+`atlassian` server through which agents read and move Jira tickets (ADR #38).
 
 Trust the repository folder when prompted and Claude Code should offer to install them. If
 nothing appears, run `/plugin` and install from the Discover tab.
@@ -556,9 +562,9 @@ one-line documentation fix costs the same as a schema change.
 | `repo-explorer` | Haiku | Read-only "where is X" before you write anything |
 | `docs-tidy` | Haiku | Mechanical doc maintenance: a moved path, a stale version, a broken link |
 
-Neither Haiku agent can run Bash. `.claude/skills/` holds six task recipes, invoked with
-`/add-endpoint`, `/add-migration`, `/add-policy`, `/add-screen`, `/seed-data` and
-`/write-adr`.
+Neither Haiku agent can run Bash. `.claude/skills/` holds eight task recipes, invoked with
+`/add-endpoint`, `/add-migration`, `/add-policy`, `/add-screen`, `/seed-data`, `/write-adr`,
+`/jira-tickets` and `/design-inventory`.
 
 ### Guards
 
@@ -587,6 +593,7 @@ and the reasoning behind the unusual decisions.
 | [`docs/PROJECT-CONTEXT.md`](docs/PROJECT-CONTEXT.md)             | Background briefing: product, vocabulary, architecture, traps |
 | [`docs/API-Specification.md`](docs/API-Specification.md)         | The annotated API contract                                    |
 | [`docs/api-reference.html`](docs/api-reference.html)             | Single-page API reference, including which class owns each rule |
+| [`docs/Architecture.md`](docs/Architecture.md)                   | The system and the request path as diagrams, and which class owns each rule |
 | [`docs/Frontend-and-Backend.md`](docs/Frontend-and-Backend.md)   | How `api/` and `web/` couple, and what drifts silently        |
 | [`docs/Retention-and-Erasure.md`](docs/Retention-and-Erasure.md) | What is kept, what can be deleted, and what cannot            |
 | [`docs/Framework-Swap-Verification.md`](docs/Framework-Swap-Verification.md) | Proof the rubric is data, and what the seed cannot prove |
@@ -594,10 +601,16 @@ and the reasoning behind the unusual decisions.
 | [`docs/Stack-and-Build-Scope.md`](docs/Stack-and-Build-Scope.md) | What is being built, and the definition of done               |
 | [`docs/adr/`](docs/adr/)                                         | Architecture decision records                                 |
 | [`docs/Security-Review.md`](docs/Security-Review.md)             | Security reviews, appended per change                         |
+| [`docs/Dependency-Register.md`](docs/Dependency-Register.md)     | Every dependency, its licence and advisories. Generated by `./run deps` |
+| [`docs/Runbook.md`](docs/Runbook.md)                             | Start, stop, the shared database, reseeding, tokens, and handing over: who holds what, backups, rotating credentials, CI |
+| [`docs/Deployment.md`](docs/Deployment.md)                       | The demo on the VPS: setup, deploy, rollback, and changing Caddy safely |
+| [`docs/Demo-Script.md`](docs/Demo-Script.md)                     | The client demo, step by step, for someone new to the product |
+| [`docs/Design-Inventory.md`](docs/Design-Inventory.md)           | Every Figma frame and what the build did with it              |
+| [`docs/CHANGELOG.md`](docs/CHANGELOG.md)                         | What changed, by release, and by sprint before v1.0.0          |
 | [`.claude/skills/jira-tickets/`](.claude/skills/jira-tickets/)   | How agents read and move COA4 tickets (ADR #38)               |
 | [`docs/erd.png`](docs/erd.png)                                   | Entity relationship diagram, with a legend of hidden constraints |
 | [`docs/superpowers/specs/`](docs/superpowers/specs/)             | Design specs for each build slice                             |
-| [`docs/superpowers/plans/`](docs/superpowers/plans/)             | Implementation plans, and the current sequencing plan          |
+| [`docs/superpowers/plans/`](docs/superpowers/plans/)             | Implementation plans as executed. History: the code wins where they differ |
 | [`docs/jira/`](docs/jira/)                                       | The Jira CSV **imports**, historical. Ticket status lives in Jira, not here (ADR #38) |
 | [`db/01-schema.sql`](db/01-schema.sql)                           | The schema, with inline reasoning                             |
 

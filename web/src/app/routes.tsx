@@ -1,7 +1,6 @@
 /**
- * Every screen in docs/Stack-and-Build-Scope.md 4.3 has a route here, each
- * rendering a placeholder until its own ticket lands. Two are no longer
- * placeholders: the diary home (CAP-7) and the gig detail screen (CAP-8).
+ * Every screen in docs/Stack-and-Build-Scope.md 4.3 has a route here, and
+ * every one is built. An unknown address renders NotFound.
  *
  * Nested per ADR #27 so gig-then-sprint-then-entry stays linkable and
  * back-button-correct: an assessor working a queue moves in and out of
@@ -9,7 +8,7 @@
  * Data loaders are deliberately NOT used (ADR #27) -- fetching lives in the
  * typed API client and each screen owns its own.
  *
- * Two of the twelve screens are not here. The history sheet (CAP-14) and the
+ * Two of the ten screens are not here. The history sheet (CAP-14) and the
  * export sheet (CAP-18) are described in 4.3 as sheets, and BottomSheet
  * exists for exactly that: they open over the diary rather than navigating
  * away from it. If either decides it wants a linkable URL, it is one line in
@@ -17,7 +16,15 @@
  *
  * Every route is reachable by URL regardless of what the nav shows. That is
  * on purpose. Hiding a nav item is a convenience; the 403 is the rule.
+ *
+ * The framework screens are the one exception, and only for display. They
+ * are the supervisor's (ADR #17, ADR #48): every action on them, copying a
+ * rubric and assigning one, is refused by the server for anyone else. So
+ * someone who supervises no gig gets NotFound there instead of a screen
+ * made of buttons that 403. The server still decides; this decides only
+ * what is drawn.
  */
+import type { ReactNode } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
 
 import { DiaryHome } from '../screens/DiaryHome.tsx';
@@ -29,7 +36,7 @@ import { ReviewQueue } from '../screens/ReviewQueue.tsx';
 import { SelectFramework } from '../screens/SelectFramework.tsx';
 import { Submitted } from '../screens/Submitted.tsx';
 import { useSession } from '../session/useSession.ts';
-import { Placeholder } from './Placeholder.tsx';
+import { NotFound } from './NotFound.tsx';
 
 /**
  * Where "/" lands. The diary is the student's own record, so someone who
@@ -48,6 +55,19 @@ function Home() {
   return <DiaryHome />;
 }
 
+/**
+ * The framework screens, for someone who supervises at least one gig, which
+ * is the same test the nav uses for its Frameworks link. Anyone else gets
+ * NotFound, and the screen never mounts, so its requests are never sent.
+ */
+function SupervisorOnly({ children }: { children: ReactNode }) {
+  const { me } = useSession();
+  const supervises = me?.participations.some(
+    (participation) => participation.role === 'supervisor',
+  );
+  return supervises ? children : <NotFound />;
+}
+
 export function AppRoutes() {
   return (
     <Routes>
@@ -56,18 +76,12 @@ export function AppRoutes() {
 
         <Route path="gigs/:gig_id" element={<GigDetail />} />
 
-        <Route
-          path="entries/:entry_id"
-          element={<Placeholder screen="Entry stepper" ticket="CAP-11" />}
-        />
-
         {/*
-         * The diary home links here rather than to entries/:entry_id:
-         * GET /reflections carries no entry ids, so a row could not
-         * address an entry without a request per row, and CAP-11's
-         * stepper is one reflection with N competency steps anyway
-         * ("Competency 3 of 6"). CAP-11 owns both routes and is free to
-         * keep one, the other, or both.
+         * By reflection, not by entry: GET /reflections carries no entry
+         * ids, so a row could not address an entry without a request per
+         * row, and the stepper is one reflection with N competency steps
+         * anyway ("Competency 3 of 6"). The entries/:entry_id placeholder
+         * that once sat beside this was retired once CAP-11 chose this one.
          */}
         <Route path="reflections/:reflection_id" element={<EntryStepper />} />
 
@@ -85,11 +99,25 @@ export function AppRoutes() {
           element={<EntryStepper mode="assessor" />}
         />
 
-        <Route path="frameworks" element={<SelectFramework />} />
+        <Route
+          path="frameworks"
+          element={
+            <SupervisorOnly>
+              <SelectFramework />
+            </SupervisorOnly>
+          }
+        />
 
-        <Route path="frameworks/:framework_id/edit" element={<EditFramework />} />
+        <Route
+          path="frameworks/:framework_id/edit"
+          element={
+            <SupervisorOnly>
+              <EditFramework />
+            </SupervisorOnly>
+          }
+        />
 
-        <Route path="*" element={<Placeholder screen="Not found" ticket="No ticket" />} />
+        <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
   );

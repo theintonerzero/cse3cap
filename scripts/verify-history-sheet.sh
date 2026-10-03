@@ -27,6 +27,7 @@ cd "$ROOT"
 
 BASE="${BASE:-http://127.0.0.1:8000/api/v1}"
 TOKENS="${TOKENS:-$HOME/reflection-diary-tokens.txt}"
+. "$(dirname "${BASH_SOURCE[0]}")/lib/token-for.sh"
 SHEET="web/src/screens/HistorySheet.tsx"
 LOG="web/src/screens/history-log.ts"
 GIG="web/src/screens/GigDetail.tsx"
@@ -228,7 +229,6 @@ fi
 # --------------------------------------------------------------------------
 say "5. The endpoint, live"
 
-token_for() { [ -f "$TOKENS" ] && grep -s "$1" "$TOKENS" | awk '{print $NF}'; }
 JANE="$(token_for 'Jane N')"
 NOOR="$(token_for 'Noor A')"
 

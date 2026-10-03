@@ -1,6 +1,10 @@
 # Environment
 .env
 .env.*.local
+# Any per-environment env file (web/.env.production and the like). The example is
+# the one that ships.
+.env.*
+!.env.example
 
 # Dependencies
 /vendor

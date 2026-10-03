@@ -141,6 +141,16 @@ case "${1:-help}" in
     # Needs api/vendor and api/.env for route:list; never the database.
     contract-drift) need_api; step ./scripts/check-contract-drift.sh ;;
 
+    # Rewrites docs/Dependency-Register.md from composer and npm: licences and
+    # known advisories, dated and tied to a commit (SMD 8.6, CAP-32). Needs the
+    # network for the two audits. Commit the result.
+    deps) need_api; need_web_deps; step python3 scripts/dependency-register.py ;;
+
+    # The docs still describe the repository: links resolve, ./run commands
+    # exist, docs/ is listed in the README, the ADR index matches the records,
+    # and the dependency register matches the lockfiles. No network needed.
+    docs) step python3 scripts/check-docs.py ;;
+
     test)  need_api; in_dir api php artisan test ;;
 
     # The frontend client against real servers, plus the compile-time
@@ -253,11 +263,23 @@ case "${1:-help}" in
     # Reads the deploy host and reports what is actually on it. Read-only:
     # writes nothing, reloads nothing, which matters because that box also
     # carries the shared database. A check, like verify and smoke.
-    #
-    # There is deliberately no ./run deploy. Whether a deploy belongs on
-    # this menu at all is still open, in §9 of
-    # docs/superpowers/specs/2026-09-06-demo-deployment-design.md.
     check-host) step ./scripts/check-deploy-host.sh "${2:-}" ;;
+
+    # Proves your api/ reaches the database over TLS: Ssl_cipher non-empty
+    # on a connection Laravel made itself. Read-only. After any change to
+    # Caddy on the database box, this is how you know the certificate
+    # survived (docs/Deployment.md).
+    db-tls) need_api; step ./scripts/check-db-tls.sh ;;
+
+    # Not a deploy. A production deploy one mistyped word away from
+    # ./run dev is a loaded gun next to the coffee machine (spec §9.2), so
+    # this prints the real command and does nothing else.
+    deploy)
+        printf 'There is no ./run deploy. Type the script, so the choice is deliberate:\n\n'
+        printf '  scripts/deploy.sh diary@rddb.darkovski.dev <tag>\n\n'
+        printf 'Tags only, pushed to origin first. docs/Deployment.md has the rest.\n'
+        exit 1
+        ;;
 
     # Over HTTP against a server you started yourself, with the real
     # tokens. Proves the wiring the unit tests cannot.
@@ -266,6 +288,14 @@ case "${1:-help}" in
             || [ "$?" = "22" ] \
             || die "Nothing is serving on :8000. Start it with ./run api"
         step ./scripts/smoke.sh
+        ;;
+
+    # CAP-31. Walks the permission matrix with the three seeded tokens and
+    # checks the refusals. Reads and refusals only, so safe on the shared db.
+    pentest)
+        curl -fsS -o /dev/null "http://localhost:8000/up" 2>/dev/null \
+            || die "Nothing is serving on :8000. Start it with ./run api"
+        step ./scripts/pentest.sh
         ;;
 
     # CAP-20. The rubric is data, not code: same endpoints, two gigs, two
@@ -315,12 +345,18 @@ case "${1:-help}" in
         say "Contract"
         step npx -y @redocly/cli@latest lint docs/openapi.yaml
         step python3 scripts/contract-routes.test.py
+        step python3 scripts/dependency-register.test.py
         need_api
         step ./scripts/check-contract-drift.sh
         say "Guards"
         step python3 scripts/guard-shared-db.test.py
         step python3 scripts/guard-docs-location.test.py
+        step python3 scripts/deploy.test.py
         step ./scripts/check-one-rule.sh
+        step python3 scripts/check-tokens.test.py
+        step python3 scripts/token-for.test.py
+        step python3 scripts/check-docs.test.py
+        step python3 scripts/check-docs.py
         say "Backend"
         need_api
         in_dir api ./vendor/bin/pint --test
@@ -334,6 +370,10 @@ case "${1:-help}" in
             step node scripts/check-contrast.mjs
             in_dir web npm run build
             step scripts/check-bundle-secrets.sh
+            for check in app-shell diary-home gig-detail entry-stepper assessor-stepper \
+                         export-sheet history-sheet select-framework edit-framework; do
+                step "./scripts/verify-$check.sh"
+            done
             in_dir web npx playwright install chromium
             in_dir web npm run test:e2e
         fi
@@ -351,9 +391,12 @@ ${BLUE}Alumable Reflection Diary${RESET}
   ${GREEN}./run web${RESET}      frontend only
   ${GREEN}./run mock${RESET}     mock the contract on :4010, so web needs no backend
   ${GREEN}./run contract-drift${RESET}  schema.ts and Laravel's routes, both against the contract
+  ${GREEN}./run docs${RESET}     the docs still describe the repo: links, commands, ADR index, register
+  ${GREEN}./run deps${RESET}     regenerate docs/Dependency-Register.md: licences and advisories
 
   ${GREEN}./run test${RESET}     backend test suite, against your own test database
   ${GREEN}./run smoke${RESET}    end-to-end over HTTP. Needs a server already running
+  ${GREEN}./run pentest${RESET}  the permission matrix over HTTP, refusals only. Needs a server running
   ${GREEN}./run one-rule${RESET}  no business rule implemented twice
   ${GREEN}./run verify${RESET}   the typed API client, against both servers and the compiler
   ${GREEN}./run verify-shell${RESET}  the app shell: token ownership, routes, /auth/me
@@ -375,6 +418,7 @@ ${BLUE}Alumable Reflection Diary${RESET}
 
   ${GREEN}./run setup${RESET}    first-time setup. Writes env files, installs dependencies
   ${GREEN}./run check-host${RESET} [user@vps]  read the deploy host. Writes nothing
+  ${GREEN}./run db-tls${RESET}   prove your database session is encrypted
   ${GREEN}./run jira${RESET}     check your Jira API access, and how to get it
 
 ${DIM}api/ and web/ are separate applications. This saves the cd, nothing more:

@@ -1,4 +1,4 @@
-.placeholder {
+.not_found {
   padding: var(--space-24) 0;
 }
 
@@ -14,4 +14,11 @@
   margin: 0;
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
+}
+
+.home {
+  display: inline-block;
+  margin-top: var(--space-16);
+  font-size: var(--font-size-sm);
+  color: var(--color-primary);
 }

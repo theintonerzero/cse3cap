@@ -108,7 +108,7 @@
   --color-accent-lavender: #efebfa;
   --color-accent-evidence: #e9f3fd;
 
-  /* CAP-38 R8, ADR #48: the top screens' background tint says which
+  /* CAP-38 R8, ADR #52: the top screens' background tint says which
      section you are in. Light: the accents themselves. */
   --section-tint-diary: #efebfa;
   --section-tint-review: #e9f4ee;
@@ -150,14 +150,14 @@
      fallbacks kept behind it -- the webfont itself isn't loaded anywhere
      yet, so today this still renders in the fallback until that's a
      deliberate follow-up (self-host vs Google Fonts is a decision, not
-     a default). Loaded self-hosted since CAP-38 (ADR #44). --font-size-base and --font-size-sm measured identical
+     a default). Loaded self-hosted since CAP-38 (ADR #50). --font-size-base and --font-size-sm measured identical
      at 14px on the two layers checked ("1. Contribution" and "Alumly Pty
      Limited") -- kept as two tokens since they're different semantic
      roles, but flagging that the scale doesn't actually distinguish them
      at these two points. Line height measured 100% (unitless 1) on every
      text layer checked, heading and body alike, so all three tiers below
      carry that same real value rather than three invented ones.
-     Departed from on purpose in CAP-38, ADR #44: the measured scale did
+     Departed from on purpose in CAP-38, ADR #50: the measured scale did
      not separate sm from base, and line height 1 cramps every multi-line
      block. */
   --font-family-base:
@@ -166,7 +166,7 @@
   --font-size-sm: 13px;
   --font-size-base: 15px;
   --font-size-lg: 17px;
-  /* Round 2b, ADR #49: the app bar's title, measured off Alumable's bar
+  /* Round 2b, ADR #53: the app bar's title, measured off Alumable's bar
      (about 1.3x body text). The one step between lg and xl. */
   --font-size-title: 20px;
   --font-size-xl: 22px;
@@ -180,7 +180,7 @@
   --line-height-relaxed: 1.6;
   --letter-spacing-label: 0.06em;
 
-  /* Layout and depth, CAP-38 (ADR #44). Content widths cap the reading
+  /* Layout and depth, CAP-38 (ADR #50). Content widths cap the reading
      column and the list column on wide screens. Shadows are a soft lift
      in light mode and become a hairline border in dark mode, where a
      dark shadow on a dark page reads as nothing. */

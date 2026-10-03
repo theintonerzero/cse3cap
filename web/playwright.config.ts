@@ -13,7 +13,7 @@
  * than leaking anywhere. VITE_API_TOKEN is blanked so a developer's web/.env
  * token never ends up in the page under test.
  *
- * One file, e2e/firefox.spec.ts, runs in Firefox instead (ADR #47).
+ * One file, e2e/firefox.spec.ts, runs in Firefox instead (ADR #51).
  *
  *   ./run e2e                  from the repository root
  *   npx playwright test        from web/
@@ -45,7 +45,7 @@ export default defineConfig({
       // The Firefox file runs once, in Firefox, not twice.
       testIgnore: ['**/shots/**', '**/firefox.spec.ts'],
     },
-    // ADR #47: one Firefox file for the layout and pointer behaviour Chromium
+    // ADR #51: one Firefox file for the layout and pointer behaviour Chromium
     // hides (a <table>'s caption escaping its clip was the first). The rest of
     // the suite stays Chromium-only so CI time does not double.
     {

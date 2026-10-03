@@ -10,6 +10,139 @@ fixes what it finds leaves no record that the class of problem existed.
 
 ---
 
+## 2026-10-03 · Security posture: tokens, the VPS and the dependency tree
+
+**Reviewer:** Tony To · **Ticket:** CAP-32 · **Commit reviewed:** `09a03c5`
+
+### Scope
+
+The token findings F2, F3 and F4 from the 2026-09-08 entry, decided rather than left open
+before CAP-26 puts the demo on a public URL. The VPS controls ADR #21 relies on, verified
+instead of assumed. The dependency tree against ADR #31. Git history, for credentials of the
+kind F1 found in a bundle.
+
+### Method
+
+- **Tokens.** Read `api/config/sanctum.php` and `DemoSeeder::issueTokens`, and checked that
+  nothing in `web/` or `scripts/` parses a token's shape (the frontend only trims it). The
+  decision is ADR #46 and the change is tested in `api/tests/Feature/TokenPostureTest.php`.
+  That test goes through the real Sanctum guard with a bearer header, not `actingAs`.
+- **VPS, from outside.** `nc -z rddb.darkovski.dev 3306` connects. Through the read-only
+  account: `@@require_secure_transport = 1`, MySQL 9.7.2, and this session's `Ssl_cipher` is
+  `TLS_AES_128_GCM_SHA256`. The per-account `REQUIRE SSL` could not be read: `mysql.user` is
+  denied to `diary_ro`, as it should be, and the server-wide setting refuses unencrypted
+  connections regardless.
+- **VPS, needing a shell.** Whether fail2ban still watches the MySQL log and bans in
+  `DOCKER-USER` cannot be seen from outside, and nobody has confirmed shell access. Raised as
+  **CAP-41** rather than assumed.
+- **Dependencies.** `docs/Dependency-Register.md`, generated at `09a03c5` by `./run deps`
+  from `composer audit` and `npm audit`: 117 Composer and 116 npm packages, **no
+  advisories**. No Dependabot pull request is open, as all five were merged on 2026-10-03.
+- **History.** gitleaks over every ref (263 commits with a diff; merges have none), redacted:
+  no leaks. Then a grep of every added line in `git log --all -p` for the shapes generic
+  scanners miss: Sanctum tokens, `APP_KEY=base64:`, `DB_PASSWORD`/`MYSQL_*PASSWORD`
+  assignments, private keys, Atlassian and GitHub tokens. The only hits are fixtures: the CI
+  service container's password `ci`, `scripts/deploy.test.py`'s test values, a blank
+  placeholder in `docs/Deployment.md` and a `case` pattern in `scripts/setup.sh`. The only
+  env file ever committed apart from the examples is `web/.env.production`, which holds
+  `VITE_API_BASE_URL=/api/v1` and nothing else.
+
+### Findings
+
+No new findings. F2, F3 and F4 are decided below and marked where they are listed. One control
+is unverified, and that gap is CAP-41.
+
+- **F2: tokens expire.** `DemoSeeder` issues each token 60 days out. The global setting stays
+  null so nothing already issued dies at once.
+- **F3: every ability, on purpose.** A scoped token would need a `tokenCan()` check outside
+  the policies, a second place authorisation lives.
+- **F4: tokens carry `rdiary_`.** A leaked one is caught by secret scanning.
+
+### What is already right
+
+- The server refuses unencrypted connections outright, not just per account. A client that
+  forgets the CA fails rather than silently connecting in the clear.
+- `diary_ro` cannot read `mysql.user`. The read-only account is read-only on the data and
+  blind to the grant tables.
+- No credential has ever been committed, across every branch.
+
+### Sign-off
+
+The token decisions are Proposed, as ADR #46, until the team accepts them. They reach the
+shared database only when the three tokens are reissued. The seeder skips a user who already
+has one, so until then the live tokens are unprefixed and never expire. Reissuing is
+announced, then done once: revoke the `demo` tokens, run `php artisan db:seed`, and pin the
+new ones. CAP-32 is done when ADR #46 is accepted and the tokens are reissued. CAP-41 is
+separate, and blocked on shell access.
+
+---
+
+## 2026-10-03 · The permission matrix, probed over HTTP
+
+**Reviewer:** Tony To · **Ticket:** CAP-31 · **Commit reviewed:** `09a03c5`
+
+### Scope
+
+Whether the running API refuses what the capability table in `docs/api-reference.html` says
+it refuses. That's six rows, four roles, and real bearer tokens, not `Sanctum::actingAs`. The
+test suite asserts what its authors believed. CAP-19 merged green with its central criterion
+false, which is why this was asked for separately.
+
+### Method
+
+`scripts/pentest.sh` (`./run pentest`) ran against a local `php artisan serve` on the shared
+database, with the three seeded tokens. It is written so a hole cannot do damage there:
+
+- It probes refusals and reads only.
+- Writes aimed at someone else's work target submitted or assessed reflections.
+- Framework edits send the current value back unchanged.
+- The one create a hole could let through is deleted again if it lands.
+
+It finds every id through the API, so it runs against any team member's database.
+
+**36 probes, 36 hold, 0 break.** By row:
+
+| Row | Probed | Result |
+| --- | --- | --- |
+| Create, edit, submit, delete own reflection; self-score; evidence | Jane on someone else's reflection: read, edit narrative, self-score, add evidence, submit, delete. Sam and Dr Lee editing, self-scoring and deleting what they can see. Sam starting a reflection | **Holds.** Every not-yours is 404 `NOT_FOUND`. Every can-see-but-not-yours-to-do is 403 `ROLE_FORBIDDEN` |
+| View a reflection | Sam on the gig he is not on: a reflection, its history, the gig, the filtered list. Each list scoped to its caller. Dr Lee on Jane's (allowed) | **Holds.** 404s, and no row of the other gig in any list |
+| Counter-score, review queue | Jane's queue, Jane counter-scoring her own entry, Sam counter-scoring off his gig | **Holds.** Empty queue, 403, 404 |
+| Create and edit frameworks | Jane and Sam copying. Dr Lee editing an in-use framework, competency and level. Jane editing Dr Lee's own copy | **Holds, with a gap below.** 403 throughout |
+| Assign a framework | Jane and Sam assigning | **Holds.** 403 |
+| Analytics and export | Jane's radar (allowed). Sam and Dr Lee reaching Jane's export and its download | **Holds.** 404 to anyone but the owner, her supervisor included |
+| No token, a made-up token | read and write | **Holds.** 401 `UNAUTHENTICATED` |
+
+IDOR, as the ticket names it: Jane reading another student's reflection is 404. Sam reaching
+the gig he is not on is 404. A student counter-scoring her own entry is 403.
+
+### Findings
+
+No new findings. Not-yours is 404 everywhere it was probed, and no 403 leaks that a resource
+exists.
+
+**One gap, stated rather than passed.** The three framework-edit probes were refused by
+*ownership* (403), because the frameworks in use on the shared database are the seeded base
+rubrics, which Dr Lee does not own. The in-use rule itself (409 `FRAMEWORK_IN_USE` on an
+owned copy that a reflection references) is not reached over HTTP here. Reaching it would
+mean making one of Dr Lee's copies in use, which writes to the shared database.
+`api/tests/Feature/FrameworkMutationTest::test_one_reflection_freezes_the_framework_everywhere`
+proves it through all three edit endpoints: framework, competency and level.
+
+### What is already right
+
+- The 404 versus 403 rule is applied consistently, including on exports, where a supervisor
+  of the student still gets 404.
+- Lists are scoped in the query, not filtered afterwards (ADR #40). Sam's lists contain
+  nothing from the gig he is not on, rather than hiding it after fetching it.
+- Every refusal arrives in the error envelope with its documented code.
+
+### Sign-off
+
+CAP-31's criteria are met, apart from the framework gap above, which the test suite covers.
+`./run pentest` can be rerun by anyone, against any seeded database, before a release.
+
+---
+
 ## 2026-09-29 · The last three screens, and injection under test
 
 **Reviewer:** Tony To · **Ticket:** CAP-24 · **Commit reviewed:** `8318624`
@@ -169,6 +302,11 @@ sweep above being run again.
 > opens Jane's draft as Sam and finds no editable control and no write sent, and
 > `scripts/verify-entry-stepper.sh` asserts the condition. Both were red with the ownership
 > term removed.
+>
+> **Corrected 2026-10-03.** "No write sent" was asserted after the page loaded, before
+> anything had been tried, so it proved only that loading writes nothing. The spec now also
+> force-clicks every self-score chip as Sam and asserts that no request left the page. With
+> the ownership term removed, that test alone fails on two `PUT /entries/:id/scores/self`.
 
 `EntryStepper` decides `read_only` from the mode and the status alone:
 
@@ -490,8 +628,8 @@ looks wrong, and no error is raised, so this fails silently and indefinitely.
 
 #### F2 · Tokens never expire — Medium
 
-> **Raised as CAP-32 (COA4-90),** the security posture review, which carries F2, F3 and F4
-> as acceptance criteria.
+> **Raised as CAP-32 (COA4-90), decided 2026-10-03 (ADR #46, Proposed).** Seeded tokens now
+> expire 60 days after issue; the global setting stays null. Live once the tokens are reissued.
 
 `api/config/sanctum.php:53` sets `'expiration' => null`. A token is valid until it is
 manually revoked, and Sanctum stores only a hash, so a leaked token cannot be recognised
@@ -504,8 +642,8 @@ which is CAP-26. Worth an explicit decision rather than a default.
 
 #### F3 · Tokens carry every ability — Medium
 
-> **Raised as CAP-32 (COA4-90),** the security posture review, which carries F2, F3 and F4
-> as acceptance criteria.
+> **Raised as CAP-32 (COA4-90), decided 2026-10-03 (ADR #46, Proposed).** Kept `['*']` on
+> purpose: an ability check would be a second place authorisation lives.
 
 `api/database/seeders/DemoSeeder.php:120` calls `$user->createToken('demo')` with no
 abilities, so Sanctum grants `['*']`.
@@ -517,8 +655,8 @@ a screenshot session, and a leaked token can do everything its owner can, includ
 
 #### F4 · No token prefix, so a leak is not machine-detectable — Low
 
-> **Raised as CAP-32 (COA4-90),** the security posture review, which carries F2, F3 and F4
-> as acceptance criteria.
+> **Raised as CAP-32 (COA4-90), fixed 2026-10-03 (ADR #46).** New tokens carry `rdiary_`.
+> Live for the seeded three once they are reissued.
 
 `api/config/sanctum.php:68` leaves `token_prefix` empty. Sanctum supports a prefix precisely
 so that secret scanners — GitHub push protection among them — can recognise a token in a

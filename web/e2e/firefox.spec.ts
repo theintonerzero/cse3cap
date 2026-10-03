@@ -1,5 +1,5 @@
 /**
- * Checks that run in Firefox rather than Chromium (ADR #47). Only behaviour
+ * Checks that run in Firefox rather than Chromium (ADR #51). Only behaviour
  * Firefox lays out or dispatches differently belongs here; everything else
  * stays in the Chromium suite.
  *

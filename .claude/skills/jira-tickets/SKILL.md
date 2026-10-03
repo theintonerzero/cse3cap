@@ -11,14 +11,16 @@ regularly and neither is automatically right.
 Project **COA4** on `latrobecomsci.atlassian.net`, board 2395, maintained each sprint.
 Reached through the `atlassian` MCP server in `.mcp.json`, which authenticates as **you**.
 
-The server is given eleven tools, not its default sixty-three: read an issue, search, read
-a project's or board's or sprint's issues, list and perform transitions, comment, and
-create. **Deleting an issue is deliberately not among them.** If you need something outside
-that list, that is a change to `.mcp.json` and a conversation, not a workaround.
+The server is given twelve tools, not its default sixty-three: read an issue, search, read
+a project's or board's or sprint's issues, list and perform transitions, comment, create,
+and update a ticket's fields (ADR #44). **Deleting an issue is deliberately not among
+them.** If you need something outside that list, that is a change to `.mcp.json` and a
+conversation, not a workaround. The developer's API token can reach the rest of Jira over
+HTTP; using it for what the allowlist leaves out is that workaround.
 
-**No tool edits a ticket once it exists.** Assignee, story points, sprint, summary and
-description can be set on create and never changed afterwards. When one needs changing,
-say which ticket and what value, and leave it to the person to do in Jira.
+`jira_update_issue` can set any field, which is more than it may be used for. See
+**Editing a ticket's fields** below before calling it. A session started before the tool
+was added still has eleven, and a restart picks it up.
 
 ## Never read docs/jira/*.csv for status
 
@@ -151,6 +153,26 @@ criteria is not optional just because the owner isn't here to object.
 **Say what you moved and why**, in the same message as the work. A transition nobody was
 told about is how a board stops being trusted.
 
+## Editing a ticket's fields
+
+`jira_update_issue` takes any field, so what an agent may change is set here, per field:
+
+| Field | An agent may set it |
+| --- | --- |
+| Assignee | To the developer running the session, when they did or are taking the work. Anyone else only when the person names the ticket and who |
+| Story points | Only to a number the person gives, which the team agreed. **Never an agent's own estimate**, not even offered as a default |
+| Sprint | Only when the person asks, by ticket |
+| Summary, description, acceptance criteria | **Never.** Comment instead |
+
+**Acceptance criteria are what a ticket is judged against, so the agent being judged does
+not edit them.** When a criterion no longer matches what was built, say so in a comment,
+quoting the criterion and what exists instead, and leave the ticket where it is. A person
+decides whether the criterion changes or the work does. Rewriting it to match the build and
+then moving the ticket to Done is the move this rule exists to stop.
+
+Every edit is said out loud in the same message as the work. An edit to a teammate's ticket
+also gets a comment on it saying who changed which field and why.
+
 ## Partial tickets
 
 Some tickets are genuinely half-done and the board has no state for it. CAP-24 reviewed
@@ -185,3 +207,6 @@ copies of all three are a year-zero snapshot.
 | Falling back to git when Jira is unreachable | Looks authoritative, misses reassignments |
 | Taking "fix the board" as leave to move teammates' tickets | Moves nobody named. Propose a list, let the person pick |
 | Moving a named teammate's ticket with no comment | The owner finds it moved and cannot tell why or by whom |
+| Rewriting a criterion to match what was built | The ticket passes a test it wrote for itself |
+| Putting an agent's estimate in story points | Points stop being the team's number |
+| Setting fields through the API token instead of the MCP tool | An edit the allowlist does not show and nothing checks |

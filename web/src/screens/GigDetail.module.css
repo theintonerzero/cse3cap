@@ -326,3 +326,24 @@
     display: none;
   }
 }
+
+/* CAP-39: a sprint with no reflection, its row plus the way to start one. */
+.row_unstarted {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.row_start {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-12);
+  padding: 0 var(--space-16);
+}
+
+.row_error {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-danger);
+}

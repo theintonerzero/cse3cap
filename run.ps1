@@ -141,11 +141,16 @@ switch ($Command) {
         Say 'Contract'
         Step $null 'npx' @('-y', '@redocly/cli@latest', 'lint', 'docs/openapi.yaml')
         Step $null 'python3' @('scripts/contract-routes.test.py')
+        Step $null 'python3' @('scripts/dependency-register.test.py')
         Need-Api
         Step $null 'bash' @('scripts/check-contract-drift.sh')
         Say 'Guards'
         Step $null 'python3' @('scripts/guard-shared-db.test.py')
         Step $null 'python3' @('scripts/guard-docs-location.test.py')
+        Step $null 'bash' @('scripts/check-one-rule.sh')
+        Step $null 'python3' @('scripts/check-tokens.test.py')
+        Step $null 'python3' @('scripts/check-docs.test.py')
+        Step $null 'python3' @('scripts/check-docs.py')
         Say 'Backend'
         Need-Api
         Step 'api' './vendor/bin/pint' @('--test')

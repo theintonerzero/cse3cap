@@ -65,7 +65,9 @@ return [
     |
     */
 
-    'token_prefix' => env('SANCTUM_TOKEN_PREFIX', ''),
+    // F4 (docs/Security-Review.md, ADR #46): a recognisable prefix, so a leaked
+    // token is caught by secret scanners. Not a secret itself.
+    'token_prefix' => env('SANCTUM_TOKEN_PREFIX', 'rdiary_'),
 
     /*
     |--------------------------------------------------------------------------

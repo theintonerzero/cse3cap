@@ -70,7 +70,7 @@ const PAIRS = [
   ['--color-danger', '--color-danger-bg', 'normal'], // ExportSheet .failed_message; EntryStepper .field_error inside .card_offending
   ['--color-success', '--color-danger-bg', 'normal'], // TextArea's own .saved, when the narrative it autosaves sits inside EntryStepper's .card_offending
 
-  // CAP-38 R8 (ADR #48): page text over the top screens' section tint.
+  // CAP-38 R8 (ADR #52): page text over the top screens' section tint.
   ['--color-text', '--section-tint-diary', 'normal'],
   ['--color-text', '--section-tint-review', 'normal'],
   ['--color-text', '--section-tint-frameworks', 'normal'],

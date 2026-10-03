@@ -114,6 +114,10 @@ cd web && npm run dev            # http://localhost:5173
 VITE_API_BASE_URL=http://localhost:8000/api/v1
 ```
 
+A production build (`npm run build`) reads `web/.env.production` over `web/.env`, which
+sets the relative `/api/v1`. That is the demo's single origin (ADR #45). To look at a
+production build against your local API, override it with `VITE_API_BASE_URL=... npm run build`.
+
 Cross-origin requests work because the backend allows the Vite dev origin explicitly.
 `FRONTEND_URL` in `api/.env` is what that CORS configuration reads, so if you run Vite on a
 port other than 5173 you have to change it there too. A request that fails with no useful
@@ -136,7 +140,7 @@ Business rules live in `api/app/Services/`, once each. The frontend's job is to 
 them, never to enforce them.
 
 The counter-score comment rule is the clearest example. `Scoring.php` refuses a lower
-counter-score without a comment and returns `409 COMMENT_REQUIRED`. The frontend should
+counter-score without a comment and returns `400 COMMENT_REQUIRED`. The frontend should
 absolutely disable the submit button and show the comment field, because making a user
 submit to discover a requirement is bad design. But that button state is a *convenience*.
 The rule is the 409. Never move the rule into the component, and never assume the backend
@@ -156,7 +160,7 @@ These are the failures that do not announce themselves.
 | A field camelCased in `web/` | Value is `undefined`, renders blank | Code review. There is no mapping layer to blame |
 | Vite on a port other than 5173 | CORS failure with an unhelpful console error | `FRONTEND_URL` in `api/.env` |
 | A rule reimplemented in a component | Passes until the backend rule changes | Code review, and the rule map in `CLAUDE.md` |
-| Raw hex in a component | Dark mode silently broken | Review against `web/src/tokens.css` |
+| Raw hex in a component | Dark mode silently broken | `scripts/check-tokens.sh`, in CI and `./run check` |
 
 ## Which agent to use
 

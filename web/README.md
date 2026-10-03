@@ -1,11 +1,11 @@
 # web/
 
-The React frontend. **Two screens are built.** `src/App.tsx` mounts the session and the
-router, `/` is the student's diary home and `/gigs/:gig_id` is the gig detail screen.
+The React frontend. **Every screen in the build scope is built and mounted.** `src/App.tsx`
+mounts the session and the router, and `src/app/routes.tsx` holds the route table listed in
+[The screens](#the-screens) below.
 
-What sits under it is `tokens.css`, the typed API client in `src/api/`, all ten core
-components, and the app shell with its route table. The remaining screens mount into the
-same frame.
+What sits under them is `tokens.css`, the typed API client in `src/api/`, all ten core
+components, and the app shell every screen mounts into.
 
 The point of the scaffold existing before any of it was that the toolchain, the CI job and
 the dev server are proven to work before anybody writes a screen, so the first real PR is
@@ -87,20 +87,31 @@ foundation comes before any screen:
 4. ~~App shell: router, token context, role-aware nav from `GET /auth/me`.~~ Done.
    See "Getting a token in" below.
 
-Then the twelve screens. **Each ships four states: loaded, loading, empty, error.** Not
-three. `/add-screen` carries the full checklist.
+Then the screens, all built. **Each ships four states: loaded, loading, empty, error.** Not
+three. `/add-screen` carries the full checklist for any screen added after v1.0.0.
 
 ## The screens
 
 `src/screens/<Name>.tsx` beside a colocated `<Name>.module.css`. A screen takes no props,
 fetches through the typed client, and owns its own states.
 
-| Screen          | Route                                                     | Check                                      |
-| --------------- | --------------------------------------------------------- | ------------------------------------------ |
-| `DiaryHome`     | `/`, scoped by `?gig_id=` and `?sprint_id=`               | `./run verify-diary`                       |
-| `GigDetail`     | `/gigs/:gig_id`                                           | `./run verify-gig`                         |
-| `ReviewQueue`   | not mounted yet; CAP-10's follow-up swaps the placeholder | —                                          |
-| `EditFramework` | `/frameworks/:framework_id/edit`, the id is the base      | `./run e2e`, `./run verify-framework-edit` |
+| Screen            | Route                                                     | Check                                      |
+| ----------------- | --------------------------------------------------------- | ------------------------------------------ |
+| `DiaryHome`       | `/`, scoped by `?gig_id=` and `?sprint_id=`               | `./run verify-diary`                       |
+| `ExportSheet`     | opens from the diary home                                 | `./run verify-export`                      |
+| `GigDetail`       | `/gigs/:gig_id`                                           | `./run verify-gig`                         |
+| `HistorySheet`    | opens from the gig page                                   | `./run verify-history`                     |
+| `EntryStepper`    | `/reflections/:reflection_id`, student mode               | `./run verify-entry-stepper`, `./run e2e`  |
+| `EntryStepper`    | `/review-queue/reflections/:reflection_id`, assessor mode | `./run verify-assessor-stepper`            |
+| `Submitted`       | `/reflections/:reflection_id/submitted`                   | `./run e2e`                                |
+| `ReviewQueue`     | `/review-queue`                                           | `./run verify-shell` (route), `./run e2e`  |
+| `SelectFramework` | `/frameworks`                                             | `./run verify-frameworks`                  |
+| `EditFramework`   | `/frameworks/:framework_id/edit`, the id is the base      | `./run e2e`, `./run verify-framework-edit` |
+
+`./run e2e` also runs the cross-screen checks: injection (`e2e/injection.spec.ts`),
+accessibility at phone and desktop widths (`e2e/accessibility.spec.ts`), and stepper
+ownership (`e2e/stepper-ownership.spec.ts`). `e2e/shots/` captures the User Manual's
+screenshots (HO-6).
 
 The diary home keeps its scope in the URL rather than in state (ADR #27), so a scoped diary
 is a link somebody can send. What a scope means -- which rows are yours, which sprints can

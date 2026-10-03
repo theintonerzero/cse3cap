@@ -2,7 +2,8 @@
 
 **Date:** 2026-09-08
 **Owner:** Tony To
-**Status:** Live. Phases 0 to 3 are actionable now; phase 4 is gated on other people.
+**Status:** Superseded. A board snapshot from 2026-09-08, kept as history. Ticket state lives
+in Jira (ADR #38), and the release state is in `docs/CHANGELOG.md`.
 
 Not an implementation plan for one ticket, which is what
 `docs/superpowers/plans/` otherwise holds. This is a sequencing plan across a board, written

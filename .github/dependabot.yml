@@ -73,9 +73,17 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: chore(web)
-    # Same split. Almost all of web/ is toolchain right now, so most of
-    # these will be lint, build and type-checker versions that the frontend
-    # job proves by running. React and TypeScript majors come alone.
+    # @types/node follows the Node major CI runs (.nvmrc, ci.yml), not the
+    # newest Node. Type definitions ahead of the runtime let code compile
+    # against APIs Node 24 does not have. Raise it with node-version.
+    ignore:
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+    # Same split. Minor and patch updates are grouped, and the frontend job
+    # proves them by running lint, the build and the browser checks. React
+    # and TypeScript majors come alone. After merging any of these, rerun
+    # ./run deps so docs/Dependency-Register.md matches (CAP-32). CI's
+    # check-docs.py fails until the register's lockfile hashes match.
     groups:
       minor-and-patch:
         patterns:

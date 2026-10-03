@@ -28,6 +28,7 @@ set -uo pipefail
 
 BASE="${BASE:-http://127.0.0.1:8000/api/v1}"
 TOKENS="${TOKENS:-$HOME/reflection-diary-tokens.txt}"
+. "$(dirname "${BASH_SOURCE[0]}")/lib/token-for.sh"
 
 bold=$'\033[1m'; dim=$'\033[2m'; red=$'\033[1;31m'; green=$'\033[1;32m'
 yellow=$'\033[1;33m'; blue=$'\033[1;34m'; off=$'\033[0m'
@@ -113,9 +114,9 @@ if [ -z "${JANE:-}" ] || [ -z "${SAM:-}" ] || [ -z "${LEE:-}" ]; then
         printf 'Reissue them with: cd api && php artisan db:seed --class=DemoSeeder\n' >&2
         exit 1
     fi
-    JANE="$(grep 'Jane N' "$TOKENS" | awk '{print $NF}')"
-    SAM="$(grep 'Sam O'  "$TOKENS" | awk '{print $NF}')"
-    LEE="$(grep 'Dr Lee' "$TOKENS" | awk '{print $NF}')"
+    JANE="$(token_for 'Jane N' "$TOKENS")"
+    SAM="$(token_for 'Sam O' "$TOKENS")"
+    LEE="$(token_for 'Dr Lee' "$TOKENS")"
 fi
 
 if ! curl -fsS -o /dev/null "${BASE%/api/v1}/up" 2>/dev/null; then
@@ -230,16 +231,16 @@ for e in entries:
     print("%s %s %s" % (e["entry"], by_value[3], by_value[2]))
 PY
 
+    # Checked like every other call. These used to be raw curl with the status
+    # thrown away, so a write that failed only surfaced later, as the gate
+    # refusing a reflection the loop claimed to have filled.
     n=0
     while read -r entry self_level counter_level; do
         n=$((n + 1))
-        curl -s -o /dev/null -X PATCH -H "Authorization: Bearer $JANE" \
-             -H 'Content-Type: application/json' -H 'Accept: application/json' \
-             -d '{"narrative":"What I did, and what I would do differently."}' \
-             "$BASE/entries/$entry"
-        curl -s -o /dev/null -X PUT -H "Authorization: Bearer $JANE" \
-             -H 'Content-Type: application/json' -H 'Accept: application/json' \
-             -d "{\"level_id\":\"$self_level\"}" "$BASE/entries/$entry/scores/self"
+        call "entry $n: write the narrative"  200 "$JANE" PATCH "/entries/$entry" \
+             '{"narrative":"What I did, and what I would do differently."}'
+        call "entry $n: self-score it"         200 "$JANE" PUT "/entries/$entry/scores/self" \
+             "{\"level_id\":\"$self_level\"}"
     done < /tmp/smoke-plan.$$
     printf '       %sfilled and self-scored %s entries%s\n' "$dim" "$n" "$off"
 

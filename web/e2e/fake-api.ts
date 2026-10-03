@@ -108,6 +108,14 @@ export class FakeApi {
   }
 
   /**
+   * A reflection that appears server-side mid-test, as if started in another
+   * tab. The page only sees it on its next GET.
+   */
+  add_reflection(reflection: ReflectionSummary | ReflectionDetail): void {
+    this.reflections.push(structuredClone(reflection));
+  }
+
+  /**
    * Signs the page in with a placeholder, not a credential: the session
    * reads a slot from sessionStorage, and the fake answers /auth/me without
    * looking at the header.
@@ -209,6 +217,52 @@ export class FakeApi {
       return reflection
         ? reply(route, 200, reflection)
         : reply(route, 404, envelope('NOT_FOUND', 'No such resource, or it is not yours.'));
+    }
+
+    if (key === 'POST /reflections') {
+      // The shape ReflectionCreator::create returns: a draft with one empty
+      // entry per competency of the gig's rubric. Who may start one, and
+      // the duplicate refusal, are the backend's (GigPolicy, the unique
+      // index); a test that needs a refusal asks for it with fail().
+      const { sprint_id } = body as { sprint_id: string };
+      const gig = this.gigs.find((g) => g.sprints.some((s) => s.id === sprint_id));
+      const framework = this.frameworks.find((f) => f.id === gig?.framework?.id);
+      if (!gig || !framework) {
+        return reply(
+          route,
+          404,
+          envelope('NOT_FOUND', 'No such resource, or it is not yours.'),
+        );
+      }
+      const sprint = gig.sprints.find((s) => s.id === sprint_id)!;
+      const reflection_id = this.mint();
+      const now = '2026-10-03T10:00:00.000000Z';
+      const draft: ReflectionDetail = {
+        id: reflection_id,
+        status: 'draft',
+        gig_id: gig.id,
+        sprint_id,
+        sprint_ordinal: sprint.ordinal,
+        framework_id: framework.id,
+        framework_version: framework.version,
+        submitted_at: null,
+        created_at: now,
+        updated_at: now,
+        owner: { id: this.me.id, display_name: this.me.display_name },
+        entries: framework.competencies.map((competency) => ({
+          id: this.mint(),
+          competency_id: competency.id,
+          competency_code: competency.code,
+          competency_name: competency.name,
+          short_label: competency.short_label,
+          position: competency.position,
+          narrative: null,
+          evidence: [],
+          scores: [],
+        })),
+      };
+      this.reflections.push(draft);
+      return reply(route, 201, draft);
     }
 
     if (key === 'POST /frameworks') {
