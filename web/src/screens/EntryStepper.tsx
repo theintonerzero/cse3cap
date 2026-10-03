@@ -151,10 +151,11 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
   // Set once "Save all scores" has been pressed: from then the list of what
   // is still missing shows, and stays current as the assessor fills it in.
   const [save_all_tried, setSaveAllTried] = useState(false);
-  // The gig's title, for the heading. A second, optional read: the
-  // reflection carries only the gig's id, and the screen works without it.
-  const [gig_title, setGigTitle] = useState<string | null>(null);
-  const heading = stepper_heading(mode, load, gig_title);
+  // The gig, for the heading: its title, and its sprints, because the
+  // reflection detail leaves sprint_ordinal out (the API loads the sprint
+  // only for lists). A second, optional read; the screen works without it.
+  const [gig, setGig] = useState<HeadingGig | null>(null);
+  const heading = stepper_heading(mode, load, gig);
 
   // An obvious way out of the assessor screen from any step, and from its
   // error and empty states, without saving or stepping back through every
@@ -197,7 +198,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
                   path: { gig_id: reflection.gig_id },
                   signal: controller.signal,
                 })
-                .then((gig) => setGigTitle(gig.title))
+                .then((detail) => setGig({ title: detail.title, sprints: detail.sprints }))
                 // Without the title the heading still names the sprint.
                 .catch(() => undefined);
             }
@@ -1210,17 +1211,30 @@ function CounterScorePanel({
   );
 }
 
+/** The two things the heading needs from GET /gigs/{gig_id}. */
+interface HeadingGig {
+  title: string;
+  sprints: { id: string; ordinal: number }[];
+}
+
 /**
  * "<Gig> · Sprint N" once both are known (round 2b, Patrick): the page says
- * which piece of work it is. "Sprint N" while the gig's title is on its way
- * or could not be read, "<Gig>" for a whole-gig reflection, and the screen's
- * plain name before the reflection itself has loaded.
+ * which piece of work it is. The sprint's number comes from the reflection
+ * when it carries one and from the gig's sprints otherwise; GET
+ * /reflections/{id} leaves sprint_ordinal out today. Until the number is
+ * known the heading does not guess: the gig's title alone, or the screen's
+ * plain name. A reflection with no sprint is a whole-gig one.
  */
-function stepper_heading(mode: StepperMode, load: Load, gig_title: string | null): string {
-  if (load.status !== 'loaded')
-    return mode === 'assessor' ? 'Score reflection' : 'Reflection';
-  const ordinal = load.reflection.sprint_ordinal;
-  const sprint = ordinal == null ? null : `Sprint ${ordinal}`;
-  if (!gig_title) return sprint ?? 'Whole gig';
-  return sprint ? `${gig_title} · ${sprint}` : gig_title;
+function stepper_heading(mode: StepperMode, load: Load, gig: HeadingGig | null): string {
+  const plain = mode === 'assessor' ? 'Score reflection' : 'Reflection';
+  if (load.status !== 'loaded') return plain;
+  const { sprint_id, sprint_ordinal } = load.reflection;
+  if (!sprint_id) return gig?.title ?? 'Whole gig';
+
+  const ordinal =
+    sprint_ordinal ??
+    gig?.sprints.find((sprint) => sprint.id === sprint_id)?.ordinal ??
+    null;
+  if (ordinal === null) return gig?.title ?? plain;
+  return gig ? `${gig.title} · Sprint ${ordinal}` : `Sprint ${ordinal}`;
 }

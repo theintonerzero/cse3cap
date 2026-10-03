@@ -273,3 +273,35 @@ assessor_test.describe('the assessor', () => {
     });
   }
 });
+
+// GET /reflections/{id} leaves sprint_ordinal out when the sprint is not
+// loaded (ReflectionResource whenLoaded('sprint'), and the detail endpoint
+// does not load it), so the page must find the sprint through the gig.
+const LIKE_THE_API = id('000a');
+const { sprint_ordinal: _left_out, ...WITHOUT_ORDINAL } = REFLECTION;
+const api_shaped_test = base.extend<{ api: FakeApi }>({
+  api: [
+    async ({ page }, provide) => {
+      const api = new FakeApi(
+        [RUBRIC],
+        JANE,
+        [GIG_DETAIL],
+        [{ ...WITHOUT_ORDINAL, id: LIKE_THE_API } as ReflectionDetail],
+      );
+      await api.install(page);
+      await provide(api);
+      expect(api.unexpected, 'requests the fake does not serve').toEqual([]);
+    },
+    { auto: true },
+  ],
+});
+
+api_shaped_test(
+  'the heading names the sprint even when the reflection leaves its number out',
+  async ({ page }) => {
+    await page.goto(`/reflections/${LIKE_THE_API}`);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+      'Develop AI use cases · Sprint 2',
+    );
+  },
+);
