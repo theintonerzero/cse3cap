@@ -107,6 +107,27 @@
   box-shadow: var(--shadow-card);
 }
 
+/* Round 2b: the label and who scored it share one quiet line over the
+   chart, wrapping only when the name is long. */
+.radar_head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4) var(--space-12);
+  margin-bottom: var(--space-8);
+}
+
+.radar_head .caption {
+  margin: 0;
+}
+
+.scored_by {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
 /* CAP-38 R2: a small muted label over the chart, not a sentence. */
 .caption {
   margin: 0 0 var(--space-8);

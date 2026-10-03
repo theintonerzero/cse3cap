@@ -214,3 +214,49 @@ test.describe('a student on one gig', () => {
     await expect(page.getByText('Latest scores', { exact: true })).toBeVisible();
   });
 });
+
+const SAM = { id: id('0009'), display_name: 'Sam O', role: 'assessor' as const };
+const KIM = { id: id('000a'), display_name: 'Kim L', role: 'assessor' as const };
+
+test.describe('who scored it', () => {
+  test.describe('one assessor on the gig', () => {
+    test.use({ gigs: [{ ...ONE, participants: [...ONE.participants, SAM] }] });
+
+    test('the radar says "Scored by" and their name', async ({ page }) => {
+      await page.goto('/');
+      await expect(page.getByText('Latest scores', { exact: true })).toBeVisible();
+      await expect(page.getByText('Scored by Sam O', { exact: true })).toBeVisible();
+    });
+
+    test('nothing is said before anyone has counter-scored', async ({ page }) => {
+      await page.route('**/api/v1/me/radar**', (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            ...RADAR,
+            axes: RADAR.axes.map((axis) => ({
+              ...axis,
+              counter: null,
+              counter_role: null,
+            })),
+          }),
+        }),
+      );
+      await page.goto('/');
+      await expect(page.getByText('Latest scores', { exact: true })).toBeVisible();
+      await expect(page.getByText(/^Scored by/)).toHaveCount(0);
+    });
+  });
+
+  test.describe('two assessors on the gig', () => {
+    test.use({ gigs: [{ ...ONE, participants: [...ONE.participants, SAM, KIM] }] });
+
+    test('it does not guess which one', async ({ page }) => {
+      await page.goto('/');
+      await expect(
+        page.getByText('Scored by your assessors', { exact: true }),
+      ).toBeVisible();
+    });
+  });
+});

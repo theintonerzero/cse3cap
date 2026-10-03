@@ -15,6 +15,7 @@ import type { components } from '../api/schema.ts';
 export type Gig = components['schemas']['Gig'];
 export type Sprint = components['schemas']['Sprint'];
 export type ReflectionSummary = components['schemas']['ReflectionSummary'];
+export type Participant = components['schemas']['GigDetail']['participants'][number];
 
 /** What the chips select. Both null is "all gigs". */
 export interface Scope {
@@ -121,6 +122,30 @@ export function radar_caption(scope: Scope, gigs: Gig[]): string {
 
   const sprint = gig.sprints.find((candidate) => candidate.id === scope.sprint_id);
   return sprint ? `Sprint ${sprint.ordinal} only` : 'This sprint only';
+}
+
+/**
+ * Who gave the counter-scores the radar is drawing, in a few words
+ * (round 2b, Patrick): "Scored by Sam O". The radar names only the role
+ * that scored each axis (counter_role), so the name comes from the gig's
+ * participants. It is only ever a name when exactly one person on the gig
+ * holds that role; with two it says "your assessors" rather than guess, and
+ * with no counter-score yet it says nothing (RadarPanel already says it is
+ * awaited).
+ */
+export function scored_by(
+  counter_roles: (string | null)[],
+  participants: Participant[],
+): string | null {
+  const roles = [...new Set(counter_roles.filter((role): role is string => role !== null))];
+  if (roles.length === 0) return null;
+
+  const who = roles.map((role) => {
+    const people = participants.filter((person) => person.role === role);
+    return people.length === 1 ? people[0].display_name : `your ${role}s`;
+  });
+
+  return `Scored by ${who.join(' and ')}`;
 }
 
 /**

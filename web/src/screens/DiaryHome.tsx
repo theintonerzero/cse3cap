@@ -39,9 +39,11 @@ import {
   radar_caption,
   reflections_in_scope,
   rubric_line,
+  scored_by,
   scope_from_params,
   student_gigs,
   type Gig,
+  type Participant,
   type ReflectionSummary,
   type Scope,
   type Sprint,
@@ -245,6 +247,10 @@ function ScopedRadar({
 }) {
   const [load, setLoad] = useState<RadarLoad>({ status: 'loading' });
   const [reload_key, setReloadKey] = useState(0);
+  // Who is on the gig, to name whoever counter-scored (round 2b). An
+  // optional read: without it the radar simply does not say.
+  const [participants, setParticipants] = useState<Participant[]>([]);
+  const named_gig = gig_id ?? (gigs.length === 1 ? gigs[0].id : null);
   const scope: Scope = { gig_id, sprint_id };
 
   useEffect(() => {
@@ -269,6 +275,16 @@ function ScopedRadar({
     return () => controller.abort();
   }, [gig_id, sprint_id, reload_key]);
 
+  useEffect(() => {
+    if (!named_gig) return;
+    const controller = new AbortController();
+    api
+      .get('/gigs/{gig_id}', { path: { gig_id: named_gig }, signal: controller.signal })
+      .then((gig) => setParticipants(gig.participants))
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [named_gig]);
+
   const retry = useCallback(() => {
     setLoad({ status: 'loading' });
     setReloadKey((key) => key + 1);
@@ -287,9 +303,17 @@ function ScopedRadar({
     );
   }
 
+  const by = scored_by(
+    load.radar.axes.map((axis) => axis.counter_role),
+    participants,
+  );
+
   return (
     <div className={styles.radar_block}>
-      <p className={styles.caption}>{radar_caption(scope, gigs)}</p>
+      <div className={styles.radar_head}>
+        <p className={styles.caption}>{radar_caption(scope, gigs)}</p>
+        {by && <p className={styles.scored_by}>{by}</p>}
+      </div>
       <RadarPanel
         state="loaded"
         scale={{
