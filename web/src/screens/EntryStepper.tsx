@@ -35,7 +35,7 @@
  * item gets an <a>, and it carries rel="noopener noreferrer" per the same
  * comment.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { ChangeEvent, FormEvent, ReactNode, SetStateAction } from 'react';
 import { useNavigate, useParams } from 'react-router';
 
@@ -120,20 +120,22 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
   // competencies' chips can look nearly the same. So a move goes to the
   // top and puts focus on the new competency's name, which a screen reader
   // then reads out (round 2b). Opening the page or saving does not.
-  const moved_by_reader = useRef(false);
+  // A count of moves rather than a flag: "Go to" the competency already
+  // open sets the same step, which would not re-run an effect on `step`,
+  // and a flag left set would make a later save's step change move focus.
+  const [moves, setMoves] = useState(0);
   const go_to_step = useCallback((next: SetStateAction<number>) => {
-    moved_by_reader.current = true;
     setStep(next);
+    setMoves((count) => count + 1);
   }, []);
   useEffect(() => {
-    if (!moved_by_reader.current) return;
-    moved_by_reader.current = false;
+    if (moves === 0) return;
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
     document
       .querySelector<HTMLElement>('[data-competency-name]')
       ?.focus({ preventScroll: true });
-  }, [step]);
+  }, [moves]);
   const [offending, setOffending] = useState<readonly string[] | null>(null);
   const [submit_error, setSubmitError] = useState<ApiError | null>(null);
   const [submitting, setSubmitting] = useState(false);

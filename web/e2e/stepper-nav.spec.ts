@@ -159,3 +159,117 @@ test.describe('the heading', () => {
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Sprint 2');
   });
 });
+
+// The assessor's side: a submitted reflection with nothing counter-scored,
+// so "Save all scores" lists a "Go to <competency>" for every entry.
+const SAM: Me = {
+  id: id('0008'),
+  display_name: 'Sam O',
+  participations: [{ gig_id: GIG, gig_title: 'Develop AI use cases', role: 'assessor' }],
+};
+const SUBMITTED = id('0006');
+const TO_SCORE: ReflectionDetail = {
+  ...REFLECTION,
+  id: SUBMITTED,
+  status: 'submitted',
+  submitted_at: '2026-08-28T10:00:00.000000Z',
+  entries: REFLECTION.entries.map((entry, n) => ({
+    ...entry,
+    scores: [
+      {
+        id: id(`0s${n}0`),
+        reflection_entry_id: entry.id,
+        scorer_role: 'student',
+        scorer_class: 'self',
+        level_id: id(`0${n}l3`),
+        level_value: 3,
+        comment: null,
+        scored_at: '2026-08-27T10:00:00.000000Z',
+        scorer: { id: JANE.id, display_name: JANE.display_name },
+      },
+    ],
+  })),
+};
+
+/** The same reflection once Sam has counter-scored every entry. */
+const SCORED = id('0009');
+const DONE: ReflectionDetail = {
+  ...TO_SCORE,
+  id: SCORED,
+  status: 'assessed',
+  entries: TO_SCORE.entries.map((entry, n) => ({
+    ...entry,
+    scores: [
+      ...entry.scores,
+      {
+        id: id(`0s${n}1`),
+        reflection_entry_id: entry.id,
+        scorer_role: 'assessor',
+        scorer_class: 'counter',
+        level_id: id(`0${n}l3`),
+        level_value: 3,
+        comment: null,
+        scored_at: '2026-08-29T10:00:00.000000Z',
+        scorer: { id: SAM.id, display_name: SAM.display_name },
+      },
+    ],
+  })),
+};
+
+const assessor_test = base.extend<{ api: FakeApi }>({
+  api: [
+    async ({ page }, provide) => {
+      const api = new FakeApi(
+        [RUBRIC],
+        SAM,
+        [{ ...GIG_DETAIL, my_role: 'assessor' }],
+        [TO_SCORE, DONE],
+      );
+      await api.install(page);
+      await provide(api);
+      expect(api.unexpected, 'requests the fake does not serve').toEqual([]);
+    },
+    { auto: true },
+  ],
+});
+
+assessor_test.describe('the assessor', () => {
+  assessor_test.use({ reducedMotion: 'reduce' });
+
+  assessor_test(
+    '"Go to" the competency already open still goes to its top',
+    async ({ page }) => {
+      await page.setViewportSize({ width: 390, height: 600 });
+      await page.goto(`/review-queue/reflections/${SUBMITTED}`);
+      await page.getByRole('button', { name: 'Next', exact: true }).click();
+      await expect(page.getByText('Competency 2 of 2')).toBeVisible();
+      await page.getByRole('button', { name: 'Save all scores' }).click();
+      const go = page.getByRole('button', { name: 'Go to Communication' });
+      await go.scrollIntoViewIfNeeded();
+      await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+
+      await go.click();
+      await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+      await expect(page.getByText('Communication', { exact: true })).toBeFocused();
+    },
+  );
+
+  for (const [reflection, label] of [
+    [SUBMITTED, 'Save all scores'],
+    [SCORED, 'Back to the queue'],
+  ] as const) {
+    assessor_test(`360: "${label}" keeps its label on one line`, async ({ page }) => {
+      await page.setViewportSize({ width: 360, height: 640 });
+      await page.goto(`/review-queue/reflections/${reflection}`);
+      await page.getByRole('button', { name: 'Next', exact: true }).click();
+      const back = page.getByRole('button', { name: 'Back', exact: true });
+      const forward = page.getByRole('button', { name: label, exact: true });
+      await expect(forward).toBeVisible();
+      await page.evaluate(() => document.fonts.ready);
+      const b = (await back.boundingBox())!;
+      const f = (await forward.boundingBox())!;
+      expect(Math.abs(f.height - b.height), 'same height as Back').toBeLessThanOrEqual(1);
+      expect(f.x + f.width, 'inside the screen').toBeLessThanOrEqual(360);
+    });
+  }
+});
