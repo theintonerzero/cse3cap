@@ -202,3 +202,18 @@ test('phone: walking backwards, no focused field hides under the sticky header',
     ).toBeGreaterThanOrEqual(0);
   }
 });
+
+test('phone: at the end of the page the stepper bar still sits on the bottom edge', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 600 });
+  await page.goto(`/reflections/${DRAFT}`);
+  const submit = page.getByRole('button', { name: 'Submit' });
+  await expect(submit).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+  const bar_bottom = await submit.evaluate(
+    (b) => b.parentElement!.getBoundingClientRect().bottom,
+  );
+  expect(Math.abs(bar_bottom - 600), 'gap under the bar').toBeLessThanOrEqual(1);
+});
