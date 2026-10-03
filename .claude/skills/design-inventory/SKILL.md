@@ -101,7 +101,7 @@ are a starting point, not a conclusion. Verify each one.
 - The gig page: the CAP-8 plan maps "My Gig → Overview" to `GigDetail` and says this frame
   is the host app's gig page with the diary card inside it, and the history sheet on the
   same frame is CAP-14.
-- Three user types in the design (student, host, educator), four roles in the schema:
+- Three user types in the design (student, employer, educator), four roles in the schema:
   educator maps to `supervisor` (ADR #17).
 - "Based on" plus "your copy" in the edit framework frames became copy-then-edit (ADR #16).
 - User Selection, the screen that picks a view: the build uses three seeded tokens through
@@ -146,7 +146,7 @@ The four statuses and what each means.
 
 | Role | Frame | Node ID | Built as (route or component) | Status | What changed and why | Evidence |
 
-One row per frame, ordered student, host, educator, in user flow order, not canvas order.
+One row per frame, ordered student, employer, educator, in user flow order, not canvas order.
 
 ## Built with no frame
 
@@ -171,7 +171,8 @@ Then, in the same change:
   inventory.
 - Add a row to the CLAUDE.md skills table: "Any question about the design or a prototype
   frame" → `/design-inventory`.
-- Add a line under `[Unreleased]` in `docs/CHANGELOG.md`.
+- Add a line under the current sprint's `### Added` in `docs/CHANGELOG.md`. `[Unreleased]`
+  is the release summary, not a list of changes.
 
 ## Phase 6: verify and hand over
 
