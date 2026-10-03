@@ -28,6 +28,13 @@ CASES = [
     ("no licence recorded", register.is_permissive("none"), False),
     ("a pipe is escaped for a table cell", register.cell(">=13.0.0,<13.30.0|<12.69.0"), ">=13.0.0,<13.30.0\\|<12.69.0"),
     ("text without a pipe is untouched", register.cell("Laravel: XSS"), "Laravel: XSS"),
+    # PHP encodes an empty map as [], so a clean `composer audit` says "advisories": [].
+    ("a clean composer audit is no advisories", register.composer_advisories({"advisories": []}, {}, {}), []),
+    ("composer advisories are read per package",
+     [a["package"] for a in register.composer_advisories(
+         {"advisories": {"league/flysystem": [{"cve": "CVE-1", "severity": "low", "title": "t"}]}},
+         {"league/flysystem": {"version": "3.35.2", "licence": "MIT"}}, {})],
+     ["league/flysystem"]),
 ]
 
 

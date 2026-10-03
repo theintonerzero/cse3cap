@@ -7,32 +7,24 @@ rebuilds this file from `composer licenses`, `composer audit`, `web/package-lock
 
 | | |
 | --- | --- |
-| Generated | 2026-10-03 08:09 UTC |
-| Commit | `347e160` |
+| Generated | 2026-10-03 08:14 UTC |
+| Commit | `f8c6ed4` |
 | Tools | PHP 8.5.9, Composer version 2.10.2, Node v26.7.0, npm 11.19.0 |
-| Packages | 116 Composer (12 direct), 114 npm (13 direct) |
-| Advisories | 4: 1 high, 1 medium, 2 low |
+| Packages | 117 Composer (12 direct), 114 npm (13 direct) |
+| Advisories | none |
 
 Why each direct dependency is here, and which ones were deliberately not taken, is ADR #31
 and the stack ADRs in `docs/adr/architecture-decision-records.md`.
 
 ## Known advisories
 
-| Severity | Package | Installed | Advisory | Affected versions | Direct | Summary |
-| --- | --- | --- | --- | --- | --- | --- |
-| high | Composer: `league/commonmark` | 2.10.0 | [PKSA-m4t9-vsgq-8khn](https://github.com/advisories/GHSA-3q6v-r5mr-hxv8) | `>=2.0.0,<=2.10.1` | no | league/commonmark: Quadratic-time denial of service in the GitHub Flavored Markdown Table extension block-start scan |
-| medium | Composer: `league/commonmark` | 2.10.0 | [PKSA-m2dq-1fhr-29b1](https://github.com/advisories/GHSA-97jj-33gv-5xf9) | `>=1.3.0,<=2.10.1` | no | league/commonmark: DisallowedRawHtml bypassed when a disallowed tag name ends the raw-HTML literal |
-| low | Composer: `laravel/framework` | v13.25.0 | [CVE-2026-102279](https://github.com/advisories/GHSA-jh5r-qr3c-85q8) | `>=13.0.0,<13.30.0\|<12.69.0` | yes | Laravel: XSS in Debug Page Information |
-| low | Composer: `league/flysystem` | 3.35.2 | [CVE-2026-102601](https://github.com/advisories/GHSA-cxf4-7mrp-vvpr) | `<=3.35.2` | no | Flysystem: WhitespacePathNormalizer's control-character (CorruptedPathDetected) check is bypassed by malformed UTF-8 in the path, affecting every adapter |
-
-The action for each is a person's call, recorded in `docs/Security-Review.md` (CAP-32),
-not here. Check the open Dependabot pull requests first: one may already carry the fix.
+None at the time of generation.
 
 ## Licences
 
 | Licence | Packages |
 | --- | --- |
-| MIT | 163 |
+| MIT | 164 |
 | BSD-3-Clause | 31 |
 | ISC | 12 |
 | MPL-2.0 | 12 |
@@ -71,7 +63,7 @@ The permissive list is in `scripts/dependency-register.py`: 0BSD, Apache-2.0, BS
 | --- | --- | --- | --- | --- |
 | `dompdf/dompdf` | `^3.1` | v3.1.6 | LGPL-2.1 | no |
 | `fakerphp/faker` | `^1.23` | v1.24.1 | MIT | yes |
-| `laravel/framework` | `^13.17` | v13.25.0 | MIT | no |
+| `laravel/framework` | `^13.17` | v13.30.0 | MIT | no |
 | `laravel/pail` | `^1.2.5` | v1.2.7 | MIT | yes |
 | `laravel/pao` | `^1.0.6` | v1.1.4 | MIT | yes |
 | `laravel/pint` | `^1.27` | v1.30.5 | MIT | yes |

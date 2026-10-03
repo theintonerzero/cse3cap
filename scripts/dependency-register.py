@@ -60,8 +60,14 @@ def composer_side():
               **{k: (v, True) for k, v in manifest.get("require-dev", {}).items()}}
     packages = {name: {"version": info["version"], "licence": " OR ".join(info["license"]) or "none"}
                 for name, info in licences.items()}
+    return packages, direct, composer_advisories(audit, packages, direct)
+
+
+def composer_advisories(audit, packages, direct):
+    # PHP encodes an empty map as [], so a clean audit says "advisories": [] not {}.
+    found = audit.get("advisories") or {}
     advisories = []
-    for name, items in audit.get("advisories", {}).items():
+    for name, items in found.items():
         for a in items:
             advisories.append({
                 "ecosystem": "Composer",
@@ -74,7 +80,7 @@ def composer_side():
                 "link": a.get("link", ""),
                 "direct": name in direct,
             })
-    return packages, direct, advisories
+    return advisories
 
 
 def npm_side():
@@ -155,8 +161,8 @@ def render(composer, npm):
         f"| Tools | {version(['php', '-v']).split(' (')[0]}, {version(['composer', '--version']).split(' 20')[0]}, "
         f"Node {version(['node', '-v'])}, npm {version(['npm', '-v'])} |",
         f"| Packages | {len(c_pkgs)} Composer ({len(c_direct)} direct), {len(n_pkgs)} npm ({len(n_direct)} direct) |",
-        f"| Advisories | {len(advisories)}: " + (", ".join(f"{severities[s]} {s}" for s in SEVERITY_ORDER if severities[s])
-                                                    or "none") + " |",
+        "| Advisories | " + (f"{len(advisories)}: " + ", ".join(f"{severities[s]} {s}" for s in SEVERITY_ORDER
+                                                             if severities[s]) if advisories else "none") + " |",
         "",
         "Why each direct dependency is here, and which ones were deliberately not taken, is ADR #31",
         "and the stack ADRs in `docs/adr/architecture-decision-records.md`.",
