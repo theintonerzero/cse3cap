@@ -188,7 +188,12 @@ jobs:
       # demo, which leaves Jane's third La Trobe sprint free so the write path
       # runs rather than being skipped. DemoSeeder prints the three tokens
       # once; that output is the file smoke.sh reads them from.
+      # --drop-views because the schema migration creates the analytics views
+      # and migrate:fresh drops only tables by default; the suite does the
+      # same with $dropViews in tests/TestCase.php. shell: bash adds pipefail,
+      # so a failed seed cannot hide behind the tee.
       - name: Seed the demo for the smoke run
+        shell: bash
         working-directory: api
         env:
           DB_CONNECTION: mysql_test
@@ -198,9 +203,10 @@ jobs:
           DB_PASSWORD: ci
           DB_TEST_DATABASE: reflection_diary_test_ci
           MYSQL_ATTR_SSL_CA: ''
-        run: php artisan migrate:fresh --seed --force --no-interaction --no-ansi | tee "$RUNNER_TEMP/seed.txt"
+        run: php artisan migrate:fresh --drop-views --seed --force --no-interaction --no-ansi | tee "$RUNNER_TEMP/seed.txt"
 
       - name: Smoke test over HTTP
+        shell: bash
         env:
           DB_CONNECTION: mysql_test
           DB_HOST: 127.0.0.1
