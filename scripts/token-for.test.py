@@ -38,6 +38,18 @@ CASES = [
     ("newest of two, CRLF",
      f"Dr Lee   7|old{FAKE}\r\nDr Lee   9|rdiary_{FAKE}\r\n",
      "Dr Lee", f"9|rdiary_{FAKE}"),
+    # What `php artisan db:seed` prints: DemoSeeder's token lines, then a
+    # ReflectionSeeder line per reflection that also starts with the name.
+    # The CI smoke run reads exactly this file.
+    ("seed output, reflection lines after the token",
+     f"Jane N   7|rdiary_{FAKE}\nSam O    8|rdiary_{FAKE}\nDr Lee   9|rdiary_{FAKE}\n"
+     "Jane N   Develop AI use cases   sprint 1  assessed\n"
+     "Jane N   Data migration audit   sprint 2  submitted\n",
+     "Jane N", f"7|rdiary_{FAKE}"),
+    ("seed output appended twice, newest token wins",
+     f"Jane N   7|old{FAKE}\nJane N   Develop AI use cases   sprint 1  assessed\n"
+     f"Jane N   12|rdiary_{FAKE}\nJane N   Develop AI use cases   sprint 1  assessed\n",
+     "Jane N", f"12|rdiary_{FAKE}"),
     ("no line for the name", f"Sam O    8|rdiary_{FAKE}\n", "Jane N", ""),
     ("no tokens file", None, "Jane N", ""),
 ]
