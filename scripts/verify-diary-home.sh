@@ -29,6 +29,7 @@ cd "$ROOT"
 
 BASE="${BASE:-http://127.0.0.1:8000/api/v1}"
 TOKENS="${TOKENS:-$HOME/reflection-diary-tokens.txt}"
+. "$(dirname "${BASH_SOURCE[0]}")/lib/token-for.sh"
 SCREEN="web/src/screens/DiaryHome.tsx"
 SCOPE="web/src/screens/diary-scope.ts"
 ROUTES="web/src/app/routes.tsx"
@@ -120,7 +121,7 @@ fi
 say "5. GET /me/radar behaves the way the screen maps it"
 
 TOKEN=""
-[ -f "$TOKENS" ] && TOKEN="$(grep -s 'Jane N' "$TOKENS" | awk '{print $NF}')"
+[ -f "$TOKENS" ] && TOKEN="$(token_for 'Jane N' "$TOKENS")"
 
 if [ -z "$TOKEN" ]; then
     meh "live radar checks" "no token for Jane N in $TOKENS"
