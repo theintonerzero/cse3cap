@@ -49,11 +49,16 @@ class GigResource extends JsonResource
         // array_filter to strip the key when absent: a gig with no
         // org_name or no dates would lose those keys too, and the
         // frontend types are generated from a fixed shape.
+        //
+        // One row per person, with the role RoleResolver answers (ADR #47).
+        // gig_participants can hold two rows for one person, and listing
+        // both would show a student as reviewing their own gig.
         if ($this->withParticipants) {
-            $data['participants'] = $this->participants->map(fn ($p) => [
+            $roles = app(RoleResolver::class);
+            $data['participants'] = $this->participants->unique('user_id')->map(fn ($p) => [
                 'id' => $p->user_id,
                 'display_name' => $p->user->display_name,
-                'role' => $p->role,
+                'role' => $roles->for($p->user, $this->resource),
             ])->values();
         }
 
