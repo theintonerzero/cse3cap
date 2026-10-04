@@ -27,9 +27,10 @@ Becomes **1.0.0**, planned for 12 October 2026: `dev` merged to `main` and tagge
 
 ### Known limitations at 1.0.0
 
-- No login screen. Access is three seeded Sanctum tokens (ADR #15). Tokens never expire,
-  carry every ability and have no prefix a secret scanner can match (F2 to F4 in
-  `docs/Security-Review.md`).
+- No login screen. Access is three seeded Sanctum tokens (ADR #15), which carry every
+  ability on purpose (ADR #46). Tokens issued from 1.0.0 carry the prefix `rdiary_` and
+  expire after 60 days. The tokens on the shared database predate that and have neither
+  until the team reissues them (CAP-32).
 - No rule yet for serving evidence files, and any file type is accepted (F8). It becomes
   high severity the day a download lands.
 - No live Alumable integration. The `external_ref` columns are empty because the team never
@@ -41,8 +42,10 @@ Becomes **1.0.0**, planned for 12 October 2026: `dev` merged to `main` and tagge
   (`docs/Framework-Swap-Verification.md`).
 - `GET /me/progress`, `/me/calibration` and `/me/coverage` are built and tested, but no
   screen shows them yet.
-- No deployed instance. The demo deployment is designed but not built
-  (`docs/superpowers/specs/2026-09-06-demo-deployment-design.md`).
+- No deployed instance. The deploy kit is built (#88, ADR #45, `docs/Deployment.md`) but
+  has not been run, because it needs a shell on the VPS (CAP-26).
+- Deleting evidence or a reflection leaves its stored files behind, an entry has no limit on
+  evidence items, export files are never pruned, and the API has no rate limit (CAP-42).
 - The seeded gigs run 3 August to 26 October 2026, so after that the demo shows only past
   gigs.
 - Each `./run smoke` leaves a renamed framework copy in the database it runs against.
