@@ -81,3 +81,15 @@ test('Sam: no pills and no way into Frameworks', async ({ page }) => {
   await expect(page.getByRole('navigation', { name: 'Main' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: /^Frameworks/ })).toHaveCount(0);
 });
+
+test('Dr Lee: Frameworks sits above the review queue (round 3, Patrick 2026-10-05)', async ({
+  page,
+}) => {
+  await install(page, LEE);
+  await page.goto('/review-queue');
+  const way_in = await page.getByRole('link', { name: WAY_IN }).boundingBox();
+  const heading = await page
+    .getByRole('heading', { level: 1, name: 'Review queue' })
+    .boundingBox();
+  expect(way_in!.y + way_in!.height).toBeLessThan(heading!.y);
+});

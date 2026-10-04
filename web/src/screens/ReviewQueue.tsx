@@ -61,22 +61,9 @@ export function ReviewQueue() {
 
   return (
     <section>
-      <h1 className={styles.heading}>Review queue</h1>
-
-      {state.status === 'loading' && <LoadingState />}
-      {state.status === 'error' && <ErrorNotice error={state.error} on_retry={retry} />}
-      {state.status === 'loaded' && state.entries.length === 0 && <EmptyState />}
-      {state.status === 'loaded' && state.entries.length > 0 && (
-        <ul className={styles.list}>
-          {state.entries.map((entry) => (
-            <ReviewQueueRow key={entry.reflection_id} entry={entry} />
-          ))}
-        </ul>
-      )}
-
       {/* Frameworks' way in, now the bar has no pills (round 3 D2): a
-          whole-row card like the queue's own, under the queue because
-          scoring is the job and rubrics the occasional errand. */}
+          whole-row card like the queue's own, above the queue so it is
+          always in reach (Patrick, 2026-10-05). */}
       {supervises && (
         <Link
           className={styles.wayIn}
@@ -91,6 +78,19 @@ export function ReviewQueue() {
             {'›'}
           </span>
         </Link>
+      )}
+
+      <h1 className={styles.heading}>Review queue</h1>
+
+      {state.status === 'loading' && <LoadingState />}
+      {state.status === 'error' && <ErrorNotice error={state.error} on_retry={retry} />}
+      {state.status === 'loaded' && state.entries.length === 0 && <EmptyState />}
+      {state.status === 'loaded' && state.entries.length > 0 && (
+        <ul className={styles.list}>
+          {state.entries.map((entry) => (
+            <ReviewQueueRow key={entry.reflection_id} entry={entry} />
+          ))}
+        </ul>
       )}
     </section>
   );
