@@ -103,10 +103,12 @@
 }
 
 /* The diary card's heading. Round 2c: on a plain surface card now, not
-   the frame's accent tint. */
+   the frame's accent tint. Round 2e: tight leading, so its letters start
+   as far below the card's top as the rows sit from its sides. */
 .card_heading {
   margin: 0 0 var(--space-12);
   font-size: var(--font-size-lg);
+  line-height: var(--line-height-tight);
   font-weight: var(--font-weight-medium);
   color: var(--color-text);
 }
@@ -134,7 +136,9 @@
 /* The diary card: the same plain surface, hairline and soft shadow as the
    radar's card on the diary home, so the two screens read as one app. */
 .diary_card {
-  padding: var(--space-16);
+  /* 12 on top (round 2e): the heading's own ascent supplies the rest of
+     the 16 the sides and bottom have. */
+  padding: var(--space-12) var(--space-16) var(--space-16);
   border: var(--border-width-sm) solid var(--color-border);
   border-radius: var(--radius-lg);
   background: var(--color-surface);

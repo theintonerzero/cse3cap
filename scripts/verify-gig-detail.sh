@@ -184,12 +184,14 @@ say "4a. The cards"
 
 cards_missing=""
 grep -q 'Timeline' "$SCREEN"          || cards_missing="$cards_missing timeline"
-grep -q 'Reflection diary' "$SCREEN"  || cards_missing="$cards_missing reflection-diary"
+# The frame's "Reflection diary" card is headed "Sprints" since CAP-38
+# round 2e (Patrick): the page already says diary, and it holds the sprints.
+grep -q '>Sprints<' "$SCREEN"         || cards_missing="$cards_missing sprints"
 
 if [ -z "$cards_missing" ]; then
-    ok "Timeline and Reflection diary" "docs/06_figma_diary_frames.pdf p5"
+    ok "Timeline and Sprints" "docs/06_figma_diary_frames.pdf p5"
 else
-    bad "Timeline and Reflection diary" "missing:$cards_missing"
+    bad "Timeline and Sprints" "missing:$cards_missing"
 fi
 
 # The frame's third card, Gig Details, is deliberately NOT built: it holds

@@ -362,7 +362,9 @@ function DiaryCard({
     // pink one (round 2c, Patrick).
     <section className={styles.block}>
       <div className={styles.diary_card}>
-        <h2 className={styles.card_heading}>Reflection diary</h2>
+        {/* "Sprints", not "Reflection diary" (round 2e, Patrick): the page
+            and the bar already say diary, and this card holds the sprints. */}
+        <h2 className={styles.card_heading}>Sprints</h2>
 
         <p className={styles.framework}>
           {gig.framework ? (

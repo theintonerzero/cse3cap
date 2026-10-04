@@ -73,18 +73,49 @@ const test = base.extend<{ written: number[]; api: FakeApi }>({
   ],
 });
 
+/**
+ * The card's spacing as the eye reads it. `side` is how far the rows sit in
+ * from the card's left edge; `bottom` the space under the last thing in it;
+ * `ink_top` how far below the card's top the heading's letters start, from
+ * the font's own metrics, because a line box carries leading above the
+ * letters that the eye does not count (round 2e, Patrick: the heading sat
+ * low).
+ */
 async function gaps(page: Page) {
-  const card = page
-    .getByRole('heading', { level: 2, name: 'Reflection diary' })
-    .locator('..');
+  const card = page.getByRole('heading', { level: 2, name: 'Sprints' }).locator('..');
   await expect(card.getByText('Sprint 2')).toBeVisible();
+  await page.evaluate(() => document.fonts.ready);
   return card.evaluate((node) => {
     const box = node.getBoundingClientRect();
-    const first = node.firstElementChild!.getBoundingClientRect();
     const last = node.lastElementChild!.getBoundingClientRect();
-    return { top: first.top - box.top, bottom: box.bottom - last.bottom };
+    const row = node.querySelector('li')!.getBoundingClientRect();
+
+    const heading = node.querySelector('h2')!;
+    const style = getComputedStyle(heading);
+    const context = document.createElement('canvas').getContext('2d')!;
+    context.font = style.font;
+    const metrics = context.measureText(heading.textContent ?? '');
+    const content = metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent;
+    const baseline =
+      heading.getBoundingClientRect().top +
+      (parseFloat(style.lineHeight) - content) / 2 +
+      metrics.fontBoundingBoxAscent;
+
+    return {
+      side: row.left - box.left,
+      bottom: box.bottom - last.bottom,
+      ink_top: baseline - metrics.actualBoundingBoxAscent - box.top,
+    };
   });
 }
+
+test('the card is headed by what it holds, not the diary again', async ({ page }) => {
+  await page.goto(`/gigs/${GIG}`);
+  await expect(page.getByRole('heading', { level: 2, name: 'Sprints' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { level: 2, name: 'Reflection diary' }),
+  ).toHaveCount(0);
+});
 
 test('the diary card offers no link back to the diary it came from', async ({ page }) => {
   await page.goto(`/gigs/${GIG}`);
@@ -97,25 +128,27 @@ test('the diary card offers no link back to the diary it came from', async ({ pa
 });
 
 for (const width of [390, 1440]) {
-  test(`the card closes as evenly as it opens at ${width}, last row a link`, async ({
+  test(`the card's heading and last row sit as far in as its sides at ${width}, last row a link`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: 844 });
     await page.goto(`/gigs/${GIG}`);
-    const { top, bottom } = await gaps(page);
-    expect(Math.abs(bottom - top)).toBeLessThanOrEqual(1);
+    const { side, bottom, ink_top } = await gaps(page);
+    expect(Math.abs(bottom - side)).toBeLessThanOrEqual(1);
+    expect(Math.abs(ink_top - side)).toBeLessThanOrEqual(1.5);
   });
 
   test.describe(() => {
     test.use({ written: [1] });
 
-    test(`the card closes as evenly as it opens at ${width}, last row Start reflection`, async ({
+    test(`the card's heading and last row sit as far in as its sides at ${width}, last row Start reflection`, async ({
       page,
     }) => {
       await page.setViewportSize({ width, height: 844 });
       await page.goto(`/gigs/${GIG}`);
-      const { top, bottom } = await gaps(page);
-      expect(Math.abs(bottom - top)).toBeLessThanOrEqual(1);
+      const { side, bottom, ink_top } = await gaps(page);
+      expect(Math.abs(bottom - side)).toBeLessThanOrEqual(1);
+      expect(Math.abs(ink_top - side)).toBeLessThanOrEqual(1.5);
     });
   });
 }

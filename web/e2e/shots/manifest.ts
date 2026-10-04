@@ -299,9 +299,9 @@ export const SHOTS: Shot[] = [
   // -- Gig detail (CAP-8) -------------------------------------------------
   // GET /gigs/{gig_id} (key `GET /gigs/:id`), plus GET /reflections?gig_id=
   // for a student. The `loaded` shots below are real-sourced; the other
-  // three states further down are fake (CAP-21). "Reflection diary" is the
-  // DiaryCard's own heading, present once the gig has loaded and absent
-  // from the skeleton.
+  // three states further down are fake (CAP-21). "Sprints" is the
+  // DiaryCard's own heading (CAP-38 round 2e; it was "Reflection diary"),
+  // present once the gig has loaded and absent from the skeleton.
   //
   // Needs SHOTS_GIG_ID (see SHOTS_GIG_ID above) alongside SHOTS_STUDENT_TOKEN
   // -- skips cleanly with either unset.
@@ -311,7 +311,7 @@ export const SHOTS: Shot[] = [
     route: `/gigs/${SHOTS_GIG_ID}`,
     viewport: 'desktop',
     state: 'loaded',
-    ready: 'Reflection diary',
+    ready: 'Sprints',
     scenario: { source: 'real', slot: 'student', requires_env: ['SHOTS_GIG_ID'] },
   },
   {
@@ -320,7 +320,7 @@ export const SHOTS: Shot[] = [
     route: `/gigs/${SHOTS_GIG_ID}`,
     viewport: 'mobile',
     state: 'loaded',
-    ready: 'Reflection diary',
+    ready: 'Sprints',
     scenario: { source: 'real', slot: 'student', requires_env: ['SHOTS_GIG_ID'] },
   },
   // Loading/empty/error are fake-sourced (Global Constraints), unlike the

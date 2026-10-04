@@ -168,8 +168,8 @@ test('wide screen: gig detail column headings share a baseline', async ({ page }
   await install(page, person('Jane D', 'student'), [gig('student')], [SUBMITTED]);
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto(`/gigs/${GIG}`);
-  // The card's heading, not the bar's "Reflection Diary" title (R3).
-  await expect(page.getByRole('heading', { name: 'Reflection diary' })).toBeVisible();
+  // The card's heading (round 2e: "Sprints", was "Reflection diary").
+  await expect(page.getByRole('heading', { name: 'Sprints' })).toBeVisible();
 
   const bottoms = await page
     .locator('[class*="rows_head"] > span')
