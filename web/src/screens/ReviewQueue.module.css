@@ -1,8 +1,10 @@
+/* The gig page's card heading size ("Sprints"), not a page title (round 3,
+   Patrick: "Review queue" dominated the screen). */
 .heading {
-  margin: 0 0 var(--space-16);
-  font-size: var(--font-size-xl);
+  margin: 0 0 var(--space-12);
+  font-size: var(--font-size-lg);
   line-height: var(--line-height-tight);
-  font-weight: var(--font-weight-bold);
+  font-weight: var(--font-weight-medium);
   color: var(--color-text);
 }
 
