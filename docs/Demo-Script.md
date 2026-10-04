@@ -65,9 +65,11 @@ Jane's classmate on the La Trobe gig, part-way through the course.
    link** (any `https://` address), and choose a self-score. Each level shows its
    descriptor, so the student is scoring against words rather than a number.
 4. Do the same for the rest. Saving happens as you go.
-5. Press **Submit**. If anything the rubric requires is missing, the screen names the
-   competencies at fault instead of failing generically. On success the confirmation names
-   the assessor who has been told.
+5. Press **Submit**. If anything the rubric requires is missing, the screen says what, jumps
+   to the first competency at fault and highlights every one, instead of failing
+   generically. On success the confirmation names the assessor, and the reflection is now
+   in their review queue. Nothing is emailed: notifications are worked out from the queue,
+   not sent.
 
 ## 3. Assessing it (Sam, 4 minutes)
 
