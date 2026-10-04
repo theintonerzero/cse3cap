@@ -77,6 +77,8 @@ const PAIRS = [
   ['--color-text-muted', '--section-tint-diary', 'normal'],
   ['--color-text-muted', '--section-tint-review', 'normal'],
   ['--color-text-muted', '--section-tint-frameworks', 'normal'],
+  // CAP-38 round 2d (ADR #54): a secondary button's and an unselected chip's label.
+  ['--color-text', '--color-control', 'normal'],
 ];
 
 const THRESHOLD = { normal: 4.5, large: 3.0 };

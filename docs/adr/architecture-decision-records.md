@@ -61,6 +61,7 @@ Index
 #51 One Firefox check beside the Chromium suite .. Proposed
 #52 Section tints on the top screens ............. Proposed
 #53 A 20px title step for the app bar ............ Proposed
+#54 Controls show their edge in light mode ....... Proposed
 
 ===============================================================
 
@@ -2837,3 +2838,60 @@ and takes more of the phone bar from the name.
 
 Undo the phone override and keep lg (17px). The smallest change, but it is still smaller than
 the reference, which was the point of the review.
+
+===============================================================
+
+ADR #54: Controls show their edge in light mode
+Status: Proposed
+Date: 2026-10-04
+
+Context:
+A secondary button and an unselected chip were filled with --color-surface-alt, #f1f1f1,
+with no border. That was fine on the old plain page, #f6f7f9, but even there it measured
+only 1.05:1. ADR #52 then tinted the top screens, and the same grey measured 1.04:1 on the
+diary's lavender and 1.00:1 on the review queue's mint. Patrick reviewed round 2c in light
+mode on a phone and said the sprint chips, Gig details, History and the like were hard to
+see and caused eye strain. Dark mode was fine and he asked for it to stay as it is. A
+darker grey doesn't solve it. Even #dddde2 only reaches about 1.2:1 on the tints and looks
+muddy on lavender, because light UIs separate a control by its edge, not by fill contrast.
+The product already does this in places. Select, the sprint rows and the people pills are
+white with the hairline border.
+
+Decision:
+Two tokens. --color-control is the fill of a secondary button (and so a secondary
+LinkButton) and of an unselected chip. --shadow-control is its edge, drawn as an inset
+hairline so no control grows by a border's width. Light is #ffffff with an inset 1px
+#d9d9d9, which is --color-surface and --color-border, the same pair Select uses. Dark is
+#303030, the old --color-surface-alt, with no shadow at all, so dark renders identically.
+Selected chips, purple for the student and green for the assessor, keep their fill and drop
+the edge. Badges, empty-state panels, the sprint hint pill and the hover fills keep
+--color-surface-alt because they are not controls. This extends #50 and #52 and changes
+nothing in either. No existing colour token changes value.
+
+Consequences:
+Positive:
+Every secondary control now has a visible edge on every section tint and on a white card, in
+light mode. It matches the gig picker it sits beside, so the diary's top row reads as one
+set. One new pair is in check-contrast.mjs, --color-text on --color-control, at 16.29:1 in
+light and 11.58:1 in dark. Dark mode was captured before and after on five screens at 390
+and 1440 and the PNGs are byte-identical. It's one commit and one git revert removes it.
+
+Negative:
+The edge is #d9d9d9 on white, about 1.4:1. That is a visual cue, not a WCAG 1.4.11 boundary.
+The button stays identifiable by its label, which is how it passed before, but a reader
+who relies on the edge alone gets less than 3:1. A secondary button and a Select now look
+almost the same at rest, and only the chevron or the label tells them apart. The light and
+dark values are hex copies of surface, border and surface-alt, so if one of those ever
+changes the control won't follow unless someone updates both.
+
+Alternatives:
+Darken the grey fill. It was the first idea and the smallest change, but no grey light
+enough to keep the soft look gets past about 1.2:1 against the tints. It would also have
+changed dark mode, or needed a separate dark value anyway.
+
+Drop the light section tints back to the plain page. That undoes ADR #52, and the grey is
+still only 1.05:1 against #f6f7f9, so the controls would stay faint.
+
+Use a real 1px border. Simpler CSS, but it adds 2px to every button and chip, which would move
+the layouts the round 2 Playwright checks pin, such as the picker row lining up with Gig
+details.

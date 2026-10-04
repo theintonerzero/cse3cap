@@ -114,6 +114,17 @@
   --section-tint-review: #e9f4ee;
   --section-tint-frameworks: #ffe8d6;
 
+  /* CAP-38 round 2d, ADR #54: what a secondary button or an unselected chip
+     is filled with, and the hairline round it. Light: white with the
+     border grey, as Select and the sprint rows already are -- the old
+     --color-surface-alt fill measured 1.04:1 against the diary's tint and
+     1.00:1 against the review queue's, so the control all but vanished.
+     The hairline is drawn inside the box, so no control grows by a
+     border's width. Dark: unchanged, see the dark blocks. Hex so
+     check-contrast.mjs can measure it. */
+  --color-control: #ffffff;
+  --shadow-control: inset 0 0 0 1px #d9d9d9;
+
   /* Spacing, 4px grid. --space-20 is measured, not interpolated: it is
      both the page's horizontal margin and the gap between dashboard
      cards, confirmed at four separate card boundaries on the Home
@@ -250,6 +261,11 @@
     --section-tint-review: #182523;
     --section-tint-frameworks: #2f1d12;
 
+    /* ADR #54: dark keeps its --color-surface-alt fill and draws no edge,
+       so nothing about a dark control changes, to the pixel. */
+    --color-control: #303030;
+    --shadow-control: none;
+
     /* CAP-38: a hairline instead of a shadow (see the light block). */
     --shadow-card: 0 0 0 1px var(--color-border);
     --shadow-sheet: 0 0 0 1px var(--color-border);
@@ -286,6 +302,11 @@
   --section-tint-diary: #19152f;
   --section-tint-review: #182523;
   --section-tint-frameworks: #2f1d12;
+
+  /* ADR #54: dark keeps its --color-surface-alt fill and draws no edge,
+     so nothing about a dark control changes, to the pixel. */
+  --color-control: #303030;
+  --shadow-control: none;
 
   /* CAP-38: a hairline instead of a shadow (see the light block). */
   --shadow-card: 0 0 0 1px var(--color-border);
