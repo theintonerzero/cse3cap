@@ -40,10 +40,21 @@
   color: var(--color-text-muted);
 }
 
+/* Round 2e (Patrick): "Scored against" is the card heading's subheading,
+   set like the page's own sub line under the gig title: close under the
+   heading (which always precedes it), muted, and clear of the rows below.
+   The rubric's name keeps --color-text so it still reads at a glance.
+   Muted on --color-surface is already a measured pair in
+   check-contrast.mjs. */
 .framework {
-  margin: 0;
+  margin: 0 0 var(--space-16);
   font-size: var(--font-size-sm);
   line-height: var(--line-height-relaxed);
+  color: var(--color-text-muted);
+}
+
+.framework strong {
+  font-weight: var(--font-weight-medium);
   color: var(--color-text);
 }
 
@@ -106,7 +117,7 @@
    the frame's accent tint. Round 2e: tight leading, so its letters start
    as far below the card's top as the rows sit from its sides. */
 .card_heading {
-  margin: 0 0 var(--space-12);
+  margin: 0 0 var(--space-4);
   font-size: var(--font-size-lg);
   line-height: var(--line-height-tight);
   font-weight: var(--font-weight-medium);
