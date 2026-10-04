@@ -10,7 +10,7 @@ keys are the repository's `CAP-n`; Jira holds the same tickets as `COA4-n` (ADR 
 
 ## [Unreleased]
 
-Becomes **1.0.0**, planned for 12 October 2026: `dev` merged to `main` and tagged (CAP-30).
+Becomes **1.0.0**, planned for 11 October 2026 after a cut-off at the end of 10 October: `dev` merged to `main` and tagged (CAP-30).
 
 ### What 1.0.0 contains
 

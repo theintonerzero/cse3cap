@@ -1,0 +1,155 @@
+%% Entity relationship diagram for the Reflection Diary (CAP-27).
+%%
+%% The source for docs/erd.png. db/01-schema.sql is the truth: where this and the schema
+%% disagree, the schema wins and this file is the bug. Regenerate the PNG after any schema
+%% change with `./run erd`.
+%%
+%% Crow's foot notation cannot show everything the schema enforces. The legend below the
+%% diagram, drawn into docs/erd.png by scripts/render-erd.mjs, lists what it leaves out.
+
+erDiagram
+    users {
+        char36 id PK
+        varchar external_ref UK "null until Alumable integration"
+        varchar display_name
+        datetime6 created_at
+    }
+    gigs {
+        char36 id PK
+        varchar external_ref UK
+        varchar title
+        varchar org_name
+        date starts_on
+        date ends_on
+        datetime6 created_at
+    }
+    sprints {
+        char36 id PK
+        char36 gig_id FK
+        int ordinal "unique per gig, above 0"
+        date opens_on
+        date due_on
+    }
+    gig_participants {
+        char36 id PK
+        char36 gig_id FK
+        char36 user_id FK
+        varchar role "student, assessor, supervisor or employer"
+    }
+    frameworks {
+        char36 id PK
+        char36 created_by FK "null for a seeded base"
+        varchar fw_key "unique with version"
+        varchar version
+        varchar name
+        tinyint is_active
+        tinyint comment_required
+        tinyint evidence_required
+        json accepted_file_types
+        bigint max_file_bytes
+    }
+    competencies {
+        char36 id PK
+        char36 framework_id FK
+        varchar code "unique per framework"
+        varchar name
+        varchar category
+        int position
+        varchar short_label
+    }
+    levels {
+        char36 id PK
+        char36 competency_id FK
+        int level_value "unique per competency, above 0"
+        text descriptor
+    }
+    framework_assignments {
+        char36 id PK
+        char36 framework_id FK
+        char36 gig_id FK,UK "one rubric per gig"
+        char36 assigned_by FK
+        datetime6 assigned_at
+    }
+    reflections {
+        char36 id PK
+        char36 user_id FK "RESTRICT: the student owns it"
+        char36 gig_id FK "RESTRICT"
+        char36 sprint_id FK
+        char36 framework_id FK
+        varchar framework_version "snapshot at creation"
+        varchar status "draft, submitted or assessed"
+        datetime6 submitted_at
+        char36 gig_key "generated"
+        char36 sprint_key "generated"
+        datetime6 created_at
+        datetime6 updated_at
+    }
+    reflection_entries {
+        char36 id PK
+        char36 reflection_id FK
+        char36 competency_id FK "unique per reflection"
+        text narrative
+        datetime6 created_at
+        datetime6 updated_at
+    }
+    scores {
+        char36 id PK
+        char36 reflection_entry_id FK
+        char36 scorer_user_id FK "RESTRICT"
+        varchar scorer_role "self, assessor, supervisor or employer"
+        char36 level_id FK "RESTRICT"
+        text comment
+        datetime6 scored_at
+    }
+    evidence {
+        char36 id PK
+        char36 reflection_entry_id FK
+        varchar kind "file, link or image"
+        varchar label
+        text uri
+        bigint size_bytes
+        datetime6 uploaded_at
+    }
+    events {
+        char36 id PK
+        char36 reflection_id FK
+        char36 actor_user_id FK
+        varchar event_type
+        json metadata
+        datetime6 occurred_at
+    }
+    exports {
+        char36 id PK
+        char36 user_id FK
+        char36 reflection_id FK "null for the whole record"
+        varchar format "pdf or json"
+        varchar status "pending, complete or failed"
+        text uri
+        json summary
+        datetime6 requested_at
+        datetime6 completed_at
+    }
+
+    gigs ||--o{ sprints : "has (cascade)"
+    gigs ||--o{ gig_participants : "has (cascade)"
+    users ||--o{ gig_participants : "takes part (cascade)"
+    users |o--o{ frameworks : "copied (set null)"
+    frameworks ||--o{ competencies : "has (cascade)"
+    competencies ||--o{ levels : "has (cascade)"
+    frameworks ||--o{ framework_assignments : "assigned as"
+    gigs ||--o| framework_assignments : "scored against (cascade)"
+    users |o--o{ framework_assignments : "assigned (set null)"
+    users ||--o{ reflections : "owns (restrict)"
+    gigs |o--o{ reflections : "context (restrict)"
+    sprints |o--o{ reflections : "context (set null)"
+    frameworks ||--o{ reflections : "scored against"
+    reflections ||--o{ reflection_entries : "one per competency (cascade)"
+    competencies ||--o{ reflection_entries : "answers (restrict)"
+    reflection_entries ||--o{ scores : "scored (cascade)"
+    users ||--o{ scores : "scored by (restrict)"
+    levels ||--o{ scores : "level (restrict)"
+    reflection_entries ||--o{ evidence : "supports (cascade)"
+    reflections ||--o{ events : "history (cascade)"
+    users |o--o{ events : "actor (set null)"
+    users ||--o{ exports : "requested (cascade)"
+    reflections |o--o{ exports : "of (set null)"

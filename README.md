@@ -22,7 +22,7 @@ after the subject closes and after they graduate.
 | Backend | **Complete.** 30 endpoints, all seven business rules, 156 feature tests and 6 unit tests |
 | Contract | `docs/openapi.yaml` matches the served routes, checked mechanically |
 | Frontend | **Complete.** Design tokens, the ten core components, the typed client, the app shell and every screen in the build scope, with 53 Playwright browser checks |
-| Release | v1.0.0 planned for 12 October 2026. Changes are in [`docs/CHANGELOG.md`](docs/CHANGELOG.md) |
+| Release | v1.0.0 planned for 11 October 2026, after a cut-off at the end of 10 October. Changes are in [`docs/CHANGELOG.md`](docs/CHANGELOG.md) |
 
 The API is finished and stable. The contract is the agreement, so a screen can be built
 against `prism mock docs/openapi.yaml` without waiting for anything.
@@ -213,7 +213,8 @@ one table serves every event type. Notifications are derived from it rather than
 as the job record for async export generation.
 
 Full ERD: [`docs/erd.png`](docs/erd.png), whose legend lists the constraints crow's foot
-notation cannot show. Schema with inline reasoning:
+notation cannot show. It is drawn from [`docs/erd.mmd`](docs/erd.mmd) by `./run erd`, so
+update that file and redraw after any schema change. Schema with inline reasoning:
 [`db/01-schema.sql`](db/01-schema.sql).
 
 ## Repository structure
