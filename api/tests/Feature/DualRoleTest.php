@@ -148,4 +148,17 @@ class DualRoleTest extends TestCase
         $this->getJson("/api/v1/gigs/{$this->gig->id}")
             ->assertOk()->assertJsonPath('my_role', 'student');
     }
+
+    public function test_the_gig_page_lists_a_dual_role_participant_once_as_student(): void
+    {
+        Sanctum::actingAs($this->dual);
+
+        $rows = collect($this->getJson("/api/v1/gigs/{$this->gig->id}")->assertOk()->json('participants'))
+            ->where('id', $this->dual->id)->values();
+
+        // A second, assessor row would show them as reviewing their own gig,
+        // which the policy refuses.
+        $this->assertCount(1, $rows);
+        $this->assertSame('student', $rows[0]['role']);
+    }
 }
