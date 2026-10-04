@@ -195,8 +195,9 @@ export function DiaryHome() {
            * Unscoped, GET /me/radar draws one rubric: the latest
            * reflection's (docs/openapi.yaml, /me/radar). Over two or more
            * gigs that is one gig labelled as all of them, so "All gigs"
-           * asks for a choice instead (CAP-38). Over one gig, "all" is that
-           * gig and the radar draws as it always has.
+           * asks for a choice instead (CAP-38). A student with one gig is
+           * never here: their scope defaults to it (diary-scope.ts, round
+           * 2e), so the length check only guards a payload that changed.
            */}
           {scope.gig_id === null && mine.length > 1 ? (
             <div className={styles.radar_block}>
@@ -386,7 +387,9 @@ function ScopeChips({
               on_select(value === '' ? ALL_GIGS : { gig_id: value, sprint_id: null })
             }
           >
-            <option value="">All gigs</option>
+            {/* Over one gig, "All gigs" is that gig under another name,
+                and the scope already defaults to it (round 2e). */}
+            {gigs.length > 1 && <option value="">All gigs</option>}
             {gigs.map((candidate) => (
               <option key={candidate.id} value={candidate.id}>
                 {candidate.title}

@@ -40,10 +40,19 @@ export function student_gigs(gigs: Gig[]): Gig[] {
  * A scope the data does not support falls back rather than erroring: a
  * stale or shared link is the normal way an unknown id gets here, and an
  * error screen would be the wrong answer to it.
+ *
+ * With exactly one gig to be a student on, the fallback is that gig, not
+ * "all gigs" (CAP-38 round 2e, Patrick): over one gig they are the same
+ * record, and only the gig scope offers its sprints and Gig details. Still
+ * a pure function of the URL and the payload, so a link renders the same
+ * screen twice; a bare "/" just means something different to a student
+ * with one gig than to a student with two.
  */
 export function scope_from_params(params: URLSearchParams, gigs: Gig[]): Scope {
   const mine = student_gigs(gigs);
-  const gig = mine.find((candidate) => candidate.id === params.get('gig_id'));
+  const gig =
+    mine.find((candidate) => candidate.id === params.get('gig_id')) ??
+    (mine.length === 1 ? mine[0] : undefined);
 
   if (!gig) return ALL_GIGS;
 
