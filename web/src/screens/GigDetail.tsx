@@ -37,7 +37,6 @@ import {
   BottomSheet,
   Button,
   ErrorNotice,
-  LinkButton,
   Skeleton,
   SkeletonGroup,
 } from '../components/index.ts';
@@ -325,8 +324,10 @@ function TimelineCard({ gig }: { gig: Gig }) {
 }
 
 /**
- * The frame's third card, and criterion 3's way into the diary scoped to
- * this gig.
+ * The frame's third card. It used to end in criterion 3's link into the
+ * diary scoped to this gig; round 2d dropped it (Patrick, CAP-8's owner):
+ * this page is only reached from the diary, and the bar's back arrow
+ * returns to the diary as it was left (diary-return.ts), which is this gig.
  *
  * For a student it is the frame's SPRINT / SELF REFLECTION / ASSESSOR
  * REFLECTION rows, the two columns being the reflection states split
@@ -393,12 +394,6 @@ function DiaryCard({
         )}
 
         {!is_student && <p className={styles.diary_body}>{NOT_YOUR_DIARY}</p>}
-
-        {is_student && (
-          <div className={styles.diary_action}>
-            <LinkButton to={`/?gig_id=${gig.id}`}>Open your diary for this gig</LinkButton>
-          </div>
-        )}
       </div>
     </section>
   );

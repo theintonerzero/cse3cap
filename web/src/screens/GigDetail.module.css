@@ -34,10 +34,6 @@
   margin-block: calc((var(--font-size-xl) * var(--line-height-tight) - 2.75rem) / 2);
 }
 
-.diary_action {
-  margin-top: var(--space-16);
-}
-
 .sub {
   margin: 0;
   font-size: var(--font-size-sm);
@@ -176,6 +172,12 @@
   flex-direction: column;
   gap: var(--space-8);
   margin-bottom: var(--space-16);
+}
+
+/* Round 2d: with the diary link gone the rows are a student's last block,
+   and the card's own padding is the space under them. */
+.rows:last-child {
+  margin-bottom: 0;
 }
 
 .rows_head,

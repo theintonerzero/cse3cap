@@ -15,9 +15,9 @@
 # 2. The screen is REACHABLE, and the link out of it goes somewhere real.
 #    Nothing in the nav addresses a single gig, so the only way in is a
 #    link on the diary home; without one the screen exists and nobody can
-#    click to it. And the card's link back must be SCOPED to a parameter
-#    the diary home actually reads -- a ?gig_id= nobody parses is a link
-#    that silently lands on the unfiltered diary.
+#    click to it. And the way back must be SCOPED: since CAP-38 round 2d
+#    that is the bar's back arrow, returning to the diary as it was left
+#    (diary-return.ts), not a link on the card.
 # 3. No second API client, and no hand-written response type.
 # 4. All four states, including skeletons rather than a spinner.
 # 5. The relative wording is REAL. gig-timing.ts is compiled and called
@@ -101,10 +101,22 @@ else
     bad "it uses CAP-3's Button"
 fi
 
+# CAP-38 round 2d (Patrick, CAP-8's owner): the card's "Open your diary for
+# this gig" link is gone as redundant. The way back is the bar's back arrow,
+# which returns to the diary's remembered scope -- the gig just picked, since
+# the diary only offers Gig details once a gig is. So: no second way back on
+# the screen, and the arrow must read the remembered scope, not a bare "/".
+SHELL="web/src/app/AppShell.tsx"
 if grep -q '/?gig_id=' "$SCREEN"; then
-    ok "the card links to /?gig_id="
+    bad "the gig page has no link of its own back to the diary" "round 2d removed it; the back arrow is the way"
 else
-    bad "the card links to /?gig_id=" "criterion 3 is a SCOPED link"
+    ok "the gig page has no link of its own back to the diary"
+fi
+
+if grep -q 'diary_href(me.id)' "$SHELL" && grep -q 'remember_diary_scope' "$DIARY"; then
+    ok "the back arrow returns to the diary's remembered scope" "diary-return.ts"
+else
+    bad "the back arrow returns to the diary's remembered scope" "back would drop the gig"
 fi
 
 if grep -q "params.get('gig_id')" "$SCOPE"; then
