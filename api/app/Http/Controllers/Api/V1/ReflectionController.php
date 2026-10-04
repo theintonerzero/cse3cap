@@ -11,7 +11,6 @@ use App\Models\Gig;
 use App\Models\Reflection;
 use App\Services\EventLog;
 use App\Services\ReflectionCreator;
-use App\Services\RoleResolver;
 use App\Services\SubmitGate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,7 +20,6 @@ use Illuminate\Support\Facades\Gate;
 class ReflectionController extends Controller
 {
     public function __construct(
-        private RoleResolver $roles,
         private ReflectionCreator $creator,
         private SubmitGate $gate,
         private EventLog $events,

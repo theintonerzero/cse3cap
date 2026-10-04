@@ -1,11 +1,11 @@
 # web/
 
-The React frontend. **Two screens are built.** `src/App.tsx` mounts the session and the
-router, `/` is the student's diary home and `/gigs/:gig_id` is the gig detail screen.
+The React frontend. **Every screen in the build scope is built and mounted.** `src/App.tsx`
+mounts the session and the router, and `src/app/routes.tsx` holds the route table listed in
+[The screens](#the-screens) below.
 
-What sits under it is `tokens.css`, the typed API client in `src/api/`, all ten core
-components, and the app shell with its route table. The remaining screens mount into the
-same frame.
+What sits under them is `tokens.css`, the typed API client in `src/api/`, all ten core
+components, and the app shell every screen mounts into.
 
 The point of the scaffold existing before any of it was that the toolchain, the CI job and
 the dev server are proven to work before anybody writes a screen, so the first real PR is
@@ -54,9 +54,24 @@ npx -y @stoplight/prism-cli mock docs/openapi.yaml    # http://localhost:4010
 | `npm run lint`      | oxlint                                                       |
 | `npm run format`    | Prettier, writing changes                                    |
 | `npm run preview`   | Serve the built `dist/` locally                              |
+| `npm run test:e2e`  | Browser checks in headless Chromium against a fake API       |
 
-CI runs `npm ci`, `npm run lint`, `npx prettier --check .` and `npm run build` on every
-push. All four pass today; keep them passing.
+CI runs `npm ci`, `npm run lint`, `npx prettier --check .`, `npm run build` and
+`npm run test:e2e` on every push. All five pass today; keep them passing.
+
+## Browser checks
+
+`e2e/` holds Playwright specs that drive the real screens in Chromium (ADR #42). They need
+no backend, database or token: `e2e/fake-api.ts` answers every `/api/v1` request from
+fixtures typed against `src/api/schema.ts`, records what the page sent, and fails on purpose
+when a test asks it to. `./run e2e` from the repository root installs Chromium the first
+time and runs them. Arguments go through to Playwright: `./run e2e -g "partway"` runs one
+test, `./run e2e --headed` shows the browser.
+
+The fake reproduces the shape of what the API returns, not its rules. A spec that needs a
+refusal asks for it with `api.fail(...)`, naming the status and code the contract declares,
+and the rule that produces it is tested in `api/tests/`. A failed run keeps a trace in
+`test-results/`: `npx playwright show-trace <path>` replays it step by step.
 
 ## What to build, in order
 
@@ -72,19 +87,31 @@ foundation comes before any screen:
 4. ~~App shell: router, token context, role-aware nav from `GET /auth/me`.~~ Done.
    See "Getting a token in" below.
 
-Then the twelve screens. **Each ships four states: loaded, loading, empty, error.** Not
-three. `/add-screen` carries the full checklist.
+Then the screens, all built. **Each ships four states: loaded, loading, empty, error.** Not
+three. `/add-screen` carries the full checklist for any screen added after v1.0.0.
 
 ## The screens
 
 `src/screens/<Name>.tsx` beside a colocated `<Name>.module.css`. A screen takes no props,
 fetches through the typed client, and owns its own states.
 
-| Screen        | Route                                                     | Check                |
-| ------------- | --------------------------------------------------------- | -------------------- |
-| `DiaryHome`   | `/`, scoped by `?gig_id=` and `?sprint_id=`               | `./run verify-diary` |
-| `GigDetail`   | `/gigs/:gig_id`                                           | `./run verify-gig`   |
-| `ReviewQueue` | not mounted yet; CAP-10's follow-up swaps the placeholder | —                    |
+| Screen            | Route                                                     | Check                                      |
+| ----------------- | --------------------------------------------------------- | ------------------------------------------ |
+| `DiaryHome`       | `/`, scoped by `?gig_id=` and `?sprint_id=`               | `./run verify-diary`                       |
+| `ExportSheet`     | opens from the diary home                                 | `./run verify-export`                      |
+| `GigDetail`       | `/gigs/:gig_id`                                           | `./run verify-gig`                         |
+| `HistorySheet`    | opens from the gig page                                   | `./run verify-history`                     |
+| `EntryStepper`    | `/reflections/:reflection_id`, student mode               | `./run verify-entry-stepper`, `./run e2e`  |
+| `EntryStepper`    | `/review-queue/reflections/:reflection_id`, assessor mode | `./run verify-assessor-stepper`            |
+| `Submitted`       | `/reflections/:reflection_id/submitted`                   | `./run e2e`                                |
+| `ReviewQueue`     | `/review-queue`                                           | `./run verify-shell` (route), `./run e2e`  |
+| `SelectFramework` | `/frameworks`                                             | `./run verify-frameworks`                  |
+| `EditFramework`   | `/frameworks/:framework_id/edit`, the id is the base      | `./run e2e`, `./run verify-framework-edit` |
+
+`./run e2e` also runs the cross-screen checks: injection (`e2e/injection.spec.ts`),
+accessibility at phone and desktop widths (`e2e/accessibility.spec.ts`), and stepper
+ownership (`e2e/stepper-ownership.spec.ts`). `e2e/shots/` captures the User Manual's
+screenshots (HO-6).
 
 The diary home keeps its scope in the URL rather than in state (ADR #27), so a scoped diary
 is a link somebody can send. What a scope means -- which rows are yours, which sprints can
@@ -141,7 +168,8 @@ try {
 `error.code` is `null`, with `status` 0, when the request never reached the API at all.
 
 **Regenerate after every pull that touched the contract**, with `npm run gen:types`.
-Nothing catches a stale `schema.ts` yet; that guard is CAP-25.
+If you forget, CI's Contract job fails on the difference; `./run contract-drift` runs the
+same check locally (CAP-25).
 
 `./run verify` from the repository root checks all of this: that regenerating changes
 nothing, that the bad calls above are compile errors, and that the client behaves against

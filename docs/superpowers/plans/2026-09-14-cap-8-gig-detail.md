@@ -1534,8 +1534,8 @@ Recorded here rather than done, because CAP-8 is CAP-8.
   light mode. Colour is also the only affordance marking these as links.
 
   This branch changed `.diary_link` and `.empty_link` to `--color-text` plus an underline
-  and Patrick reverted it on 2026-09-14: *"imagine if everyone did small changes to the css
-  our design would end up fucked."* He is right, and the reasoning generalises — a link
+  and Patrick reverted it on 2026-09-14, pointing out that if everyone made small local CSS
+  changes the design would fall apart. He is right, and the reasoning generalises — a link
   treatment is a property of the design system, so five people each fixing it locally
   produces five link styles and no fix. All three links are now `--color-primary`,
   consistently. Raising it as its own ticket against whoever owns the palette is the way

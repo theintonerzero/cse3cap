@@ -18,7 +18,7 @@ Setup for the app itself, the shared database and Claude Code is in the
 
 Name them as `<type>/<JIRA-KEY>-<description>`. Capitalise the Jira key.
 
-Example: `feat/CAP-12-user-login`
+Example: `feat/CAP-39-start-reflection`
 
 ## Commits
 
@@ -41,7 +41,7 @@ feat(auth): add login form
 `<type>(<scope>): <description> (<JIRA-KEY>)`
 
 ```text
-feat(auth): user login (CAP-12)
+feat(web): start a reflection from the gig page (CAP-39)
 ```
 
 - Targets `dev`.

@@ -4,6 +4,14 @@
 **Status:** Parked 2026-09-08, blocked on access to the host. Design agreed; four decisions
 open in §9. Not ready for an implementation plan until §9 is closed, and §9.4 blocks the
 rest of them.
+
+**Update 2026-09-30:** §9.4 is still open, so the ticket took the shape §9.4's default
+describes: a reviewed, reproducible deploy that whoever holds the box runs. It is built in
+`deploy/`, `scripts/deploy.sh`, `scripts/rollback.sh` and `scripts/check-db-tls.sh`, run by
+[`docs/Deployment.md`](../../Deployment.md) and recorded as ADR #45. §9.1:
+`diary.darkovski.dev` resolved to the box on that date (and still did on 2026-10-03).
+§9.2: the recommendation was taken. §9.3 is still unanswered. Everything below stays the
+design; where the build differs, ADR #45 says so.
 **Ticket:** CAP-26, Sprint 5, 8 points. Epic: Demo Data, Hardening and Release.
 
 ## What this is for

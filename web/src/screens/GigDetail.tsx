@@ -28,12 +28,19 @@
  * can compile it and call it with dates the seed does not contain. Every
  * seeded sprint is already past due.
  */
-import { useCallback, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router';
 
 import { api, ApiError } from '../api/client.ts';
 import type { components } from '../api/schema.ts';
-import { Card, ErrorNotice, Skeleton, SkeletonGroup } from '../components/index.ts';
+import {
+  BottomSheet,
+  Button,
+  Card,
+  ErrorNotice,
+  Skeleton,
+  SkeletonGroup,
+} from '../components/index.ts';
 import { useSession } from '../session/useSession.ts';
 import {
   by_ordinal,
@@ -44,6 +51,7 @@ import {
   sprint_timing,
 } from './gig-timing.ts';
 import styles from './GigDetail.module.css';
+import { HistorySheet } from './HistorySheet.tsx';
 
 type Gig = components['schemas']['GigDetail'];
 type Sprint = Gig['sprints'][number];
@@ -78,6 +86,7 @@ export function GigDetail() {
   const { me } = useSession();
   const [load, setLoad] = useState<Load>({ status: 'loading' });
   const [reload_key, setReloadKey] = useState(0);
+  const [history_open, setHistoryOpen] = useState(false);
 
   useEffect(() => {
     // Nothing to fetch and nothing to set: the render path below answers
@@ -124,6 +133,10 @@ export function GigDetail() {
     setReloadKey((key) => key + 1);
   }, []);
 
+  // Re-reads in place, without the skeleton: the page is already drawn and
+  // only a row's state has changed underneath it (CAP-39's 409).
+  const refresh = useCallback(() => setReloadKey((key) => key + 1), []);
+
   // Before the load states, because with no id there is no load: the
   // effect above deliberately does nothing and `load` would sit on
   // 'loading' for ever.
@@ -158,11 +171,35 @@ export function GigDetail() {
 
   return (
     <section>
-      <GigHeader gig={gig} me_id={me?.id ?? null} />
+      <GigHeader
+        gig={gig}
+        me_id={me?.id ?? null}
+        on_history={gig.my_role === 'student' ? () => setHistoryOpen(true) : null}
+      />
       <TimelineCard gig={gig} />
-      <DiaryCard gig={gig} reflections={reflections} today={new Date()} />
+      <DiaryCard
+        gig={gig}
+        reflections={reflections}
+        today={new Date()}
+        on_refresh={refresh}
+      />
+
+      <BottomSheet
+        open={history_open}
+        title="History"
+        onClose={() => setHistoryOpen(false)}
+      >
+        <HistorySheet reflections={reflections} />
+      </BottomSheet>
     </section>
   );
+}
+
+interface GigHeaderProps {
+  gig: Gig;
+  me_id: string | null;
+  /** Opens the history sheet; null where there is no history to show. */
+  on_history: (() => void) | null;
 }
 
 /**
@@ -170,13 +207,25 @@ export function GigDetail() {
  * The status pill beside it ("Applied" / "Accepted") is not here -- this
  * build has no application or offer state to render, and a pill that
  * always says the same word is decoration.
+ *
+ * The History button that shares the pill's line in the frame is here
+ * (CAP-14), for a student only: the sheet is one student's milestones,
+ * built from GET /reflections, which gives anyone else every student's
+ * rows -- the same reason DiaryCard splits on role.
  */
-function GigHeader({ gig, me_id }: { gig: Gig; me_id: string | null }) {
+function GigHeader({ gig, me_id, on_history }: GigHeaderProps) {
   const when = gig_dates(gig.starts_on, gig.ends_on);
   const meta = [gig.org_name, when].filter((part): part is string => part !== null);
 
   return (
     <header className={styles.header}>
+      {on_history && (
+        <div className={styles.header_actions}>
+          <Button variant="secondary" full_width={false} on_click={on_history}>
+            History
+          </Button>
+        </div>
+      )}
       <h1 className={styles.heading}>{gig.title}</h1>
       {meta.length > 0 && <p className={styles.sub}>{meta.join(' \u00b7 ')}</p>}
       <ParticipantList participants={gig.participants} me_id={me_id} />
@@ -287,10 +336,12 @@ function DiaryCard({
   gig,
   reflections,
   today,
+  on_refresh,
 }: {
   gig: Gig;
   reflections: Reflection[];
   today: Date;
+  on_refresh: () => void;
 }) {
   const is_student = gig.my_role === 'student';
 
@@ -318,7 +369,12 @@ function DiaryCard({
             </p>
           </div>
         ) : is_student ? (
-          <SprintRows sprints={gig.sprints} reflections={reflections} today={today} />
+          <SprintRows
+            sprints={gig.sprints}
+            reflections={reflections}
+            today={today}
+            on_refresh={on_refresh}
+          />
         ) : (
           <SprintCalendar sprints={gig.sprints} today={today} />
         )}
@@ -358,17 +414,20 @@ const NOT_YOUR_DIARY =
  * header line above carries the column names, and every row shares its
  * grid template, so they line up as the frame draws them.
  *
- * A sprint with no reflection is not a link: there is nothing yet to
- * address, and creating one is the stepper's job, not this screen's.
+ * A sprint with no reflection is not a link, because there is nothing yet to
+ * address. It offers Start reflection instead (CAP-39), which creates the
+ * draft and opens it in the stepper.
  */
 function SprintRows({
   sprints,
   reflections,
   today,
+  on_refresh,
 }: {
   sprints: Sprint[];
   reflections: Reflection[];
   today: Date;
+  on_refresh: () => void;
 }) {
   // One reflection per student per sprint -- the (user_id, gig_key,
   // sprint_key) unique index is what guarantees it, so a Map is safe.
@@ -430,12 +489,80 @@ function SprintRows({
                   {body}
                 </Link>
               ) : (
-                <div className={styles.row_flat}>{body}</div>
+                <div className={styles.row_unstarted}>
+                  <div className={styles.row_flat}>{body}</div>
+                  <StartReflection sprint_id={sprint.id} on_refresh={on_refresh} />
+                </div>
               )}
             </li>
           );
         })}
       </ul>
+    </div>
+  );
+}
+
+const NO_RUBRIC = 'This gig has no rubric yet. Ask your supervisor to assign one.';
+
+/**
+ * Starts a reflection on one sprint and opens it in the stepper (CAP-39).
+ *
+ * Offered on every sprint without a reflection. Which sprints may be
+ * started is not decided here: the server allows any, and
+ * GigPolicy::createReflection decides who. The ref, not just the disabled
+ * state, stops a double press sending twice, because two clicks can land
+ * before React re-renders the button disabled.
+ */
+function StartReflection({
+  sprint_id,
+  on_refresh,
+}: {
+  sprint_id: string;
+  on_refresh: () => void;
+}) {
+  const navigate = useNavigate();
+  const in_flight = useRef(false);
+  const [starting, setStarting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function start() {
+    if (in_flight.current) return;
+    in_flight.current = true;
+    setStarting(true);
+    setError(null);
+    try {
+      const reflection = await api.post('/reflections', { body: { sprint_id } });
+      navigate(`/reflections/${reflection.id}`);
+    } catch (caught) {
+      if (!(caught instanceof ApiError)) throw caught;
+      switch (caught.code) {
+        case 'DUPLICATE_REFLECTION':
+          // Started somewhere else since this page loaded. Re-reading turns
+          // this row into the link to it, which is the useful answer.
+          on_refresh();
+          break;
+        case 'FRAMEWORK_NOT_ASSIGNED':
+          setError(NO_RUBRIC);
+          break;
+        default:
+          setError(caught.message);
+      }
+    } finally {
+      in_flight.current = false;
+      setStarting(false);
+    }
+  }
+
+  return (
+    <div className={styles.row_start}>
+      <Button variant="secondary" full_width={false} disabled={starting} on_click={start}>
+        {starting ? 'Starting\u2026' : 'Start reflection'}
+      </Button>
+      {error && (
+        <p className={styles.row_error} role="alert">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

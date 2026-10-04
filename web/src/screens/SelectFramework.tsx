@@ -27,12 +27,7 @@ import { Link } from 'react-router';
 import { api, ApiError } from '../api/client.ts';
 import { Button, Card, ErrorNotice, Skeleton, SkeletonGroup } from '../components/index.ts';
 import { useSession, type SessionUser } from '../session/useSession.ts';
-import {
-  assignable_gigs,
-  group_frameworks,
-  is_editable,
-  type Framework,
-} from './framework-groups.ts';
+import { assignable_gigs, group_frameworks, type Framework } from './framework-groups.ts';
 import styles from './SelectFramework.module.css';
 
 type Participation = SessionUser['participations'][number];
@@ -267,13 +262,16 @@ function FrameworkRow({
             </span>
           )}
 
-          {is_editable(framework) && (
-            <Link className={styles.edit} to={`/frameworks/${framework.id}/edit`}>
-              <Button variant="secondary" full_width={false}>
-                Edit
-              </Button>
-            </Link>
-          )}
+          {/* Every row, in use or not. The editor never changes the rubric
+              it starts from -- it copies it (ADR #16, CAP-16) -- so a
+              reflection referencing this one is no reason to hide it. Both
+              seeded templates are in use; gating on in_use left a freshly
+              seeded database with no way into the editor at all. */}
+          <Link className={styles.edit} to={`/frameworks/${framework.id}/edit`}>
+            <Button variant="secondary" full_width={false}>
+              Copy and edit
+            </Button>
+          </Link>
 
           {assignable.length > 0 && assign.status !== 'picking' && (
             <Button

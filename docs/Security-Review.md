@@ -10,6 +10,578 @@ fixes what it finds leaves no record that the class of problem existed.
 
 ---
 
+## 2026-10-03 · Every finding re-verified, by reviewers who did not write them
+
+**Reviewer:** Tony To, via Claude Code · **Tickets raised:** CAP-42, CAP-43, CAP-44 ·
+**Commit reviewed:** `b8e2210`
+
+### Scope
+
+Every entry below, F1 to F10 and the CAP-31 and CAP-32 results, re-checked against current
+`dev` by four fresh agents that had not written any of it: one each for the tokens (F1 to
+F5), the PDF and evidence (F6 to F8), authorisation with F9, F10 and the pentest, and one
+critic for what no entry ever looked at. The method and severity scale are Cloudflare's
+`security-audit` skill (github.com/cloudflare/security-audit-skill), in its guidance mode.
+Its rule that matters most here is that the agent checking a finding is never the agent
+that found it.
+
+### Method
+
+Source only. Nothing in the repository was run, no deployed endpoint or shared service was
+probed, and nothing was written to the shared database. The skill forbids running target
+code without an OS-enforced sandbox, and this review had none. One read-only query was run
+through `diary_ro`, quoted under F13. Every new claim below was re-read by hand before it
+was written here.
+
+The skill's severity anchors are stricter than the ones this file has used. A gap with no
+reachable boundary violation is a hardening note, not a finding, and severity cannot exceed
+demonstrated impact. Re-rating against them is most of what changed.
+
+### Verdicts on the existing findings
+
+| Finding | Was | Now | Why |
+| --- | --- | --- | --- |
+| F1 | High, fixed | **Fix verified** | `client.ts:153-155` still gates the token on `import.meta.env.DEV`. Two blind spots in the check below |
+| F2 | Medium | **Hardening note, fix verified** | Sanctum 4.3.3's guard enforces a token's own `expires_at` when the global setting is null. No expiry matters only after a leak, which crosses no boundary by itself |
+| F3 | Medium | **Informational** | This file already says it is not an escalation. There is no concrete damage to point to |
+| F4 | Low | **Hardening note, fix verified** | And the 2026-10-03 method claim below it is wrong, see CAP-44 |
+| F5 | Low, accepted | **Informational** | The same person already has that token in `web/.env` |
+| F6 | Low, fixed | **Fix verified** | `PdfRenderer.php:37,43`. `chroot` is left at dompdf's default |
+| F7 | Low, fixed | **Fix verified** | `StoreEvidenceRequest.php:30`, and the stepper's own `^https?://` guard |
+| F8 | Low today | **Precondition, not a finding** | Still no route serves an evidence file back. One addition below |
+| F9, F10 | Low, fixed | **Fixes verified** | Each test fails with its fix removed |
+
+**Two claims in this file were wrong.**
+
+- The CAP-32 entry says nothing in `web/` or `scripts/` parses a token's shape.
+  `scripts/verify-app-shell.sh:98` does, with `[0-9]+\|[A-Za-z0-9]+`, and against an
+  `rdiary_` token it extracts `7|rdiary`. Its live check will 401 the day the tokens are
+  reissued, and CI skips that half. **CAP-44**, to merge before the reissue. Fixed in #96:
+  the script reads the token by name, and five offline checks hold it in CI.
+- The CAP-31 entry says not-yours is 404 everywhere it was probed. That holds for what was
+  probed, but F12 is a route where it does not.
+
+The CAP-31 framework gap is smaller than that entry states.
+`FrameworkMutationTest::test_one_reflection_freezes_the_framework_everywhere` sends real
+`PATCH` requests through the routes, middleware, policy and `assertEditable`. It is HTTP in
+process. What it skips is a real bearer token, which the pentest covers elsewhere.
+
+F1's check has two blind spots, neither of which weakens the fix in `client.ts`. If
+`VITE_API_TOKEN` is already set in the shell, Vite prefers it to `.env.production.local`, so
+the canary is never compiled and `check-bundle-secrets.sh:70` passes without testing
+anything. And the script knows only that one variable name.
+
+F8 gains one condition for whichever ticket first serves evidence back: the rubric allowlist
+checks the extension the uploader typed (`EvidenceController.php:65`), but `putFile` names
+the stored file from its contents. An HTML file called `x.pdf` passes a PDF-only rubric and
+is stored as `.html`. The served type must come from the server, never the stored name.
+
+### Findings
+
+#### F11 · Evidence and export files are never deleted, and nothing bounds them — needs validation
+
+> **Raised as CAP-42 (COA4-112).**
+
+`DELETE /evidence/{id}` deletes the row and never the file (`EvidenceController.php:57`), and
+the `Evidence` model has no deleting hook. Deleting a reflection leaves every file the same
+way. `max_file_bytes` is per file, there is no cap on files per entry, and there is no
+`throttle` anywhere in `api/`. `POST /exports` writes a file per call and nothing prunes
+them. So a student token can upload, delete and repeat, and what it leaves is invisible to
+every API path. Two of the four reviewers reached this separately.
+
+`Retention-and-Erasure.md` already notes that a deleted row leaves its file. That is this
+root cause seen from erasure. Seen from here, it is unbounded disk use on the box that
+runs the shared MySQL.
+
+**What decides the severity** is whether `/var/www/diary/shared/storage` and the MySQL data
+directory share a filesystem. The same device is Medium, because a shared service stops. A
+separate device is Low. That needs a shell, the same one CAP-41 is waiting on, and the
+check is a read-only `df -h` on both, written out in CAP-42.
+
+#### F12 · A classmate counter-scoring gets 403 where 404 belongs — Informational
+
+> **Raised as CAP-43 (COA4-113), where it is N1.**
+>
+> **Fixed in #99.** `counterScore` now answers 404 unless `view` allows.
+> `ScoringTest::test_a_classmate_gets_404_rather_than_403` was red with 403, and
+> `./run pentest` gains the probe: 36 holds and 1 break against the old policy, 37 holds
+> against the fix.
+
+`ReflectionPolicy::counterScore` (`ReflectionPolicy.php:94-96`) resolves a classmate on the
+same gig as `student` and returns `deny`, a 403. `view` gives the same person 404. The 403
+confirms that an entry id belongs to a reflection on one of their gigs. It needs an entry
+UUID the API never shows a classmate, so the gain is small. The pentest probed a student on
+her own entry and an assessor off his gig, not a classmate.
+
+#### F13 · A user holding two roles on a gig could counter-score their own work — needs validation
+
+> **Raised as CAP-43 (COA4-113), where it is N4.**
+>
+> **Fixed in #99, and it was reachable.** With a student and an assessor row on one gig, the
+> owner's counter-score of their own reflection returned 201 before the fix. `counterScore` now
+> refuses the owner whatever their role, and ADR #47 makes the student role win over row order.
+> The lists and `/auth/me` agree, held by `DualRoleTest`.
+
+`gig_participants` is unique on `(gig_id, user_id, role)` (`01-schema.sql:73`), so one user
+can hold two roles on a gig. `RoleResolver::for` returns `->value('role')` with no ordering,
+and `counterScore` never checks that the caller is not the owner. Whichever row comes back
+first decides.
+
+No such user exists on the shared database:
+`SELECT gig_id, user_id FROM gig_participants GROUP BY 1,2 HAVING COUNT(*) > 1` returned no
+rows on 2026-10-03. And no endpoint writes participants. Whether Alumable can produce one is
+the client's question. An owner check in `counterScore` is right either way.
+
+#### F14 · Two existence checks answer before the policy — Informational
+
+Not raised as a ticket on its own. It belongs with CAP-43 if that ticket's owner wants it.
+
+`StoreReflectionRequest` and `StoreFrameworkAssignmentRequest` validate `exists:gigs`, so a
+gig id that does not exist gets 400 where a real gig the caller is not on gets 404.
+`ReflectionCreator::resolveContext` runs before `Gate::authorize`, and a sprint paired with
+the wrong gig answers 400 with `details.sprint_gig_id`. That tells a non-participant which
+gig the sprint belongs to.
+
+### Hardening notes
+
+None of these crosses a boundary on its own.
+
+- **The draft rule lives in four places.** `ReflectionPolicy::update`'s docblock says "only
+  while it is a draft" and the method does not check it. `EntryController`,
+  `EvidenceController`, `ScoreController` and `ReflectionController::destroy` each carry
+  their own copy. Every copy is present today, but this is the shape CAP-19 had.
+- **A supervisor can assign another supervisor's framework copy.** `GigPolicy::assignFramework`
+  checks the role on the gig, not who owns the framework. Until a reflection freezes it, the
+  owner's edits change the other gig's rubric. Whether that is intended is a product call.
+- **The demo can be held by slow uploads.** Caddy accepts a 101 MiB body on `/api/*` before
+  any token is checked. The pool has five workers and no `request_terminate_timeout`, and
+  exports render in the request because the queue is `sync`. Whether Caddy buffers the body
+  first is not in the repository. Reproduce it on a local copy of the two config files,
+  never on the VPS.
+- **CI** has no top-level `permissions:` block, and `shivammathur/setup-php@v2` is pinned by
+  a moving tag rather than a commit.
+- **`diary_app`** is the demo's account and every developer's. The Runbook has people
+  migrate with it, which implies DDL on the data the demo serves. `SHOW GRANTS FOR
+  'diary_app'@'%'` settles it.
+- **No `Content-Security-Policy`** in the Caddyfile. Injection is already under test, so
+  this would be a second layer.
+- **`'serve' => true`** on the private `local` disk registers a signed `/storage/{path}`
+  route that nothing signs for. Caddy sends `/storage/*` to the frontend anyway, but `false`
+  says what is meant.
+- **Sign-out is client-side.** There is no logout route, so forgetting a token in the tab
+  revokes nothing on the server.
+- **Whether Caddy logs the `Authorization` header** depends on its version (2.5 and later
+  redact it). That is a `caddy version` on the box.
+
+### What is already right
+
+- **Every route has a guard.** All 33 are behind `auth:sanctum`, and each one that touches
+  a resource either calls a policy or runs a query scoped to the caller.
+- **The business rules hold from source.** Counter-scoring twice is 409 `ALREADY_SCORED`
+  through the unique index. A draft cannot be counter-scored, and a submitted reflection
+  cannot be edited, self-scored or deleted. A level from another competency is refused on
+  both score endpoints. No generated column is fillable.
+- **Exports reach their owner only**, the student's own supervisor included, and carry
+  nothing above what the student may see.
+- **The deploy kit refuses the obvious mistakes.** It will not ship a `.env` with
+  `APP_DEBUG=true`, a `VITE_API_TOKEN`, or an `APP_KEY` or database password in the built
+  frontend. Caddy serves `web/dist` and sends only `/api/*` to PHP. `.env`, storage and
+  `.git` sit outside both roots.
+- **A 500 leaks nothing.** The exception handler maps fixed messages, and an unmapped
+  `QueryException` falls through to Laravel's generic page with debug off.
+- **CI runs on `pull_request`, never `pull_request_target`**, and uses no secrets.
+
+### Sign-off
+
+Every fix in this file still holds. Four ratings were too high for what the findings
+demonstrate, and two claims were wrong. One is corrected by CAP-44, and the other is
+answered by F12. F11 is the one that matters, and its severity waits on a `df` nobody can
+run yet. That makes three things blocked on the same shell access: CAP-26, CAP-41 and CAP-42.
+
+CAP-31 stays In Review. F12 is a counterexample to its criterion "Not-yours returns 404
+rather than 403, everywhere", and that ticket's own last criterion says what does not hold
+is raised, not passed.
+
+---
+
+## 2026-10-03 · Security posture: tokens, the VPS and the dependency tree
+
+**Reviewer:** Tony To · **Ticket:** CAP-32 · **Commit reviewed:** `09a03c5`
+
+### Scope
+
+The token findings F2, F3 and F4 from the 2026-09-08 entry, decided rather than left open
+before CAP-26 puts the demo on a public URL. The VPS controls ADR #21 relies on, verified
+instead of assumed. The dependency tree against ADR #31. Git history, for credentials of the
+kind F1 found in a bundle.
+
+### Method
+
+- **Tokens.** Read `api/config/sanctum.php` and `DemoSeeder::issueTokens`, and checked that
+  nothing in `web/` or `scripts/` parses a token's shape (the frontend only trims it). The
+  decision is ADR #46 and the change is tested in `api/tests/Feature/TokenPostureTest.php`.
+  That test goes through the real Sanctum guard with a bearer header, not `actingAs`.
+- **VPS, from outside.** `nc -z rddb.darkovski.dev 3306` connects. Through the read-only
+  account: `@@require_secure_transport = 1`, MySQL 9.7.2, and this session's `Ssl_cipher` is
+  `TLS_AES_128_GCM_SHA256`. The per-account `REQUIRE SSL` could not be read: `mysql.user` is
+  denied to `diary_ro`, as it should be, and the server-wide setting refuses unencrypted
+  connections regardless.
+- **VPS, needing a shell.** Whether fail2ban still watches the MySQL log and bans in
+  `DOCKER-USER` cannot be seen from outside, and nobody has confirmed shell access. Raised as
+  **CAP-41** rather than assumed.
+- **Dependencies.** `docs/Dependency-Register.md`, generated at `09a03c5` by `./run deps`
+  from `composer audit` and `npm audit`: 117 Composer and 116 npm packages, **no
+  advisories**. No Dependabot pull request is open, as all five were merged on 2026-10-03.
+- **History.** gitleaks over every ref (263 commits with a diff; merges have none), redacted:
+  no leaks. Then a grep of every added line in `git log --all -p` for the shapes generic
+  scanners miss: Sanctum tokens, `APP_KEY=base64:`, `DB_PASSWORD`/`MYSQL_*PASSWORD`
+  assignments, private keys, Atlassian and GitHub tokens. The only hits are fixtures: the CI
+  service container's password `ci`, `scripts/deploy.test.py`'s test values, a blank
+  placeholder in `docs/Deployment.md` and a `case` pattern in `scripts/setup.sh`. The only
+  env file ever committed apart from the examples is `web/.env.production`, which holds
+  `VITE_API_BASE_URL=/api/v1` and nothing else.
+
+### Findings
+
+No new findings. F2, F3 and F4 are decided below and marked where they are listed. One control
+is unverified, and that gap is CAP-41.
+
+- **F2: tokens expire.** `DemoSeeder` issues each token 60 days out. The global setting stays
+  null so nothing already issued dies at once.
+- **F3: every ability, on purpose.** A scoped token would need a `tokenCan()` check outside
+  the policies, a second place authorisation lives.
+- **F4: tokens carry `rdiary_`.** A leaked one is caught by secret scanning.
+
+### What is already right
+
+- The server refuses unencrypted connections outright, not just per account. A client that
+  forgets the CA fails rather than silently connecting in the clear.
+- `diary_ro` cannot read `mysql.user`. The read-only account is read-only on the data and
+  blind to the grant tables.
+- No credential has ever been committed, across every branch.
+
+### Sign-off
+
+The token decisions are Proposed, as ADR #46, until the team accepts them. They reach the
+shared database only when the three tokens are reissued. The seeder skips a user who already
+has one, so until then the live tokens are unprefixed and never expire. Reissuing is
+announced, then done once: revoke the `demo` tokens, run `php artisan db:seed`, and pin the
+new ones. CAP-32 is done when ADR #46 is accepted and the tokens are reissued. CAP-41 is
+separate, and blocked on shell access.
+
+---
+
+## 2026-10-03 · The permission matrix, probed over HTTP
+
+**Reviewer:** Tony To · **Ticket:** CAP-31 · **Commit reviewed:** `09a03c5`
+
+### Scope
+
+Whether the running API refuses what the capability table in `docs/api-reference.html` says
+it refuses. That's six rows, four roles, and real bearer tokens, not `Sanctum::actingAs`. The
+test suite asserts what its authors believed. CAP-19 merged green with its central criterion
+false, which is why this was asked for separately.
+
+### Method
+
+`scripts/pentest.sh` (`./run pentest`) ran against a local `php artisan serve` on the shared
+database, with the three seeded tokens. It is written so a hole cannot do damage there:
+
+- It probes refusals and reads only.
+- Writes aimed at someone else's work target submitted or assessed reflections.
+- Framework edits send the current value back unchanged.
+- The one create a hole could let through is deleted again if it lands.
+
+It finds every id through the API, so it runs against any team member's database.
+
+**36 probes, 36 hold, 0 break.** By row:
+
+| Row | Probed | Result |
+| --- | --- | --- |
+| Create, edit, submit, delete own reflection; self-score; evidence | Jane on someone else's reflection: read, edit narrative, self-score, add evidence, submit, delete. Sam and Dr Lee editing, self-scoring and deleting what they can see. Sam starting a reflection | **Holds.** Every not-yours is 404 `NOT_FOUND`. Every can-see-but-not-yours-to-do is 403 `ROLE_FORBIDDEN` |
+| View a reflection | Sam on the gig he is not on: a reflection, its history, the gig, the filtered list. Each list scoped to its caller. Dr Lee on Jane's (allowed) | **Holds.** 404s, and no row of the other gig in any list |
+| Counter-score, review queue | Jane's queue, Jane counter-scoring her own entry, Sam counter-scoring off his gig | **Holds.** Empty queue, 403, 404 |
+| Create and edit frameworks | Jane and Sam copying. Dr Lee editing an in-use framework, competency and level. Jane editing Dr Lee's own copy | **Holds, with a gap below.** 403 throughout |
+| Assign a framework | Jane and Sam assigning | **Holds.** 403 |
+| Analytics and export | Jane's radar (allowed). Sam and Dr Lee reaching Jane's export and its download | **Holds.** 404 to anyone but the owner, her supervisor included |
+| No token, a made-up token | read and write | **Holds.** 401 `UNAUTHENTICATED` |
+
+IDOR, as the ticket names it: Jane reading another student's reflection is 404. Sam reaching
+the gig he is not on is 404. A student counter-scoring her own entry is 403.
+
+### Findings
+
+No new findings. Not-yours is 404 everywhere it was probed, and no 403 leaks that a resource
+exists.
+
+**One gap, stated rather than passed.** The three framework-edit probes were refused by
+*ownership* (403), because the frameworks in use on the shared database are the seeded base
+rubrics, which Dr Lee does not own. The in-use rule itself (409 `FRAMEWORK_IN_USE` on an
+owned copy that a reflection references) is not reached over HTTP here. Reaching it would
+mean making one of Dr Lee's copies in use, which writes to the shared database.
+`api/tests/Feature/FrameworkMutationTest::test_one_reflection_freezes_the_framework_everywhere`
+proves it through all three edit endpoints: framework, competency and level.
+
+### What is already right
+
+- The 404 versus 403 rule is applied consistently, including on exports, where a supervisor
+  of the student still gets 404.
+- Lists are scoped in the query, not filtered afterwards (ADR #40). Sam's lists contain
+  nothing from the gig he is not on, rather than hiding it after fetching it.
+- Every refusal arrives in the error envelope with its documented code.
+
+### Sign-off
+
+CAP-31's criteria are met, apart from the framework gap above, which the test suite covers.
+`./run pentest` can be rerun by anyone, against any seeded database, before a release.
+
+---
+
+## 2026-09-29 · The last three screens, and injection under test
+
+**Reviewer:** Tony To · **Ticket:** CAP-24 · **Commit reviewed:** `8318624`
+
+### Scope
+
+Everything the 09-24 entry left open. Three screens merged since: edit framework (CAP-16,
+#62), where a supervisor types the competency names and level descriptors every stepper
+then shows; the history sheet on the gig page (CAP-14, #61); and the submitted confirmation
+(CAP-12, #65). And the gap the 09-24 entry admitted: the steppers' injection result rested
+on reading, because `web/` had no way to put hostile text on a screen without writing it
+into the shared db. ADR #42 (#63) gave it one, a browser check against a fake API.
+
+With CAP-16 merged, every screen the MVP has is built, so this entry is CAP-24's sign-off.
+
+| Criterion | State |
+| --- | --- |
+| Token storage and exposure | Re-checked at `8318624`. Holds |
+| Narrative, comment and evidence text rendered without injection | **Every screen that renders typed text, under test.** Holds |
+| No client-side role trust | Reviewed across the three new screens. Holds |
+| Findings raised as tickets, sign-off recorded | No new findings. Every open one has a ticket: F2 to F4 in CAP-32, F9 in CAP-36. This entry |
+
+### Method
+
+`web/e2e/injection.spec.ts` drives four screens in Chromium against `web/e2e/fake-api.ts`,
+which now also serves a reflection's detail, a gig's reflections and a reflection's events.
+`web/e2e/hostile.ts` puts one payload in every field a person types: the narrative, both
+evidence labels, a `javascript:` evidence link, the counter-score comment, every display
+name, a rubric's competency names, radar labels and descriptors, the gig's title, and an
+event type the history sheet has never heard of.
+
+```
+<img src=x onerror="window.__pwned=1"><script>window.__pwned=1</script>
+```
+
+The `<script>` half on its own would prove nothing, because a script added through
+`innerHTML` never runs. The `<img>` half does run, and it is what makes a sink visible.
+
+| Screen | Typed text on it |
+| --- | --- |
+| Student stepper | competency name, narrative, descriptors, counter-score scorer and comment, both evidence labels, the `javascript:` link |
+| Assessor stepper | the owner's name, in the status line and in two field labels |
+| Edit framework | a rubric's names and descriptors as fields, its name as an option, and the copy's name the supervisor types, shown back after a save |
+| Gig page and history | the gig title, the event actor, an unknown event type |
+
+Each test asserts every field is on the page as literal text, so it really was rendered, and
+then that nothing became markup: no `img[src="x"]` in the DOM, and `window.__pwned` still
+undefined.
+
+**Each test was then shown to fail.** For each screen, one text sink was swapped for
+`dangerouslySetInnerHTML` and that screen's test run, then the file was restored:
+
+| Mutation | Result |
+| --- | --- |
+| `EntryStepper.tsx`, a file evidence label | red: the label is no longer text on the page |
+| `EntryStepper.tsx`, the owner's name in the assessor status line | red: the name is no longer text |
+| `EditFramework.tsx`, `Saved as {copy.name}` | red: "Saved as . It is listed under Saved copies." |
+| `HistorySheet.tsx`, the event actor | red: the actor is no longer text |
+
+Each of those went red on its literal-text assertion before reaching the markup check. So
+the markup check was also run alone against the history mutation, and it went red on its own:
+one `img[src="x"]` in the DOM where none is allowed.
+
+Around the specs: a sweep of `web/src` for `dangerouslySetInnerHTML`, `innerHTML`, `eval`,
+`new Function`, `document.write`, `window.open`, `console.` and both storage APIs, which
+found none outside the session and theme files that were already reviewed; `./run check`;
+and every request the three new screens can send followed to the policy that decides it.
+
+### Findings
+
+None new. F9 (CAP-36) is still open and still not a way in: the student route offers a
+reviewer controls the server refuses. F8 stays open for the day an evidence download is
+built. None of these screens serves a file.
+
+### What is already right
+
+- **No screen renders typed text as markup.** Not argued from reading this time. Every field
+  above is under a test that fails against a sink, and it runs in CI on every pull request.
+- **A supervisor's wording reaches the steppers only as text.** Edit framework is the one
+  place a person authors what everyone else then reads, and it shows that wording only as
+  field values, option text and one message. Every stepper test above already carries
+  hostile rubric wording.
+- **The history sheet never renders `metadata`.** The contract lets it hold anything, and the
+  sheet reads only the event type, the actor and the time. An unknown type is shown by name,
+  as text.
+- **The three new screens trust no role.** `GigDetail` asks for a student's reflections and
+  offers History only when the server's `my_role` says student, and the events it then reads
+  pass `ReflectionPolicy::view`. `Submitted` reads participants' roles only to name who will
+  review. `EditFramework` checks no role at all: `POST /frameworks` passes
+  `FrameworkPolicy::create`, and every competency and level `PATCH` passes
+  `FrameworkPolicy::update`, whose in-use and owner rules live in `FrameworkEditing`.
+- **Tokens are where they were.** In `sessionStorage` per tab. The browser checks sign in
+  with a placeholder the fake never reads, so no credential goes near a browser, including in
+  CI.
+
+### Sign-off
+
+All four criteria are reviewed against every screen the MVP has and hold. The injection
+criterion is now held by `web/e2e/injection.spec.ts` rather than by a reviewer's reading, and
+each of its tests has been shown to fail against the sink it guards. CAP-24 is done. What
+stays open is recorded as tickets: F9 as CAP-36, F2 to F4 as CAP-32, and F8 as a condition on
+whichever ticket first serves an evidence file.
+
+---
+
+## 2026-09-24 · The two entry steppers
+
+> **Superseded in part by 2026-09-29.** The injection result below rested on reading. It is
+> now under test for both steppers, and for the screens built since.
+
+**Reviewer:** Tony To · **Ticket:** CAP-24 · **Commit reviewed:** `809274a`
+
+### Scope
+
+The two screens the injection criterion was waiting on: the student's entry stepper (CAP-11,
+#54) and the assessor's mode of the same screen (CAP-13, #56). They are the first screens
+that render what a person typed at length: the narrative, the counter-score comment, the
+evidence label and link, and the other person's display name. #56 also changed the routes,
+the review queue and `Chip`. CAP-16, the edit-framework screen, has not started, so this
+still is not the whole of CAP-24.
+
+| Criterion | State |
+| --- | --- |
+| Token storage and exposure | Re-checked at `809274a`. Holds |
+| Narrative, comment and evidence text rendered without injection | **Both steppers reviewed. Holds.** Read, not tested with hostile text on screen. See Method |
+| No client-side role trust | Reviewed across both modes and the new landing redirect. Holds. F9 is the UI offering what the server refuses |
+| Findings raised as tickets, sign-off recorded | F9 and F10 below. This entry |
+
+### Method
+
+Read `EntryStepper.tsx` in full as it stands after #56, with `entry-stepper-logic.ts`,
+`routes.tsx`, `ReviewQueue.tsx` and `Chip.tsx`. Then followed every write the screen can make
+to the policy that decides it: `ReflectionPolicy::update` for the narrative, evidence,
+self-score and submit, and `ReflectionPolicy::counterScore` for the counter-score. Then read
+the feature tests that hold those policies. Then ran:
+
+- `scripts/verify-entry-stepper.sh`, 13 of 13, and `scripts/verify-assessor-stepper.sh`,
+  23 of 23.
+- `./run bundle-secrets` at `809274a`. Passes.
+- A sweep of `web/src` for `dangerouslySetInnerHTML`, `innerHTML`, `eval`, `new Function`,
+  `document.write`, `window.open`, `console.` and both storage APIs.
+
+**What was not done.** The 09-19 review put hostile text through the PDF and kept it as a
+test. Doing the same on screen means writing `<script>` narratives into a reflection on the
+shared db, which is five people's demo data, and `web/` has no test runner to do it in
+isolation. So the injection result for the screens rests on reading: every value below
+reaches the DOM as a JSX text child, which React escapes. That is a strong mechanism, but it
+is a read, and a later `dangerouslySetInnerHTML` would not be caught by anything except the
+sweep above being run again.
+
+### Findings
+
+#### F9 · The student route offers a reviewer edit controls the server will refuse — Low. **Fixed 2026-09-30**
+
+> **Raised as CAP-36 (COA4-94), fixed there.** `read_only` now also turns on for anyone who
+> is not the reflection's owner, and while `me` is still loading. `web/e2e/stepper-ownership.spec.ts`
+> opens Jane's draft as Sam and finds no editable control and no write sent, and
+> `scripts/verify-entry-stepper.sh` asserts the condition. Both were red with the ownership
+> term removed.
+>
+> **Corrected 2026-10-03.** "No write sent" was asserted after the page loaded, before
+> anything had been tried, so it proved only that loading writes nothing. The spec now also
+> force-clicks every self-score chip as Sam and asserts that no request left the page. With
+> the ownership term removed, that test alone fails on two `PUT /entries/:id/scores/self`.
+
+`EntryStepper` decides `read_only` from the mode and the status alone:
+
+```ts
+const read_only = mode === 'assessor' || reflection.status !== 'draft';
+```
+
+The permission matrix lets every reviewer on a gig read a reflection on it, drafts included
+(`API-Specification.md`, "view a reflection"). So an assessor who opens
+`/reflections/{id}` on a student's draft, by URL or by a link that lands there, gets the
+student's mode: an editable narrative, self-score chips, and Add and Remove on the evidence.
+
+Nothing gets through. Every one of those writes goes to `ReflectionPolicy::update`, which is
+owner-only and answers a reviewer with 403 `ROLE_FORBIDDEN`. That is the design working: the
+client is not trusted. But the assessor sees a box that looks like theirs to edit, types,
+and gets an autosave error on every pause. It also contradicts the screen's own comment that
+"an assessor never edits what the student wrote".
+
+Fix in `web/`: add ownership to the condition, from the `owner` the reflection already
+carries and the session's `me`. A student mode opened by someone who is not the owner then
+renders read-only, the same as the assessor mode does.
+
+#### F10 · A reviewer's refusal is tested on the narrative only — Low. **Fixed 2026-09-24**
+
+> **Fixed in CAP-37, PR #60.** `ReflectionWritePathTest` now refuses an assessor (403) and
+> a stranger (404) on the self-score, evidence add and remove, and submit, and checks
+> nothing changed. Each test was red with its controller's `Gate::authorize` line removed.
+
+`ReflectionWritePathTest::test_nobody_else_writes_on_someone_elses_reflection` has Sam, an
+assessor, PATCH Jane's narrative and asserts 403. The self-score PUT, evidence POST and
+DELETE, and submit reach the same policy, and reading the controllers confirms they call
+`Gate::authorize('update', …)` or `('submit', …)`. But no test holds any of them. A
+controller that later drops its `authorize` line would pass every test that exists, and F9
+means the UI now sends exactly those requests as a reviewer.
+
+Fix in `api/tests/`: the same two-actor shape as the existing test (an assessor gets 403,
+a stranger gets 404), once for each of those four writes.
+
+### What is already right
+
+- **Every piece of typed text in both modes is rendered as text.** The narrative is a
+  textarea value. The counter-score comment, the evidence label, the scorer's and the
+  owner's display names, the competency name and each level descriptor are JSX text
+  children. Descriptors and competency names are also typed text, by whoever copies and
+  edits a framework (CAP-16), and they are escaped here the same way.
+- **One `href` in the whole screen, and it is guarded twice.** A `link` evidence item gets an
+  `<a>` only if its uri matches `^https?://`, on top of the server's `url:http,https` (F7).
+  It carries `rel="noopener noreferrer"` and `target="_blank"`. A file or image item's label
+  is plain text with no link at all.
+- **F8's condition holds.** Neither ticket added an endpoint that serves an evidence file.
+  #56 touched only `web/`, `scripts/` and `run`. So an uploaded `.html` or `.svg` still has
+  no way back to a browser. F8 stays open for the day a download is built.
+- **Mode is a route, not a role, and the server does not care which one was picked.**
+  Anyone can load `/review-queue/reflections/{id}`. A student doing so on their own
+  reflection gets a counter-score panel whose POST `counterScore` refuses with 403, held by
+  `ScoringTest::test_a_student_cannot_counter_score_even_their_own`.
+- **The new landing redirect is a convenience.** `Home` sends a user with no student role to
+  the review queue. The diary stays reachable by URL, and the analytics behind it filter to
+  the caller's own id.
+- **The comment hint is a hint.** `comment_expected` only disables Save early. The rule is
+  `Scoring.php`'s, which answers 400 `COMMENT_REQUIRED`, and the screen switches on that code
+  rather than on its own guess (`verify-assessor-stepper.sh` §3).
+- **The counter-score is never rewritten.** POST only, never PUT or PATCH (ADR #34), and the
+  flip to assessed is read from the 201 body rather than set by the screen.
+- **Tokens and storage are as they were.** Tokens in `sessionStorage` per tab, the theme alone
+  in `localStorage`, no `console` call anywhere in `web/src`, and no token in a production
+  build.
+
+### Sign-off
+
+The injection criterion is now reviewed for both screens that render narratives, comments
+and evidence, and holds, on reading rather than on a hostile-text test. The token and
+role-trust criteria hold across both modes. F9 and F10 are raised as tickets. Neither is a
+way in. One is a UI that offers what the server refuses, and the other is a test that
+should exist.
+
+CAP-24 stays open for CAP-16, the edit-framework screen, which is the last screen to render
+typed text and the one that lets a supervisor author it.
+
+---
+
 ## 2026-09-19 · The merged screens and the PDF export
 
 **Reviewer:** Tony To · **Ticket:** CAP-24 · **Commit reviewed:** `c661b5c`
@@ -98,6 +670,11 @@ with a feature test that posts `javascript:alert(1)` and expects a 400. Whoever 
 evidence link in CAP-11 should also render it with `rel="noopener noreferrer"`.
 
 #### F8 · Evidence files: any type, and no rule yet for serving them — Low today, High the day a download lands
+
+> **Re-rated 2026-10-03: a precondition, not a finding.** Still no route serves a file back.
+> The condition gains one line: the stored name's extension comes from the file's contents,
+> not the name the uploader typed. See the re-verification entry, and F11 for files that are
+> never deleted.
 
 `EvidenceController::storeFile` accepts any extension when the rubric's
 `accepted_file_types` is null, which it is for the seeded rubrics, so an `.html` or `.svg`
@@ -250,6 +827,12 @@ looks wrong, and no error is raised, so this fails silently and indefinitely.
 
 #### F2 · Tokens never expire — Medium
 
+> **Raised as CAP-32 (COA4-90), decided 2026-10-03 (ADR #46, Proposed).** Seeded tokens now
+> expire 60 days after issue; the global setting stays null. Live once the tokens are reissued.
+>
+> **Re-rated 2026-10-03: a hardening note.** No expiry matters only after a leak. See the
+> re-verification entry.
+
 `api/config/sanctum.php:53` sets `'expiration' => null`. A token is valid until it is
 manually revoked, and Sanctum stores only a hash, so a leaked token cannot be recognised
 after the fact — only revoked wholesale by reissuing, which the README notes breaks
@@ -261,6 +844,11 @@ which is CAP-26. Worth an explicit decision rather than a default.
 
 #### F3 · Tokens carry every ability — Medium
 
+> **Raised as CAP-32 (COA4-90), decided 2026-10-03 (ADR #46, Proposed).** Kept `['*']` on
+> purpose: an ability check would be a second place authorisation lives.
+>
+> **Re-rated 2026-10-03: informational.** See the re-verification entry.
+
 `api/database/seeders/DemoSeeder.php:120` calls `$user->createToken('demo')` with no
 abilities, so Sanctum grants `['*']`.
 
@@ -271,12 +859,21 @@ a screenshot session, and a leaked token can do everything its owner can, includ
 
 #### F4 · No token prefix, so a leak is not machine-detectable — Low
 
+> **Raised as CAP-32 (COA4-90), fixed 2026-10-03 (ADR #46).** New tokens carry `rdiary_`.
+> Live for the seeded three once they are reissued.
+>
+> **Re-rated 2026-10-03: a hardening note.** `scripts/verify-app-shell.sh` cannot read a
+> prefixed token yet. That is CAP-44, and it must merge before the reissue.
+
 `api/config/sanctum.php:68` leaves `token_prefix` empty. Sanctum supports a prefix precisely
 so that secret scanners — GitHub push protection among them — can recognise a token in a
 commit, a paste or a log. Setting it costs one environment variable and buys automated
 detection of exactly the leak F1 describes.
 
 #### F5 · A real token reaches disk during `./run verify` — Low, accepted
+
+> **Re-rated 2026-10-03: informational.** The same person already holds that token in
+> `web/.env`.
 
 `scripts/verify-client.sh` builds bundles with the real token into `.verify-out/`. There is a
 `cleanup()` trap on `EXIT`, `INT` and `TERM`, and the directory is gitignored, so it cannot

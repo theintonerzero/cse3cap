@@ -51,6 +51,14 @@ Index
 #39 PDF export renders with dompdf ............... Accepted
 #40 Policies for records, query scopes for lists .. Accepted
 #41 The radar keeps one scale per framework ...... Proposed
+#42 Browser checks with Playwright, fake API ..... Accepted
+#43 AA palette lives in tokens.css ............ Proposed
+#44 Agents set ticket fields, not wording ...... Proposed
+#45 The demo deploys by hand, one origin ......... Proposed
+#46 Seeded tokens expire, carry a prefix, keep * .. Proposed
+#47 One role per person per gig, student first .. Proposed
+#48 Choosing a rubric is the supervisor's ......... Proposed
+#49 No draft-then-submit or save popups ........... Proposed
 
 ===============================================================
 
@@ -2100,3 +2108,699 @@ makes it the likely shape of any successor to this record. It needs the same
 per-competency contract fields as normalising, and recharts has no per-axis shading, so
 both the screen and the PDF would need custom SVG. Deferred rather than rejected, until
 the mapping gives it something to shade.
+
+===============================================================
+
+ADR #42: Browser checks with Playwright, against a fake API
+
+Status: Accepted
+Date: 2026-09-24
+
+Context:
+web/ has had no way to test a screen. Every screen's check so far is a shell script in
+scripts/ that greps the source and compiles and runs the one pure module beside it. That
+catches a missing state or a raw fetch. It cannot catch a screen that renders the right
+fields and sends the wrong requests, and on the edit framework screen (CAP-16) the requests
+are the feature. A save is a POST and then one PATCH per changed field, and a retry after a
+partial failure has to finish the same copy rather than make another.
+
+Two things made the gap concrete while building CAP-16. A render path that threw blanked the
+whole screen, and an error was labelled "Cannot reach the server" when the server had
+answered. Both were found by a person driving a browser against the prism mock, and neither
+could have been found by the shell check. And the screen could not be looked at against the
+real API by an agent at all, because the app shell needs a seeded token pasted in and moving
+a credential into a browser is exactly what an agent should not do.
+
+CLAUDE.md says choosing a runner for web/ is a decision with an ADR, not something added in
+passing. CAP-22 (COA4-80, Patrick) already names Playwright for the end-to-end student and
+assessor journey, which runs against a real seeded test database. That ticket has not
+started and no record makes the choice.
+
+Decision:
+Playwright, through @playwright/test pinned to an exact version as a devDependency of web/,
+running the real screens in headless Chromium. Specs live in web/e2e/ and are type-checked
+by tsc -b through tsconfig.e2e.json.
+
+Per-screen checks run against a fake API, not a real one. web/e2e/fake-api.ts answers every
+request to /api/v1 from fixtures typed against the generated schema.ts, records what the page
+sent, and fails on purpose when a test asks it to. It reproduces the shape of responses the
+screen depends on, such as a copy keeping its base's codes and level values, and deliberately
+does not reimplement the backend's rules. A refusal is injected by name, with the status and
+code the contract declares. The rule itself stays in its one home and is tested there, in
+api/tests/.
+
+The page signs in with a placeholder string the fake never checks. No seeded token, no
+database and no running backend are involved, so the checks run the same on a laptop, in CI
+and for an agent.
+
+./run e2e runs them, ./run check runs them after the build, and CI runs them in the Frontend
+job and keeps the traces of a failed run for a week.
+
+CAP-22's journey keeps its own design. It is the check that needs a real backend, and it can
+use the same tool against a seeded test database when it is built.
+
+Consequences:
+Positive:
+A screen's behaviour is testable where it happens: what it shows, and what it sends, in
+order, with the exact bodies. The CAP-16 suite asserts that a save sends one POST and only
+the changed fields, that a failed PATCH is finished on the same copy, and that the four
+states render. Deliberately breaking the screen showed the suite catching it: a Save that
+always made a new copy failed two tests, and a disabled "Add competency" button failed one.
+
+States that are hard to reach by hand become ordinary tests. The loading skeleton, a 404,
+an empty rubric and a 409 in the middle of a save were never seen by a person on CAP-16.
+Each is now one test.
+
+Fixtures typed against schema.ts make contract drift a build failure. A field renamed in
+docs/openapi.yaml breaks tsc on the fixture that still carries the old one.
+
+No credential goes anywhere near a browser.
+
+Negative:
+A fake can lie. It returns what the fixtures say the API returns, so a screen can pass here
+and fail against Laravel if the fixture and the backend disagree. Typed fixtures cover the
+shape of each payload, not its behaviour. The behavioural half has to exist in api/tests,
+and a spec that relies on a behaviour with no backend test there is a gap nobody will see.
+
+A second test environment to maintain. Every screen that adopts it needs its endpoints in
+the fake, and a new endpoint needs a new branch there.
+
+CI gets slower and heavier. The Frontend job downloads Chromium and installs its system
+libraries on every run, which it did not before. On the first run, PR #63 on 2026-09-24,
+the install took 42 seconds and the checks 13, and the job went from 16 seconds to 1m17s.
+Locally the checks take about two seconds, and the browser is a one-time download of about
+95 MB.
+
+It is not the end-to-end test. Nothing here proves the frontend and backend work together.
+CAP-22 still has to.
+
+Alternatives:
+Playwright against the real API with a seeded test database. It proves the whole stack and
+is what CAP-22 asks for. Rejected for per-screen checks because it needs a backend served
+over HTTP against a database of its own, tokens minted and handed to the browser, and
+migrate:fresh per run. CAP-22 names all of that as its scope, and five people share the one
+database server. The fake gets per-screen coverage now without deciding CAP-22's
+infrastructure for it.
+
+Vitest with Testing Library in jsdom. Faster, with no browser to install, and the usual
+choice for component tests. Rejected because jsdom is not a browser. Layout, focus, the
+router and real network behaviour are simulated or absent, and a phone-width overflow check
+cannot be written at all. It would also be a second tool beside the Playwright that CAP-22
+already names.
+
+Keep extending the shell checks in scripts/. No new dependency and nothing new to learn.
+Rejected because the limit is structural. A grep can prove a string is in a file, and a
+compiled module can prove a function's output. Neither can prove what a rendered screen does
+when a button is pressed, which is where both CAP-16 bugs were.
+
+
+ADR #43: The AA-compliant palette is tokens.css's, not any one screen's
+
+Status: Proposed
+Date: 2026-10-02
+
+Context:
+CAP-8's plan recorded three light-mode AA failures of `--color-primary` as link text
+(3.93:1 on the lavender tint, 4.07-4.29:1 on surface-alt/bg) and deliberately did not fix
+them. That plan quotes why directly: this branch tried changing `.diary_link` and
+`.empty_link` to `--color-text` plus an underline, and Patrick reverted it on 2026-09-14,
+pointing out that if everyone made small local CSS changes the design would fall apart. The CAP-8
+plan's own conclusion: "the link treatment is a property of the design system, so five
+people each fixing it locally produces five link styles and no fix... adding a failing row
+would turn a recorded team finding into a red build, which is also not one person's call."
+`scripts/check-contrast.mjs`'s `PAIRS` list stayed hand-kept and nobody added those rows, so
+the failures stayed invisible to CI rather than forcing a decision nobody had agreed to make.
+
+CAP-23 (accessibility and responsive pass) re-checked the premise that `PAIRS` was complete
+rather than assuming CAP-1 had already covered it. It was not: a systematic sweep of every
+`color: var(--color-*)` declaration in `web/src/**/*.module.css` against its actual rendered
+background found 10 real pairs missing, 3 of which genuinely fail AA -- including exactly
+the `--color-primary`-as-link-text failure CAP-8 recorded and left open, now also found on a
+fourth background (`--color-accent-pink`, 3.79:1, the lowest of the four and the binding
+constraint), plus two more failures on `--color-text-muted` and on `--color-danger`/
+`--color-success` against their own tinted backgrounds.
+
+Decision:
+Fix all three by adjusting the token values in `web/src/tokens.css`, not by overriding any
+one screen's CSS. This is deliberately the layer CAP-8's objection pointed at: Patrick's
+complaint was about five people each patching their own screen, not about fixing the shared
+token once, consistently, everywhere it is used. A token-level fix is one change, one owner
+of record (this ADR), and every consumer of `--color-primary` moves together rather than
+drifting into five link styles.
+
+Light theme: `--color-primary` #8c63b5 -> #8053ad (same hue/saturation, 270deg/35.7%,
+lightness 54.9% -> 50.3%, the minimum needed to clear `--color-accent-pink`, the hardest of
+the four real backgrounds -- not pushed further to cover every accent tint in the file,
+including ones nothing currently renders text on). `--color-focus-ring` moves with it,
+preserving the existing 2026-08-26 team decision that the focus ring reuses
+`--color-primary` rather than its own value. `--color-text-muted` #717171 -> #666666 (clears
+new findings on `--color-surface-alt`, `--color-success-bg` and `--color-accent-lavender`).
+`--color-danger` and `--color-success` each darkened narrowly to clear one new finding apiece
+against their own tinted backgrounds (`--color-danger-bg`). Dark theme: `--color-text-muted`
+lightened to clear the same class of finding there. `scripts/check-contrast.mjs`'s `PAIRS`
+gained the 10 missing rows, so this class of failure is now checked by CI rather than
+hand-kept and easy to miss, the same gap that let CAP-8's finding sit unenforced.
+
+This status is Proposed, not Accepted, on purpose. CAP-8 explicitly said this change is
+"not one person's call" and named the palette as something a team member owns. CAP-23's
+agent-driven sweep found and fixed the failure because its own mandate was "re-checked
+rather than assumed, nothing deferred" -- but that mandate does not retroactively grant the
+authority CAP-8 said this decision needs. This record exists so a human (Patrick, or
+whoever is asked to look at it) can review the actual before/after values below and either
+ratify this ADR to Accepted, or correct it before it merges.
+
+Consequences:
+Positive:
+One consistent link/focus colour across the whole product, not five local overrides. Every
+pair `check-contrast.mjs` knows about now passes AA in both themes, verified by running the
+script, not assumed. The failure CAP-8 recorded 18 days earlier stops being a known, unfixed
+gap sitting outside CI's view.
+
+Negative:
+`--color-primary-hover` (#734a9b) was not regenerated against the new base value. The
+contrast step from primary to its hover state is now about 1.18x, down from about 1.45x
+before this change -- hover feedback on buttons and chips is visibly subtler than it was.
+Whether that needs its own adjustment is open, and is not decided by this ADR.
+
+The brand's primary colour and every focus ring in the product are visibly different
+(darker, in light mode) than they were before this ticket. That is a real design change,
+made by an automated accessibility sweep rather than by the palette's owner, and is exactly
+the shape of decision CAP-8 said should not happen that way -- the mitigation here is this
+ADR making the change visible and reversible before merge, not that the change avoided being
+unilateral in the first place.
+
+Dark-mode `--color-danger` on `--color-danger-bg` now measures 4.5019:1 -- a genuine pass,
+dark-theme tokens were untouched by this change, but the margin is one part in ten thousand.
+Worth a glance if either token moves again.
+
+Alternatives:
+Leave the three failures recorded but unfixed, as CAP-8 did, and open a separate ticket
+naming a palette owner to decide. Rejected for this branch because CAP-23's own acceptance
+criteria require contrast to be "re-checked rather than assumed" with nothing deferred out
+of the ticket, and a verification task that finds a real, newly-confirmed AA failure and
+ships without fixing it fails that bar on its own terms. The compromise taken instead is to
+make the fix and flag it for explicit human sign-off via this ADR, rather than either
+silently shipping it as settled or leaving a known, now-doubly-confirmed failure unfixed
+again.
+
+Per-screen overrides (the same approach CAP-8 tried and Patrick reverted). Rejected for the
+reason already on record: it does not fix the shared problem, it just relocates it to
+whichever screen last touched it.
+
+===============================================================
+
+ADR #44: Agents may set a ticket's fields, not rewrite its wording
+
+Status: Proposed
+Date: 2026-09-30
+Extends: #38
+
+Context:
+#38 let agents read the board and move tickets, through an `atlassian` server in
+`.mcp.json` limited to eleven tools. None of the eleven can change a ticket once it exists.
+Assignee, story points and sprint can be set when a ticket is created and never after.
+
+That gap is where the board has drifted since. CAP-37 was finished, merged and closed on
+2026-09-24 and was still unassigned a week later. CAP-33 to CAP-37 carry no story points.
+CAP-21 to CAP-32 sit in no sprint. Each of those is a one-field fix that an agent working
+the ticket could see, name and not make, so it went into a list for a person to do in Jira,
+and the list did not get done.
+
+The developer's token can already make those edits. It is a plain Atlassian API token in
+the shell environment, and `./run jira` uses it over HTTP. An agent that wanted to could set
+an assignee with curl. That is the wrong way for this to happen: an edit through curl is
+invisible to the allowlist in `.mcp.json`, which is the one place the team can see what
+agents are allowed to do.
+
+The tool that fixes it, `jira_update_issue` in mcp-atlassian 0.23.1, is broader than the
+gap. It takes any field, so the same call that sets an assignee can rewrite a summary, a
+description or a list of acceptance criteria. On an assessed board that last one matters
+most. A criterion rewritten to match what was built is a criterion that stops being
+checked, and it would read as if it had always said that.
+
+One more change to #38 has already happened without a record. #38 says agents never move
+somebody else's ticket. The jira-tickets skill was changed on 2026-09-27 (PR #64) to allow it
+when the person names that ticket, after four teammates' tickets were closed that way at
+Tony's request, each with the evidence in a comment. This record makes that change explicit
+rather than leaving it only in the skill.
+
+Decision:
+Add `jira_update_issue` to ENABLED_TOOLS, making twelve. Deleting an issue stays out.
+
+How it is used lives in `.claude/skills/jira-tickets`, like every other Jira rule:
+
+- Assignee: an agent may assign a ticket to the developer running it, when that developer
+  did or is taking the work. Anyone else only when the person names the ticket and the
+  assignee.
+- Story points: only a number the team agreed, given by the person. An agent never
+  estimates.
+- Sprint: only when the person asks, by ticket.
+- Summary, description and acceptance criteria: an agent does not edit them. A criterion
+  that is wrong gets a comment saying so, and a person changes it.
+- Every edit is said out loud in the same message as the work, and an edit to a teammate's
+  ticket also gets a comment on it saying who made it and why.
+
+And from #64: a teammate's ticket may be moved when the person names it, on the same
+evidence as the developer's own, with a comment, and with its assignee left alone. A general
+request like "fix the board" names nothing and gets a proposal, not moves.
+
+Consequences:
+Positive:
+The fields that drift can be fixed by the agent that notices, in the same pass as the work.
+A ticket finished by an agent can be closed with its assignee set, instead of waiting for
+someone to remember.
+
+The allowlist in `.mcp.json` still says exactly what agents can do, and `./run jira` still
+checks the server answers with the tools it lists, so the new power is visible and checked
+rather than exercised through a token nobody sees used.
+
+The practice already in use since #64 now has a record, so #38 no longer contradicts the
+skill.
+
+Negative:
+The guard on wording is a rule, not a permission. The tool can rewrite an acceptance
+criterion, and the only thing stopping an agent is the skill telling it not to. #38 said the
+same of transitions, and it is more true here, because a moved ticket is visible on the board
+and a quietly edited description is not.
+
+Agents can now change more of what four other people see. An assignee changed on the wrong
+ticket misattributes work on a board that is assessed. The summary-search sharp edge from
+#38 makes that easier to get wrong: `summary ~ "CAP-3"` matches CAP-30 to CAP-37 too.
+
+Every developer's session needs a restart to pick up the new tool list, and one with an old
+session keeps eleven tools without knowing it.
+
+Alternatives:
+Keep the eleven and have people make field edits in Jira. The status quo, and genuinely the
+safest option. Rejected because the drift it leaves is the failure #38 set out to fix, moved
+from status to the fields next to it.
+
+Let agents use the API token directly for the edits the allowlist does not cover. No config
+change and nothing for the team to agree. Rejected because it makes the allowlist a
+description of what agents usually do rather than what they can do, and nothing checks it.
+
+Enable the tool with no limits in the skill. Simplest, and rejected because it puts
+acceptance criteria within reach of the agent being judged against them.
+
+===============================================================
+
+ADR #45: The demo deploys by hand, one origin, no containers
+
+Status: Proposed
+Date: 2026-09-30
+
+Context:
+CAP-26 asks for a demo on the VPS: the built frontend and the API over TLS, the three seeded
+tokens working against it, the MySQL TLS connection holding there, a documented rollback,
+and nothing secret in the repository. The design was agreed on 2026-09-06
+(docs/superpowers/specs/2026-09-06-demo-deployment-design.md) and then parked, because
+nobody could get a shell on the box. It is still parked for that reason. What changed is
+that the design's own fallback is now being taken: build a reviewed, reproducible deploy in
+the repository, and whoever holds the box runs it.
+
+Three things about the box shape every choice below. It already runs MySQL for all five of
+us. It already runs a Caddy, and ADR #21 records that this Caddy issues the certificate
+MySQL serves, so a bad edit to its configuration takes the shared database out, not just the
+demo. And it is one small VPS with no second host anywhere.
+
+The spec said the choices with a live alternative would be recorded in an ADR numbered when
+written. This is that record. It also records four decisions the build added.
+
+Decision:
+One origin. The frontend is served at / and /api/* goes to Laravel, so the bundle calls the
+relative /api/v1 (web/.env.production) and no hostname is compiled into it. There is no CORS
+preflight to get wrong.
+
+Deploys are triggered by hand. scripts/deploy.sh takes a user@host and a tag, and refuses a
+tag that is not on origin at the same commit, so what runs is something the team can read.
+It sends the tag with git archive over ssh and builds on the box. Neither GitHub nor the box
+holds a key for the other. CI does not deploy, and there is no ./run deploy: the menu entry
+prints the real command and exits (spec §9.2).
+
+No containers for the application. Caddy serves the build, and PHP-FPM runs the API in its
+own pool as its own user (deploy/php-fpm/diary.pool.conf). Releases sit under
+/var/www/diary/releases, a `current` symlink picks one, and shared/ holds the .env and
+Laravel's storage so uploads outlive a deploy.
+
+Four decisions the build added. scripts/rollback.sh is the only thing that moves `current`,
+and a deploy switches by calling it, so every deploy runs the rollback path. A deploy never
+edits the Caddy configuration, which is installed by hand through the procedure in
+docs/Deployment.md, because that file also serves the database certificate. A deploy never
+runs migrations. It checks for pending ones and stops, because the demo uses the team's
+shared database and CLAUDE.md says a migration there is announced and run by a person. And
+the demo runs with QUEUE_CONNECTION=sync, as development does (ADR #30), so there is no
+queue worker to keep alive.
+
+Consequences:
+Positive:
+The whole deploy is in a pull request. A reviewer can read the site block, the pool and the
+script, which they cannot do with a server they have no account on, and CAP-29 can check it.
+Nothing about deploying lives in one person's shell history.
+
+A deploy fails closed. It refuses a .env with APP_DEBUG on, a bundle with a token shape or
+one of the box's secrets in it, a database session without TLS, and a schema that is behind
+the code, all before anything public changes. If the site does not answer after the switch,
+it goes back to the previous release by itself.
+
+A rollback is one command that does not rebuild, and it is never a procedure nobody has run.
+
+Caddy needs no reload for a release switch. It resolves `current` on every request. So the
+one file that can take out the database is touched only when the site block itself changes.
+
+Negative:
+It needs Node, npm, Composer and PHP 8.5 on a box whose main job is MySQL for five people,
+and a build there competes with that MySQL for a few minutes. Deploys should not happen
+while someone is running the test suite or giving a demo.
+
+The demo reads and writes the team's shared reflection_diary database. Whatever a visitor
+does to the demo lands in the data we develop against, and a smoke run against the demo
+writes rows the way it does locally. A separate demo database would fix that and was not in
+the ticket.
+
+Refusing to migrate means a release that needs a schema change cannot be deployed until
+someone runs the migration on the shared database. That is the rule working as intended,
+and it is also a second step somebody has to remember.
+
+It is still unrun. Nobody on the team can get a shell on the box (spec §9.4), so the kit is
+tested everywhere except the one place it matters. scripts/deploy.test.py covers the
+decisions the scripts make, and a local Caddy serving the real site block covered routing
+and headers, but PHP-FPM, sudo, the database and the real certificate are proved only by
+the first deploy.
+
+The sync queue means a PDF export runs inside the request that asks for it. For a demo with
+a handful of users that is fine. It would not be for real use.
+
+Alternatives:
+Split subdomains, diary for the frontend and rdapi for the API. Closer to how Alumable would
+run it, and the 2026-08-11 API spec anticipated it. Rejected because the API origin is baked
+into the bundle at build time and every mistake in it shows up as an opaque CORS error in
+front of the client.
+
+Deploy from CI on merge to main. Fewer steps and nobody has to remember to do it. Rejected
+because it needs an SSH key to the box stored in GitHub, for a box that also holds everyone's
+database, and because a deploy that happens without a person choosing the moment can land
+in the middle of a demo.
+
+Containers for the application, with Compose next to the MySQL container already there.
+Reproducible, and the toolchains would not need installing on the box. Rejected because it
+brings in a container story the project has nowhere else, to prove what a symlink proves.
+
+Let the deploy edit the Caddy configuration from the release, so a site-block change ships
+like any other. Less to remember. Rejected because a mistake there is an outage for the
+shared database, and a deploy is exactly when nobody is thinking about the database.
+
+===============================================================
+
+ADR #46: Seeded tokens expire, carry a prefix, and keep every ability
+
+Status: Proposed
+Date: 2026-10-03
+
+Context:
+ADR #15 put three seeded Sanctum tokens in place of a login screen. The CAP-24 security
+review left three findings on them open in docs/Security-Review.md, all raised as CAP-32.
+F2: `sanctum.expiration` is null and the seeder sets no `expires_at`, so a token lives until
+someone revokes it. F3: `createToken('demo')` grants every ability. F4: `token_prefix` is
+empty, so a leaked token has no shape a secret scanner recognises.
+
+None of these mattered much while the tokens lived in a private team channel and the API ran
+on laptops. They start to matter with CAP-26, which puts the app on a public URL, and with
+handover, after which nobody on this team is watching the tokens at all.
+
+Two facts constrain the answer. Reissuing a token breaks everyone's setup at once, because
+the plain text is printed once and pasted by hand (the seed-data skill says keep them
+stable). And authorisation lives in `api/app/Policies/` and nowhere else (CLAUDE.md), with
+the role resolved per gig, so a student's token already cannot do an assessor's work whatever
+abilities it carries.
+
+Decision:
+F4: new tokens carry the prefix `rdiary_`. `sanctum.token_prefix` defaults to it, and
+`SANCTUM_TOKEN_PREFIX` can override it. Sanctum puts it after the id, so a token reads
+`<id>|rdiary_<40 characters><crc32>`. The prefix is not a secret.
+
+F2: `DemoSeeder` issues each token with `expires_at` 60 days out
+(`DemoSeeder::TOKEN_LIFETIME_DAYS`). The global `sanctum.expiration` stays null, so it does
+not override the per-token date and nothing else changes for anyone mid-sprint. Reissuing
+is revoking the three `demo` tokens and running the seeder again, announced first.
+
+F3: the seeded tokens keep `['*']`, on purpose. Nothing checks token abilities. Doing so
+would put an authorisation decision outside the policies.
+
+Tokens already on the shared database are not touched by this. The seeder skips a user who
+has a token, so the change reaches the shared database only when the team reissues.
+
+Consequences:
+Positive:
+A token pasted into a commit, an issue or a log is now caught by GitHub's secret scanning and
+anything else that looks for a known prefix. A token leaked from a public demo, or forgotten
+in a channel after handover, stops working on its own within 60 days. The two changes cost
+nothing at runtime and no client changes: the frontend treats a token as an opaque string.
+
+Negative:
+Sixty days after a reissue the three tokens stop working for everyone at the same moment,
+which will look like an outage to whoever is using them, possibly mid-demo. The runbook has to
+say when the current ones expire. The prefix only helps on tokens issued after this lands,
+and until the team reissues, the live tokens are exactly as they were. Keeping `['*']` means
+a leaked token can do everything its owner can, including delete a draft. There is still no
+read-only token for a screenshot session.
+
+Alternatives:
+Set `sanctum.expiration` in minutes instead. One config line and it covers every token, not
+just seeded ones. Rejected because it applies to tokens already issued, so the day it lands
+every existing token older than the window dies at once, on every laptop.
+
+Scope abilities, for instance a read-only token for demos. Real defence in depth, and Sanctum
+supports it directly. Rejected for now because enforcing an ability means a `tokenCan()` check
+in middleware or a controller, a second place that decides what a caller may do. Done
+properly it belongs inside the policies, as a condition they read, which is a design change
+for whoever needs read-only tokens rather than a hardening tweak.
+
+Leave all three as they were and record the risk. Defensible for a student project with no
+real records. Rejected because CAP-26 makes the demo public, and the only thing standing
+between a leaked permanent token and the shared database would be somebody noticing.
+
+===============================================================
+
+ADR #47: One role per person per gig, and the student role wins
+
+Status: Proposed
+Date: 2026-10-03
+
+Context:
+Roles are per gig and resolve server-side in `RoleResolver::for` (ADR #23, ADR #40). The method
+returns one role, and six places depend on that single answer: `ReflectionPolicy::view` and
+`counterScore`, `GigPolicy` for starting a reflection (needs student) and assigning a rubric,
+`GigResource`'s `my_role` (which drives the diary scope and the gig page), `/auth/me`'s
+participations (which drive the nav), and `ScoreController`, which stamps the scorer's role
+onto the score row.
+
+The schema does not promise one role. `gig_participants` is unique on `(gig_id, user_id, role)`,
+so one person can be both a student and an assessor on the same gig. Nothing in this app writes
+participants. They come from Alumable, and nobody has asked the client whether that shape can
+arrive. On 2026-10-03 the shared db had no such person.
+
+When it does happen, `for()` returned whichever row the index gave first. That was
+alphabetical, so an assessor row beat a student row. The 2026-10-03 re-verification of
+docs/Security-Review.md raised it as F13, and CAP-43 showed what it meant. A student who also
+held an assessor row could counter-score their own reflection (201), open and list
+classmates' work, review it, and could not start a reflection of their own. Not a hole anyone
+has walked through, because the data shape does not exist yet. But the behaviour was decided
+by an index, not by anyone.
+
+Decision:
+A person has one role per gig. Where the data says more, the least-privileged role wins, in
+this order: student, assessor, employer, supervisor. An assessor and an employer review. A
+supervisor also chooses a gig's rubric (ADR #48) and builds them. Between the assessor and the
+employer the order only makes the answer fixed. `RoleResolver::PRECEDENCE` holds the order and
+`for()` sorts by it with a portable `CASE`, not MySQL's `FIELD()`.
+
+The list scopes agree with it. `Reflection::reviewerExists`, which both `visibleTo` and
+`reviewableBy` use, ignores a reviewer row when the same person is a student on that gig. So
+nobody lists work the policy would answer 404 for. `/auth/me` lists each gig once, with the
+role `for()` decides, so the nav never offers what the policies refuse.
+
+Independently of the order, `counterScore` refuses the reflection's owner whatever role they
+resolve to. That holds even if the precedence changes later.
+
+Consequences:
+Positive:
+The answer no longer depends on row order, and it is written down. A student can never review
+their classmates or themselves through a second row. The list, the queue, the policy, `my_role`
+and `/auth/me` all give the same answer, which is pinned by `DualRoleTest`. No migration, so
+nothing changes on the shared db.
+
+Negative:
+A person who really is both a student and an assessor on one gig loses the assessor role there
+entirely, silently. Nothing tells them why the review queue is empty. It is not quite
+entirely for a supervisor. `FrameworkPolicy::create` asks whether someone supervises anywhere
+(`holdsAnywhere`), not on this gig, so a student and supervisor on one gig can still build a
+rubric through the API but cannot assign one there. The web won't offer the building either:
+`/auth/me` reports them as a student on that gig, so the Frameworks link and screens stay
+hidden unless they supervise another gig. A supervisor who is also an employer on one gig
+resolves as the employer, and loses whatever a supervisor alone may do there. Since ADR #48
+that includes choosing the gig's rubric. The order among the reviewer roles is our
+judgement. Nobody asked the client, and if Alumable means an employer to outrank a
+supervisor, this is wrong for them. It also quietly treats a data shape as supported
+that the product never designed for, which may hide a data problem that ought to be loud.
+
+Alternatives:
+The reviewer role wins. Keeps the reviewer's work, which is arguably the more valuable of the
+two on a gig. Rejected because the person then cannot start their own reflection on that gig,
+and a student's record is the thing this product exists to protect.
+
+Make `gig_participants` unique on `(gig_id, user_id)`. The strongest answer, because the shape
+could never exist and nothing would need to choose. Rejected for now because it is a migration
+on the shared db, and a constraint Alumable's data may not meet. It's worth revisiting once the
+client says whether two roles can arrive.
+
+Return every role from `for()` and let each caller decide. The honest model. Rejected because
+every caller changes, and the permission matrix has no rows for combinations. Someone would
+have to design what a student-assessor may do first.
+
+===============================================================
+
+ADR #48: Choosing a gig's rubric is the supervisor's, not the employer's
+Status: Proposed
+Date: 2026-10-03
+Extends: #17
+
+Context:
+ADR #17 mapped the design's educator to the `supervisor` role and gave it framework
+management, on the grounds that the person supervising a gig is the natural one to decide
+which rubric applies to it. It rejected giving that to `employer`: employers are external
+to the university, so letting them define assessment rubrics is the wrong permission
+boundary.
+
+What got built split the boundary in two. Creating and editing a copy is supervisor only
+(`FrameworkPolicy`, through `RoleResolver::holdsAnywhere`). Assigning a rubric to a gig was
+not. The permission matrix in `docs/API-Specification.md` §11 gave
+`POST /framework-assignments` to "supervisor or employer", `GigPolicy::assignFramework`
+allowed both, a feature test asserted an employer's 201, and the frameworks picker offered
+an employer their gigs. Only the nav kept employers out, by showing the Frameworks link to
+supervisors alone, and the route took anyone who typed it. The 3 October handover review
+found the gap, and `docs/Design-Inventory.md` recorded it.
+
+Nobody in the seed is an employer, so the demo never exercised it. A gig's rubric is also
+permanent once assigned (ADR #33, #35), so whoever assigns first decides what every student
+on that gig is scored against, for good.
+
+Decision:
+Assigning a rubric to a gig is part of the boundary ADR #17 drew, so it's supervisor only.
+`GigPolicy::assignFramework` allows `supervisor` and nobody else. An employer, assessor or
+student on the gig gets 403 `ROLE_FORBIDDEN`, and anyone not on it still gets 404. The
+matrix row, the endpoint's heading in `API-Specification.md`, the contract's summary and
+the `/add-policy` skill's copy of the matrix all say supervisor only.
+
+In `web/`, the picker offers supervised gigs only, and `/frameworks` and
+`/frameworks/:framework_id/edit` render NotFound for someone who supervises no gig. That
+guard decides only what is drawn. The server still refuses.
+
+Employers keep everything else the matrix gives them: viewing reflections on their gigs,
+counter-scoring and the review queue.
+
+Consequences:
+Positive:
+One rule for the rubric instead of two halves that disagreed. An organisation outside the
+university can no longer fix what a cohort is assessed against, on a gig where that choice
+can't be undone. The framework screens now match the nav, so nobody lands on a page made of
+buttons that 403.
+
+Negative:
+A gig with an employer and no supervisor has nobody who can give it a rubric, and with no
+rubric no student can start a reflection on it (`FRAMEWORK_NOT_ASSIGNED`). Today that gig
+can only be fixed by adding a supervisor, which nothing in the API does. If Alumable runs
+employer-led gigs with no university supervisor, this is the wrong call for them and needs
+revisiting with the client. The client was not asked before this was decided. The route
+guard is also the first exception to "every route is reachable by URL", which
+`routes.tsx` now has to explain.
+
+Alternatives:
+Keep the matrix as built and accept employers assigning, fixing only the nav so they can
+reach the screen. Smallest change, and it matches the contract as it stood. Rejected
+because it leaves ADR #17's reasoning applying to writing a rubric but not to choosing one,
+when choosing is the step with the lasting effect.
+
+Leave the code and only file it for the team. Cheapest now, and keeps the client question
+open. Rejected because the gap was already recorded in the design inventory and the API
+tests, and the handover report would have described a permission the ADRs argue against.
+
+===============================================================
+
+ADR #49: No draft-then-submit, and no save popups, for an entry or a counter-score
+Status: Proposed
+Date: 2026-10-03
+
+Context:
+The Figma prototype draws both sides of the diary as draft then submit. A student's entry
+is one long page with "Save draft" and "Submit entry" (`21:326`), saving shows a "Draft
+saved" popup saying nothing has gone to the assessor yet (`142:2570`), and submitting shows
+an "Entry submitted" popup (`142:2863`). Scoring is the same shape: "Save draft" and
+"Submit scores" (`97:1416`), a "Draft saved" popup part way through that says the student
+can't see the scores yet (`142:3207`, `142:3675`), and a "Scores submitted" popup at the
+end (`97:1665`, `97:1103`).
+
+None of that was built, and no record says so. `docs/Design-Inventory.md` (CAP-40) maps
+those frames and carries a TODO for Amenah and Patrick on each, because the reason was never
+written down. What was built follows from things that were recorded:
+
+- CAP-11's acceptance criteria (COA4-69) specify the narrative with a debounced autosave
+  through `PATCH /entries/{id}`, with a visible saved, saving or failed indicator.
+  `docs/Stack-and-Build-Scope.md` §4.3 says "narrative with debounced autosave". A reflection is a draft until it is submitted, so the
+  student's work is always saved and always a draft. There is no save step to confirm.
+- The contract has no draft state for a counter-score. `POST /entries/{id}/scores` writes a
+  final row, a repeat is 409 `ALREADY_SCORED`, and re-scoring is out of scope (CLAUDE.md).
+  ADR #34 closes counter-scoring once the reflection is assessed, which happens when the
+  last entry has one.
+- CAP-13 (Patrick, `f4914b1`) keeps what an assessor has picked and typed per entry in the
+  stepper, so it survives Back and Next, and adds "Save all scores" on the last step. That
+  holding is in the browser only. Nothing reaches the server until a score is saved.
+
+Decision:
+The diary has no draft-then-submit and no save popups for an entry or a counter-score.
+
+A student's narrative autosaves, and the stepper's own indicator says whether it saved. The
+reflection is submitted once, through the submit gate, and the confirmation is the Submitted
+page (CAP-12), not a popup.
+
+An assessor's counter-score is saved as it is made, one `POST` per competency, through
+"Save score" or "Save all scores". Each one is final. When the last one flips the reflection
+to assessed, the stepper says so in place: "That was the last one", and the reflection has
+left the review queue (`EntryStepper.tsx`). There is no "Draft saved" or "Scores submitted"
+popup.
+
+This records the build as it stands. Why the popups themselves were dropped, rather than
+kept as confirmations of an autosave or of the final save, was not recorded at the time,
+and this record doesn't supply a reason. The inventory TODOs stay open for the people who
+built those screens.
+
+Consequences:
+Positive:
+A student can't lose a narrative to a forgotten Save, and a half-written reflection is
+never mistaken for a submitted one, because the only way out of draft is the gate. Scores
+need no second state on the server, no table change and no extra endpoint, and the rules
+in `Scoring` see each score once. One fewer modal on a phone screen at every save.
+
+Negative:
+An assessor can't park a partly scored reflection on the server. Picks held in the browser
+are lost on a reload or another device. Each saved counter-score is visible to the student
+at once, on the stepper and on the radar (`ReflectionDetailResource` returns every score,
+and `v_radar` has no status filter), so a student can see a partly scored reflection. That
+is the opposite of what `142:3207` drew, a draft the student cannot see yet. A
+counter-score is final once "Save score" is pressed, so a wrong level saved is
+permanent. Re-scoring is out of scope. The prototype's popups carried facts the build
+doesn't show anywhere else: the scoring close date, the largest self-versus-counter gap,
+the number of participants still to score, and "Score next participant". A reader of the handover report sees frames marked dropped
+or changed with no reason beyond this record.
+
+Alternatives:
+Build the drafts as drawn. A `status` on scores and a submit step would match the
+prototype, let an assessor park work, and keep partial scores from the student. What it
+would need: the `scores` table has never had a status (`db/01-schema.sql`), and the views
+that read scores (`v_entry_score` and `v_coverage_gaps` directly, `v_radar` and
+`v_calibration_gap` through `v_entry_score`) have no status filter. Adding one is a schema
+change with its own ADR, a new state in the contract, and a filter in those views so a
+parked score isn't charted.
+
+Keep the popups as confirmations over the autosave and the final save. Cheap, and closer
+to the design. Not built, and no reason was recorded. This is the one a team could still
+add without touching the API.

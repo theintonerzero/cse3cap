@@ -39,23 +39,14 @@ export function group_frameworks(list: Framework[]): FrameworkGroups {
 }
 
 /**
- * A framework a reflection already references can never be edited: mutating
- * it would silently change what past students were scored against. The API
- * refuses it with 409 FRAMEWORK_IN_USE either way -- hiding Edit is the
- * courtesy, not the rule.
- */
-export function is_editable(framework: Framework): boolean {
-  return !framework.in_use;
-}
-
-/**
  * The gigs this user could put a rubric on.
  *
  * Role is per gig and resolved by the server from gig_participants; this
  * filter is a convenience so the picker is not full of gigs the assign
  * would 403 on. CLAUDE.md: never accept a role from the client. The 403 is
- * still what enforces it.
+ * still what enforces it. Supervisor only: an employer can see a gig but
+ * not choose its rubric (ADR #17, ADR #48).
  */
 export function assignable_gigs<T extends { role: string }>(participations: T[]): T[] {
-  return participations.filter((p) => p.role === 'supervisor' || p.role === 'employer');
+  return participations.filter((p) => p.role === 'supervisor');
 }

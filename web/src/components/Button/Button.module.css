@@ -32,8 +32,13 @@
 }
 
 /* A surface-alt fill with a --color-text label, not a primary-coloured
-   outline: --color-primary as normal-size text on --color-bg measures
-   4.29:1 in light mode, under AA. */
+   outline: --color-primary as normal-size text on --color-bg measured
+   4.29:1 in light mode before CAP-23, under AA. CAP-23 darkened
+   --color-primary because it is genuinely used as link text elsewhere in
+   the product (tokens.css), and it now clears 5.21:1 on --color-bg -- see
+   check-contrast.mjs. Kept as --color-text regardless: a secondary button
+   styled as a link would be a second interactive language next to the
+   primary button's fill, not an AA workaround. */
 .secondary {
   background: var(--color-surface-alt);
   color: var(--color-text);

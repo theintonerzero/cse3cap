@@ -192,6 +192,28 @@ one gig and an assessor on another, so role is per gig, never global.
 Client side role checks are for UX only. The server enforces authorisation. Never rely on
 hiding a button as a security measure.
 
+## Testing a screen
+
+`web/` has browser checks, not a unit runner (ADR #42). The failing test comes first and is
+a Playwright spec in `web/e2e/` that drives the real screen against the fake API in
+`web/e2e/fake-api.ts`. `./run e2e` runs them all, and CI runs them on every PR.
+
+- **The fake serves shapes, never rules.** It answers each endpoint with a typed payload. A
+  refusal is injected with `api.fail('POST /reflections', { kind: 'error', status: 409,
+  code: 'DUPLICATE_REFLECTION', message: '…' })`, and the rule itself is tested in
+  `api/tests/`. If a screen calls an endpoint the fake does not serve, the fixture fails the
+  test, so add the shape there rather than mocking around it.
+- **`api.hold(route)`** freezes a response to test the loading and in-flight states.
+  **`api.writes()`** is what the page actually sent. **`api.add_reflection()`** stages data
+  that appears server-side mid-test.
+- A spec with its own fixture data (see `start-reflection.spec.ts` or
+  `stepper-ownership.spec.ts`) beats bending the shared `fixtures.ts`.
+- Watch it fail before the screen does the thing, and say how it failed in the PR.
+
+A pure module beside a screen (`gig-timing.ts`, `diary-scope.ts`) keeps its compiled check
+in that screen's `scripts/verify-*.sh`. A new colour pairing must pass
+`node scripts/check-contrast.mjs` in both themes.
+
 ## Before you say it is done
 
 - All four states implemented?
@@ -199,3 +221,5 @@ hiding a button as a security measure.
 - Zero raw hex or pixel values?
 - Types generated, not hand-written?
 - Radar props driven by the framework payload?
+- A Playwright spec in `web/e2e/` that failed first, and `./run e2e` green?
+- Looked at it at a phone width and a desktop width?

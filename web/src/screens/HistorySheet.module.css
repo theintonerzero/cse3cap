@@ -1,0 +1,46 @@
+/* The frame's list: a bold line per milestone, the date under it, and
+   room between them. No dividers; the frame draws none. */
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.label {
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+}
+
+.meta {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.empty_title {
+  margin: 0;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.empty_body {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text-muted);
+}

@@ -136,6 +136,21 @@ case "${1:-help}" in
     # The contract mocked, so the frontend does not need the backend.
     mock)  step npx -y @stoplight/prism-cli mock docs/openapi.yaml ;;
 
+    # Both halves of the seam against the contract (CAP-25): schema.ts is
+    # what the contract generates, and Laravel's routes are its operations.
+    # Needs api/vendor and api/.env for route:list; never the database.
+    contract-drift) need_api; step ./scripts/check-contract-drift.sh ;;
+
+    # Rewrites docs/Dependency-Register.md from composer and npm: licences and
+    # known advisories, dated and tied to a commit (SMD 8.6, CAP-32). Needs the
+    # network for the two audits. Commit the result.
+    deps) need_api; need_web_deps; step python3 scripts/dependency-register.py ;;
+
+    # The docs still describe the repository: links resolve, ./run commands
+    # exist, docs/ is listed in the README, the ADR index matches the records,
+    # and the dependency register matches the lockfiles. No network needed.
+    docs) step python3 scripts/check-docs.py ;;
+
     test)  need_api; in_dir api php artisan test ;;
 
     # The frontend client against real servers, plus the compile-time
@@ -184,9 +199,18 @@ case "${1:-help}" in
     # half needs a server and a token; it skips rather than fails.
     verify-export) step ./scripts/verify-export-sheet.sh ;;
 
+    # The history sheet's own invariants: mounted in a BottomSheet on the
+    # gig page for a student only, every call through client.ts, four
+    # states, and the milestone rules compiled and executed -- every
+    # seeded event on a reflection shares one timestamp, so an order that
+    # only reads the clock looks fine on some loads and shuffled on
+    # others. The live half needs a server and tokens; it skips rather
+    # than fails.
+    verify-history) step ./scripts/verify-history-sheet.sh ;;
+
     # The select framework screen's own invariants: mounted in place of the
-    # CAP-15 placeholder, reachable from the nav a supervisor sees, Edit
-    # gated on in_use and pointed at a route the router actually declares,
+    # CAP-15 placeholder, reachable from the nav a supervisor sees, Copy and
+    # edit on every row and pointed at a route the router actually declares,
     # four states, and no replace flow -- a gig takes one rubric (ADR #33,
     # #35). The templates-from-copies split is compiled and executed rather
     # than grepped for: the shared database holds two stock templates and a
@@ -194,6 +218,41 @@ case "${1:-help}" in
     # cannot be produced by looking at the app. The live half needs a
     # server and Dr Lee's token; it skips rather than fails.
     verify-frameworks) step ./scripts/verify-select-framework.sh ;;
+
+    # The edit framework screen (CAP-16): mounted, reachable from every
+    # rubric, the four calls the ticket names through the typed client,
+    # four states, and ADR #16's scope -- rename and reword only, no control
+    # for adding or removing anything. Which PATCHes a save still owes, and
+    # what a retry resends, is compiled and executed. The live half is
+    # read-only and needs a server and Dr Lee's token; it skips rather than
+    # fails.
+    verify-framework-edit) step ./scripts/verify-edit-framework.sh ;;
+
+    # Browser checks (ADR #42): the real screens in headless Chromium against
+    # a fake API, so no server, database or token is needed. Extra arguments
+    # go to Playwright: ./run e2e -g "partway", ./run e2e --headed.
+    e2e)
+        need_web_deps
+        in_dir web npx playwright install chromium
+        shift
+        # ${@+"$@"}, not "$@": macOS's bash 3.2 calls an empty "$@" unbound
+        # under set -u, which would make a bare ./run e2e fail.
+        in_dir web npx playwright test ${@+"$@"}
+        ;;
+
+    # HO-6: screenshots for the User Manual and SMD, against a separate
+    # config so this never runs under CI or ./run check. Writes PNGs to
+    # web/e2e/shots/output/, named by web/e2e/shots/manifest.ts's ids --
+    # see web/e2e/shots/README.md for what those ids mean and when to run
+    # this for real (after the UI freeze on 7 Oct, then again before
+    # submission).
+    shots)
+        need_web_deps
+        in_dir web node --experimental-strip-types e2e/shots/manifest.test.ts
+        in_dir web npx playwright install chromium
+        shift
+        in_dir web npx playwright test --config=playwright.shots.config.ts ${@+"$@"}
+        ;;
 
     # Proves your Jira credentials work, over plain HTTP, independently of
     # the atlassian MCP server. Run it when Jira misbehaves: it separates a
@@ -204,11 +263,23 @@ case "${1:-help}" in
     # Reads the deploy host and reports what is actually on it. Read-only:
     # writes nothing, reloads nothing, which matters because that box also
     # carries the shared database. A check, like verify and smoke.
-    #
-    # There is deliberately no ./run deploy. Whether a deploy belongs on
-    # this menu at all is still open, in §9 of
-    # docs/superpowers/specs/2026-09-06-demo-deployment-design.md.
     check-host) step ./scripts/check-deploy-host.sh "${2:-}" ;;
+
+    # Proves your api/ reaches the database over TLS: Ssl_cipher non-empty
+    # on a connection Laravel made itself. Read-only. After any change to
+    # Caddy on the database box, this is how you know the certificate
+    # survived (docs/Deployment.md).
+    db-tls) need_api; step ./scripts/check-db-tls.sh ;;
+
+    # Not a deploy. A production deploy one mistyped word away from
+    # ./run dev is a loaded gun next to the coffee machine (spec §9.2), so
+    # this prints the real command and does nothing else.
+    deploy)
+        printf 'There is no ./run deploy. Type the script, so the choice is deliberate:\n\n'
+        printf '  scripts/deploy.sh diary@rddb.darkovski.dev <tag>\n\n'
+        printf 'Tags only, pushed to origin first. docs/Deployment.md has the rest.\n'
+        exit 1
+        ;;
 
     # Over HTTP against a server you started yourself, with the real
     # tokens. Proves the wiring the unit tests cannot.
@@ -217,6 +288,14 @@ case "${1:-help}" in
             || [ "$?" = "22" ] \
             || die "Nothing is serving on :8000. Start it with ./run api"
         step ./scripts/smoke.sh
+        ;;
+
+    # CAP-31. Walks the permission matrix with the three seeded tokens and
+    # checks the refusals. Reads and refusals only, so safe on the shared db.
+    pentest)
+        curl -fsS -o /dev/null "http://localhost:8000/up" 2>/dev/null \
+            || die "Nothing is serving on :8000. Start it with ./run api"
+        step ./scripts/pentest.sh
         ;;
 
     # CAP-20. The rubric is data, not code: same endpoints, two gigs, two
@@ -265,10 +344,19 @@ case "${1:-help}" in
     check)
         say "Contract"
         step npx -y @redocly/cli@latest lint docs/openapi.yaml
+        step python3 scripts/contract-routes.test.py
+        step python3 scripts/dependency-register.test.py
+        need_api
+        step ./scripts/check-contract-drift.sh
         say "Guards"
         step python3 scripts/guard-shared-db.test.py
         step python3 scripts/guard-docs-location.test.py
+        step python3 scripts/deploy.test.py
         step ./scripts/check-one-rule.sh
+        step python3 scripts/check-tokens.test.py
+        step python3 scripts/token-for.test.py
+        step python3 scripts/check-docs.test.py
+        step python3 scripts/check-docs.py
         say "Backend"
         need_api
         in_dir api ./vendor/bin/pint --test
@@ -282,6 +370,12 @@ case "${1:-help}" in
             step node scripts/check-contrast.mjs
             in_dir web npm run build
             step scripts/check-bundle-secrets.sh
+            for check in app-shell diary-home gig-detail entry-stepper assessor-stepper \
+                         export-sheet history-sheet select-framework edit-framework; do
+                step "./scripts/verify-$check.sh"
+            done
+            in_dir web npx playwright install chromium
+            in_dir web npm run test:e2e
         fi
         printf '\n%sAll checks passed.%s\n' "$GREEN" "$RESET"
         ;;
@@ -296,9 +390,13 @@ ${BLUE}Alumable Reflection Diary${RESET}
   ${GREEN}./run api${RESET}      backend only
   ${GREEN}./run web${RESET}      frontend only
   ${GREEN}./run mock${RESET}     mock the contract on :4010, so web needs no backend
+  ${GREEN}./run contract-drift${RESET}  schema.ts and Laravel's routes, both against the contract
+  ${GREEN}./run docs${RESET}     the docs still describe the repo: links, commands, ADR index, register
+  ${GREEN}./run deps${RESET}     regenerate docs/Dependency-Register.md: licences and advisories
 
   ${GREEN}./run test${RESET}     backend test suite, against your own test database
   ${GREEN}./run smoke${RESET}    end-to-end over HTTP. Needs a server already running
+  ${GREEN}./run pentest${RESET}  the permission matrix over HTTP, refusals only. Needs a server running
   ${GREEN}./run one-rule${RESET}  no business rule implemented twice
   ${GREEN}./run verify${RESET}   the typed API client, against both servers and the compiler
   ${GREEN}./run verify-shell${RESET}  the app shell: token ownership, routes, /auth/me
@@ -306,7 +404,11 @@ ${BLUE}Alumable Reflection Diary${RESET}
   ${GREEN}./run verify-entry-stepper${RESET}  the entry stepper: mounted, four states, evidence-link security
   ${GREEN}./run verify-assessor-stepper${RESET}  the assessor stepper: one component, POST only, errors by code
   ${GREEN}./run verify-gig${RESET}    the gig detail: mounted, linked, four states, dates
+  ${GREEN}./run verify-history${RESET}  the history sheet: milestones, order, local time
   ${GREEN}./run verify-frameworks${RESET}  the select framework screen: groups, in_use, the 409
+  ${GREEN}./run verify-framework-edit${RESET}  the edit framework screen: copy then edit, scope, retries
+  ${GREEN}./run e2e${RESET}      browser checks in headless Chromium against a fake API (no server)
+  ${GREEN}./run shots${RESET}    screenshots for the User Manual, against a separate config (HO-6)
   ${GREEN}./run swap${RESET}     the framework swap: SFIA against La Trobe, over HTTP
   ${GREEN}./run bundle-secrets${RESET}  proves a production build carries no token
   ${GREEN}./run lint${RESET}     pint, oxlint and prettier, checking only
@@ -316,6 +418,7 @@ ${BLUE}Alumable Reflection Diary${RESET}
 
   ${GREEN}./run setup${RESET}    first-time setup. Writes env files, installs dependencies
   ${GREEN}./run check-host${RESET} [user@vps]  read the deploy host. Writes nothing
+  ${GREEN}./run db-tls${RESET}   prove your database session is encrypted
   ${GREEN}./run jira${RESET}     check your Jira API access, and how to get it
 
 ${DIM}api/ and web/ are separate applications. This saves the cd, nothing more:

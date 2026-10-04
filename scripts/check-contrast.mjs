@@ -48,6 +48,25 @@ const PAIRS = [
   ['--color-success', '--color-surface', 'normal'],
   ['--color-primary', '--color-bg', 'large'],
   ['--color-text-inverse', '--color-primary-hover', 'normal'],
+
+  // CAP-23 Task 2: an exhaustive sweep of every *.module.css `color: var(--color-*)`
+  // declaration against the background it actually renders on (same-rule, or the
+  // nearest ancestor that sets one) found these real pairs missing from the list above.
+  // A link styled --color-primary, at normal size, directly on each background a
+  // screen actually puts one on.
+  ['--color-primary', '--color-surface', 'normal'], // ReviewQueue .scoreLink; ExportSheet .link (inside BottomSheet)
+  ['--color-primary', '--color-surface-alt', 'normal'], // DiaryHome .empty_link; Submitted .back_link (both inside .empty)
+  ['--color-primary', '--color-accent-pink', 'normal'], // GigDetail .diary_link (inside <Card accent="pink">)
+  ['--color-primary', '--color-bg', 'normal'], // EditFramework .back, not inside any card
+  // --color-text-muted rendered on a background the rest of the product
+  // deliberately avoids pairing it with (several screens' own comments say so).
+  ['--color-text-muted', '--color-surface-alt', 'normal'], // Submitted/DiaryHome/ReviewQueue .empty_body; AppShell .roles on .who:hover
+  ['--color-text-muted', '--color-success-bg', 'normal'], // ExportSheet .job_summary (inside .ready)
+  ['--color-text-muted', '--color-accent-lavender', 'normal'], // ExportSheet .building_detail (inside .building)
+  ['--color-text-muted', '--color-danger-bg', 'normal'], // EntryStepper .evidence_hint/.evidence_size/.counter_score and TextArea's own .status, inside .card_offending
+  // A status colour rendered on its own tinted fill, or on the other status's fill.
+  ['--color-danger', '--color-danger-bg', 'normal'], // ExportSheet .failed_message; EntryStepper .field_error inside .card_offending
+  ['--color-success', '--color-danger-bg', 'normal'], // TextArea's own .saved, when the narrative it autosaves sits inside EntryStepper's .card_offending
 ];
 
 const THRESHOLD = { normal: 4.5, large: 3.0 };

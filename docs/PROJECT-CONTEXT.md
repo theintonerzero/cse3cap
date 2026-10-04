@@ -139,7 +139,8 @@ until you load SFIA 9, where each skill is only valid across part of the seven-p
 responsibility scale: one skill runs 3 to 5, another runs 2 to 7. If the scale sat on the
 framework, La Trobe's flat 1 to 4 would fit and SFIA would not. Because of this,
 `frameworks` has no `scale_min` or `scale_max`; the scale is computed from the level rows
-via `v_framework_scale`.
+via `v_framework_scale`. The seeded SFIA copy uses the full 1 to 7 for every skill until
+Alumable supplies the real ranges (`docs/Framework-Swap-Verification.md`).
 
 `framework_assignments` is a table rather than a column on `gigs` because the assignment
 is an event with an actor: who chose the rubric and when.
@@ -212,17 +213,17 @@ implementation in a different layer.
 
 **Level belongs to the entry's competency.** A `level_id` must belong to the competency of
 the entry being scored. The database cannot express this without denormalising, so it is
-enforced in the service layer, in the two scoring endpoints only. This is a known
+enforced in the service layer, in `api/app/Services/Scoring.php`. This is a known
 limitation and it is documented on the ERD rather than hidden. Error:
 `LEVEL_NOT_IN_COMPETENCY`.
 
 **Assessor scoring lower must comment.** If a counter-score is below the student's self
 score, a comment is mandatory. Also mandatory whenever the framework's `comment_required`
-flag is set. Lives in the counter-score endpoint. Error: `COMMENT_REQUIRED`.
+flag is set. Lives in `api/app/Services/Scoring.php`. Error: `COMMENT_REQUIRED`.
 
 **The submit gate.** A reflection can only be submitted if every entry has a narrative,
 every entry has a self score, and, when the framework requires it, every entry has
-evidence. Lives in the submit endpoint. Errors: `NARRATIVE_REQUIRED`,
+evidence. Lives in `api/app/Services/SubmitGate.php`. Errors: `NARRATIVE_REQUIRED`,
 `SELF_SCORE_MISSING`, `EVIDENCE_REQUIRED`, each returning the offending entry ids in
 `details`.
 
@@ -232,7 +233,20 @@ lives in policies, nowhere else.
 
 **Status lifecycle.** `draft` -> `submitted` -> `assessed`, never backwards. `draft` is
 the only editable state. A reflection becomes `assessed` automatically when every entry has
-a counter-score.
+a counter-score, in `Scoring.php`.
+
+**A framework in use is read-only.** Once any reflection references a framework, editing it
+is refused, and changes are made to a copy instead. Lives in
+`api/app/Services/FrameworkEditing.php`. Error: `FRAMEWORK_IN_USE`.
+
+**One rubric per gig.** A gig has exactly one framework assignment. Lives in
+`api/app/Services/FrameworkAssigner.php`, backed by a unique index. Error:
+`DUPLICATE_ASSIGNMENT`.
+
+**One entry per competency.** Creating a reflection creates exactly one entry for each of
+its framework's competencies. Lives in `api/app/Services/ReflectionCreator.php`.
+
+CLAUDE.md's rule map ("Never duplicate a business rule") is the authoritative list.
 
 ## 8. API conventions
 

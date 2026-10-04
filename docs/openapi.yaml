@@ -355,7 +355,7 @@ paths:
     post:
       tags: [Frameworks]
       operationId: assignFramework
-      summary: Assign a rubric to a gig, supervisor or employer
+      summary: Assign a rubric to a gig, supervisor only
       requestBody:
         required: true
         content:

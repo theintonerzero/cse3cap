@@ -71,27 +71,28 @@ class ReflectionPolicy
 
     /**
      * Counter-scoring: an assessor, supervisor or employer on the gig,
-     * never the student, not even their own. Whether the reflection is in
-     * the right state to actually accept a score is
-     * Scoring::counterScore's job (NOT_SUBMITTED, 409), not this policy's
-     * -- a 403 here would say "you may never do this" when the truth is
-     * "not yet."
+     * never the reflection's owner, whatever other role they hold there.
+     * Whether the reflection is in the right state to actually accept a
+     * score is Scoring::counterScore's job (NOT_SUBMITTED, 409), not this
+     * policy's -- a 403 here would say "you may never do this" when the
+     * truth is "not yet."
+     *
+     * Not-found unless the caller may view it, the same shape as update:
+     * a classmate must get the answer a made-up id gets.
      */
     public function counterScore(User $user, Reflection $reflection): Response
     {
-        $gig = $reflection->gig;
-
-        if ($gig === null) {
+        if (! $this->view($user, $reflection)->allowed()) {
             return Response::denyAsNotFound();
         }
 
-        $role = $this->roles->for($user, $gig);
-
-        if ($role === null) {
-            return Response::denyAsNotFound();
+        if ($reflection->user_id === $user->id) {
+            return Response::deny('Nobody can counter-score their own reflection.');
         }
 
-        return in_array($role, RoleResolver::REVIEWER_ROLES, true)
+        // Implied by view today, kept so a later change to view cannot
+        // quietly widen who scores.
+        return in_array($this->roles->for($user, $reflection->gig), RoleResolver::REVIEWER_ROLES, true)
             ? Response::allow()
             : Response::deny('Only an assessor, supervisor or employer can counter-score this reflection.');
     }

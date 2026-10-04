@@ -33,8 +33,12 @@ This has a practical consequence people get wrong on their first PR:
 > PR, the same commit. A contract that lags the code by even one merge is a contract the
 > other half of the team is generating broken types from.
 
-The backend already enforces its half. The operations the contract declares and the routes
-the application serves are compared, and they currently agree exactly: 30 and 30.
+Both halves are checked against it mechanically, on every pull request.
+`scripts/check-contract-drift.sh` compares the routes Laravel serves (`php artisan
+route:list`) with the operations the contract declares, and fails naming any `METHOD /path`
+that is on one side only. Path parameters compare by position, so Laravel's `{reflection}`
+and the contract's `{reflection_id}` are the same route. Run it with `./run contract-drift`.
+CI runs it in the Contract job, and `./run check` runs it too (CAP-25).
 
 ## What crosses the seam
 
@@ -76,8 +80,10 @@ the generated types, **the contract is wrong and the contract is what you fix.**
 
 This is wired up. `web/src/api/schema.ts` is the generated file, committed, never edited,
 and `web/src/api/client.ts` is the one wrapper that consumes it. **Regenerate after any
-pull that touched the contract**; nothing catches a stale `schema.ts` yet, which is the
-gap CAP-25 closes.
+pull that touched the contract.** If you forget, CI's Contract job fails:
+`scripts/check-contract-drift.sh` regenerates the types into a temp file, with the
+openapi-typescript version `gen:types` pins, and diffs them against the committed file. It
+only reads `schema.ts`, so running it locally never overwrites your copy.
 
 TypeScript is pinned to 6.x on purpose. TypeScript 7 is the native compiler rewrite and
 openapi-typescript 7.13 crashes on it (openapi-ts issue #2841, open, no workaround). The
@@ -108,6 +114,10 @@ cd web && npm run dev            # http://localhost:5173
 VITE_API_BASE_URL=http://localhost:8000/api/v1
 ```
 
+A production build (`npm run build`) reads `web/.env.production` over `web/.env`, which
+sets the relative `/api/v1`. That is the demo's single origin (ADR #45). To look at a
+production build against your local API, override it with `VITE_API_BASE_URL=... npm run build`.
+
 Cross-origin requests work because the backend allows the Vite dev origin explicitly.
 `FRONTEND_URL` in `api/.env` is what that CORS configuration reads, so if you run Vite on a
 port other than 5173 you have to change it there too. A request that fails with no useful
@@ -130,10 +140,10 @@ Business rules live in `api/app/Services/`, once each. The frontend's job is to 
 them, never to enforce them.
 
 The counter-score comment rule is the clearest example. `Scoring.php` refuses a lower
-counter-score without a comment and returns `409 COMMENT_REQUIRED`. The frontend should
+counter-score without a comment and returns `400 COMMENT_REQUIRED`. The frontend should
 absolutely disable the submit button and show the comment field, because making a user
 submit to discover a requirement is bad design. But that button state is a *convenience*.
-The rule is the 409. Never move the rule into the component, and never assume the backend
+The rule is the 400. Never move the rule into the component, and never assume the backend
 will not send that error because the UI prevents it.
 
 The same holds for the submit gate, the level-in-competency check and the framework-in-use
@@ -145,12 +155,12 @@ These are the failures that do not announce themselves.
 
 | Drift | How it shows up | What catches it |
 | --- | --- | --- |
-| Endpoint changed, contract not | Frontend types are right for an API that no longer exists | Route-vs-contract check, CI |
-| Contract changed, types not regenerated | TypeScript compiles, runtime is wrong | Nothing yet. `npm run gen:types` on every pull. CAP-25 |
+| Endpoint changed, contract not | Frontend types are right for an API that no longer exists | `./run contract-drift`, CI Contract job |
+| Contract changed, types not regenerated | TypeScript compiles, runtime is wrong | `./run contract-drift`, CI Contract job. `npm run gen:types` fixes it |
 | A field camelCased in `web/` | Value is `undefined`, renders blank | Code review. There is no mapping layer to blame |
 | Vite on a port other than 5173 | CORS failure with an unhelpful console error | `FRONTEND_URL` in `api/.env` |
 | A rule reimplemented in a component | Passes until the backend rule changes | Code review, and the rule map in `CLAUDE.md` |
-| Raw hex in a component | Dark mode silently broken | Review against `web/src/tokens.css` |
+| Raw hex in a component | Dark mode silently broken | `scripts/check-tokens.sh`, in CI and `./run check` |
 
 ## Which agent to use
 
