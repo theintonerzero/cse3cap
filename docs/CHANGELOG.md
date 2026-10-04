@@ -105,8 +105,9 @@ Becomes **1.0.0**, planned for 12 October 2026: `dev` merged to `main` and tagge
 - The README, this changelog and the handover documents were checked against the code and
   corrected (#78, #81, #94). `ReflectionController` lost a `RoleResolver` it never used (#87).
 - Dependency updates: Laravel 13.25 to 13.34, which cleared four Composer advisories; React
-  19.3; React Router 8.4; Vite 8.3; `@types/node` 26; GitHub Actions checkout and setup-node v7,
-  cache v6, upload-artifact v7 (#68, #33, #53, #9, #66).
+  19.3; React Router 8.4; Vite 8.3; `@types/node` 26, pinned back to ^24 to match Node 24
+  (#82); GitHub Actions checkout and setup-node v7, cache v6, upload-artifact v7 (#68, #33,
+  #53, #9, #66).
 
 ## Sprint 4: 14 to 27 September 2026
 

@@ -16,10 +16,9 @@ The reasoning behind each choice lives elsewhere and is linked rather than repea
 | Frontend | React 19 and Vite, `web/` | `http://localhost:5173` locally |
 | Database | MySQL 9.7 LTS on a shared VPS | `rddb.darkovski.dev:3306`, database `reflection_diary` |
 
-There is no deployed instance. A demo deployment is designed in
-`docs/superpowers/specs/2026-09-06-demo-deployment-design.md`, but it was not deployed by
-v1.0.0: it needs shell access to the VPS that the team never confirmed. If it is built, its
-deploy and rollback steps belong here.
+There is no deployed instance yet. The deploy kit is built (#88, ADR #45) and its deploy and
+rollback steps are in `docs/Deployment.md`, but it has not been run, because it needs a shell
+on the VPS (CAP-26).
 
 ## Start it
 
@@ -276,7 +275,9 @@ Check it is still active after any change to Docker on the box.
 | `diary_ro` password | The same for `diary_ro`, then `DB_READONLY_PASSWORD` in each shell profile | Agents' read-only schema access |
 | `APP_KEY` | `php artisan key:generate` in `api/` | Very little. Nothing in `api/app` encrypts with it, and Sanctum stores token hashes, so no one is signed out |
 
-Tokens never expire (`api/config/sanctum.php`), so rotating is the only way one stops working.
+Seeded tokens expire 60 days after they are issued (`DemoSeeder::TOKEN_LIFETIME_DAYS`, ADR #46),
+and rotating is how one stops working sooner. A token issued before ADR #46, or from Tinker
+without an expiry, never expires until it is rotated.
 New credentials go to the new owner out of band, never into this repository or a chat log.
 
 ### CI, Dependabot and branch protection

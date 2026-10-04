@@ -19,7 +19,7 @@ after the subject closes and after they graduate.
 | Part | State |
 | --- | --- |
 | Database | Applied and verified on the shared instance. 14 tables, 5 views |
-| Backend | **Complete.** 30 endpoints, all seven business rules, 156 feature tests and 6 unit tests |
+| Backend | **Complete.** 30 endpoints, all seven business rules, 157 feature tests and 6 unit tests |
 | Contract | `docs/openapi.yaml` matches the served routes, checked mechanically |
 | Frontend | **Complete.** Design tokens, the ten core components, the typed client, the app shell and every screen in the build scope, with 53 Playwright browser checks |
 | Release | v1.0.0 planned for 12 October 2026. Changes are in [`docs/CHANGELOG.md`](docs/CHANGELOG.md) |
@@ -470,7 +470,7 @@ in the repository is the copy that everyone can read, and the one to edit.
 ### Testing it
 
 ```bash
-./run test                          # 156 feature and 6 unit tests, against real MySQL
+./run test                          # 157 feature and 6 unit tests, against real MySQL
 ./run smoke                         # 67 checks, over HTTP, with the three real tokens (CI runs it too)
 ./run verify                        # 28 checks on the typed API client, both servers
 ./run e2e                           # 53 browser checks, Playwright against a fake API

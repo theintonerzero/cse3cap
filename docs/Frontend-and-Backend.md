@@ -143,7 +143,7 @@ The counter-score comment rule is the clearest example. `Scoring.php` refuses a 
 counter-score without a comment and returns `400 COMMENT_REQUIRED`. The frontend should
 absolutely disable the submit button and show the comment field, because making a user
 submit to discover a requirement is bad design. But that button state is a *convenience*.
-The rule is the 409. Never move the rule into the component, and never assume the backend
+The rule is the 400. Never move the rule into the component, and never assume the backend
 will not send that error because the UI prevents it.
 
 The same holds for the submit gate, the level-in-competency check and the framework-in-use
