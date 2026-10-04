@@ -297,6 +297,20 @@ assessor_test.describe('the assessor', () => {
       expect(f.x + f.width, 'inside the screen').toBeLessThanOrEqual(360);
     });
   }
+
+  assessor_test(
+    'no in-page "Back to the review queue": the bar does it (round 3)',
+    async ({ page }) => {
+      await page.goto(`/review-queue/reflections/${SUBMITTED}`);
+      await expect(page.getByText('Competency 1 of 2')).toBeVisible();
+      await expect(
+        page.getByRole('button', { name: /Back to the review queue/ }),
+      ).toHaveCount(0);
+      await expect(
+        page.getByRole('banner').getByRole('link', { name: 'Back to Review queue' }),
+      ).toBeVisible();
+    },
+  );
 });
 
 // GET /reflections/{id} leaves sprint_ordinal out when the sprint is not

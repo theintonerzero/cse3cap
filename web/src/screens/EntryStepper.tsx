@@ -159,24 +159,6 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
   const heading = stepper_heading(mode, load, gig);
   const dates = sprint_window(load, gig);
 
-  // An obvious way out of the assessor screen from any step, and from its
-  // error and empty states, without saving or stepping back through every
-  // competency (Patrick, PR #56). Held while a save is in flight, so that
-  // save's error is not lost with the screen.
-  const exit_to_queue =
-    mode === 'assessor' ? (
-      <div className={styles.status_row}>
-        <Button
-          variant="secondary"
-          full_width={false}
-          disabled={counter_saving}
-          on_click={() => navigate('/review-queue')}
-        >
-          ← Back to the review queue
-        </Button>
-      </div>
-    ) : null;
-
   useEffect(() => {
     if (!reflection_id) return;
     const controller = new AbortController();
@@ -410,7 +392,6 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
   if (load.status === 'loading') {
     return (
       <section className={styles.page}>
-        {exit_to_queue}
         <h1 className={styles.heading}>{heading}</h1>
         <LoadingState />
       </section>
@@ -420,7 +401,6 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
   if (load.status === 'error') {
     return (
       <section className={styles.page}>
-        {exit_to_queue}
         <h1 className={styles.heading}>{heading}</h1>
         <ErrorNotice error={load.error} on_retry={retry} />
       </section>
@@ -437,7 +417,6 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
     // this screen's four states rather than a blank crash.
     return (
       <section className={styles.page}>
-        {exit_to_queue}
         <h1 className={styles.heading}>{heading}</h1>
         <div className={styles.empty}>
           <p className={styles.empty_title}>Nothing to reflect on.</p>
@@ -468,7 +447,6 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
 
   return (
     <section className={styles.page}>
-      {exit_to_queue}
       <h1 className={styles.heading}>{heading}</h1>
       {dates && <p className={styles.sprint_dates}>{dates}</p>}
       <div className={styles.status_row}>
