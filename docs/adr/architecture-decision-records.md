@@ -50,7 +50,7 @@ Index
 #38 Jira is the truth about tickets .............. Accepted
 #39 PDF export renders with dompdf ............... Accepted
 #40 Policies for records, query scopes for lists .. Accepted
-#41 The radar keeps one scale per framework ...... Proposed
+#41 The radar keeps one scale per framework ...... Accepted
 #42 Browser checks with Playwright, fake API ..... Accepted
 #43 AA palette lives in tokens.css ............ Proposed
 #44 Agents set ticket fields, not wording ...... Proposed
@@ -2024,7 +2024,7 @@ Review for want of a sentence is the board saying something false.
 
 ADR #41: The radar keeps one scale per framework
 
-Status: Proposed
+Status: Accepted
 Date: 2026-09-24
 
 Context:
