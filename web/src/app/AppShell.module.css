@@ -181,8 +181,11 @@
   white-space: nowrap;
 }
 
+/* Round 3 L1 (Patrick): the line sits up under the sheet's title, as a
+   pair, and the buttons keep the room it gave up, so the sheet stays
+   balanced. The Leave sheet only; BottomSheet's title is shared. */
 .leave_body {
-  margin: 0 0 var(--space-16);
+  margin: calc(-1 * var(--space-8)) 0 var(--space-24);
   color: var(--color-text);
 }
 

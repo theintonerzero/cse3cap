@@ -130,6 +130,29 @@ test.describe('back', () => {
     await saved.click();
     await expect(page.getByRole('banner')).toBeVisible();
   });
+
+  test('the Leave sheet: its line sits up under the title, the buttons below (round 3 L1)', async ({
+    page,
+  }) => {
+    await install(page, 'Ash');
+    await page.setViewportSize({ width: 390, height: 800 });
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Leave the Reflection Diary' }).click();
+    const sheet = page.getByRole('dialog', { name: 'Leave the Reflection Diary?' });
+    await expect(sheet.getByRole('button', { name: 'Stay' })).toBeVisible();
+    // One frame, after the slide-up: measured in separate calls, the sheet
+    // moves between them and the gaps come out wrong.
+    const { above, below } = await sheet.evaluate(async (dialog) => {
+      await Promise.all(dialog.getAnimations({ subtree: true }).map((a) => a.finished));
+      const title = dialog.querySelector('h2')!.getBoundingClientRect();
+      const body = dialog.querySelector('p')!.getBoundingClientRect();
+      const leave = dialog.querySelector('button')!.getBoundingClientRect();
+      return { above: body.top - title.bottom, below: leave.top - body.bottom };
+    });
+    // Title and line read as a pair; the buttons stand apart from them.
+    expect(above).toBeLessThanOrEqual(8.5);
+    expect(below).toBeGreaterThan(above * 2);
+  });
 });
 
 test.describe('title and nav', () => {
