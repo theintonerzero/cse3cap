@@ -24,6 +24,16 @@
   margin: 0;
 }
 
+/* Round 2d: History's centre on the centre of the title's first line. The
+   button (2.75rem tall, the tap floor) is taller than that line, so it
+   reaches equally above and below it, and the negative bottom margin keeps
+   the overhang from pushing the line under the title down. */
+.title_action {
+  flex-shrink: 0;
+  display: flex;
+  margin-block: calc((var(--font-size-xl) * var(--line-height-tight) - 2.75rem) / 2);
+}
+
 .diary_action {
   margin-top: var(--space-16);
 }

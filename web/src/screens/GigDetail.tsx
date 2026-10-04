@@ -221,13 +221,17 @@ function GigHeader({ gig, me_id, on_history }: GigHeaderProps) {
     <header className={styles.header}>
       {/* Title and its one action on a line (CAP-38), as the frame draws
           the pill and History together, rather than History floating
-          above the title on a line of its own. */}
+          above the title on a line of its own. Small, and centred on the
+          title's first line (round 2d, Patrick): a long title wraps
+          downward and History stays where it is. */}
       <div className={styles.title_row}>
         <h1 className={styles.heading}>{gig.title}</h1>
         {on_history && (
-          <Button variant="secondary" full_width={false} on_click={on_history}>
-            History
-          </Button>
+          <span className={styles.title_action}>
+            <Button variant="secondary" size="sm" full_width={false} on_click={on_history}>
+              History
+            </Button>
+          </span>
         )}
       </div>
       {meta.length > 0 && <p className={styles.sub}>{meta.join(' \u00b7 ')}</p>}
