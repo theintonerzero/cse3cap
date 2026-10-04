@@ -8,7 +8,7 @@
  *   becomes "Assign to <title>"), never makes a 360px page scroll sideways.
  * - Gig Detail's column headings line up with each other on a wide screen.
  * - A review-queue row's accessible name begins with the words on it, so a
- *   voice-control user can say "click Score this" (WCAG 2.5.3).
+ *   voice-control user can say "click" and the student's name (WCAG 2.5.3).
  *
  * Ids prefixed '3841' (CAP-38, fourth scenario).
  */
@@ -199,7 +199,7 @@ test('a review-queue row is named starting with the words on it', async ({ page 
     }),
   );
   await page.goto('/review-queue');
-  await expect(page.getByRole('link', { name: /^Score this/ })).toHaveCount(1);
+  await expect(page.getByRole('link', { name: /^Jane D,/ })).toHaveCount(1);
 });
 
 test('wide screen: a reviewer sprint calendar keeps its dates at the right edge', async ({

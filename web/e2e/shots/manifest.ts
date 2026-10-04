@@ -708,15 +708,16 @@ export const SHOTS: Shot[] = [
   // GET /review-queue (ReviewQueueController::index), scoped to the caller's
   // own role server-side -- nothing in the route or the fixture asserts
   // that. Loaded shots are real-sourced; the other states below are fake
-  // (CAP-21). "Score this →" is ReviewQueueRow's own link into the assessor
-  // stepper (CAP-13), present only once state.status === 'loaded' with at
+  // (CAP-21). "Entries" is the progress bar's label inside ReviewQueueRow,
+  // the link into the assessor stepper (CAP-13), present only once
+  // state.status === 'loaded' with at
   // least one entry -- the "Review queue" h1 above it renders in every
   // status, so it cannot be the wait target (same trap as Diary Home's own
   // h1; see that entry's comment).
   //
   // CONCERN: inert today, same as every other real-sourced entry in this
   // file -- no SHOTS_ASSESSOR_TOKEN is set, so capture.spec.ts skips before
-  // page.goto ever fires, and "Score this →" assumes the real seeded
+  // page.goto ever fires, and "Entries" assumes the real seeded
   // assessor has at least one submission waiting, which Task 4 confirms.
   {
     id: 'review-queue-loaded',
@@ -724,7 +725,7 @@ export const SHOTS: Shot[] = [
     route: '/review-queue',
     viewport: 'desktop',
     state: 'loaded',
-    ready: 'Score this →',
+    ready: 'Entries',
     scenario: { source: 'real', slot: 'assessor' },
   },
   {
@@ -733,7 +734,7 @@ export const SHOTS: Shot[] = [
     route: '/review-queue',
     viewport: 'mobile',
     state: 'loaded',
-    ready: 'Score this →',
+    ready: 'Entries',
     scenario: { source: 'real', slot: 'assessor' },
   },
   // Loading/empty/error are fake-sourced. fake-api.ts has no populated

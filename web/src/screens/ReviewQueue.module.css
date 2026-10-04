@@ -9,12 +9,15 @@
 .list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-12);
+  gap: var(--space-8);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
+/* The student rows' look (DiaryHome's .row, GigDetail's .row): a hairline
+   card on --color-surface, --radius-md, no shadow. Name and meta, then a
+   fixed column for the bar so every row's bar lines up, then the chevron. */
 .row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 8rem auto;
@@ -22,9 +25,8 @@
   gap: var(--space-16);
   padding: var(--space-16);
   border: var(--border-width-sm) solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: var(--color-surface);
-  box-shadow: var(--shadow-card);
   color: inherit;
   text-decoration: none;
 }
@@ -43,14 +45,26 @@ a.row:focus-visible {
   min-width: 0;
 }
 
-/* On a phone the bar and the cue drop under the name. */
+/* On a phone the bar drops under the name, and the chevron stays at the
+   right edge, centred on both lines. */
 @media (max-width: 40rem) {
   .row {
     grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .rowMain {
-    grid-column: 1 / -1;
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .rowProgress {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .chevron {
+    grid-column: 2;
+    grid-row: 1 / span 2;
   }
 }
 
@@ -72,17 +86,9 @@ a.row:focus-visible {
   color: var(--color-text-muted);
 }
 
-/* What a tap does, said on the card. A pill in the lavender accent with
-   --color-text, not --color-primary text: primary as small text on a tint
-   is the pairing ADR #43 had to fix. */
-.scoreCue {
-  padding: var(--space-4) var(--space-12);
-  border-radius: var(--radius-full);
-  background: var(--color-accent-lavender);
-  color: var(--color-text);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  white-space: nowrap;
+.chevron {
+  font-size: var(--font-size-lg);
+  color: var(--color-text-muted);
 }
 
 .empty {
