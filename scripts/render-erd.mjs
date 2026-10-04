@@ -28,8 +28,8 @@ const MERMAID = 'https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js
 
 const LEGEND = [
   "A score's level must belong to the entry's competency. Scoring enforces it, because the database cannot (api/app/Services/Scoring.php).",
-  'One reflection per student per context: unique on (user_id, gig_key, sprint_key). gig_key and sprint_key are generated from the nullable ids, so a duplicate is MySQL 1062, answered as 409 DUPLICATE_REFLECTION.',
-  'A reflection needs a gig or a sprint, or both (ck_refl_context).',
+  'One reflection per student per context: unique on (user_id, gig_key, sprint_key). gig_key and sprint_key are VIRTUAL generated columns that turn a null id into a sentinel UUID (ADR #11, ADR #19), so a duplicate is MySQL 1062, answered as 409 DUPLICATE_REFLECTION.',
+  'A reflection needs a gig or a sprint, or both (ck_refl_context). The check reads gig_key and sprint_key, because MySQL refuses a CHECK on a column with ON DELETE SET NULL (ADR #19).',
   'framework_version is copied when the reflection is created, so a later rubric copy never changes what it was scored against.',
   'A framework referenced by any reflection is read-only for good: 409 FRAMEWORK_IN_USE (api/app/Services/FrameworkEditing.php). Editing is copy then edit (ADR #16).',
   'A reflection gets one entry per competency when it is created (api/app/Services/ReflectionCreator.php).',

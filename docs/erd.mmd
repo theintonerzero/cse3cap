@@ -79,8 +79,8 @@ erDiagram
         varchar framework_version "snapshot at creation"
         varchar status "draft, submitted or assessed"
         datetime6 submitted_at
-        char36 gig_key "generated"
-        char36 sprint_key "generated"
+        char36 gig_key "VIRTUAL generated, ADR 19"
+        char36 sprint_key "VIRTUAL generated, ADR 19"
         datetime6 created_at
         datetime6 updated_at
     }
