@@ -29,8 +29,8 @@
  * stands in for the host app here. The nav pills show only when there are
  * two or more destinations: one pill is just the page you are on.
  */
-import { useState } from 'react';
-import { Link, NavLink, Outlet, useLocation } from 'react-router';
+import { useEffect, useState } from 'react';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 
 import {
   BottomSheet,
@@ -99,11 +99,35 @@ export function AppShell() {
     setThemeState(next);
   }
 
+  const navigate = useNavigate();
+  // Whose URL is on screen (round 3 B1). The first person in a tab keeps the
+  // address they arrived at, so a shared link still opens where it points
+  // (ADR #27). A different person after them starts on their own default
+  // screen, the way a first sign-in on "/" does: Home routes each person.
+  // The shell stays mounted behind the token screen, so this outlives Leave
+  // and a 401, and the same person signing back in is not a change of user.
+  const [url_owner, setUrlOwner] = useState<string | null>(null);
+  const at_home = location.pathname === '/' && location.search === '';
+  // Taken during render rather than in an effect, so a first sign-in costs no
+  // extra render. A new person takes over only once "/" has arrived: the
+  // router applies a navigation in a transition, after urgent state, so
+  // taking over sooner would draw the old address for them for one render.
+  if (me && url_owner !== me.id && (url_owner === null || at_home)) {
+    setUrlOwner(me.id);
+  }
+  const handing_over = me !== null && url_owner !== null && url_owner !== me.id;
+
+  useEffect(() => {
+    if (handing_over && !at_home) navigate('/', { replace: true });
+  }, [handing_over, at_home, navigate]);
+
   if (state === 'no_token') {
     return <TokenGate mode="screen" />;
   }
 
-  if (state === 'loading') {
+  // The skeleton stays up through a hand-over, so the previous person's
+  // page never mounts for the next one, not even for a frame.
+  if (state === 'loading' || handing_over) {
     return (
       <div className={styles.shell}>
         <header className={styles.header}>
