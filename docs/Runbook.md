@@ -147,6 +147,7 @@ There is no login screen (ADR #15). Access is a Sanctum bearer token per user, s
 | Jane N | Student | both gigs |
 | Sam O | Assessor | the La Trobe gig only |
 | Dr Lee | Supervisor | both gigs |
+| Noor A | Student | the La Trobe gig. No token from the seeder: issue one below |
 
 **For the seeded users,** `php artisan db:seed --class=DemoSeeder` prints a token for each
 of the three who does not already have one (`api/database/seeders/DemoSeeder.php`). It
@@ -156,12 +157,17 @@ replaced.
 **To replace one,** delete the user's row in `personal_access_tokens` and run the
 `DemoSeeder` again. Deleting the row is also how a token is revoked.
 
-**For any other user,** issue one from Tinker:
+**For any other user,** issue one from Tinker. The demo script uses Noor A, because Jane's
+sprints are all full and Noor still has empty ones (`docs/Demo-Script.md`). Name it `demo`
+and give it the same 60 days as the seeded three (ADR #46), so it expires with them and the
+reissue below deletes it too:
 
 ```bash
-cd api && php artisan tinker
->>> App\Models\User::where('display_name', 'Priya R')->first()->createToken('demo')->plainTextToken
+cd api && php artisan tinker --execute 'echo App\Models\User::where("display_name","Noor A")->firstOrFail()->createToken("demo", ["*"], now()->addDays(Database\Seeders\DemoSeeder::TOKEN_LIFETIME_DAYS))->plainTextToken;'
 ```
+
+Swap `Noor A` for `Priya R` or `Tom H` when Noor has no empty sprint left. A token issued
+without an expiry never expires, which is the gap ADR #46 closed for the seeded three.
 
 What the token can do comes from that user's rows in `gig_participants`, resolved per gig
 on the server (`api/app/Services/RoleResolver.php`). The token itself carries no role.

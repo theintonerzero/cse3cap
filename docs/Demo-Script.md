@@ -10,10 +10,23 @@ and issuing tokens; do those first.
 ## Before you start
 
 - [ ] `./run dev` is running and `http://localhost:5173` loads.
-- [ ] You have the three seeded tokens: Jane N, Sam O and Dr Lee.
-- [ ] Jane's third La Trobe sprint is empty. `./run smoke` writes there, so check with the
-      query in [the smoke trap](Runbook.md#the-smoke-trap). If it is full, delete it or the
-      writing step below has nowhere to go.
+- [ ] You have four tokens: Jane N, Sam O and Dr Lee from the seeder, and Noor A from the
+      one-liner in [Issue a token](Runbook.md#issue-a-token). Jane shows a finished record, Noor writes a
+      new reflection, Sam assesses it, and Dr Lee shows the rubric.
+- [ ] Noor has an empty sprint on the La Trobe gig. On 4 October her sprints 2 and 3 were
+      empty, so the writing step can run twice. Every run uses one up for good, because a
+      submitted reflection cannot be deleted through the app. Check before the demo:
+
+      ```sql
+      SELECT s.ordinal, r.status FROM sprints s JOIN gigs g ON g.id = s.gig_id
+        LEFT JOIN reflections r ON r.sprint_id = s.id
+          AND r.user_id = (SELECT id FROM users WHERE display_name = 'Noor A')
+        WHERE g.title = 'Develop AI use cases' ORDER BY s.ordinal;
+      ```
+
+      If both are used, Priya R and Tom H each have sprint 3 empty on the same gig: issue one
+      of them a token the same way. Jane's own sprints are all full, so she can no longer
+      be the one who writes.
 - [ ] A browser window wide enough to show the radar next to the list, and a second tab if
       you want to keep Jane open while you are Sam.
 - [ ] A fallback if the network refuses port 3306: the same build against `./run mock`
@@ -21,7 +34,8 @@ and issuing tokens; do those first.
 
 On first load the app asks for a token. Paste each one into its slot: **Student** for
 Jane, **Assessor** for Sam, **Supervisor** for Dr Lee. Pick Jane's to start. Switch later
-by clicking the name at the top left, which opens **Switch user**.
+by clicking the name at the top left, which opens **Switch user**. Tokens are kept per tab,
+so Noor gets a second tab of her own in step 2.
 
 ## 1. The record a student keeps (Jane, 3 minutes)
 
@@ -38,12 +52,15 @@ The point to make: the record belongs to the student and survives the subject.
 4. **Export your record**. The whole record downloads as JSON. That is the guarantee the
    record is hers, not the platform's.
 
-## 2. Writing a reflection (Jane, 4 minutes)
+## 2. Writing a reflection (Noor, 4 minutes)
 
-1. Open the **La Trobe** gig. The sprints are listed with their due dates; sprints 1 and 2
-   are assessed. **History** shows every submission and assessment, dated.
-2. Sprint 3 has no reflection yet, so its row offers **Start reflection**. Press it: the draft
-   is created and opens in the stepper, which goes one competency at a time.
+Open a second tab at `http://localhost:5173` and paste Noor's token into **Student**. She is
+Jane's classmate on the La Trobe gig, part-way through the course.
+
+1. Open the **La Trobe** gig. The sprints are listed with their due dates. Sprint 1 holds
+   her draft. **History** shows every submission and assessment, dated.
+2. Her next empty sprint offers **Start reflection** on its row. Press it: the draft is
+   created and opens in the stepper, which goes one competency at a time.
 3. For the first competency: write two sentences of narrative, add evidence with **Add a
    link** (any `https://` address), and choose a self-score. Each level shows its
    descriptor, so the student is scoring against words rather than a number.
@@ -57,18 +74,18 @@ The point to make: the record belongs to the student and survives the subject.
 The point to make: the assessor scores the same entries, and a lower score has to be
 explained.
 
-1. Switch to Sam. His **Review queue** lists what is waiting, including Jane's reflection
-   from step 2. Tom's sprint 2 shows as part-scored, 2 of 6.
-2. Open Jane's. Her narrative and evidence are read-only; her self-score is shown next to
+1. Switch to Sam, in either tab. His **Review queue** lists what is waiting, including
+   Noor's reflection from step 2.
+2. Open Noor's. Her narrative and evidence are read-only; her self-score is shown next to
    the assessor's choice.
-3. Score one competency below Jane's self-score and try to save without a comment. It is
+3. Score one competency below Noor's self-score and try to save without a comment. It is
    refused: a lower counter-score needs a comment. Add one.
 4. Score the rest and press **Save all scores**. With every entry counter-scored, the
    reflection becomes assessed by itself.
 5. Point out that Sam sees only the La Trobe gig. He is not on the SFIA gig, so it does
    not exist for him. Roles are worked out per gig on the server, not sent by the browser.
 
-Switch back to Jane: her radar now includes sprint 3.
+Switch back to Noor in her tab: her radar now includes the sprint she just wrote.
 
 ## 4. The rubric is data (Dr Lee, 3 minutes)
 
@@ -93,9 +110,10 @@ asks for it.
 | Can an assessor change a score later? | No. A submitted counter-score is final, by design |
 | What happens when a student graduates? | The record stays theirs, and export is the guarantee (`docs/Retention-and-Erasure.md`) |
 | Can we add our own framework? | Yes, by copying a seeded one and rewording it. Adding or removing competencies was cut from scope |
-| Is it live on the internet? | Not yet. A demo deployment is designed, and today it runs from a laptop against the shared database |
+| Is it live on the internet? | Not yet. The deploy kit is built (`docs/Deployment.md`) but has not been run on the server, so today it runs from a laptop against the shared database |
 
 ## After the demo
 
-Delete Jane's sprint 3 reflection if the next demo needs the writing step again
-(`docs/Runbook.md`, the smoke trap). Nothing else changes the seeded data.
+Each run uses up one of Noor's empty sprints, and the app cannot give it back: a submitted
+reflection is part of the student's record. Run the check above before the next demo, and
+move to Priya or Tom when Noor has none left. Nothing else changes the seeded data.
