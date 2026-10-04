@@ -27,7 +27,9 @@
  * goes up one fixed level. On a top screen there is no level above inside
  * the diary, so back asks before leaving for the switch-user screen, which
  * stands in for the host app here. The nav pills show only when there are
- * two or more destinations: one pill is just the page you are on.
+ * two or more destinations: one pill is just the page you are on. A
+ * reviewer's bar has none; Frameworks is reached from the review queue
+ * (round 3 D2).
  */
 import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
@@ -160,6 +162,10 @@ export function AppShell() {
   if (!me) return null;
 
   const items = nav_items_for(me);
+  // No pills in the reviewer's bar (round 3 D2): a supervisor reaches
+  // Frameworks from the review queue, and its back arrow returns there.
+  // Everything else about the nav is as it was.
+  const show_nav = items.length >= 2 && items.some((item) => item.to === '/');
   // On the diary itself its own URL is the newest scope; storage is only
   // written after the diary renders, so it lags one filter behind there.
   const diary_to = location.pathname === '/' ? `/${location.search}` : diary_href(me.id);
@@ -168,9 +174,7 @@ export function AppShell() {
   return (
     <div className={styles.shell} data-section={section.tint ?? undefined}>
       <header className={styles.header}>
-        <div
-          className={items.length >= 2 ? styles.bar : `${styles.bar} ${styles.single_row}`}
-        >
+        <div className={show_nav ? styles.bar : `${styles.bar} ${styles.single_row}`}>
           <div className={styles.back_slot}>
             {section.parent ? (
               <Link
@@ -224,7 +228,7 @@ export function AppShell() {
             />
           </div>
 
-          {items.length >= 2 && (
+          {show_nav && (
             <nav className={styles.nav} aria-label="Main">
               {items.map((item) => (
                 <NavLink

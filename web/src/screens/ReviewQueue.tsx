@@ -12,6 +12,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { api, ApiError } from '../api/client.ts';
 import type { paths } from '../api/schema.ts';
+import { useSession } from '../session/useSession.ts';
 import { ErrorNotice, ProgressBar, Skeleton, SkeletonGroup } from '../components/index.ts';
 import styles from './ReviewQueue.module.css';
 
@@ -53,6 +54,11 @@ export function ReviewQueue() {
     setReloadKey((key) => key + 1);
   }, []);
 
+  // Same test as routes.tsx's SupervisorOnly, written inline as B1's
+  // ReviewerOnly is: Frameworks is a supervisor's (ADR #17).
+  const { me } = useSession();
+  const supervises = me?.participations.some((p) => p.role === 'supervisor') ?? false;
+
   return (
     <section>
       <h1 className={styles.heading}>Review queue</h1>
@@ -66,6 +72,25 @@ export function ReviewQueue() {
             <ReviewQueueRow key={entry.reflection_id} entry={entry} />
           ))}
         </ul>
+      )}
+
+      {/* Frameworks' way in, now the bar has no pills (round 3 D2): a
+          whole-row card like the queue's own, under the queue because
+          scoring is the job and rubrics the occasional errand. */}
+      {supervises && (
+        <Link
+          className={styles.wayIn}
+          to="/frameworks"
+          aria-label="Frameworks, copy a rubric or assign one to a gig"
+        >
+          <span className={styles.wayInMain}>
+            <span className={styles.wayInTitle}>Frameworks</span>
+            <span className={styles.wayInMeta}>Copy a rubric, or assign one to a gig</span>
+          </span>
+          <span className={styles.wayInChevron} aria-hidden="true">
+            {'›'}
+          </span>
+        </Link>
       )}
     </section>
   );

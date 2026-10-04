@@ -113,3 +113,51 @@ a.row:focus-visible {
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
 }
+
+/* Frameworks' way in (round 3 D2). The student rows' look, set apart from
+   the queue above it. */
+.wayIn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-16);
+  margin-top: var(--space-24);
+  padding: var(--space-16);
+  border: var(--border-width-sm) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: inherit;
+  text-decoration: none;
+}
+
+a.wayIn:hover {
+  border-color: var(--color-primary);
+}
+
+a.wayIn:focus-visible {
+  outline: 0.125rem solid var(--color-focus-ring);
+  outline-offset: 0.0625rem;
+}
+
+.wayInMain {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.wayInTitle {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.wayInMeta {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.wayInChevron {
+  font-size: var(--font-size-lg);
+  color: var(--color-text-muted);
+}

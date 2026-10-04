@@ -82,7 +82,7 @@ const PARENT: Record<Place, Section['parent']> = {
   diary_deep: DIARY,
   queue: null,
   queue_deep: QUEUE,
-  frameworks: null,
+  frameworks: QUEUE,
   frameworks_deep: FRAMEWORKS,
 };
 

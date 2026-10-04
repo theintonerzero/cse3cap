@@ -266,14 +266,18 @@ test('a shared link opened in a fresh tab still opens where it points after the 
 test('Leave and back in as the same person returns to the page they left', async ({
   page,
 }) => {
-  await install(page, 'lee', { supervisor: TOKEN.lee });
-  await page.goto('/frameworks');
-  await expect(page.getByRole('heading', { level: 1, name: 'Frameworks' })).toBeVisible();
+  // Jane's diary home filtered to one gig: a top screen (so it offers
+  // Leave) whose address is not the bare "/" a change of user goes to.
+  // Frameworks was used here until round 3 D2 gave it a back arrow.
+  await install(page, 'jane', { student: TOKEN.jane });
+  await page.goto(`/?gig_id=${GIG_A}`);
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Reflection Diary' }),
+  ).toBeVisible();
   await page.getByRole('button', { name: 'Leave the Reflection Diary' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Leave' }).click();
-  await page.getByRole('button', { name: 'Supervisor', exact: true }).click();
+  await page.getByRole('button', { name: 'Student', exact: true }).click();
 
-  await expect(page.getByRole('banner').getByText('Dr Lee')).toBeVisible();
-  await expect(page).toHaveURL('/frameworks');
-  await expect(page.getByRole('heading', { level: 1, name: 'Frameworks' })).toBeVisible();
+  await expect(page.getByRole('banner').getByText('Jane N')).toBeVisible();
+  await expect(page).toHaveURL(`/?gig_id=${GIG_A}`);
 });

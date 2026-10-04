@@ -147,11 +147,13 @@ test.describe('title and nav', () => {
     await expect(page.getByRole('navigation', { name: 'Main' })).toHaveCount(0);
   });
 
-  test('someone with two destinations sees the pills', async ({ page }) => {
+  test('a reviewer with two destinations sees no pills (round 3 D2)', async ({ page }) => {
     await install(page, 'Dr Lee', 'supervisor');
     await page.goto('/review-queue');
-    const nav = page.getByRole('navigation', { name: 'Main' });
-    await expect(nav.getByRole('link')).toHaveText(['Review queue', 'Frameworks']);
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Review queue' }),
+    ).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Main' })).toHaveCount(0);
   });
 
   test('360: a long name never covers the centred title', async ({ page }) => {
