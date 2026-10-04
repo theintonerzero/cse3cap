@@ -52,6 +52,8 @@ a.row:focus-visible {
 @media (max-width: 40rem) {
   .row {
     grid-template-columns: minmax(0, 1fr) auto;
+    /* The bar sits just under "Jane N · Sprint 2" (Patrick, 2026-10-05). */
+    row-gap: var(--space-8);
   }
 
   .rowMain {
@@ -71,10 +73,7 @@ a.row:focus-visible {
 }
 
 .rowMain {
-  display: flex;
   min-width: 0;
-  flex-direction: column;
-  gap: var(--space-4);
 }
 
 .studentName {
@@ -83,8 +82,8 @@ a.row:focus-visible {
   color: var(--color-text);
 }
 
-.rowMeta {
-  font-size: var(--font-size-sm);
+.rowSprint {
+  font-size: var(--font-size-base);
   color: var(--color-text-muted);
 }
 

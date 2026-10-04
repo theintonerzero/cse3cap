@@ -114,31 +114,13 @@ function groups_of(entries: ReviewQueueEntry[]): GigGroup[] {
 }
 
 /**
- * Someone who reviews on more than one gig sees the queue listed by gig,
- * each under its name, the way Frameworks lists its groups (Patrick,
- * 2026-10-05: a reviewer has a few gigs at most, so all of them fit on one
- * screen). The rows are the ones already loaded; nothing is re-fetched.
- * Anyone with one gig keeps the single list, each row naming its gig.
+ * The queue listed by gig, each under its name, the way Frameworks lists
+ * its groups (Patrick, 2026-10-05: a reviewer has a few gigs at most, so all
+ * of them fit on one screen). One gig gets its label too: the row no longer
+ * names the gig, and Sam's queue is set up like Dr Lee's. The rows are the
+ * ones already loaded; nothing is re-fetched.
  */
 function QueueList({ entries }: { entries: ReviewQueueEntry[] }) {
-  const { me } = useSession();
-  // ReviewerOnly's roles, counted by gig.
-  const reviewed_gigs = new Set(
-    (me?.participations ?? [])
-      .filter((p) => ['assessor', 'supervisor', 'employer'].includes(p.role))
-      .map((p) => p.gig_id),
-  );
-
-  if (reviewed_gigs.size < 2) {
-    return (
-      <ul className={styles.list}>
-        {entries.map((entry) => (
-          <ReviewQueueRow key={entry.reflection_id} entry={entry} />
-        ))}
-      </ul>
-    );
-  }
-
   return (
     <div className={styles.groups}>
       {groups_of(entries).map((group) => (
@@ -148,7 +130,7 @@ function QueueList({ entries }: { entries: ReviewQueueEntry[] }) {
           </h2>
           <ul className={styles.list}>
             {group.entries.map((entry) => (
-              <ReviewQueueRow key={entry.reflection_id} entry={entry} show_gig={false} />
+              <ReviewQueueRow key={entry.reflection_id} entry={entry} />
             ))}
           </ul>
         </section>
@@ -191,14 +173,7 @@ function EmptyState() {
   );
 }
 
-/** `show_gig` is false under a gig's own label, which already names it. */
-function ReviewQueueRow({
-  entry,
-  show_gig = true,
-}: {
-  entry: ReviewQueueEntry;
-  show_gig?: boolean;
-}) {
+function ReviewQueueRow({ entry }: { entry: ReviewQueueEntry }) {
   const { student, gig_title, sprint_ordinal, progress } = entry;
 
   // One link per row, the whole card the target, read like the diary's and
@@ -217,14 +192,13 @@ function ReviewQueueRow({
           sprint_ordinal != null ? `, Sprint ${sprint_ordinal}` : ''
         }: ${progress.scored_by_me} of ${progress.entries} entries scored`}
       >
+        {/* "Jane N · Sprint 2" on one line (Patrick, 2026-10-05): the row
+            uses its width, and the gig is the label above it. */}
         <span className={styles.rowMain}>
           <span className={styles.studentName}>{student.display_name}</span>
-          <span className={styles.rowMeta}>
-            {show_gig ? (gig_title ?? 'Unknown gig') : null}
-            {show_gig && sprint_ordinal != null ? ' · ' : null}
-            {sprint_ordinal != null ? `Sprint ${sprint_ordinal}` : null}
-            {!show_gig && sprint_ordinal == null ? 'Whole gig' : null}
-          </span>
+          {sprint_ordinal != null && (
+            <span className={styles.rowSprint}> · Sprint {sprint_ordinal}</span>
+          )}
         </span>
 
         <span className={styles.rowProgress}>

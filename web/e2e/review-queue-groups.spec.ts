@@ -1,10 +1,9 @@
 /**
  * CAP-38 round 3 (Patrick, 2026-10-05): someone who reviews on more than one
  * gig sees the queue listed by gig, each gig's rows under its name, the way
- * Frameworks lists TEMPLATES and SAVED COPIES. The row then drops the gig
- * from its meta line, since the label says it. Someone with one gig (Sam)
- * keeps the single list. Built on the rows the queue already loads; no new
- * request.
+ * Frameworks lists TEMPLATES and SAVED COPIES. The row never names the
+ * gig, since the label says it. Sam's one gig is labelled the same way.
+ * Built on the rows the queue already loads; no new request.
  *
  * Self-contained scenario, ids prefixed '3836'.
  */
@@ -102,13 +101,15 @@ test('Dr Lee: one gig with rows waiting still gets its label', async ({ page }) 
   ]);
 });
 
-test('Sam: one gig, one list, no gig labels, the gig still on each row', async ({
+test('Sam: one gig gets its label too, set up like Dr Lee (Patrick, 2026-10-05)', async ({
   page,
 }) => {
   await install(page, SAM, [QUEUE[1]]);
   await page.goto('/review-queue');
+  await expect(page.getByRole('heading', { level: 2 })).toHaveText([
+    'Develop AI use cases',
+  ]);
   await expect(page.getByRole('link', { name: /^Tom H,/ })).toContainText(
-    'Develop AI use cases · Sprint 2',
+    'Tom H · Sprint 2',
   );
-  await expect(page.getByRole('heading', { level: 2 })).toHaveCount(0);
 });
