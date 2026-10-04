@@ -156,17 +156,27 @@
   box-shadow: var(--shadow-card);
 }
 
-/* START | END | DURATION. Wraps rather than squeezing three dates across
-   the width of a narrow phone. */
+/* START | END | DURATION, with a hairline between them (round 2e,
+   Patrick). One line always: on a phone too narrow for three dates a date
+   wraps inside its own column, so a divider never starts a line. 12 either
+   side of a divider is the 24 the gap used to be. */
 .timeline {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-16) var(--space-24);
   margin: 0;
 }
 
 .timeline_cell {
-  min-width: var(--space-64);
+  min-width: 0;
+  padding-right: var(--space-12);
+}
+
+.timeline_cell + .timeline_cell {
+  padding-left: var(--space-12);
+  border-left: var(--border-width-sm) solid var(--color-border);
+}
+
+.timeline_cell:last-child {
+  padding-right: 0;
 }
 
 .timeline_value {
