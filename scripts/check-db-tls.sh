@@ -52,8 +52,14 @@ out="$(cd "$API" && limit php -r '
     $options[PDO::ATTR_TIMEOUT] = 10;
     config(["database.connections.$name.options" => $options]);
     $db = Illuminate\Support\Facades\DB::connection();
+    // MySQL takes no placeholder in SHOW ... LIKE, and Laravel prepares on
+    // the server, so "LIKE ?" is a syntax error. The name goes in quoted by
+    // PDO instead, and only the two fixed names below can reach it.
     $status = function (string $name) use ($db): string {
-        $row = $db->selectOne("SHOW SESSION STATUS LIKE ?", [$name]);
+        if (!in_array($name, ["Ssl_cipher", "Ssl_version"], true)) {
+            throw new InvalidArgumentException("not a status this check reads: $name");
+        }
+        $row = $db->selectOne("SHOW SESSION STATUS LIKE " . $db->getPdo()->quote($name));
         return $row === null ? "" : (string) $row->Value;
     };
     try {

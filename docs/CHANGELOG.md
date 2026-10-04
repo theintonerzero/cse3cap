@@ -92,6 +92,8 @@ Becomes **1.0.0**, planned for 12 October 2026: `dev` merged to `main` and tagge
 - The verify scripts read an `rdiary_` token, and every token reader takes the newest line
   through one helper (#96, #97, CAP-44, CAP-45).
 - A reviewer and a stranger are refused on `DELETE /reflections/{id}`, now under test (#91).
+- `./run db-tls`, the deploy's proof that the database session is encrypted, failed on every
+  run with a MySQL syntax error, because `SHOW ... LIKE ?` cannot take a placeholder (CAP-26).
 
 ### Changed
 - Assigning a rubric to a gig is supervisor only. An employer now gets 403, and the framework
