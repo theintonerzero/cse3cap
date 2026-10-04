@@ -163,3 +163,20 @@ a.wayIn:focus-visible {
   font-size: var(--font-size-lg);
   color: var(--color-text-muted);
 }
+
+/* Listed by gig (round 3, Patrick 2026-10-05): each gig's name as the
+   gig page's section label (GigDetail's .section_label), its rows under it. */
+.groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-24);
+}
+
+.groupLabel {
+  margin: 0 0 var(--space-8);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--letter-spacing-label);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
