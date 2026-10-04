@@ -171,6 +171,9 @@ export default function Gallery() {
           <LinkButton to="/" variant="quiet" back>
             Frameworks
           </LinkButton>
+          <LinkButton to="/" variant="secondary" size="sm">
+            Small
+          </LinkButton>
         </MemoryRouter>
       </Section>
 

@@ -13,6 +13,8 @@ export interface LinkButtonProps {
   full_width?: boolean;
   /** A leading chevron for a way back, hidden from screen readers. */
   back?: boolean;
+  /** Button's small size (CAP-38 round 3). The default renders as before. */
+  size?: 'md' | 'sm';
 }
 
 /**
@@ -27,10 +29,12 @@ export function LinkButton({
   variant = 'primary',
   full_width = false,
   back = false,
+  size = 'md',
 }: LinkButtonProps) {
   const class_name = [
     button_styles.button,
     variant === 'quiet' ? styles.quiet : button_styles[variant],
+    size === 'sm' ? button_styles.sm : null,
     full_width ? button_styles.full_width : null,
     styles.link,
   ]

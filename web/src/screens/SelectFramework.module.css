@@ -19,11 +19,23 @@
   gap: var(--space-8);
 }
 
-.group_heading {
+/* The gig page's section label (GigDetail's .section_label): small,
+   uppercase, muted (round 3 F2). */
+.section_label {
   margin: 0;
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
-  color: var(--color-text);
+  letter-spacing: var(--letter-spacing-label);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+/* One rubric: the gig page's row card (round 3 F2). */
+.item {
+  padding: var(--space-16);
+  border: var(--border-width-sm) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
 }
 
 .list {
@@ -77,45 +89,20 @@
   gap: var(--space-8);
 }
 
-/* Not a Badge and not a Chip -- see the note on FrameworkRow. A plain
-   marker, so it is bordered rather than filled: a tinted fill here would
-   read as a status the way Badge's do. */
-.in_use {
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-regular);
-  color: var(--color-text-muted);
-  border: var(--border-width-sm) solid var(--color-border);
-  border-radius: var(--radius-full);
-  padding: var(--space-4) var(--space-8);
-  white-space: nowrap;
-}
-
-/* CAP-38: "In use" describes the rubric, so it sits with the name rather
-   than among the buttons. */
-.name {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-8);
-}
-
-/* On a phone the actions take their own full-width row under the name,
-   side by side, instead of wrapping one per line. */
+/* On a phone the actions wrap under the name at their own small size
+   (round 3 F2). A long gig title in a button breaks rather than pushing the
+   page sideways. */
 @media (max-width: 40rem) {
-  .actions {
-    width: 100%;
+  /* Every row the same shape: the name takes the whole first line, so a
+     short name never pulls the buttons up beside it. */
+  .identity {
+    flex-basis: 100%;
   }
 
   .actions > *,
   .picker_options > * {
-    padding-inline: var(--space-12);
-    font-size: var(--font-size-base);
-  }
-
-  .actions > * {
-    flex: 1 1 0;
     min-width: 0;
-    justify-content: center;
+    max-width: 100%;
     text-align: center;
     overflow-wrap: anywhere;
   }
@@ -159,7 +146,7 @@
 }
 
 /* The expanded gig picker, under the row it belongs to. Separated by a
-   rule rather than a tint: the row is already a Card, and a second fill
+   rule rather than a tint: the row is already a card, and a second fill
    inside it reads as a second card. */
 .picker {
   margin-top: var(--space-12);
@@ -179,7 +166,7 @@
   gap: var(--space-8);
 }
 
-/* Both sit on a Card, so --color-surface: a pairing check-contrast.mjs
+/* Both sit on the row card, so --color-surface: a pairing check-contrast.mjs
    already covers for --color-danger and --color-success. */
 .refused {
   margin: var(--space-12) 0 0;

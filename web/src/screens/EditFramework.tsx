@@ -24,7 +24,7 @@
  * in_use does not gate that, because the base is only ever read.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { useNavigate, useParams } from 'react-router';
 
 import { api, ApiError } from '../api/client.ts';
 import {
@@ -469,7 +469,7 @@ function SaveOutcome({
   if (save.status === 'saved' && copy !== null) {
     return (
       <p className={styles.saved} role="status">
-        Saved as {copy.name}. It is listed under <Link to="/frameworks">Saved copies</Link>.
+        Saved as {copy.name}. It is listed under Saved copies.
       </p>
     );
   }

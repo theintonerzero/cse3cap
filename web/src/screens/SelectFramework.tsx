@@ -26,7 +26,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError } from '../api/client.ts';
 import {
   Button,
-  Card,
   ErrorNotice,
   LinkButton,
   Skeleton,
@@ -85,8 +84,8 @@ export function SelectFramework() {
       <h1 className={styles.heading}>Frameworks</h1>
       <p className={styles.sub}>
         {assignable.length > 0
-          ? 'The rubrics a gig can be scored against. Copy a template to change one.'
-          : 'The rubrics a gig can be scored against. Assigning one needs a gig you supervise.'}
+          ? 'The rubrics a gig is scored against. Copy one to change it.'
+          : 'The rubrics a gig is scored against. Copy one to change it. Assigning one needs a gig you supervise.'}
       </p>
 
       {state.status === 'loading' && <LoadingState />}
@@ -129,14 +128,12 @@ function LoadedState({
     <>
       <Group
         title="Templates"
-        hint="Shipped with the product. Copy one to edit it."
         frameworks={templates}
         assignable={assignable}
         when_empty="No templates. The database has not been seeded."
       />
       <Group
         title="Saved copies"
-        hint="Copies made by a supervisor."
         frameworks={copies}
         assignable={assignable}
         when_empty="Nothing copied yet."
@@ -147,21 +144,20 @@ function LoadedState({
 
 function Group({
   title,
-  hint,
   frameworks,
   assignable,
   when_empty,
 }: {
   title: string;
-  hint: string;
   frameworks: Framework[];
   assignable: Participation[];
   when_empty: string;
 }) {
   return (
     <section className={styles.block}>
-      <h2 className={styles.group_heading}>{title}</h2>
-      <p className={styles.sub}>{hint}</p>
+      {/* The gig page's section label (round 3 F2): one line under the
+          screen's heading says what these are, so no hint per group. */}
+      <h2 className={styles.section_label}>{title}</h2>
 
       {frameworks.length === 0 ? (
         <p className={styles.none}>{when_empty}</p>
@@ -252,19 +248,20 @@ function FrameworkRow({
   }
 
   return (
-    <Card>
+    <div className={styles.item}>
       <div className={styles.row}>
         <div className={styles.identity}>
-          <p className={styles.name}>
-            {framework.name}
-            {framework.in_use && (
-              <span className={styles.in_use} title="A reflection already uses this rubric">
-                In use
-              </span>
-            )}
-          </p>
+          <p className={styles.name}>{framework.name}</p>
+          {/* The version, and In use as words (round 3 F2): the gig page's
+              muted meta line. The fw_key slug is for machines. */}
           <p className={styles.meta}>
-            {framework.fw_key} {'·'} {framework.version}
+            {framework.version}
+            {framework.in_use && (
+              <>
+                {' · '}
+                <span title="A reflection already uses this rubric">In use</span>
+              </>
+            )}
           </p>
         </div>
 
@@ -274,12 +271,14 @@ function FrameworkRow({
               reflection referencing this one is no reason to hide it. Both
               seeded templates are in use; gating on in_use left a freshly
               seeded database with no way into the editor at all. */}
-          <LinkButton to={`/frameworks/${framework.id}/edit`} variant="secondary">
+          <LinkButton to={`/frameworks/${framework.id}/edit`} variant="secondary" size="sm">
             Copy and edit
           </LinkButton>
 
           {assignable.length > 0 && assign.status !== 'picking' && (
             <Button
+              variant="secondary"
+              size="sm"
               full_width={false}
               disabled={assign.status === 'saving'}
               on_click={begin}
@@ -303,6 +302,7 @@ function FrameworkRow({
             {assignable.map((gig) => (
               <Button
                 key={gig.gig_id}
+                size="sm"
                 full_width={false}
                 on_click={() => void assign_to(gig.gig_id, gig.gig_title)}
               >
@@ -311,6 +311,7 @@ function FrameworkRow({
             ))}
             <Button
               variant="secondary"
+              size="sm"
               full_width={false}
               on_click={() => setAssign({ status: 'idle' })}
             >
@@ -333,7 +334,7 @@ function FrameworkRow({
           Assigned to {assign.gig_title}.
         </p>
       )}
-    </Card>
+    </div>
   );
 }
 

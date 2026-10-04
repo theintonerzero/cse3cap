@@ -82,6 +82,8 @@ test('save: one copy, then only the fields that changed, trimmed', async ({
   await save_as_copy(page).click();
 
   await expect(page.getByText('Saved as Our rubric.')).toBeVisible();
+  // No text links (round 3): the bar's back arrow is the way to the list.
+  await expect(page.getByRole('link', { name: 'Saved copies' })).toHaveCount(0);
 
   const [copy] = api.copies();
   const teamwork = copy.competencies.find((c) => c.code === 'collaboration')!;
