@@ -55,10 +55,12 @@ class RoleResolver
         return $this->memo[$key] ??= $gig->participants()
             ->where('user_id', $user->id)
             ->orderByRaw(
+                // ELSE ranks a role the list does not know last, never first.
+                // ck_gp_role makes it unreachable today.
                 'CASE role '.implode(' ', array_map(
                     fn (int $rank) => "WHEN ? THEN {$rank}",
                     array_keys(self::PRECEDENCE),
-                )).' END',
+                )).' ELSE '.count(self::PRECEDENCE).' END',
                 self::PRECEDENCE,
             )
             ->value('role');

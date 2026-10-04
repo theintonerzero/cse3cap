@@ -2496,10 +2496,11 @@ Date: 2026-10-03
 
 Context:
 Roles are per gig and resolve server-side in `RoleResolver::for` (ADR #23, ADR #40). The method
-returns one role, and five places depend on that single answer: `ReflectionPolicy::view` and
+returns one role, and six places depend on that single answer: `ReflectionPolicy::view` and
 `counterScore`, `GigPolicy` for starting a reflection (needs student) and assigning a rubric,
-`GigResource`'s `my_role` (which drives the nav), and `ScoreController`, which stamps the
-scorer's role onto the score row.
+`GigResource`'s `my_role` (which drives the diary scope and the gig page), `/auth/me`'s
+participations (which drive the nav), and `ScoreController`, which stamps the scorer's role
+onto the score row.
 
 The schema does not promise one role. `gig_participants` is unique on `(gig_id, user_id, role)`,
 so one person can be both a student and an assessor on the same gig. Nothing in this app writes
@@ -2541,11 +2542,13 @@ A person who really is both a student and an assessor on one gig loses the asses
 entirely, silently. Nothing tells them why the review queue is empty. It is not quite
 entirely for a supervisor. `FrameworkPolicy::create` asks whether someone supervises anywhere
 (`holdsAnywhere`), not on this gig, so a student and supervisor on one gig can still build a
-rubric but cannot assign one there. A supervisor who is also an employer on one gig resolves as
-the employer, and loses whatever a supervisor alone may do there. Since ADR #48 that includes
-choosing the gig's rubric. The order among the
-reviewer roles is our judgement. Nobody asked the client, and if Alumable means an employer to
-outrank a supervisor, this is wrong for them. It also quietly treats a data shape as supported
+rubric through the API but cannot assign one there. The web won't offer the building either:
+`/auth/me` reports them as a student on that gig, so the Frameworks link and screens stay
+hidden unless they supervise another gig. A supervisor who is also an employer on one gig
+resolves as the employer, and loses whatever a supervisor alone may do there. Since ADR #48
+that includes choosing the gig's rubric. The order among the reviewer roles is our
+judgement. Nobody asked the client, and if Alumable means an employer to outrank a
+supervisor, this is wrong for them. It also quietly treats a data shape as supported
 that the product never designed for, which may hide a data problem that ought to be loud.
 
 Alternatives:
