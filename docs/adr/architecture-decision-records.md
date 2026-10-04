@@ -51,13 +51,13 @@ Index
 #39 PDF export renders with dompdf ............... Accepted
 #40 Policies for records, query scopes for lists .. Accepted
 #42 Browser checks with Playwright, fake API ..... Accepted
-#43 AA palette lives in tokens.css ............ Proposed
-#44 Agents set ticket fields, not wording ...... Proposed
-#45 The demo deploys by hand, one origin ......... Proposed
-#46 Seeded tokens expire, carry a prefix, keep * .. Proposed
-#47 One role per person per gig, student first .. Proposed
-#48 Choosing a rubric is the supervisor's ......... Proposed
-#49 No draft-then-submit or save popups ........... Proposed
+#43 AA palette lives in tokens.css ............ Accepted
+#44 Agents set ticket fields, not wording ...... Accepted
+#45 The demo deploys by hand, one origin ......... Accepted
+#46 Seeded tokens expire, carry a prefix, keep * .. Accepted
+#47 One role per person per gig, student first .. Accepted
+#48 Choosing a rubric is the supervisor's ......... Accepted
+#49 No draft-then-submit or save popups ........... Accepted
 
 ===============================================================
 
@@ -2124,7 +2124,7 @@ when a button is pressed, which is where both CAP-16 bugs were.
 
 ADR #43: The AA-compliant palette is tokens.css's, not any one screen's
 
-Status: Proposed
+Status: Accepted
 Date: 2026-10-02
 
 Context:
@@ -2219,7 +2219,7 @@ whichever screen last touched it.
 
 ADR #44: Agents may set a ticket's fields, not rewrite its wording
 
-Status: Proposed
+Status: Accepted
 Date: 2026-09-30
 Extends: #38
 
@@ -2314,7 +2314,7 @@ acceptance criteria within reach of the agent being judged against them.
 
 ADR #45: The demo deploys by hand, one origin, no containers
 
-Status: Proposed
+Status: Accepted
 Date: 2026-09-30
 
 Context:
@@ -2421,7 +2421,7 @@ shared database, and a deploy is exactly when nobody is thinking about the datab
 
 ADR #46: Seeded tokens expire, carry a prefix, and keep every ability
 
-Status: Proposed
+Status: Accepted
 Date: 2026-10-03
 
 Context:
@@ -2491,7 +2491,7 @@ between a leaked permanent token and the shared database would be somebody notic
 
 ADR #47: One role per person per gig, and the student role wins
 
-Status: Proposed
+Status: Accepted
 Date: 2026-10-03
 
 Context:
@@ -2568,7 +2568,7 @@ have to design what a student-assessor may do first.
 ===============================================================
 
 ADR #48: Choosing a gig's rubric is the supervisor's, not the employer's
-Status: Proposed
+Status: Accepted
 Date: 2026-10-03
 Extends: #17
 
@@ -2635,7 +2635,7 @@ tests, and the handover report would have described a permission the ADRs argue 
 ===============================================================
 
 ADR #49: No draft-then-submit, and no save popups, for an entry or a counter-score
-Status: Proposed
+Status: Accepted
 Date: 2026-10-03
 
 Context:
