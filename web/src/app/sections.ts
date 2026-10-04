@@ -31,29 +31,71 @@ function at(pattern: string, pathname: string): boolean {
 }
 
 /**
+ * Where a path sits. Title, back arrow and tint are three lookups rather
+ * than one object per place, so a change to one of them never edits the
+ * line another changes, and each can be reverted on its own (CAP-38
+ * round 3).
+ */
+type Place =
+  'diary' | 'diary_deep' | 'queue' | 'queue_deep' | 'frameworks' | 'frameworks_deep';
+
+/**
  * `supervises` mirrors routes.tsx's SupervisorOnly (CAP-46): for anyone
  * else a frameworks path renders NotFound, so the bar gives it the same
  * ordinary bar as any unknown page rather than announcing a section they
  * cannot see. `reviews` mirrors ReviewerOnly the same way for the review
  * queue (CAP-38 round 3).
  */
-export function section_for(pathname: string, supervises = true, reviews = true): Section {
-  if (at('/', pathname)) {
-    return { title: 'Reflection Diary', parent: null, title_is_h1: true, tint: 'diary' };
-  }
-  if (reviews && at('/review-queue', pathname)) {
-    return { title: 'Review queue', parent: null, title_is_h1: false, tint: 'review' };
-  }
-  if (reviews && at('/review-queue/*', pathname)) {
-    return { title: 'Review queue', parent: QUEUE, title_is_h1: false, tint: null };
-  }
-  if (supervises && at('/frameworks', pathname)) {
-    return { title: 'Frameworks', parent: null, title_is_h1: false, tint: 'frameworks' };
-  }
-  if (supervises && at('/frameworks/*', pathname)) {
-    return { title: 'Frameworks', parent: FRAMEWORKS, title_is_h1: false, tint: null };
-  }
+function place_of(pathname: string, supervises: boolean, reviews: boolean): Place {
+  if (at('/', pathname)) return 'diary';
+  if (reviews && at('/review-queue', pathname)) return 'queue';
+  if (reviews && at('/review-queue/*', pathname)) return 'queue_deep';
+  if (supervises && at('/frameworks', pathname)) return 'frameworks';
+  if (supervises && at('/frameworks/*', pathname)) return 'frameworks_deep';
   // /gigs/:id, /reflections/:id(/submitted), /entries/:id and anything
   // unknown are all deeper diary screens.
-  return { title: 'Reflection Diary', parent: DIARY, title_is_h1: false, tint: null };
+  return 'diary_deep';
+}
+
+/** What the bar calls each place. */
+const TITLE: Record<Place, Section['title']> = {
+  diary: 'Reflection Diary',
+  diary_deep: 'Reflection Diary',
+  queue: 'Review queue',
+  queue_deep: 'Review queue',
+  frameworks: 'Frameworks',
+  frameworks_deep: 'Frameworks',
+};
+
+/**
+ * Where back goes: up one fixed level. Null is a top screen, where back
+ * asks before leaving the diary.
+ */
+const PARENT: Record<Place, Section['parent']> = {
+  diary: null,
+  diary_deep: DIARY,
+  queue: null,
+  queue_deep: QUEUE,
+  frameworks: null,
+  frameworks_deep: FRAMEWORKS,
+};
+
+/** Which background tint the shell wears (CAP-38 R8, ADR #52). */
+const TINT: Record<Place, Section['tint']> = {
+  diary: 'diary',
+  diary_deep: null,
+  queue: 'review',
+  queue_deep: null,
+  frameworks: 'frameworks',
+  frameworks_deep: null,
+};
+
+export function section_for(pathname: string, supervises = true, reviews = true): Section {
+  const place = place_of(pathname, supervises, reviews);
+  return {
+    title: TITLE[place],
+    parent: PARENT[place],
+    title_is_h1: place === 'diary',
+    tint: TINT[place],
+  };
 }
