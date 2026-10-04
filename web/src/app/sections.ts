@@ -57,14 +57,17 @@ function place_of(pathname: string, supervises: boolean, reviews: boolean): Plac
   return 'diary_deep';
 }
 
-/** What the bar calls each place. */
+/**
+ * What the bar calls each place: the module's name for everyone (CAP-38
+ * round 3 D1). Each page carries its own heading.
+ */
 const TITLE: Record<Place, Section['title']> = {
   diary: 'Reflection Diary',
   diary_deep: 'Reflection Diary',
-  queue: 'Review queue',
-  queue_deep: 'Review queue',
-  frameworks: 'Frameworks',
-  frameworks_deep: 'Frameworks',
+  queue: 'Reflection Diary',
+  queue_deep: 'Reflection Diary',
+  frameworks: 'Reflection Diary',
+  frameworks_deep: 'Reflection Diary',
 };
 
 /**

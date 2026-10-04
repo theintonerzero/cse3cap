@@ -165,7 +165,7 @@ test.describe('title and nav', () => {
     const { title_right, name_left } = await banner.evaluate(async (header) => {
       await document.fonts.ready;
       const title = [...header.querySelectorAll('span, h1')].find(
-        (el) => el.textContent === 'Review queue',
+        (el) => el.textContent === 'Reflection Diary',
       )!;
       const name = [...header.querySelectorAll('span')].find((el) =>
         el.textContent?.startsWith('Maximiliana'),
