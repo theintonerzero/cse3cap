@@ -34,16 +34,17 @@ function at(pattern: string, pathname: string): boolean {
  * `supervises` mirrors routes.tsx's SupervisorOnly (CAP-46): for anyone
  * else a frameworks path renders NotFound, so the bar gives it the same
  * ordinary bar as any unknown page rather than announcing a section they
- * cannot see.
+ * cannot see. `reviews` mirrors ReviewerOnly the same way for the review
+ * queue (CAP-38 round 3).
  */
-export function section_for(pathname: string, supervises = true): Section {
+export function section_for(pathname: string, supervises = true, reviews = true): Section {
   if (at('/', pathname)) {
     return { title: 'Reflection Diary', parent: null, title_is_h1: true, tint: 'diary' };
   }
-  if (at('/review-queue', pathname)) {
+  if (reviews && at('/review-queue', pathname)) {
     return { title: 'Review queue', parent: null, title_is_h1: false, tint: 'review' };
   }
-  if (at('/review-queue/*', pathname)) {
+  if (reviews && at('/review-queue/*', pathname)) {
     return { title: 'Review queue', parent: QUEUE, title_is_h1: false, tint: null };
   }
   if (supervises && at('/frameworks', pathname)) {

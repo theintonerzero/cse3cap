@@ -17,12 +17,14 @@
  * Every route is reachable by URL regardless of what the nav shows. That is
  * on purpose. Hiding a nav item is a convenience; the 403 is the rule.
  *
- * The framework screens are the one exception, and only for display. They
+ * There are two exceptions, both only for display. The framework screens
  * are the supervisor's (ADR #17, ADR #48): every action on them, copying a
  * rubric and assigning one, is refused by the server for anyone else. So
  * someone who supervises no gig gets NotFound there instead of a screen
- * made of buttons that 403. The server still decides; this decides only
- * what is drawn.
+ * made of buttons that 403. The review queue is the reviewers' (ADR #55):
+ * someone who reviews nothing gets NotFound there rather than an empty
+ * queue whose only way out is Leave. The server still decides; these decide
+ * only what is drawn.
  */
 import type { ReactNode } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
@@ -68,6 +70,21 @@ function SupervisorOnly({ children }: { children: ReactNode }) {
   return supervises ? children : <NotFound />;
 }
 
+/**
+ * The review queue and its scoring screen, for someone who assesses,
+ * supervises or employs on at least one gig: the nav's Review queue test.
+ * Anyone else gets NotFound, the failsafe for a typed or stale address
+ * (ADR #55). Switching user never lands here; the shell sends each
+ * person to their own start.
+ */
+function ReviewerOnly({ children }: { children: ReactNode }) {
+  const { me } = useSession();
+  const reviews = me?.participations.some((participation) =>
+    ['assessor', 'supervisor', 'employer'].includes(participation.role),
+  );
+  return reviews ? children : <NotFound />;
+}
+
 export function AppRoutes() {
   return (
     <Routes>
@@ -87,7 +104,14 @@ export function AppRoutes() {
 
         <Route path="reflections/:reflection_id/submitted" element={<Submitted />} />
 
-        <Route path="review-queue" element={<ReviewQueue />} />
+        <Route
+          path="review-queue"
+          element={
+            <ReviewerOnly>
+              <ReviewQueue />
+            </ReviewerOnly>
+          }
+        />
 
         {/*
          * CAP-13: the entry stepper in its second mode. By reflection, not
@@ -96,7 +120,11 @@ export function AppRoutes() {
          */}
         <Route
           path="review-queue/reflections/:reflection_id"
-          element={<EntryStepper mode="assessor" />}
+          element={
+            <ReviewerOnly>
+              <EntryStepper mode="assessor" />
+            </ReviewerOnly>
+          }
         />
 
         <Route

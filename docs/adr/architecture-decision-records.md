@@ -62,6 +62,7 @@ Index
 #52 Section tints on the top screens ............. Proposed
 #53 A 20px title step for the app bar ............ Proposed
 #54 Controls show their edge in light mode ....... Proposed
+#55 The review queue is the reviewers' too ....... Proposed
 
 ===============================================================
 
@@ -2895,3 +2896,57 @@ still only 1.05:1 against #f6f7f9, so the controls would stay faint.
 Use a real 1px border. Simpler CSS, but it adds 2px to every button and chip, which would move
 the layouts the round 2 Playwright checks pin, such as the picker row lining up with Gig
 details.
+
+===============================================================
+
+ADR #55: The review queue is the reviewers' too
+Status: Proposed
+Date: 2026-10-04
+
+Context:
+routes.tsx says every route is reachable by URL whatever the nav shows. Hiding a nav item
+is a convenience and the 403 is the rule. ADR #48 made the framework screens the first
+exception: someone who supervises nothing gets NotFound there instead of a page of buttons
+that 403. CAP-38's round 3 review found the review queue failing the other way. Switching
+user from Dr Lee to Jane while on /review-queue left Jane on the queue. Its bar treats it
+as a top screen, so the back arrow offered Leave, and Jane has one nav item so no pills
+showed. She had no way back to her diary short of typing the address. Patrick, reviewing:
+"please put checks in place so that Jane can never see the review queue or frameworks
+screen". The main fix is that every change of user now lands on that person's own start
+page. He asked for Page not found as the backstop, "if the checks fail for some reason",
+and ruled out a redirect.
+
+Decision:
+The review queue and its scoring screen, /review-queue and /review-queue/reflections/:id,
+render NotFound for anyone who isn't an assessor, supervisor or employer on at least one
+gig. That's the test the nav already uses for its Review queue item. The guard is
+ReviewerOnly in routes.tsx, beside SupervisorOnly, and the screen never mounts, so its
+requests are never sent. sections.ts takes a reviews flag the way it takes supervises, so
+the bar over that NotFound is the ordinary diary bar. This is a second exception to "every
+route is reachable by URL", on the same terms as #48's. It decides only what is drawn and
+the server still decides what anyone may see. It narrows that principle and changes
+nothing in #48.
+
+Consequences:
+Positive:
+A student can't be shown an empty review queue with no way home, however they reach the
+address: a stale tab, a typed URL, or the browser's back button after a switch. Page not
+found's link goes to "/", where Home sends each person to their own start, which was
+checked for Jane, Sam and Dr Lee. web/e2e/review-queue-access.spec.ts pins it.
+
+Negative:
+Two exceptions make the principle weaker, and the third will be easier to justify. The
+reviewer test is now written in three places, nav_items_for, ReviewerOnly and the shell's
+bar, and they have to change together. SupervisorOnly already lives with the same
+arrangement. docs/Security-Review.md's table of client-side role reads still says every
+route stays reachable by URL by design, and lists neither guard. It needs a line for both.
+
+Alternatives:
+Redirect someone who reviews nothing from the queue to "/". Smoother than an error page,
+and it's what Home already does the other way round. Patrick turned it down: the error
+page is meant to show that a check failed, and getting navigation right is the first
+defence, not the redirect.
+
+Leave the route open and rely on the landing fix alone. Keeps the principle whole and the
+code smaller. Rejected because a stale tab, the back button or a pasted link would still
+strand a student, and the landing fix can't reach any of those.

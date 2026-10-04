@@ -14,8 +14,8 @@
  * The same person can be a student on one gig and an assessor on another, so
  * role is per gig and never global. Hiding a nav item is a convenience for
  * the person using it; the 403 from the API is the rule, and every route
- * below stays reachable by typing its URL, except the framework screens,
- * which routes.tsx explains. That is deliberate: a client-side role check is
+ * below stays reachable by typing its URL, except the framework screens and
+ * the review queue, which routes.tsx explains. That is deliberate: a client-side role check is
  * not a security boundary and must never be mistaken for one.
  * See docs/Frontend-and-Backend.md, "Roles never cross".
  *
@@ -88,10 +88,14 @@ export function AppShell() {
   const [switcher_open, setSwitcherOpen] = useState(false);
   const [leave_open, setLeaveOpen] = useState(false);
   const location = useLocation();
-  // Same rule as routes.tsx's SupervisorOnly, so the bar never names a
-  // screen the router is about to replace with NotFound.
+  // Same rules as routes.tsx's SupervisorOnly and ReviewerOnly, so the bar
+  // never names a screen the router is about to replace with NotFound.
   const supervises = me?.participations.some((p) => p.role === 'supervisor') ?? false;
-  const section = section_for(location.pathname, supervises);
+  const reviews =
+    me?.participations.some((p) =>
+      ['assessor', 'supervisor', 'employer'].includes(p.role),
+    ) ?? false;
+  const section = section_for(location.pathname, supervises, reviews);
 
   function toggle_theme() {
     const next: Theme = theme === 'dark' ? 'light' : 'dark';
