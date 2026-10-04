@@ -63,6 +63,7 @@ Index
 #53 A 20px title step for the app bar ............ Proposed
 #54 Controls show their edge in light mode ....... Proposed
 #55 The review queue is the reviewers' too ....... Proposed
+#56 Frameworks wears no section tint ............. Proposed
 
 ===============================================================
 
@@ -2950,3 +2951,48 @@ defence, not the redirect.
 Leave the route open and rely on the landing fix alone. Keeps the principle whole and the
 code smaller. Rejected because a stale tab, the back button or a pasted link would still
 strand a student, and the landing fix can't reach any of those.
+
+===============================================================
+
+ADR #56: Frameworks wears no section tint
+Status: Proposed
+Date: 2026-10-04
+
+Context:
+ADR #52 tinted the three top screens, the diary in lavender, the review queue in mint and
+Frameworks in peach, and called it an experiment. Patrick reviewed the reviewer screens on
+2026-10-04 in a narrow window and said the Frameworks page's orange banner looks bad, and
+asked to keep to the decisions already made. In light mode the peach is the strongest of
+the three tints and in dark mode it mixes to a brown, which #52 already named as the most
+noticeable. In the same round the bar stopped naming the section on the reviewer screens
+(it says Reflection Diary for everyone now), so the tint is no longer backing up a title.
+
+Decision:
+/frameworks gets no tint. It renders like a deeper page, with the plain background and the
+white header. The diary's lavender and the review queue's mint stay exactly as #52 set
+them. --section-tint-frameworks is removed from all three theme blocks of tokens.css, with
+its CSS rule in AppShell.module.css and its two pairs in check-contrast.mjs, so nothing is
+left that nobody uses. This narrows #52 and changes nothing else in it.
+
+Consequences:
+Positive:
+The page Patrick objected to reads like the rest of the app's plain pages. One token and its
+two contrast pairs are gone, and the narrowest muted margin in #52's set (4.86:1 on the
+peach) goes with them. The change is one value in the tint lookup in sections.ts plus the
+deletions, so it reverts on its own.
+
+Negative:
+The three sections no longer each have a colour, so the rule "a top screen wears its
+section's tint" now has an exception that someone has to know about. Frameworks is a
+supervisor's screen only, so the inconsistency is between two reviewer pages, not something
+a student meets. If the team later wants a tint back on Frameworks, it starts from nothing
+rather than a token.
+
+Alternatives:
+Swap the peach for a quieter tint. That keeps #52's rule whole, but it means picking and
+measuring a new colour three days before the UI freeze, and Patrick asked to stay with
+decisions already made rather than a new one.
+
+Drop the tint on the review queue too. That would make the two reviewer top screens match
+each other, but Patrick kept the mint, and the queue is the screen reviewers land on, where
+the tint does the job #52 gave it.

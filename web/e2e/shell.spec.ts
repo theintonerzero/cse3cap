@@ -310,12 +310,15 @@ test.describe('section tint', () => {
     await expect(page.locator('[data-section]')).toHaveCount(0);
   });
 
-  test('review queue and frameworks carry their own section', async ({ page }) => {
+  test('the review queue carries its section; Frameworks carries none (round 3 F1)', async ({
+    page,
+  }) => {
     await install(page, 'Dr Lee', 'supervisor');
     await page.goto('/review-queue');
     await expect(page.locator('[data-section="review"]')).toHaveCount(1);
     await page.goto('/frameworks');
-    await expect(page.locator('[data-section="frameworks"]')).toHaveCount(1);
+    await expect(page.getByRole('heading', { level: 1, name: 'Frameworks' })).toBeVisible();
+    await expect(page.locator('[data-section]')).toHaveCount(0);
   });
 });
 

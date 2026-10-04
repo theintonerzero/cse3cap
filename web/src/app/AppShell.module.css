@@ -210,10 +210,6 @@
   --section-tint: var(--section-tint-review);
 }
 
-.shell[data-section='frameworks'] {
-  --section-tint: var(--section-tint-frameworks);
-}
-
 .shell[data-section] {
   background:
     linear-gradient(to bottom, var(--section-tint) 0, var(--color-bg) 20rem) no-repeat,

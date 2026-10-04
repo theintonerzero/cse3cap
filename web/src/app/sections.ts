@@ -18,8 +18,11 @@ export interface Section {
   parent: { to: string; title: string } | null;
   /** The bar title is the page's h1 only on the diary home, this round. */
   title_is_h1: boolean;
-  /** Which background tint the shell wears (CAP-38 R8). Top screens only. */
-  tint: 'diary' | 'review' | 'frameworks' | null;
+  /**
+   * Which background tint the shell wears (CAP-38 R8). Top screens only, and
+   * not Frameworks (round 3 F1, ADR #56).
+   */
+  tint: 'diary' | 'review' | null;
 }
 
 const DIARY = { to: '/', title: 'Reflection Diary' };
@@ -89,7 +92,7 @@ const TINT: Record<Place, Section['tint']> = {
   diary_deep: null,
   queue: 'review',
   queue_deep: null,
-  frameworks: 'frameworks',
+  frameworks: null,
   frameworks_deep: null,
 };
 

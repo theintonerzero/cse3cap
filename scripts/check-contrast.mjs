@@ -73,10 +73,8 @@ const PAIRS = [
   // CAP-38 R8 (ADR #52): page text over the top screens' section tint.
   ['--color-text', '--section-tint-diary', 'normal'],
   ['--color-text', '--section-tint-review', 'normal'],
-  ['--color-text', '--section-tint-frameworks', 'normal'],
   ['--color-text-muted', '--section-tint-diary', 'normal'],
   ['--color-text-muted', '--section-tint-review', 'normal'],
-  ['--color-text-muted', '--section-tint-frameworks', 'normal'],
   // CAP-38 round 2d (ADR #54): a secondary button's and an unselected chip's label.
   ['--color-text', '--color-control', 'normal'],
 ];
