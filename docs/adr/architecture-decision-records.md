@@ -56,6 +56,8 @@ Index
 #45 The demo deploys by hand, one origin ......... Proposed
 #46 Seeded tokens expire, carry a prefix, keep * .. Proposed
 #47 One role per person per gig, student first .. Proposed
+#48 Choosing a rubric is the supervisor's ......... Proposed
+#49 No draft-then-submit or save popups ........... Proposed
 
 ===============================================================
 
@@ -2514,8 +2516,9 @@ by an index, not by anyone.
 
 Decision:
 A person has one role per gig. Where the data says more, the least-privileged role wins, in
-this order: student, assessor, employer, supervisor. An assessor scores. An employer also
-assigns rubrics. A supervisor also builds them. `RoleResolver::PRECEDENCE` holds the order and
+this order: student, assessor, employer, supervisor. An assessor and an employer review. A
+supervisor also chooses a gig's rubric (ADR #48) and builds them. Between the assessor and the
+employer the order only makes the answer fixed. `RoleResolver::PRECEDENCE` holds the order and
 `for()` sorts by it with a portable `CASE`, not MySQL's `FIELD()`.
 
 The list scopes agree with it. `Reflection::reviewerExists`, which both `visibleTo` and
@@ -2539,8 +2542,8 @@ entirely, silently. Nothing tells them why the review queue is empty. It is not 
 entirely for a supervisor. `FrameworkPolicy::create` asks whether someone supervises anywhere
 (`holdsAnywhere`), not on this gig, so a student and supervisor on one gig can still build a
 rubric but cannot assign one there. A supervisor who is also an employer on one gig resolves as
-the employer, and loses whatever a supervisor alone may do there. Once rubric assignment is
-supervisor only, that means they cannot assign. The order among the
+the employer, and loses whatever a supervisor alone may do there. Since ADR #48 that includes
+choosing the gig's rubric. The order among the
 reviewer roles is our judgement. Nobody asked the client, and if Alumable means an employer to
 outrank a supervisor, this is wrong for them. It also quietly treats a data shape as supported
 that the product never designed for, which may hide a data problem that ought to be loud.
@@ -2558,3 +2561,151 @@ client says whether two roles can arrive.
 Return every role from `for()` and let each caller decide. The honest model. Rejected because
 every caller changes, and the permission matrix has no rows for combinations. Someone would
 have to design what a student-assessor may do first.
+
+===============================================================
+
+ADR #48: Choosing a gig's rubric is the supervisor's, not the employer's
+Status: Proposed
+Date: 2026-10-03
+Extends: #17
+
+Context:
+ADR #17 mapped the design's educator to the `supervisor` role and gave it framework
+management, on the grounds that the person supervising a gig is the natural one to decide
+which rubric applies to it. It rejected giving that to `employer`: employers are external
+to the university, so letting them define assessment rubrics is the wrong permission
+boundary.
+
+What got built split the boundary in two. Creating and editing a copy is supervisor only
+(`FrameworkPolicy`, through `RoleResolver::holdsAnywhere`). Assigning a rubric to a gig was
+not. The permission matrix in `docs/API-Specification.md` §11 gave
+`POST /framework-assignments` to "supervisor or employer", `GigPolicy::assignFramework`
+allowed both, a feature test asserted an employer's 201, and the frameworks picker offered
+an employer their gigs. Only the nav kept employers out, by showing the Frameworks link to
+supervisors alone, and the route took anyone who typed it. The 3 October handover review
+found the gap, and `docs/Design-Inventory.md` recorded it.
+
+Nobody in the seed is an employer, so the demo never exercised it. A gig's rubric is also
+permanent once assigned (ADR #33, #35), so whoever assigns first decides what every student
+on that gig is scored against, for good.
+
+Decision:
+Assigning a rubric to a gig is part of the boundary ADR #17 drew, so it's supervisor only.
+`GigPolicy::assignFramework` allows `supervisor` and nobody else. An employer, assessor or
+student on the gig gets 403 `ROLE_FORBIDDEN`, and anyone not on it still gets 404. The
+matrix row, the endpoint's heading in `API-Specification.md`, the contract's summary and
+the `/add-policy` skill's copy of the matrix all say supervisor only.
+
+In `web/`, the picker offers supervised gigs only, and `/frameworks` and
+`/frameworks/:framework_id/edit` render NotFound for someone who supervises no gig. That
+guard decides only what is drawn. The server still refuses.
+
+Employers keep everything else the matrix gives them: viewing reflections on their gigs,
+counter-scoring and the review queue.
+
+Consequences:
+Positive:
+One rule for the rubric instead of two halves that disagreed. An organisation outside the
+university can no longer fix what a cohort is assessed against, on a gig where that choice
+can't be undone. The framework screens now match the nav, so nobody lands on a page made of
+buttons that 403.
+
+Negative:
+A gig with an employer and no supervisor has nobody who can give it a rubric, and with no
+rubric no student can start a reflection on it (`FRAMEWORK_NOT_ASSIGNED`). Today that gig
+can only be fixed by adding a supervisor, which nothing in the API does. If Alumable runs
+employer-led gigs with no university supervisor, this is the wrong call for them and needs
+revisiting with the client. The client was not asked before this was decided. The route
+guard is also the first exception to "every route is reachable by URL", which
+`routes.tsx` now has to explain.
+
+Alternatives:
+Keep the matrix as built and accept employers assigning, fixing only the nav so they can
+reach the screen. Smallest change, and it matches the contract as it stood. Rejected
+because it leaves ADR #17's reasoning applying to writing a rubric but not to choosing one,
+when choosing is the step with the lasting effect.
+
+Leave the code and only file it for the team. Cheapest now, and keeps the client question
+open. Rejected because the gap was already recorded in the design inventory and the API
+tests, and the handover report would have described a permission the ADRs argue against.
+
+===============================================================
+
+ADR #49: No draft-then-submit, and no save popups, for an entry or a counter-score
+Status: Proposed
+Date: 2026-10-03
+
+Context:
+The Figma prototype draws both sides of the diary as draft then submit. A student's entry
+is one long page with "Save draft" and "Submit entry" (`21:326`), saving shows a "Draft
+saved" popup saying nothing has gone to the assessor yet (`142:2570`), and submitting shows
+an "Entry submitted" popup (`142:2863`). Scoring is the same shape: "Save draft" and
+"Submit scores" (`97:1416`), a "Draft saved" popup part way through that says the student
+can't see the scores yet (`142:3207`, `142:3675`), and a "Scores submitted" popup at the
+end (`97:1665`, `97:1103`).
+
+None of that was built, and no record says so. `docs/Design-Inventory.md` (CAP-40) maps
+those frames and carries a TODO for Amenah and Patrick on each, because the reason was never
+written down. What was built follows from things that were recorded:
+
+- CAP-11's acceptance criteria (COA4-69) specify the narrative with a debounced autosave
+  through `PATCH /entries/{id}`, with a visible saved, saving or failed indicator.
+  `docs/Stack-and-Build-Scope.md` §4.3 says "narrative with debounced autosave". A reflection is a draft until it is submitted, so the
+  student's work is always saved and always a draft. There is no save step to confirm.
+- The contract has no draft state for a counter-score. `POST /entries/{id}/scores` writes a
+  final row, a repeat is 409 `ALREADY_SCORED`, and re-scoring is out of scope (CLAUDE.md).
+  ADR #34 closes counter-scoring once the reflection is assessed, which happens when the
+  last entry has one.
+- CAP-13 (Patrick, `f4914b1`) keeps what an assessor has picked and typed per entry in the
+  stepper, so it survives Back and Next, and adds "Save all scores" on the last step. That
+  holding is in the browser only. Nothing reaches the server until a score is saved.
+
+Decision:
+The diary has no draft-then-submit and no save popups for an entry or a counter-score.
+
+A student's narrative autosaves, and the stepper's own indicator says whether it saved. The
+reflection is submitted once, through the submit gate, and the confirmation is the Submitted
+page (CAP-12), not a popup.
+
+An assessor's counter-score is saved as it is made, one `POST` per competency, through
+"Save score" or "Save all scores". Each one is final. When the last one flips the reflection
+to assessed, the stepper says so in place: "That was the last one", and the reflection has
+left the review queue (`EntryStepper.tsx`). There is no "Draft saved" or "Scores submitted"
+popup.
+
+This records the build as it stands. Why the popups themselves were dropped, rather than
+kept as confirmations of an autosave or of the final save, was not recorded at the time,
+and this record doesn't supply a reason. The inventory TODOs stay open for the people who
+built those screens.
+
+Consequences:
+Positive:
+A student can't lose a narrative to a forgotten Save, and a half-written reflection is
+never mistaken for a submitted one, because the only way out of draft is the gate. Scores
+need no second state on the server, no table change and no extra endpoint, and the rules
+in `Scoring` see each score once. One fewer modal on a phone screen at every save.
+
+Negative:
+An assessor can't park a partly scored reflection on the server. Picks held in the browser
+are lost on a reload or another device. Each saved counter-score is visible to the student
+at once, on the stepper and on the radar (`ReflectionDetailResource` returns every score,
+and `v_radar` has no status filter), so a student can see a partly scored reflection. That
+is the opposite of what `142:3207` drew, a draft the student cannot see yet. A
+counter-score is final once "Save score" is pressed, so a wrong level saved is
+permanent. Re-scoring is out of scope. The prototype's popups carried facts the build
+doesn't show anywhere else: the scoring close date, the largest self-versus-counter gap,
+the number of participants still to score, and "Score next participant". A reader of the handover report sees frames marked dropped
+or changed with no reason beyond this record.
+
+Alternatives:
+Build the drafts as drawn. A `status` on scores and a submit step would match the
+prototype, let an assessor park work, and keep partial scores from the student. What it
+would need: the `scores` table has never had a status (`db/01-schema.sql`), and the views
+that read scores (`v_entry_score` and `v_coverage_gaps` directly, `v_radar` and
+`v_calibration_gap` through `v_entry_score`) have no status filter. Adding one is a schema
+change with its own ADR, a new state in the contract, and a filter in those views so a
+parked score isn't charted.
+
+Keep the popups as confirmations over the autosave and the final save. Cheap, and closer
+to the design. Not built, and no reason was recorded. This is the one a team could still
+add without touching the API.

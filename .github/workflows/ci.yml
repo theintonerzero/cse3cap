@@ -82,6 +82,12 @@ jobs:
       - name: Check the design-token check's cases
         run: python3 scripts/check-tokens.test.py
 
+      # Every script that reads a seeded token by name goes through
+      # scripts/lib/token-for.sh: the newest line wins and a CRLF file still
+      # works, which the token reissue (ADR #46) needs. Pure Python and bash.
+      - name: Check the token reader and that every script uses it
+        run: python3 scripts/token-for.test.py
+
       # The docs still describe the repository: relative links resolve,
       # ./run commands exist, docs/ is in the README table, the ADR index
       # matches the records, and the dependency register matches the

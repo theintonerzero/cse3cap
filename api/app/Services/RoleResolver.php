@@ -37,8 +37,9 @@ class RoleResolver
      * wins (ADR #47). One role per person per gig is the model, and the
      * schema allows more only because Alumable supplies participants. The
      * order makes the answer the same every time, instead of whichever row
-     * the index returns first. Among the reviewers: an assessor scores, an
-     * employer also assigns rubrics, a supervisor also builds them.
+     * the index returns first. Among the reviewers: an assessor and an
+     * employer review, and a supervisor also chooses and builds rubrics
+     * (ADR #48).
      *
      * @var list<string>
      */

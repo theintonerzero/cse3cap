@@ -36,6 +36,7 @@ cd "$ROOT" || exit 1
 
 BASE="${BASE:-http://127.0.0.1:8000/api/v1}"
 TOKENS="${TOKENS:-$HOME/reflection-diary-tokens.txt}"
+. "$(dirname "${BASH_SOURCE[0]}")/lib/token-for.sh"
 SCREEN="web/src/screens/SelectFramework.tsx"
 RULE="web/src/screens/framework-groups.ts"
 ROUTES="web/src/app/routes.tsx"
@@ -303,23 +304,25 @@ want('all copies has no templates',
 want('nothing lost, nothing duplicated',
   groups.templates.length + groups.copies.length, mixed.length);
 
-// Which gigs the picker offers. A student or assessor participation is not
-// one, and the server would 403 it -- this only keeps the picker honest.
+// Which gigs the picker offers: supervisor only (ADR #48). A student, assessor or
+// employer participation is not one, and the server would 403 it -- this only keeps
+// the picker honest.
 const parts = [
   { gig_id: 'g1', gig_title: 'La Trobe', role: 'supervisor' },
   { gig_id: 'g2', gig_title: 'Data migration', role: 'student' },
   { gig_id: 'g3', gig_title: 'Roster', role: 'employer' },
   { gig_id: 'g4', gig_title: 'Audit', role: 'assessor' },
 ];
-want('assignable roles', assignable_gigs(parts).map((p) => p.gig_id), ['g1', 'g3']);
+want('assignable roles', assignable_gigs(parts).map((p) => p.gig_id), ['g1']);
 want('no participations', assignable_gigs([]), []);
 want('student only', assignable_gigs([parts[1]]), []);
+want('employer only', assignable_gigs([parts[2]]), []);
 
 if (failed > 0) { console.log(`${failed} mismatches`); process.exit(1); }
 JS
 
     if node "$OUT/check.mjs" >"$OUT/run.log" 2>&1; then
-        ok "grouping, sorting and the role filter" "10 assertions"
+        ok "grouping, sorting and the role filter" "11 assertions"
     else
         bad "grouping, sorting and the role filter" "see below"
         sed 's/^/    /' "$OUT/run.log"
@@ -330,7 +333,7 @@ fi
 say "7. The API really carries what the screen reads"
 
 TOKEN=""
-[ -f "$TOKENS" ] && TOKEN="$(grep -s 'Dr Lee' "$TOKENS" | awk '{print $NF}')"
+[ -f "$TOKENS" ] && TOKEN="$(token_for 'Dr Lee' "$TOKENS")"
 
 if [ -z "$TOKEN" ]; then
     meh "live framework checks" "no token for Dr Lee in $TOKENS"

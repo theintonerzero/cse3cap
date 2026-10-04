@@ -163,14 +163,16 @@ four-states evidence is CAP-21 (#74)
       a caption that changes with scope, entry list with status badges, export link.
       Scope lives in the URL (ADR #27) so a scoped diary is linkable, and the export link
       opens the sheet CAP-18 fills in. `./run verify-diary` checks it
-- [x] Gig detail: the design's three Overview cards -- Gig Details, Timeline
+- [x] Gig detail: two of the design's three Overview cards -- Timeline
       (start/end/duration), and a Reflection Diary card carrying the framework, a row per
       sprint as `SPRINT / SELF REFLECTION / ASSESSOR REFLECTION`, and the link into the
-      diary scoped to that gig. The two columns are the reflection states split, not a
-      second vocabulary. Sprint dates are worded relatively where it helps ("due in 3
-      days", "not open yet"); that wording and the state derivation are both a pure module
-      a check compiles and executes, because every seeded sprint is already past due.
-      A student sees the table; an assessor sees the sprint calendar, because
+      diary scoped to that gig. The design's Gig Details card is not built: it holds the
+      title and host, which the header already shows (`GigDetail.tsx`). The two columns
+      are the reflection states split, not a second vocabulary. Sprint dates are worded
+      relatively where it helps ("due in 3 days", "not open yet"); that wording and the
+      state derivation are both a pure module a check compiles and executes, because every
+      seeded sprint is already past due. A student sees the table; every other participant
+      (assessor, supervisor or employer) sees the sprint calendar, because
       `GET /reflections` returns them every student's rows. `./run verify-gig` checks it.
       This screen is the host app's gig page in the design, not a diary screen; the
       History sheet on the same frame is CAP-14

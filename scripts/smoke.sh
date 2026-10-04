@@ -28,6 +28,7 @@ set -uo pipefail
 
 BASE="${BASE:-http://127.0.0.1:8000/api/v1}"
 TOKENS="${TOKENS:-$HOME/reflection-diary-tokens.txt}"
+. "$(dirname "${BASH_SOURCE[0]}")/lib/token-for.sh"
 
 bold=$'\033[1m'; dim=$'\033[2m'; red=$'\033[1;31m'; green=$'\033[1;32m'
 yellow=$'\033[1;33m'; blue=$'\033[1;34m'; off=$'\033[0m'
@@ -113,9 +114,9 @@ if [ -z "${JANE:-}" ] || [ -z "${SAM:-}" ] || [ -z "${LEE:-}" ]; then
         printf 'Reissue them with: cd api && php artisan db:seed --class=DemoSeeder\n' >&2
         exit 1
     fi
-    JANE="$(grep 'Jane N' "$TOKENS" | awk '{print $NF}')"
-    SAM="$(grep 'Sam O'  "$TOKENS" | awk '{print $NF}')"
-    LEE="$(grep 'Dr Lee' "$TOKENS" | awk '{print $NF}')"
+    JANE="$(token_for 'Jane N' "$TOKENS")"
+    SAM="$(token_for 'Sam O' "$TOKENS")"
+    LEE="$(token_for 'Dr Lee' "$TOKENS")"
 fi
 
 if ! curl -fsS -o /dev/null "${BASE%/api/v1}/up" 2>/dev/null; then

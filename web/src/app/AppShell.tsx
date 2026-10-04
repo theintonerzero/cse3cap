@@ -14,8 +14,9 @@
  * The same person can be a student on one gig and an assessor on another, so
  * role is per gig and never global. Hiding a nav item is a convenience for
  * the person using it; the 403 from the API is the rule, and every route
- * below stays reachable by typing its URL. That is deliberate: a client-side
- * role check is not a security boundary and must never be mistaken for one.
+ * below stays reachable by typing its URL, except the framework screens,
+ * which routes.tsx explains. That is deliberate: a client-side role check is
+ * not a security boundary and must never be mistaken for one.
  * See docs/Frontend-and-Backend.md, "Roles never cross".
  *
  * The theme toggle here came from App.tsx, which said to move it into the
