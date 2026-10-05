@@ -5,7 +5,6 @@
  * yet. No ticket replaces this." -- wording for the team, not for anyone
  * using the product.
  */
-import type { Locator } from '@playwright/test';
 
 import { expect, test } from './fixtures.ts';
 
@@ -47,17 +46,24 @@ for (const { width, height } of [
     await expect(heading).toBeVisible();
 
     // Where the words are, not the element: a block heading's box spans the
-    // column whatever the text alignment.
-    const text_box = (locator: Locator) =>
-      locator.evaluate((node) => {
+    // column whatever the text alignment. All three in one frame, once the
+    // web font is in: measured in three calls, a late layout under the full
+    // suite's load moved the middle by 1.4 px between them (2026-10-05).
+    const [top, note, bottom] = await page.evaluate(async () => {
+      await document.fonts.ready;
+      const box = (node: Element) => {
         const range = document.createRange();
         range.selectNodeContents(node);
         const { x, y, width, height } = range.getBoundingClientRect();
         return { x, y, width, height };
-      });
-    const top = await text_box(heading);
-    const bottom = await text_box(link);
-    const note = await text_box(page.getByText('There is nothing at this address.'));
+      };
+      const section = document.querySelector('h1')!.closest('section')!;
+      return [
+        box(section.querySelector('h1')!),
+        box(section.querySelector('p')!),
+        box(section.querySelector('a')!),
+      ];
+    });
     for (const box of [top, note, bottom]) {
       expect(
         Math.abs(box.x + box.width / 2 - width / 2),
