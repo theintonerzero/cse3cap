@@ -23,7 +23,7 @@
  * just navigation. Select framework links every row here as "Edit a copy";
  * in_use does not gate that, because the base is only ever read.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 
 import { api, ApiError } from '../api/client.ts';
@@ -163,6 +163,24 @@ function Editor({
   const [copy, setCopy] = useState<FrameworkDetail | null>(null);
   const [save, setSave] = useState<Save>({ status: 'idle' });
 
+  // On a phone the Save bar is fixed to the bottom edge and grows with its
+  // hint or outcome, so the form keeps room under its last field equal to
+  // the bar's height (round 3 E17). The CSS only reads it on a phone.
+  const form_ref = useRef<HTMLDivElement>(null);
+  const footer_ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const form = form_ref.current;
+    const footer = footer_ref.current;
+    if (!form || !footer) return;
+
+    const observer = new ResizeObserver(() => {
+      form.style.setProperty('--footer-height', `${footer.offsetHeight}px`);
+    });
+    observer.observe(footer);
+    return () => observer.disconnect();
+  }, []);
+
   const edit = (next: FrameworkDraft) => {
     setDraft(next);
     // A new keystroke after "Saved" means there is something unsaved again.
@@ -267,7 +285,7 @@ function Editor({
   const empty = base.competencies.length === 0;
 
   return (
-    <div className={styles.form}>
+    <div className={styles.form} ref={form_ref}>
       <div className={styles.field}>
         <Select
           id="based-on"
@@ -425,7 +443,7 @@ function Editor({
             ))}
           </ol>
 
-          <div className={styles.footer}>
+          <div className={styles.footer} ref={footer_ref}>
             <SaveOutcome
               save={save}
               copy={copy}

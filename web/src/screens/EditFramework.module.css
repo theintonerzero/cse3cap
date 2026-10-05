@@ -220,18 +220,32 @@
   }
 }
 
-/* On a phone the save stays in reach at the foot of a long form. Sticky,
-   so it rests in place once the form ends (index.css keeps scroll room
-   for it). */
+/* On a phone the save stays in reach at the foot of a long form. Fixed to
+   the bottom edge, as the stepper's Back and Next (round 2b, round 3 E17):
+   sticky let the bar rise off the bottom once the page ended, over the
+   page's own bottom padding. index.css keeps a focused field clear of it. */
 @media (max-width: 40rem) {
   .footer {
-    position: sticky;
+    position: fixed;
+    right: 0;
     bottom: 0;
+    left: 0;
     z-index: var(--z-sticky-bar);
-    margin-inline: calc(-1 * var(--space-16));
-    padding: var(--space-12) var(--space-16);
+    margin: 0;
+    padding: var(--space-12) var(--space-16)
+      calc(var(--space-12) + env(safe-area-inset-bottom, 0));
     background: var(--color-surface);
     box-shadow: var(--shadow-sheet);
     border-top: 0;
+  }
+
+  /* Room for the bar under the last field. The bar grows when a hint or a
+     save's outcome shows in it, so the screen measures it into
+     --footer-height; before it has, room for the button and its padding. */
+  .form {
+    padding-bottom: var(
+      --footer-height,
+      calc(2.75rem + 2 * var(--space-12) + env(safe-area-inset-bottom, 0))
+    );
   }
 }
