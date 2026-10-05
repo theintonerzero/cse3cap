@@ -10,6 +10,90 @@ fixes what it finds leaves no record that the class of problem existed.
 
 ---
 
+## 2026-10-06 · CAP-38, the UI update branch
+
+**Reviewer:** Patrick Anley, via Claude Code · **Ticket:** CAP-38 · **Commit reviewed:**
+`346e49c` (with `dev` at `fd19f32` merged in)
+
+### Scope
+
+Everything CAP-38 changed, which is `web/` only: the shell, every screen's layout, two new
+route guards, and two new things kept in the browser. Nothing under `api/`, `db/` or
+`docs/openapi.yaml` changed, so the server's authorisation is what the 2026-10-03 entries
+reviewed. CAP-31's pentest was run again anyway, because the screens now send different
+requests.
+
+### Method
+
+- **`./run pentest`** against a local `php artisan serve` on the shared database, with the
+  three seeded tokens: **37 probes, 37 hold, 0 break**, the same as after #99.
+- **Every `scripts/verify-*.sh` with its live half**, against the same server: 0 failed.
+- **A source review of the branch diff** for rendering sinks, storage, URL-derived navigation
+  and client-side role reads, by an agent that had not written the code, then re-read by hand.
+- **`npm audit` and `composer audit`:** no advisories. The one new package is
+  `@fontsource-variable/inter` (font files and CSS, OFL-1.1).
+- **Every line the branch adds** (93 commits) grepped for the secret shapes the CAP-32 entry
+  lists: none.
+- **`web/e2e/injection.spec.ts`** still passes with its payload in the new places: the
+  counter-score chip group and comment box, and the editor's cards, now headed by the
+  competency's name.
+
+### Findings
+
+None. Three claims in earlier entries are no longer true, all because of this branch, and
+are corrected here rather than in place.
+
+1. **"Every route stays reachable by URL, by design"** (the 2026-09-19 table of client-side
+   role reads). Two guards now draw Page not found instead: `SupervisorOnly` on
+   `/frameworks` and its editor (CAP-46, ADR #48), and `ReviewerOnly` on `/review-queue` and
+   `/review-queue/reflections/:id` for someone who reviews nothing (ADR #55). The table gains
+   these rows. Each reads the `participations` that `/auth/me` resolves through
+   `RoleResolver`, and each only decides what is drawn:
+
+   | Client | Decides | Server enforcement |
+   | --- | --- | --- |
+   | `routes.tsx` `SupervisorOnly` | Frameworks and the editor, or Page not found | `FrameworkPolicy`, `GigPolicy::assignFramework` (pentest rows 4 and 5) |
+   | `routes.tsx` `ReviewerOnly` | the review queue and scoring, or Page not found | the queue is a query scoped to the caller; `ReflectionPolicy::counterScore` (pentest row 3) |
+   | `AppShell` `supervises` / `reviews` | the bar's title, back arrow and tint (`sections.ts`) | none needed: no request depends on it |
+   | `ReviewQueue` `supervises` | whether the Frameworks row shows | as `SupervisorOnly` |
+
+2. **"`localStorage` holds only the theme"** (the 2026-09-08, 2026-09-19 and 2026-09-24
+   entries). It now also holds a reviewer's unsent counter-scores (ADR #57), under
+   `reflection-diary-counter-drafts:<user id>:<reflection id>`: a level id, the comment and a
+   ready flag, never a token. Read back type-checked; restored only for entries the caller
+   has not scored, and only a level from that entry's competency; sent only when the
+   reviewer presses Submit scores, through the same POST and policy as before. Keyed by
+   person, so switching user on one device shows no one another's work.
+3. **"Every link is built from server-issued UUIDs"** (2026-09-19). One is not: the bar's
+   way back to the diary is `/?` plus the diary's last query string, kept in `sessionStorage`
+   under `reflection-diary-diary-scope:<user id>`. It is always a same-origin path, and the
+   diary re-checks it against the caller's own gigs (`scope_from_params`).
+
+### Hardening notes
+
+- **Unsent counter-scores outlive the tab.** Unlike tokens, they stay in `localStorage`
+  until sent or emptied, and neither a 401 nor Leave clears them. On a shared device the
+  next person can read a reviewer's unsent comments in the browser's tools. That is the
+  cost ADR #57 accepted. A server-side draft would remove it; CAP-38's pull request lists
+  that as a backend follow-up.
+
+### What is already right
+
+- No `dangerouslySetInnerHTML`, `innerHTML`, `eval`, `new Function`, `window.open` or
+  `console` anywhere in `web/src`. Tokens are in `sessionStorage`, per tab, as before.
+- Every new link is a fixed path or a server-issued UUID, apart from the one above.
+- The screens still treat the server's refusals as the rule: `COMMENT_REQUIRED`,
+  `ALREADY_SCORED`, `NOT_SUBMITTED` and the one-framework-per-gig 409 are each handled from
+  the response, and the screens' own hints only decide what is shown first.
+
+### Sign-off
+
+CAP-38 adds no way in. The pentest and the injection checks hold, and the three stale claims
+above are corrected. The unsent-counter-score note stays open as a backend follow-up, not a
+finding.
+
+---
+
 ## 2026-10-03 · Every finding re-verified, by reviewers who did not write them
 
 **Reviewer:** Tony To, via Claude Code · **Tickets raised:** CAP-42, CAP-43, CAP-44 ·
