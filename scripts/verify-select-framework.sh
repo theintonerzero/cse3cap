@@ -260,7 +260,7 @@ else
     cat > "$OUT/check.mjs" <<'JS'
 import { group_frameworks, assignable_gigs }
   from './screens/framework-groups.js';
-import { display_names } from './screens/framework-names.js';
+import { display_names, free_name } from './screens/framework-names.js';
 
 const fw = (name, created_by, in_use = false) => ({
   id: name, fw_key: name, version: 'v1', name, is_active: true, created_by, in_use,
@@ -345,11 +345,22 @@ display_names(stored);
 want('stored names untouched', stored.map((f) => f.name), ['S', 'S']);
 want('nothing to name', display_names([]).size, 0);
 
+// Round 3 E12: the editor's default name. The first free "(n)", free of
+// stored names and of on-screen labels; a copy of "X (2)" is "X (3)"; a
+// year in brackets is not a copy number; cut to fit the column.
+const lt = fwk('La Trobe', 'lt', null);
+want('free: first is (2)', free_name('La Trobe', [lt], 191), 'La Trobe (2)');
+want('free: skips a stored (2)', free_name('La Trobe', [lt, fwk('La Trobe (2)', 'x')], 191), 'La Trobe (3)');
+want('free: skips an on-screen (2)', free_name('La Trobe', [lt, fwk('La Trobe', 'lt-2')], 191), 'La Trobe (3)');
+want('free: a copy of X (2) is X (3)', free_name('La Trobe (2)', [lt, fwk('La Trobe (2)', 'x')], 191), 'La Trobe (3)');
+want('free: a year in brackets is kept', free_name('Team (2026)', [], 191), 'Team (2026) (2)');
+want('free: cut to fit', free_name('a'.repeat(191), [], 191), 'a'.repeat(187) + ' (2)');
+
 if (failed > 0) { console.log(`${failed} mismatches`); process.exit(1); }
 JS
 
     if node "$OUT/check.mjs" >"$OUT/run.log" 2>&1; then
-        ok "grouping, sorting, the role filter and the names" "18 assertions"
+        ok "grouping, sorting, the role filter and the names" "24 assertions"
     else
         bad "grouping, sorting, the role filter and the names" "see below"
         sed 's/^/    /' "$OUT/run.log"

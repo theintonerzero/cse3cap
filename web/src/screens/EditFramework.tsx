@@ -36,7 +36,7 @@ import {
   SkeletonGroup,
 } from '../components/index.ts';
 import { group_frameworks, type Framework } from './framework-groups.ts';
-import { display_names } from './framework-names.ts';
+import { display_names, free_name } from './framework-names.ts';
 import {
   NAME_MAX,
   SHORT_LABEL_MAX,
@@ -150,7 +150,10 @@ function Editor({
   frameworks: Framework[];
   on_choose_base: (id: string) => void;
 }) {
-  const [draft, setDraft] = useState<FrameworkDraft>(() => draft_from(base));
+  // The copy's starting name, worked out once per base (the screen remounts
+  // on a new base): "<base> (2)", the first number free (round 3 E12).
+  const [start_name] = useState(() => free_name(base.name, frameworks, NAME_MAX));
+  const [draft, setDraft] = useState<FrameworkDraft>(() => draft_from(base, start_name));
   // The copy as the server holds it, once there is one. Every landed PATCH
   // is folded in, so pending_edits against it is exactly what is still owed.
   const [copy, setCopy] = useState<FrameworkDetail | null>(null);
@@ -276,7 +279,7 @@ function Editor({
   // Same-named rubrics read "(2)", "(3)" … as on Frameworks (round 3 E7),
   // which is what told them apart here before, in place of the key.
   const names = display_names(frameworks);
-  const dirty = is_dirty(base, draft);
+  const dirty = is_dirty(base, draft, start_name);
   const empty = base.competencies.length === 0;
 
   return (

@@ -257,8 +257,11 @@ const copy_of = (name) => ({
 });
 
 // --- draft_from
-const fresh = draft_from(base);
-want('default name says it is a copy', fresh.name, 'Copy of La Trobe');
+// The screen works out the name (framework-names.ts free_name, round 3
+// E12): "La Trobe (2)", not "Copy of La Trobe". The draft takes it as given.
+const NAME = 'La Trobe (2)';
+const fresh = draft_from(base, NAME);
+want('the name is the one it is given', fresh.name, NAME);
 want('competencies by position', fresh.competencies.map((c) => c.code),
   ['collaboration', 'communication']);
 want('levels by value', fresh.competencies[1].levels.map((l) => l.level_value), [1, 2]);
@@ -266,7 +269,7 @@ want('a null radar label is an empty field', fresh.competencies[0].short_label, 
 want('the base is not mutated', base.competencies[0].code, 'communication');
 
 // --- pending_edits, against a copy that already carries the draft's name
-const copy = copy_of('Copy of La Trobe');
+const copy = copy_of(NAME);
 want('an untouched draft owes nothing', pending_edits(copy, fresh), []);
 
 // The POST set the name, so a first save needs no framework PATCH -- but a
@@ -330,9 +333,9 @@ want('blank fields are named',
 want('a blank radar label is allowed', missing_text(unlabelled), []);
 
 // --- is_dirty
-want('a fresh draft is not dirty', is_dirty(base, fresh), false);
-want('a reworded draft is dirty', is_dirty(base, reworded), true);
-want('a renamed copy is dirty', is_dirty(base, { ...fresh, name: 'Other' }), true);
+want('a fresh draft is not dirty', is_dirty(base, fresh, NAME), false);
+want('a reworded draft is dirty', is_dirty(base, reworded, NAME), true);
+want('a renamed copy is dirty', is_dirty(base, { ...fresh, name: 'Other' }, NAME), true);
 
 if (failed > 0) { console.log(`${failed} of ${count} mismatched`); process.exit(1); }
 console.log(count);

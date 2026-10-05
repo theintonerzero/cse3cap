@@ -45,3 +45,38 @@ export function display_names(list: Framework[]): ReadonlyMap<string, string> {
 
   return names;
 }
+
+// A trailing " (n)" that a copy number would have added. Up to three digits,
+// so "Team (2026)" keeps its year.
+const COPY_NUMBER = / \(\d{1,3}\)$/;
+
+/**
+ * The name a new copy starts with (round 3 E12 and E7(b), Patrick
+ * 2026-10-05: "Copy of copy of {framework}" looks "so dumb"; he chose
+ * "(2)"). The base's name with the first free "(n)" from 2, the way
+ * Windows names a second copy: free of every stored name and every
+ * on-screen label, so it never collides with a number display_names already
+ * shows. A copy of "X (2)" is "X (3)", never "X (2) (2)". The name is cut to
+ * leave room for the number within max_length.
+ *
+ * Only a suggestion: the person can type any name, and the server keeps
+ * whatever it is sent. The heading and the Saved copies group are what say
+ * it's a copy (ADR #16 asks the UI to, not the name).
+ */
+export function free_name(
+  base_name: string,
+  list: Framework[],
+  max_length: number,
+): string {
+  const root = base_name.replace(COPY_NUMBER, '');
+  const taken = new Set([
+    ...list.map((framework) => framework.name),
+    ...display_names(list).values(),
+  ]);
+
+  for (let n = 2; ; n++) {
+    const suffix = ` (${n})`;
+    const name = `${root.slice(0, max_length - suffix.length)}${suffix}`;
+    if (!taken.has(name)) return name;
+  }
+}

@@ -46,14 +46,14 @@ test('every rubric, in use or not, can be copied and edited', async ({ page, api
   expect(api.writes()).toEqual([]);
 });
 
-test('loaded: the base, a name that says copy, every field, and nothing that changes shape', async ({
+test('loaded: the base, a name with the next free number, every field, and nothing that changes shape', async ({
   page,
 }) => {
   await open(page, LATROBE);
 
   await expect(page.getByLabel('Based on')).toHaveValue(LATROBE);
   await expect(page.getByLabel('Name of your copy')).toHaveValue(
-    'Copy of La Trobe six-competency',
+    'La Trobe six-competency (2)',
   );
   await expect(page.getByText('2 competencies, scored 1 to 4.')).toBeVisible();
 
@@ -151,7 +151,7 @@ test('a save that fails partway finishes the same copy, not a second one', async
   await expect(page.getByText('Cannot reach the server')).toBeVisible();
 
   await page.getByRole('button', { name: 'Save changes to your copy' }).click();
-  await expect(page.getByText('Saved as Copy of La Trobe six-competency.')).toBeVisible();
+  await expect(page.getByText('Saved as La Trobe six-competency (2).')).toBeVisible();
 
   const [copy] = api.copies();
   const level_2 = copy.competencies[0].levels.find((l) => l.level_value === 2)!;
@@ -281,7 +281,7 @@ test('choosing another base warns first, then starts from it', async ({ page }) 
   await page.getByLabel('Based on').selectOption(SFIA);
 
   await expect(page).toHaveURL(`/frameworks/${SFIA}/edit`);
-  await expect(page.getByLabel('Name of your copy')).toHaveValue('Copy of SFIA 9');
+  await expect(page.getByLabel('Name of your copy')).toHaveValue('SFIA 9 (2)');
   // SFIA's skills carry a category and start part-way up the scale.
   const prog = page.getByRole('group', { name: 'Programming/software development' });
   await expect(prog.getByLabel('Level 2')).toBeVisible();
