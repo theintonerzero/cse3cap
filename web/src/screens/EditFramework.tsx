@@ -31,7 +31,6 @@ import {
   Button,
   Card,
   ErrorNotice,
-  LinkButton,
   Select,
   Skeleton,
   SkeletonGroup,
@@ -110,11 +109,6 @@ export function EditFramework() {
 
   return (
     <section>
-      <div className={styles.back}>
-        <LinkButton to="/frameworks" variant="quiet" back>
-          Frameworks
-        </LinkButton>
-      </div>
       <h1 className={styles.heading}>Edit a copy of a rubric</h1>
       <p className={styles.sub}>
         Saving makes a new rubric of your own. The one it is based on does not change, and
