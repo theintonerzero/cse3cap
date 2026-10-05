@@ -42,6 +42,7 @@ import { useNavigate, useParams } from 'react-router';
 import { api, ApiError } from '../api/client.ts';
 import {
   Badge,
+  BottomSheet,
   Button,
   Chip,
   ErrorNotice,
@@ -76,6 +77,7 @@ import {
 import { kept_as_drafts, read_kept, write_kept, type KeptDraft } from './counter-drafts.ts';
 import type {
   CounterDraft,
+  SaveAllGap,
   FrameworkDetail,
   ReflectionDetail,
   ReflectionEntry,
@@ -153,9 +155,9 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
   // Whose kept work has been read back (`${me_id}:${reflection_id}`), so
   // nothing is written over it before it has been (round 3, ADR #57).
   const restored = useRef<string | null>(null);
-  // Set once "Save all scores" has been pressed: from then the list of what
-  // is still missing shows, and stays current as the assessor fills it in.
-  const [save_all_tried, setSaveAllTried] = useState(false);
+  // What "Submit scores" found missing, shown in a pop-up until "Okay",
+  // which goes to the first of them (round 3, Patrick 2026-10-05).
+  const [missing, setMissing] = useState<SaveAllGap[] | null>(null);
   // The gig, for the heading: its title, and its sprints, because the
   // reflection detail leaves sprint_ordinal out (the API loads the sprint
   // only for lists). A second, optional read; the screen works without it.
@@ -375,11 +377,14 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
   const save_all = async () => {
     if (load.status !== 'loaded' || !me) return;
     const { reflection: current_reflection, framework } = load;
-    setSaveAllTried(true);
-    if (
-      missing_before_save_all(current_reflection.entries, framework, drafts, me.id).length >
-      0
-    ) {
+    const gaps = missing_before_save_all(
+      current_reflection.entries,
+      framework,
+      drafts,
+      me.id,
+    );
+    if (gaps.length > 0) {
+      setMissing(gaps);
       return;
     }
 
@@ -475,10 +480,6 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
   const current = entries[current_index];
   const scoring_open = mode === 'assessor' && reflection.status === 'submitted';
   const left_to_score = me_id ? entries.length - scored_by_count(entries, me_id) : 0;
-  const save_all_gaps =
-    scoring_open && save_all_tried && me_id
-      ? missing_before_save_all(entries, load.framework, drafts, me_id)
-      : [];
 
   return (
     <section className={styles.page}>
@@ -575,26 +576,6 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
         </p>
       )}
 
-      {/* What "Submit scores" is still waiting on, in plain words next to
-          the button that asked (round 3, Patrick: "just the text saying
-          which ones are missing is fine"). It stays current as the gaps
-          are filled, and goes once nothing is missing. */}
-      {save_all_gaps.length > 0 && (
-        <div className={styles.missing} role="alert">
-          <p className={styles.missing_lead}>Nothing was sent. Still to do:</p>
-          <ul className={styles.missing_list}>
-            {save_all_gaps.map((gap) => (
-              <li key={gap.entry.id}>
-                {gap.entry.competency_name} ({gap.index + 1} of {entries.length}){' '}
-                {gap.needs === 'score'
-                  ? 'still needs a score.'
-                  : 'needs a comment to go with its score.'}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
       {/* Navigation waits for an in-flight counter-score: stepping away
           would unmount the panel and lose the error it is about to show. */}
       <div className={styles.nav}>
@@ -639,6 +620,38 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
           )
         )}
       </div>
+
+      {/* What "Submit scores" is still waiting on, as a pop-up rather than a
+          card under the button, which on a phone is off-screen (round 3,
+          Patrick 2026-10-05). Nothing was sent. "Okay" goes to the first
+          gap in rubric order, at its top with focus on its name, the way
+          Back and Next arrive. Any other close just closes. */}
+      <BottomSheet
+        open={missing !== null}
+        title="Some scores are missing"
+        onClose={() => setMissing(null)}
+      >
+        <p className={styles.missing_lead}>Nothing was sent. Still to do:</p>
+        <ul className={styles.missing_list}>
+          {missing?.map((gap) => (
+            <li key={gap.entry.id}>
+              {gap.entry.competency_name} ({gap.index + 1} of {entries.length}){' '}
+              {gap.needs === 'score'
+                ? 'still needs a score.'
+                : 'needs a comment to go with its score.'}
+            </li>
+          ))}
+        </ul>
+        <Button
+          on_click={() => {
+            const first = missing?.[0]?.index ?? current_index;
+            setMissing(null);
+            go_to_step(first);
+          }}
+        >
+          Okay
+        </Button>
+      </BottomSheet>
     </section>
   );
 }

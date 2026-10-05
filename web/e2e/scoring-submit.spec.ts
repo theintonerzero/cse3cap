@@ -212,19 +212,34 @@ test("someone else's unfinished work on this device never shows", async ({ page 
   );
 });
 
-test('Submit with a gap: says what is missing in plain words, sends nothing', async ({
+test('Submit with gaps: a pop-up lists them, sends nothing, and Okay goes to the first', async ({
   page,
 }) => {
+  // Patrick (2026-10-05): the missing list as a pop-up; "Okay" goes to the
+  // earliest one, at its top, the way Back and Next arrive.
   const sent = await install(page);
+  await page.setViewportSize({ width: 390, height: 640 });
   await page.goto(OPEN);
-  await your_score(page).getByRole('button', { name: /^3 · / }).click();
   await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await expect(page.getByText('Competency 2 of 2')).toBeVisible();
   await page.getByRole('button', { name: 'Submit scores' }).click();
 
-  await expect(page.getByText('Communication (2 of 2) still needs a score.')).toBeVisible();
+  const dialog = page.getByRole('dialog', { name: 'Some scores are missing' });
+  await expect(dialog).toBeVisible();
+  await expect(
+    dialog.getByText('Collaboration (1 of 2) still needs a score.'),
+  ).toBeVisible();
+  await expect(
+    dialog.getByText('Communication (2 of 2) still needs a score.'),
+  ).toBeVisible();
   await expect(page.getByRole('button', { name: /^Go to / })).toHaveCount(0);
-  await expect(page.getByText('Nearly there.')).toHaveCount(0);
   expect(sent).toEqual([]);
+
+  await dialog.getByRole('button', { name: 'Okay' }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByText('Competency 1 of 2')).toBeVisible();
+  await expect(page.getByText('Collaboration', { exact: true })).toBeFocused();
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
 });
 
 test('Submit when complete: every score goes, and the device copy is cleared', async ({
