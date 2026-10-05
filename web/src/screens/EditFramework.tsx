@@ -271,6 +271,8 @@ function Editor({
   }
 
   const { templates, copies } = group_frameworks(frameworks);
+  const base_name = (code: string) =>
+    base.competencies.find((c) => c.code === code)?.name ?? code;
   // Same-named rubrics read "(2)", "(3)" … as on Frameworks (round 3 E7),
   // which is what told them apart here before, in place of the key.
   const names = display_names(frameworks);
@@ -354,10 +356,16 @@ function Editor({
               <li key={competency.code}>
                 <Card>
                   <fieldset className={styles.fieldset} disabled={saving}>
+                    {/* Headed by the name as it is being typed (round 3 E18),
+                        not the code; a blank name shows the one it started
+                        with. SFIA's category sits under it, outside the
+                        legend, so the group is named by the name alone. */}
                     <legend className={styles.legend}>
-                      {competency.code}
-                      {competency.category && ` · ${competency.category}`}
+                      {competency.name.trim() || base_name(competency.code)}
                     </legend>
+                    {competency.category && (
+                      <p className={styles.category}>{competency.category}</p>
+                    )}
 
                     <div className={styles.pair}>
                       <div className={styles.field}>

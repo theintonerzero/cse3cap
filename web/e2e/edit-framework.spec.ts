@@ -10,8 +10,11 @@ import type { Page } from '@playwright/test';
 
 import { EMPTY, LATROBE, NOWHERE, SFIA, expect, test } from './fixtures.ts';
 
+// By the code in its name field's id, not its heading: a card is headed by
+// the competency's name as it is typed (round 3 E18), so a renamed card
+// changes its accessible name mid-test.
 function competency(page: Page, code: string) {
-  return page.getByRole('group', { name: code });
+  return page.getByRole('group').filter({ has: page.locator(`#name-${code}`) });
 }
 
 async function open(page: Page, framework_id: string) {
@@ -280,7 +283,7 @@ test('choosing another base warns first, then starts from it', async ({ page }) 
   await expect(page).toHaveURL(`/frameworks/${SFIA}/edit`);
   await expect(page.getByLabel('Name of your copy')).toHaveValue('Copy of SFIA 9');
   // SFIA's skills carry a category and start part-way up the scale.
-  const prog = page.getByRole('group', { name: 'PROG · Development and implementation' });
+  const prog = page.getByRole('group', { name: 'Programming/software development' });
   await expect(prog.getByLabel('Level 2')).toBeVisible();
   await expect(prog.getByLabel('Level 1')).toHaveCount(0);
 });

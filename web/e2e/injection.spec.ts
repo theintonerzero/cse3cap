@@ -79,7 +79,8 @@ test("edit framework: a rubric's wording, and the name a supervisor types, are t
   ).toBeVisible();
 
   // The base rubric's own wording, as the fields a supervisor edits.
-  const competency = page.getByRole('group', { name: 'hostile' });
+  // Found by its field's id: the card is headed by the (hostile) name itself.
+  const competency = page.getByRole('group').filter({ has: page.locator('#name-hostile') });
   await expect(competency.getByLabel('Competency name')).toHaveValue(PAYLOAD);
   await expect(competency.getByLabel('Level 1')).toHaveValue(PAYLOAD);
   await expect(

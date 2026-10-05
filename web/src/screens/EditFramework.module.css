@@ -100,13 +100,24 @@
   gap: var(--space-12);
 }
 
+/* The competency's name, in the weight the Frameworks rows give a name
+   (round 3 E18), rather than the code as a small uppercase label. */
 .legend {
   padding: 0;
   margin-bottom: var(--space-12);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-tight);
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+/* SFIA's category, the muted line under the name. Pulled up to sit with
+   the name rather than a field's distance below it. */
+.category {
+  margin: calc(-1 * var(--space-8)) 0 0;
+  font-size: var(--font-size-sm);
   color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
 /* Name and radar label side by side where there is room, stacked on a
