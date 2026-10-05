@@ -20,7 +20,7 @@
  * competency renamed without it keeps its old name on every chart.
  *
  * The base comes from the route, so the page is linkable and the selector is
- * just navigation. Select framework links every row here as "Copy and edit";
+ * just navigation. Select framework links every row here as "Edit a copy";
  * in_use does not gate that, because the base is only ever read.
  */
 import { useCallback, useEffect, useState } from 'react';
@@ -114,7 +114,7 @@ export function EditFramework() {
           Frameworks
         </LinkButton>
       </div>
-      <h1 className={styles.heading}>Copy and edit a rubric</h1>
+      <h1 className={styles.heading}>Edit a copy of a rubric</h1>
       <p className={styles.sub}>
         Saving makes a new rubric of your own. The one it is based on does not change, and
         nothing already scored against it moves.

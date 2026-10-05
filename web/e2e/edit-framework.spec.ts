@@ -30,11 +30,13 @@ test('every rubric, in use or not, can be copied and edited', async ({ page, api
   await expect(la_trobe.getByText('In use')).toBeVisible();
   // One link, not a button nested in a link (CAP-38): two interactive
   // elements for one action is invalid HTML and two tab stops.
-  await expect(la_trobe.getByRole('button', { name: 'Copy and edit' })).toHaveCount(0);
-  await la_trobe.getByRole('link', { name: 'Copy and edit' }).click();
+  await expect(la_trobe.getByRole('button', { name: 'Edit a copy' })).toHaveCount(0);
+  await la_trobe.getByRole('link', { name: 'Edit a copy' }).click();
 
   await expect(page).toHaveURL(`/frameworks/${LATROBE}/edit`);
-  await expect(page.getByRole('heading', { name: 'Copy and edit a rubric' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Edit a copy of a rubric' }),
+  ).toBeVisible();
   expect(api.writes()).toEqual([]);
 });
 
@@ -219,7 +221,9 @@ test('a refused copy saves nothing and says so', async ({ page, api }) => {
 test('error: a rubric that does not exist', async ({ page }) => {
   await open(page, NOWHERE);
 
-  await expect(page.getByRole('heading', { name: 'Copy and edit a rubric' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Edit a copy of a rubric' }),
+  ).toBeVisible();
   await expect(page.getByRole('alert')).toContainText('Not found');
   await expect(page.getByRole('link', { name: /Frameworks/ }).first()).toBeVisible();
 });

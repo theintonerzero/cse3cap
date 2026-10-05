@@ -74,10 +74,10 @@ fi
 # --------------------------------------------------------------------------
 say "2. Reachable from every rubric"
 
-if grep -q 'frameworks/\${framework.id}/edit' "$SELECT" && grep -q 'Copy and edit' "$SELECT"; then
-    ok "Select framework links Copy and edit to the route"
+if grep -q 'frameworks/\${framework.id}/edit' "$SELECT" && grep -q 'Edit a copy' "$SELECT"; then
+    ok "Select framework links Edit a copy to the route"
 else
-    bad "Select framework links Copy and edit to the route"
+    bad "Select framework links Edit a copy to the route"
 fi
 
 # The editor always copies, so whether a reflection references the base has

@@ -278,7 +278,7 @@ dr_lee_test.describe('360px: no horizontal overflow (DR_LEE scenario)', () => {
     await page.goto(`/frameworks/${LATROBE}/edit`);
 
     await expect(
-      page.getByRole('heading', { name: 'Copy and edit a rubric' }),
+      page.getByRole('heading', { name: 'Edit a copy of a rubric' }),
     ).toBeVisible();
     await expect_no_horizontal_overflow(page);
   });
@@ -291,7 +291,7 @@ dr_lee_test.describe('360px: no horizontal overflow (DR_LEE scenario)', () => {
     await page.goto(`/frameworks/${EMPTY}/edit`);
 
     await expect(
-      page.getByRole('heading', { name: 'Copy and edit a rubric' }),
+      page.getByRole('heading', { name: 'Edit a copy of a rubric' }),
     ).toBeVisible();
     await expect_no_horizontal_overflow(page);
   });

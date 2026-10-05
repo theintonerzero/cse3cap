@@ -898,7 +898,7 @@ export const SHOTS: Shot[] = [
   // Promise.all), the latter keyed by the route param. Loaded-only for the
   // real shot; "Based on" is the base-picker's own label, rendered only once
   // load.status === 'loaded', regardless of whether the base framework turns
-  // out to have competencies to rename -- the "Copy and edit a rubric" h1
+  // out to have competencies to rename -- the "Edit a copy of a rubric" h1
   // above it renders in every status (same trap as the other screens' own
   // h1s in this file), so it cannot be the wait target.
   //

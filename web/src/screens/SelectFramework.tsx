@@ -272,7 +272,7 @@ function FrameworkRow({
               seeded templates are in use; gating on in_use left a freshly
               seeded database with no way into the editor at all. */}
           <LinkButton to={`/frameworks/${framework.id}/edit`} variant="secondary" size="sm">
-            Copy and edit
+            Edit a copy
           </LinkButton>
 
           {assignable.length > 0 && assign.status !== 'picking' && (

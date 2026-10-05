@@ -91,14 +91,14 @@ else
     bad "the nav item is gated on supervisor"
 fi
 
-# The way OUT. Copy and edit addresses the CAP-16 route -- a link to a path
+# The way OUT. Edit a copy addresses the CAP-16 route -- a link to a path
 # the router does not declare would fall through to the not-found
 # placeholder and look like a working link.
 if grep -q '/frameworks/\${framework.id}/edit' "$SCREEN" \
    || grep -q 'frameworks/\${framework.id}/edit' "$SCREEN"; then
-    ok "Copy and edit addresses /frameworks/:framework_id/edit"
+    ok "Edit a copy addresses /frameworks/:framework_id/edit"
 else
-    bad "Copy and edit addresses /frameworks/:framework_id/edit"
+    bad "Edit a copy addresses /frameworks/:framework_id/edit"
 fi
 
 if grep -q 'path="frameworks/:framework_id/edit"' "$ROUTES"; then
@@ -186,15 +186,15 @@ else
     bad "templates and copies split on created_by"
 fi
 
-# Copy and edit is on EVERY row. The editor copies and never changes the
+# Edit a copy is on EVERY row. The editor copies and never changes the
 # rubric it starts from, so in_use is no reason to hide it -- and both
 # seeded templates are in use, so gating on it left a freshly seeded
 # database with no way into the editor. Changed by CAP-16; in_use still
 # drives the "In use" marker.
-if grep -q 'Copy and edit' "$SCREEN" && ! grep -q 'is_editable' "$SCREEN"; then
-    ok "Copy and edit on every row" "in_use does not gate a copy"
+if grep -q 'Edit a copy' "$SCREEN" && ! grep -q 'is_editable' "$SCREEN"; then
+    ok "Edit a copy on every row" "in_use does not gate a copy"
 else
-    bad "Copy and edit on every row" "gated on in_use, both seeded templates lose it"
+    bad "Edit a copy on every row" "gated on in_use, both seeded templates lose it"
 fi
 
 # ADR #33, extended by #35: a gig takes one rubric and the unique key
@@ -352,7 +352,7 @@ else
 
     # The split is only real if the data actually has both sides. A seeded
     # database always has at least one stock template; copies arrive from
-    # smoke.sh and from anyone pressing Copy and edit.
+    # smoke.sh and from anyone pressing Edit a copy.
     if printf '%s' "$BODY" | grep -q '"created_by":null'; then
         ok "at least one stock template exists" "created_by null"
     else

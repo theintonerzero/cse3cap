@@ -90,7 +90,7 @@ test('a row: name, then version and In use, and two small actions', async ({ pag
     .filter({ hasText: new RegExp(`^${TEMPLATE.name}`) });
   await expect(row.getByText(`${TEMPLATE.version} · In use`)).toBeVisible();
   await expect(row.getByText(TEMPLATE.fw_key, { exact: true })).toHaveCount(0);
-  await expect(row.getByRole('link', { name: 'Copy and edit' })).toBeVisible();
+  await expect(row.getByRole('link', { name: 'Edit a copy' })).toBeVisible();
   await expect(row.getByRole('button', { name: 'Assign to a gig' })).toBeVisible();
 });
 
@@ -124,7 +124,7 @@ test('390: every row puts its buttons under the name, short name or long', async
   for (const name of [TEMPLATE.name, COPY.name, SHORT.name]) {
     const row = page.getByRole('listitem').filter({ hasText: new RegExp(`^${name}`) });
     const title = await row.getByText(name, { exact: true }).boundingBox();
-    const copy = await row.getByRole('link', { name: 'Copy and edit' }).boundingBox();
+    const copy = await row.getByRole('link', { name: 'Edit a copy' }).boundingBox();
     expect(copy!.y, name).toBeGreaterThan(title!.y + title!.height);
   }
 });
