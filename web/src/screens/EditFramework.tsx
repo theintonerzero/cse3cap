@@ -37,6 +37,7 @@ import {
   SkeletonGroup,
 } from '../components/index.ts';
 import { group_frameworks, type Framework } from './framework-groups.ts';
+import { display_names } from './framework-names.ts';
 import {
   NAME_MAX,
   SHORT_LABEL_MAX,
@@ -259,6 +260,9 @@ function Editor({
   }
 
   const { templates, copies } = group_frameworks(frameworks);
+  // Same-named rubrics read "(2)", "(3)" … as on Frameworks (round 3 E7),
+  // which is what told them apart here before, in place of the key.
+  const names = display_names(frameworks);
   const dirty = is_dirty(base, draft);
   const empty = base.competencies.length === 0;
 
@@ -275,7 +279,7 @@ function Editor({
           <optgroup label="Templates">
             {templates.map((f) => (
               <option key={f.id} value={f.id}>
-                {f.name}
+                {names.get(f.id)}
               </option>
             ))}
           </optgroup>
@@ -283,7 +287,7 @@ function Editor({
             <optgroup label="Saved copies">
               {copies.map((f) => (
                 <option key={f.id} value={f.id}>
-                  {f.name} ({f.fw_key})
+                  {names.get(f.id)}
                 </option>
               ))}
             </optgroup>

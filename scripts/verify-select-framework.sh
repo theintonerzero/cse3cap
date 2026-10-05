@@ -39,6 +39,8 @@ TOKENS="${TOKENS:-$HOME/reflection-diary-tokens.txt}"
 . "$(dirname "${BASH_SOURCE[0]}")/lib/token-for.sh"
 SCREEN="web/src/screens/SelectFramework.tsx"
 RULE="web/src/screens/framework-groups.ts"
+# Round 3 E7: the on-screen names, numbered from the same order.
+NAMES="web/src/screens/framework-names.ts"
 ROUTES="web/src/app/routes.tsx"
 SHELL_TSX="web/src/app/AppShell.tsx"
 
@@ -243,11 +245,12 @@ trap 'rm -rf "$OUT"' EXIT
 if [ ! -x "$TSC" ]; then
     meh "grouping rule" "no web/node_modules; run npm install in web/"
 elif ! "$TSC" --ignoreConfig --target es2022 --module esnext \
-        --moduleResolution bundler --strict --outDir "$OUT" "$RULE" \
+        --moduleResolution bundler --strict --rewriteRelativeImportExtensions \
+        --outDir "$OUT" "$RULE" "$NAMES" \
         >"$OUT/tsc.log" 2>&1; then
-    bad "framework-groups.ts compiles standalone" "$(head -1 "$OUT/tsc.log")"
+    bad "framework-groups.ts and framework-names.ts compile standalone" "$(head -1 "$OUT/tsc.log")"
 else
-    ok "framework-groups.ts compiles standalone"
+    ok "framework-groups.ts and framework-names.ts compile standalone"
 
     # tsc emits into a tree mirroring web/src, because the type-only import
     # of schema.ts puts both files in the program. The import itself is
@@ -257,6 +260,7 @@ else
     cat > "$OUT/check.mjs" <<'JS'
 import { group_frameworks, assignable_gigs }
   from './screens/framework-groups.js';
+import { display_names } from './screens/framework-names.js';
 
 const fw = (name, created_by, in_use = false) => ({
   id: name, fw_key: name, version: 'v1', name, is_active: true, created_by, in_use,
@@ -318,13 +322,36 @@ want('no participations', assignable_gigs([]), []);
 want('student only', assignable_gigs([parts[1]]), []);
 want('employer only', assignable_gigs([parts[2]]), []);
 
+// Round 3 E7: a repeated name reads (2), (3) in key order (numeric, so -10
+// after -9), the first stays bare, a template outranks a copy, and a number
+// never repeats a name somebody typed. The stored name is not touched.
+const fwk = (name, fw_key, created_by = 'u') => ({ ...fw(name, created_by), id: fw_key, fw_key });
+const labels = (list) => {
+  const names = display_names(list);
+  return group_frameworks(list).templates.concat(group_frameworks(list).copies)
+    .map((f) => names.get(f.id));
+};
+want('unique names unchanged', labels([fwk('A', 'a', null), fwk('B', 'b')]), ['A', 'B']);
+want('repeats numbered in key order',
+  labels([fwk('S', 's-10'), fwk('S', 's-9'), fwk('S', 's')]), ['S', 'S (2)', 'S (3)']);
+want('key order, not arrival order',
+  display_names([fwk('S', 's-10'), fwk('S', 's-9')]).get('s-10'), 'S (2)');
+want('the template stays bare', labels([fwk('T', 'copy-t'), fwk('T', 't', null)]), ['T', 'T (2)']);
+// Listed by stored name, so the typed "F (2)" sorts after both Fs.
+want('a typed name is skipped',
+  labels([fwk('F (2)', 'f-typed'), fwk('F', 'f'), fwk('F', 'f-2')]), ['F', 'F (3)', 'F (2)']);
+const stored = [fwk('S', 's'), fwk('S', 's-2')];
+display_names(stored);
+want('stored names untouched', stored.map((f) => f.name), ['S', 'S']);
+want('nothing to name', display_names([]).size, 0);
+
 if (failed > 0) { console.log(`${failed} mismatches`); process.exit(1); }
 JS
 
     if node "$OUT/check.mjs" >"$OUT/run.log" 2>&1; then
-        ok "grouping, sorting and the role filter" "11 assertions"
+        ok "grouping, sorting, the role filter and the names" "18 assertions"
     else
-        bad "grouping, sorting and the role filter" "see below"
+        bad "grouping, sorting, the role filter and the names" "see below"
         sed 's/^/    /' "$OUT/run.log"
     fi
 fi

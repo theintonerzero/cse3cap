@@ -35,6 +35,7 @@ import {
 } from '../components/index.ts';
 import { useSession, type SessionUser } from '../session/useSession.ts';
 import { assignable_gigs, group_frameworks, type Framework } from './framework-groups.ts';
+import { display_names } from './framework-names.ts';
 import styles from './SelectFramework.module.css';
 
 type Participation = SessionUser['participations'][number];
@@ -158,6 +159,9 @@ function LoadedState({
   on_assigned: (gig_id: string, framework: Framework) => void;
 }) {
   const { templates, copies } = group_frameworks(frameworks);
+  // Same-named rubrics read "(2)", "(3)" … (round 3 E7), here and in the
+  // sheet, so each row can be told apart and its sheet says which it is.
+  const names = display_names(frameworks);
   // One sheet for the screen, not one per row (round 3 E6). The framework
   // stays set while the sheet is shut, so its title never blanks mid-close.
   const [open, setOpen] = useState<Framework | null>(null);
@@ -185,17 +189,23 @@ function LoadedState({
       <Group
         title="Templates"
         frameworks={templates}
+        names={names}
         on_open={open_sheet}
         when_empty="No templates. The database has not been seeded."
       />
       <Group
         title="Saved copies"
         frameworks={copies}
+        names={names}
         on_open={open_sheet}
         when_empty="Nothing copied yet."
       />
 
-      <BottomSheet open={sheet_open} title={open?.name} onClose={() => setSheetOpen(false)}>
+      <BottomSheet
+        open={sheet_open}
+        title={open ? names.get(open.id) : undefined}
+        onClose={() => setSheetOpen(false)}
+      >
         {/* Keyed, so another framework opens fresh: nothing picked, no
             outcome left over from the last one. */}
         {open && (
@@ -204,6 +214,7 @@ function LoadedState({
             framework={open}
             assignable={assignable}
             gig_rubrics={gig_rubrics}
+            names={names}
             on_assigned={on_assigned}
           />
         )}
@@ -215,11 +226,13 @@ function LoadedState({
 function Group({
   title,
   frameworks,
+  names,
   on_open,
   when_empty,
 }: {
   title: string;
   frameworks: Framework[];
+  names: ReadonlyMap<string, string>;
   on_open: (framework: Framework) => void;
   when_empty: string;
 }) {
@@ -235,7 +248,11 @@ function Group({
         <ul className={styles.list}>
           {frameworks.map((framework) => (
             <li key={framework.id}>
-              <FrameworkRow framework={framework} on_open={on_open} />
+              <FrameworkRow
+                framework={framework}
+                name={names.get(framework.id) ?? framework.name}
+                on_open={on_open}
+              />
             </li>
           ))}
         </ul>
@@ -273,9 +290,11 @@ function meta_line(framework: Framework): string {
  */
 function FrameworkRow({
   framework,
+  name,
   on_open,
 }: {
   framework: Framework;
+  name: string;
   on_open: (framework: Framework) => void;
 }) {
   return (
@@ -286,7 +305,7 @@ function FrameworkRow({
       onClick={() => on_open(framework)}
     >
       <span className={styles.row_main}>
-        <span className={styles.name}>{framework.name}</span>
+        <span className={styles.name}>{name}</span>
         <span className={styles.meta}>{meta_line(framework)}</span>
       </span>
       {/* The character itself, as the queue's rows do: check-tokens.sh
@@ -328,11 +347,13 @@ function FrameworkSheet({
   framework,
   assignable,
   gig_rubrics,
+  names,
   on_assigned,
 }: {
   framework: Framework;
   assignable: Participation[];
   gig_rubrics: GigRubrics;
+  names: ReadonlyMap<string, string>;
   on_assigned: (gig_id: string, framework: Framework) => void;
 }) {
   const [assign, setAssign] = useState<AssignState>({ status: 'idle' });
@@ -400,7 +421,11 @@ function FrameworkSheet({
               />
               <span className={styles.gig_text}>
                 <span className={styles.gig_title}>{gig.gig_title}</span>
-                <GigNote rubric={gig_rubrics.get(gig.gig_id)} framework={framework} />
+                <GigNote
+                  rubric={gig_rubrics.get(gig.gig_id)}
+                  framework={framework}
+                  names={names}
+                />
               </span>
             </label>
           ))}
@@ -433,13 +458,18 @@ function FrameworkSheet({
   );
 }
 
-/** The muted line under a gig: which rubric it uses, if /gigs said. */
+/**
+ * The muted line under a gig: which rubric it uses, if /gigs said. By its
+ * on-screen name (round 3 E7), or the stored one if it isn't listed.
+ */
 function GigNote({
   rubric,
   framework,
+  names,
 }: {
   rubric: GigFramework | null | undefined;
   framework: Framework;
+  names: ReadonlyMap<string, string>;
 }) {
   if (rubric === undefined) return null;
 
@@ -449,7 +479,7 @@ function GigNote({
         ? 'No rubric yet'
         : rubric.id === framework.id
           ? 'Uses this rubric'
-          : `Uses ${rubric.name}`}
+          : `Uses ${names.get(rubric.id) ?? rubric.name}`}
     </span>
   );
 }

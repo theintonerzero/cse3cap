@@ -25,16 +25,27 @@ export interface FrameworkGroups {
 }
 
 /**
+ * By name, then by key among equal names (round 3 E7). Names are not unique,
+ * keys are, and the server makes them slug, slug-2, slug-3 … (smoke copies
+ * carry a timestamp), so with numeric collation this is the nearest thing to
+ * "oldest first" the payload has. framework-names.ts numbers in this order.
+ */
+export function by_name_then_key(a: Framework, b: Framework): number {
+  return (
+    a.name.localeCompare(b.name) ||
+    a.fw_key.localeCompare(b.fw_key, undefined, { numeric: true })
+  );
+}
+
+/**
  * Sorted by name inside each group. The shared database accumulates a
  * `smoke-test-copy-*` framework on every run of scripts/smoke.sh, so the
  * copies list is longer and less ordered than a seeded demo suggests.
  */
 export function group_frameworks(list: Framework[]): FrameworkGroups {
-  const by_name = (a: Framework, b: Framework) => a.name.localeCompare(b.name);
-
   return {
-    templates: list.filter((f) => f.created_by === null).sort(by_name),
-    copies: list.filter((f) => f.created_by !== null).sort(by_name),
+    templates: list.filter((f) => f.created_by === null).sort(by_name_then_key),
+    copies: list.filter((f) => f.created_by !== null).sort(by_name_then_key),
   };
 }
 
