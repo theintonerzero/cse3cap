@@ -28,10 +28,13 @@ test('every rubric, in use or not, can be copied and edited', async ({ page, api
     .getByRole('listitem')
     .filter({ hasText: 'La Trobe six-competency' });
   await expect(la_trobe.getByText('In use')).toBeVisible();
+  // The row opens its sheet (round 3 E6), and "Edit a copy" is in there.
+  await la_trobe.getByRole('button').click();
+  const sheet = page.getByRole('dialog', { name: 'La Trobe six-competency' });
   // One link, not a button nested in a link (CAP-38): two interactive
   // elements for one action is invalid HTML and two tab stops.
-  await expect(la_trobe.getByRole('button', { name: 'Edit a copy' })).toHaveCount(0);
-  await la_trobe.getByRole('link', { name: 'Edit a copy' }).click();
+  await expect(sheet.getByRole('button', { name: 'Edit a copy' })).toHaveCount(0);
+  await sheet.getByRole('link', { name: 'Edit a copy' }).click();
 
   await expect(page).toHaveURL(`/frameworks/${LATROBE}/edit`);
   await expect(

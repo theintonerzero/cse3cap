@@ -5,7 +5,7 @@
  * - An open BottomSheet sits above the sticky header, so nothing behind a
  *   modal dialog can be clicked or hides the sheet's top.
  * - A long display name, or a supervisor's single long gig title (which
- *   becomes "Assign to <title>"), never makes a 360px page scroll sideways.
+ *   is a radio row in the Frameworks sheet), never makes a 360px page scroll sideways.
  * - Gig Detail's column headings line up with each other on a wide screen.
  * - A review-queue row's accessible name begins with the words on it, so a
  *   voice-control user can say "click" and the student's name (WCAG 2.5.3).
@@ -160,7 +160,8 @@ test('360px: one long assignable gig title keeps Frameworks on screen', async ({
   );
   await page.setViewportSize({ width: 360, height: 800 });
   await page.goto('/frameworks');
-  await expect(page.getByRole('button', { name: `Assign to ${LONG_TITLE}` })).toBeVisible();
+  await page.getByRole('listitem').first().getByRole('button').click();
+  await expect(page.getByRole('radio', { name: LONG_TITLE })).toBeVisible();
   expect(await horizontal_overflow(page)).toBe(0);
 });
 

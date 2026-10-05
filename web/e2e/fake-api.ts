@@ -278,6 +278,19 @@ export class FakeApi {
       return reply(route, 201, copy);
     }
 
+    // Round 3 E2: the Frameworks sheet assigns. Shape only, no rule: the
+    // one-rubric-per-gig 409 is injected with fail() where a spec wants it.
+    if (key === 'POST /framework-assignments') {
+      const { gig_id, framework_id } = body as { gig_id: string; framework_id: string };
+      return reply(route, 201, {
+        id: this.mint(),
+        gig_id,
+        framework_id,
+        assigned_by: this.me.id,
+        assigned_at: '2026-10-05T00:00:00.000000Z',
+      });
+    }
+
     if (key === 'PATCH /frameworks/:id') {
       const framework = this.frameworks.find((f) => f.id === id);
       if (!framework) return reply(route, 404, envelope('NOT_FOUND', 'Not found.'));

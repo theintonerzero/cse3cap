@@ -38,14 +38,6 @@
   color: var(--color-text-muted);
 }
 
-/* One rubric: the gig page's row card (round 3 F2). */
-.item {
-  padding: var(--space-16);
-  border: var(--border-width-sm) solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-}
-
 .list {
   margin: var(--space-8) 0 0;
   padding: 0;
@@ -64,56 +56,56 @@
   color: var(--color-text-muted);
 }
 
-/* The row wraps rather than squeezing: at phone width the actions drop
-   under the name instead of crushing it to one word per line. */
+/* One rubric (round 3 E6): the queue's Frameworks card (ReviewQueue's
+   .wayIn), a whole-row button with the name, the muted version line and a
+   chevron. A <button>, so it drops the browser's button look. */
 .row {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
   align-items: center;
-  gap: var(--space-12);
+  justify-content: space-between;
+  gap: var(--space-16);
+  width: 100%;
+  padding: var(--space-16);
+  border: var(--border-width-sm) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
 }
 
-.identity {
+.row:hover {
+  border-color: var(--color-primary);
+}
+
+.row:focus-visible {
+  outline: 0.125rem solid var(--color-focus-ring);
+  outline-offset: 0.0625rem;
+}
+
+/* A long name breaks rather than pushing the page sideways. */
+.row_main {
+  display: flex;
   min-width: 0;
+  flex-direction: column;
+  gap: var(--space-4);
+  overflow-wrap: anywhere;
 }
 
 .name {
-  margin: 0;
   color: var(--color-text);
   font-weight: var(--font-weight-medium);
 }
 
 .meta {
-  margin: var(--space-4) 0 0;
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
 }
 
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-8);
-}
-
-/* On a phone the actions wrap under the name at their own small size
-   (round 3 F2). A long gig title in a button breaks rather than pushing the
-   page sideways. */
-@media (max-width: 40rem) {
-  /* Every row the same shape: the name takes the whole first line, so a
-     short name never pulls the buttons up beside it. */
-  .identity {
-    flex-basis: 100%;
-  }
-
-  .actions > *,
-  .picker_options > * {
-    min-width: 0;
-    max-width: 100%;
-    text-align: center;
-    overflow-wrap: anywhere;
-  }
+.chevron {
+  font-size: var(--font-size-lg);
+  color: var(--color-text-muted);
 }
 
 .empty {
@@ -153,28 +145,72 @@
   padding: var(--space-4);
 }
 
-/* The expanded gig picker, under the row it belongs to. Separated by a
-   rule rather than a tint: the row is already a card, and a second fill
-   inside it reads as a second card. */
-.picker {
-  margin-top: var(--space-12);
-  padding-top: var(--space-12);
-  border-top: var(--border-width-sm) solid var(--color-border);
-}
-
-.picker_label {
-  margin: 0 0 var(--space-8);
+/* The sheet (round 3 E6). Its version line sits close under the title,
+   as the Leave sheet's body does (AppShell's .leave_body). */
+.sheet_meta {
+  margin: calc(-1 * var(--space-8)) 0 var(--space-16);
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
 }
 
-.picker_options {
+/* The gigs as radio rows (round 3 E2), each a hairline card like the
+   rows behind the sheet, the picked one outlined in the primary colour. */
+.gigs {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: var(--space-8);
+  min-width: 0;
+  margin: var(--space-24) 0 0;
+  padding: 0;
+  border: 0;
 }
 
-/* Both sit on the row card, so --color-surface: a pairing check-contrast.mjs
+/* A legend ignores flex gap, so it carries its own space below. */
+.gigs > legend {
+  margin-bottom: var(--space-12);
+  padding: 0;
+}
+
+.gig {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  padding: var(--space-12) var(--space-16);
+  border: var(--border-width-sm) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.gig:has(input:checked) {
+  border-color: var(--color-primary);
+}
+
+.gig:has(input:focus-visible) {
+  outline: 0.125rem solid var(--color-focus-ring);
+  outline-offset: 0.0625rem;
+}
+
+.gig input {
+  flex: none;
+  margin: 0;
+  accent-color: var(--color-primary);
+}
+
+.gig_text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--space-4);
+  overflow-wrap: anywhere;
+}
+
+.assign {
+  margin-top: var(--space-8);
+}
+
+/* Both sit on the sheet's --color-surface: a pairing check-contrast.mjs
    already covers for --color-danger and --color-success. */
 .refused {
   margin: var(--space-12) 0 0;

@@ -1,8 +1,10 @@
 /**
  * CAP-38 round 3 F2: Frameworks laid out like the gig page. One muted line
  * under the heading, small uppercase section labels, one row per rubric
- * with its version and "In use", and two small secondary actions. The
- * product rules still read: copy-then-edit (ADR #16), in use is read-only.
+ * with its version and "In use". Round 3 E6/E2 (2026-10-05): the row is one
+ * whole-row button that opens a sheet with "Edit a copy" and the gigs as
+ * radio rows. The product rules still read: copy-then-edit (ADR #16), in
+ * use is read-only.
  *
  * Self-contained scenario, ids prefixed '3833'. Dr Lee only: Sam gets Page
  * not found here (CAP-46), which framework-access.spec.ts covers.
@@ -69,6 +71,7 @@ const COPY: FrameworkDetail = {
 async function install(page: Page, frameworks: FrameworkDetail[]) {
   const api = new FakeApi(frameworks, LEE, [], []);
   await api.install(page);
+  return api;
 }
 
 test('one line under the heading, and no per-group hints', async ({ page }) => {
@@ -82,7 +85,15 @@ test('one line under the heading, and no per-group hints', async ({ page }) => {
   await expect(page.getByRole('heading', { level: 2, name: 'Saved copies' })).toBeVisible();
 });
 
-test('a row: name, then version and In use, and two small actions', async ({ page }) => {
+// Round 3 E6 + E2 (Patrick, 2026-10-05): each framework is one compact
+// whole-row card, like every other list in the app, and tapping it opens a
+// sheet with "Edit a copy" and the gigs to assign it to, as radio rows.
+const row_button = (page: Page, name: string) =>
+  page.getByRole('button', { name: new RegExp(`^${name.replace(/[()]/g, '\\$&')}`) });
+
+test('a row: name, then version and In use, a chevron, and nothing else to press', async ({
+  page,
+}) => {
   await install(page, [TEMPLATE, COPY]);
   await page.goto('/frameworks');
   const row = page
@@ -90,43 +101,114 @@ test('a row: name, then version and In use, and two small actions', async ({ pag
     .filter({ hasText: new RegExp(`^${TEMPLATE.name}`) });
   await expect(row.getByText(`${TEMPLATE.version} · In use`)).toBeVisible();
   await expect(row.getByText(TEMPLATE.fw_key, { exact: true })).toHaveCount(0);
-  await expect(row.getByRole('link', { name: 'Edit a copy' })).toBeVisible();
-  await expect(row.getByRole('button', { name: 'Assign to a gig' })).toBeVisible();
+  await expect(row.getByRole('button')).toHaveCount(1);
+  await expect(row.getByRole('link')).toHaveCount(0);
+  await expect(row.getByRole('button')).toHaveAttribute('aria-haspopup', 'dialog');
 });
 
-test('390: a long name and the open picker never scroll sideways', async ({ page }) => {
+for (const width of [390, 1440]) {
+  test(`${width}: a row is compact, about half its old height`, async ({ page }) => {
+    await install(page, [TEMPLATE, COPY]);
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/frameworks');
+    const row = page
+      .getByRole('listitem')
+      .filter({ hasText: new RegExp(`^${TEMPLATE.name}`) });
+    expect((await row.boundingBox())!.height).toBeLessThanOrEqual(90);
+  });
+}
+
+test('tapping a row opens its sheet: Edit a copy, then the gigs to pick from', async ({
+  page,
+}) => {
+  await install(page, [TEMPLATE, COPY]);
+  await page.goto('/frameworks');
+  await row_button(page, TEMPLATE.name).click();
+  const sheet = page.getByRole('dialog', { name: TEMPLATE.name });
+  await expect(sheet.getByText(`${TEMPLATE.version} · In use`)).toBeVisible();
+  await expect(sheet.getByRole('link', { name: 'Edit a copy' })).toHaveAttribute(
+    'href',
+    `/frameworks/${TEMPLATE.id}/edit`,
+  );
+  const group = sheet.getByRole('group', { name: 'Assign to a gig' });
+  await expect(group.getByRole('radio')).toHaveCount(2);
+  await expect(group.getByRole('radio', { checked: true })).toHaveCount(0);
+  await expect(sheet.getByRole('button', { name: 'Assign', exact: true })).toBeDisabled();
+});
+
+test('pick a gig, Assign, and the sheet says so; one POST however often it is pressed', async ({
+  page,
+}) => {
+  const api = await install(page, [TEMPLATE, COPY]);
+  await page.goto('/frameworks');
+  await row_button(page, COPY.name).click();
+  const sheet = page.getByRole('dialog', { name: COPY.name });
+  await sheet.getByRole('radio', { name: 'Data migration audit' }).check();
+  const release = api.hold('POST /framework-assignments');
+  await sheet.getByRole('button', { name: 'Assign', exact: true }).click();
+  await expect(sheet.getByRole('button', { name: 'Assigning…' })).toBeDisabled();
+  release();
+  await expect(sheet.getByRole('status')).toHaveText('Assigned to Data migration audit.');
+  expect(api.writes()).toHaveLength(1);
+  expect(api.writes()[0].body).toEqual({ framework_id: COPY.id, gig_id: GIG_TWO });
+});
+
+test('a refusal is said in the sheet, in the server’s words', async ({ page }) => {
+  const api = await install(page, [TEMPLATE, COPY]);
+  api.fail('POST /framework-assignments', {
+    kind: 'error',
+    status: 409,
+    code: 'DUPLICATE_ASSIGNMENT',
+    message: 'That gig already has a rubric.',
+  });
+  await page.goto('/frameworks');
+  await row_button(page, TEMPLATE.name).click();
+  const sheet = page.getByRole('dialog', { name: TEMPLATE.name });
+  await sheet.getByRole('radio', { name: 'Develop AI use cases' }).check();
+  await sheet.getByRole('button', { name: 'Assign', exact: true }).click();
+  await expect(sheet.getByRole('status')).toHaveText('That gig already has a rubric.');
+});
+
+test('another framework opens fresh: nothing picked, no outcome', async ({ page }) => {
+  await install(page, [TEMPLATE, COPY]);
+  await page.goto('/frameworks');
+  await row_button(page, COPY.name).click();
+  let sheet = page.getByRole('dialog', { name: COPY.name });
+  await sheet.getByRole('radio', { name: 'Data migration audit' }).check();
+  await sheet.getByRole('button', { name: 'Assign', exact: true }).click();
+  await expect(sheet.getByRole('status')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await row_button(page, TEMPLATE.name).click();
+  sheet = page.getByRole('dialog', { name: TEMPLATE.name });
+  await expect(sheet.getByRole('radio', { checked: true })).toHaveCount(0);
+  await expect(sheet.getByRole('status')).toHaveCount(0);
+});
+
+test('keyboard: Enter opens the sheet, Escape closes it, focus returns to the row', async ({
+  page,
+}) => {
+  await install(page, [TEMPLATE, COPY]);
+  await page.goto('/frameworks');
+  const row = row_button(page, TEMPLATE.name);
+  await row.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('dialog', { name: TEMPLATE.name })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(row).toBeFocused();
+});
+
+test('390: a long name in the open sheet never scrolls sideways', async ({ page }) => {
   await install(page, [TEMPLATE, COPY]);
   await page.setViewportSize({ width: 390, height: 800 });
   await page.goto('/frameworks');
-  const row = page.getByRole('listitem').filter({ hasText: COPY.name });
-  await row.getByRole('button', { name: 'Assign to a gig' }).click();
-  await expect(row.getByRole('button', { name: 'Data migration audit' })).toBeVisible();
-  await expect(row.getByRole('button', { name: 'Cancel' })).toBeVisible();
+  await row_button(page, COPY.name).click();
+  await expect(page.getByRole('dialog', { name: COPY.name })).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     ),
   ).toBe(0);
-});
-
-test('390: every row puts its buttons under the name, short name or long', async ({
-  page,
-}) => {
-  const SHORT: FrameworkDetail = {
-    ...TEMPLATE,
-    id: id('0022'),
-    name: 'SFIA 9',
-    in_use: true,
-  };
-  await install(page, [TEMPLATE, COPY, SHORT]);
-  await page.setViewportSize({ width: 390, height: 800 });
-  await page.goto('/frameworks');
-  for (const name of [TEMPLATE.name, COPY.name, SHORT.name]) {
-    const row = page.getByRole('listitem').filter({ hasText: new RegExp(`^${name}`) });
-    const title = await row.getByText(name, { exact: true }).boundingBox();
-    const copy = await row.getByRole('link', { name: 'Edit a copy' }).boundingBox();
-    expect(copy!.y, name).toBeGreaterThan(title!.y + title!.height);
-  }
 });
 
 // Round 3 E1 (Patrick, 2026-10-05): "Templates and its buttons could be
