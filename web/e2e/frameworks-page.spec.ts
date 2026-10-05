@@ -128,3 +128,34 @@ test('390: every row puts its buttons under the name, short name or long', async
     expect(copy!.y, name).toBeGreaterThan(title!.y + title!.height);
   }
 });
+
+// Round 3 E1 (Patrick, 2026-10-05): "Templates and its buttons could be
+// moved a little higher so the gap between the frameworks subheadings isn't
+// as large." The groups keep the gig page's 24 between them.
+for (const width of [390, 1440]) {
+  test(`${width}: TEMPLATES sits 16 under the sub line, its first row 12 under it`, async ({
+    page,
+  }) => {
+    await install(page, [TEMPLATE, COPY]);
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/frameworks');
+    await expect(
+      page.getByRole('heading', { level: 2, name: 'Saved copies' }),
+    ).toBeVisible();
+    const gaps = await page.evaluate(async () => {
+      await document.fonts.ready;
+      const box = (el: Element | null) => el!.getBoundingClientRect();
+      const labels = document.querySelectorAll('main section section h2');
+      const lists = document.querySelectorAll('main section section ul');
+      return {
+        sub_to_label:
+          box(labels[0]).top - box(document.querySelector('main h1 + p')).bottom,
+        label_to_row: box(lists[0].querySelector('li')).top - box(labels[0]).bottom,
+        between_groups: box(labels[1]).top - box(lists[0]).bottom,
+      };
+    });
+    expect(Math.round(gaps.sub_to_label)).toBe(16);
+    expect(Math.round(gaps.label_to_row)).toBe(12);
+    expect(Math.round(gaps.between_groups)).toBe(24);
+  });
+}

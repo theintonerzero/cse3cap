@@ -12,11 +12,19 @@
   color: var(--color-text-muted);
 }
 
+/* Round 3 E1: 16 under the sub line, and 12 from a label to its first row
+   (this gap plus .list's margin), the gig page's label gap. */
 .block {
-  margin-top: var(--space-24);
+  margin-top: var(--space-16);
   display: flex;
   flex-direction: column;
-  gap: var(--space-8);
+  gap: var(--space-4);
+}
+
+/* The second group keeps the gig page's section gap, so the two groups
+   still read as two. */
+.block + .block {
+  margin-top: var(--space-24);
 }
 
 /* The gig page's section label (GigDetail's .section_label): small,
