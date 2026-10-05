@@ -24,6 +24,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { api, ApiError } from '../api/client.ts';
+import type { components } from '../api/schema.ts';
 import {
   BottomSheet,
   Button,
@@ -37,6 +38,13 @@ import { assignable_gigs, group_frameworks, type Framework } from './framework-g
 import styles from './SelectFramework.module.css';
 
 type Participation = SessionUser['participations'][number];
+type GigFramework = components['schemas']['GigFramework'];
+
+/**
+ * Which rubric each gig already uses, by gig id (round 3 E2). A gig missing
+ * from the map is unknown: /gigs has not answered, or failed.
+ */
+type GigRubrics = ReadonlyMap<string, GigFramework | null>;
 
 type State =
   | { status: 'loading' }
@@ -69,6 +77,35 @@ export function SelectFramework() {
     return () => controller.abort();
   }, [reload_key]);
 
+  // Which rubric each gig uses, for the assign sheet (round 3 E2). A
+  // helper, not the page: it never shows a loading or error state of its
+  // own. Until it answers, or if it fails, the gigs are plain radios and
+  // the server's 409 still answers a gig that already has one.
+  const [gig_rubrics, setGigRubrics] = useState<GigRubrics>(new Map());
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    api
+      .get('/gigs', { signal: controller.signal })
+      .then((gigs) => setGigRubrics(new Map(gigs.map((gig) => [gig.id, gig.framework]))))
+      .catch(() => {});
+
+    return () => controller.abort();
+  }, []);
+
+  // A gig now uses this rubric, so every sheet opened after says so.
+  const on_assigned = useCallback((gig_id: string, framework: Framework) => {
+    setGigRubrics((current) =>
+      new Map(current).set(gig_id, {
+        id: framework.id,
+        fw_key: framework.fw_key,
+        name: framework.name,
+        version: framework.version,
+      }),
+    );
+  }, []);
+
   // Back to the skeletons first, rather than leaving the error notice on
   // screen while the retry is in flight. Same as ReviewQueue and GigDetail.
   const retry = useCallback(() => {
@@ -92,7 +129,12 @@ export function SelectFramework() {
       {state.status === 'loading' && <LoadingState />}
       {state.status === 'error' && <ErrorNotice error={state.error} on_retry={retry} />}
       {state.status === 'loaded' && (
-        <LoadedState frameworks={state.frameworks} assignable={assignable} />
+        <LoadedState
+          frameworks={state.frameworks}
+          assignable={assignable}
+          gig_rubrics={gig_rubrics}
+          on_assigned={on_assigned}
+        />
       )}
     </section>
   );
@@ -107,9 +149,13 @@ export function SelectFramework() {
 function LoadedState({
   frameworks,
   assignable,
+  gig_rubrics,
+  on_assigned,
 }: {
   frameworks: Framework[];
   assignable: Participation[];
+  gig_rubrics: GigRubrics;
+  on_assigned: (gig_id: string, framework: Framework) => void;
 }) {
   const { templates, copies } = group_frameworks(frameworks);
   // One sheet for the screen, not one per row (round 3 E6). The framework
@@ -152,7 +198,15 @@ function LoadedState({
       <BottomSheet open={sheet_open} title={open?.name} onClose={() => setSheetOpen(false)}>
         {/* Keyed, so another framework opens fresh: nothing picked, no
             outcome left over from the last one. */}
-        {open && <FrameworkSheet key={open.id} framework={open} assignable={assignable} />}
+        {open && (
+          <FrameworkSheet
+            key={open.id}
+            framework={open}
+            assignable={assignable}
+            gig_rubrics={gig_rubrics}
+            on_assigned={on_assigned}
+          />
+        )}
       </BottomSheet>
     </>
   );
@@ -273,14 +327,23 @@ type AssignState =
 function FrameworkSheet({
   framework,
   assignable,
+  gig_rubrics,
+  on_assigned,
 }: {
   framework: Framework;
   assignable: Participation[];
+  gig_rubrics: GigRubrics;
+  on_assigned: (gig_id: string, framework: Framework) => void;
 }) {
   const [assign, setAssign] = useState<AssignState>({ status: 'idle' });
   const [picked, setPicked] = useState<string | null>(
     assignable.length === 1 ? assignable[0].gig_id : null,
   );
+
+  // A gig keeps its rubric for good (ADR #35), so one that has a rubric
+  // can't be picked. Unknown (no answer from /gigs) stays pickable.
+  const taken = (gig: Participation) => Boolean(gig_rubrics.get(gig.gig_id));
+  const all_taken = assignable.length > 0 && assignable.every(taken);
 
   async function assign_to(gig: Participation) {
     setAssign({ status: 'saving' });
@@ -290,6 +353,8 @@ function FrameworkSheet({
         body: { framework_id: framework.id, gig_id: gig.gig_id },
       });
       setAssign({ status: 'assigned', gig_title: gig.gig_title });
+      setPicked(null);
+      on_assigned(gig.gig_id, framework);
     } catch (error: unknown) {
       if (!(error instanceof ApiError)) throw error;
 
@@ -302,7 +367,9 @@ function FrameworkSheet({
     }
   }
 
-  const picked_gig = assignable.find((gig) => gig.gig_id === picked) ?? null;
+  // Checked only while it can still be picked: the one gig preselected may
+  // turn out to be taken once /gigs answers.
+  const picked_gig = assignable.find((gig) => gig.gig_id === picked && !taken(gig)) ?? null;
   const saving = assign.status === 'saving';
 
   return (
@@ -316,17 +383,24 @@ function FrameworkSheet({
       {assignable.length > 0 && (
         <fieldset className={styles.gigs} disabled={saving}>
           <legend className={styles.section_label}>Assign to a gig</legend>
+          {all_taken && (
+            <p className={styles.all_taken}>
+              Every gig you supervise already has a rubric.
+            </p>
+          )}
           {assignable.map((gig) => (
             <label key={gig.gig_id} className={styles.gig}>
               <input
                 type="radio"
                 name={`assign-${framework.id}`}
                 value={gig.gig_id}
-                checked={picked === gig.gig_id}
+                checked={picked_gig?.gig_id === gig.gig_id}
+                disabled={taken(gig)}
                 onChange={() => setPicked(gig.gig_id)}
               />
               <span className={styles.gig_text}>
                 <span className={styles.gig_title}>{gig.gig_title}</span>
+                <GigNote rubric={gig_rubrics.get(gig.gig_id)} framework={framework} />
               </span>
             </label>
           ))}
@@ -356,6 +430,27 @@ function FrameworkSheet({
         </p>
       )}
     </>
+  );
+}
+
+/** The muted line under a gig: which rubric it uses, if /gigs said. */
+function GigNote({
+  rubric,
+  framework,
+}: {
+  rubric: GigFramework | null | undefined;
+  framework: Framework;
+}) {
+  if (rubric === undefined) return null;
+
+  return (
+    <span className={styles.gig_note}>
+      {rubric === null
+        ? 'No rubric yet'
+        : rubric.id === framework.id
+          ? 'Uses this rubric'
+          : `Uses ${rubric.name}`}
+    </span>
   );
 }
 

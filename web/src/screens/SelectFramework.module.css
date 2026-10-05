@@ -206,6 +206,23 @@
   overflow-wrap: anywhere;
 }
 
+/* A gig that has a rubric can't be picked: muted, and no pointer. */
+.gig:has(input:disabled) {
+  color: var(--color-text-muted);
+  cursor: default;
+}
+
+.gig_note {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.all_taken {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
 .assign {
   margin-top: var(--space-8);
 }
