@@ -74,7 +74,13 @@ import {
   scored_by_count,
   self_score_of,
 } from './entry-stepper-logic.ts';
-import { kept_as_drafts, read_kept, write_kept, type KeptDraft } from './counter-drafts.ts';
+import {
+  kept_as_drafts,
+  read_kept,
+  settle_kept,
+  write_kept,
+  type KeptDraft,
+} from './counter-drafts.ts';
 import type {
   CounterDraft,
   SaveAllGap,
@@ -309,7 +315,8 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
         kept[entry_id] = {
           level_id: draft.level_id,
           comment: draft.comment,
-          done: load.status === 'loaded' && !waiting.has(entry_id),
+          // A score the server refused isn't ready, until it is sent again.
+          done: load.status === 'loaded' && !waiting.has(entry_id) && draft.error === null,
         };
       }
     }
@@ -351,6 +358,9 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
         reflection_status,
         completed_the_reflection,
       );
+      // Kept work says so now, not from the effect below, which stops
+      // running if the reviewer has left mid-way through Submit scores.
+      if (reflection_id) settle_kept(me.id, reflection_id, entry.id, true);
       setDrafts((current) => {
         const next = { ...current };
         delete next[entry.id];
@@ -360,6 +370,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
     } catch (caught) {
       const api_error = as_api_error(caught, 'Could not save that score.');
       const failure = counter_score_failure(api_error.code);
+      if (reflection_id) settle_kept(me.id, reflection_id, entry.id, false);
       update_draft(entry.id, {
         error: api_error.message,
         comment_forced: draft.comment_forced || failure === 'comment',

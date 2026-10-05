@@ -87,6 +87,27 @@ export function write_kept(
 }
 
 /**
+ * One send's outcome, written straight to what is kept: a score the server
+ * took is forgotten, and one it refused stays but isn't ready. "Submit
+ * scores" carries on if the reviewer leaves mid-way, and then nothing on
+ * screen is left to keep this true, so the queue's Entries bar would count
+ * a refused score as ready.
+ */
+export function settle_kept(
+  user_id: string,
+  reflection_id: string,
+  entry_id: string,
+  sent: boolean,
+): void {
+  const kept = read_kept(user_id, reflection_id);
+  const one = kept[entry_id];
+  if (!one) return;
+  if (sent) delete kept[entry_id];
+  else kept[entry_id] = { ...one, done: false };
+  write_kept(user_id, reflection_id, kept);
+}
+
+/**
  * Kept work turned back into the stepper's drafts: only entries this person
  * hasn't scored yet, and only a level that belongs to that entry's
  * competency (a rubric is a snapshot, but a stale key should never pick a
