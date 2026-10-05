@@ -827,8 +827,9 @@ looks wrong, and no error is raised, so this fails silently and indefinitely.
 
 #### F2 · Tokens never expire — Medium
 
-> **Raised as CAP-32 (COA4-90), decided 2026-10-03 (ADR #46, Proposed).** Seeded tokens now
-> expire 60 days after issue; the global setting stays null. Live once the tokens are reissued.
+> **Raised as CAP-32 (COA4-90), decided 2026-10-03 (ADR #46, Accepted).** Seeded tokens now
+> expire 60 days after issue; the global setting stays null. Live once the tokens are
+> reissued, which moved to the CAP-26 deploy on 2026-10-04.
 >
 > **Re-rated 2026-10-03: a hardening note.** No expiry matters only after a leak. See the
 > re-verification entry.
@@ -844,7 +845,7 @@ which is CAP-26. Worth an explicit decision rather than a default.
 
 #### F3 · Tokens carry every ability — Medium
 
-> **Raised as CAP-32 (COA4-90), decided 2026-10-03 (ADR #46, Proposed).** Kept `['*']` on
+> **Raised as CAP-32 (COA4-90), decided 2026-10-03 (ADR #46, Accepted).** Kept `['*']` on
 > purpose: an ability check would be a second place authorisation lives.
 >
 > **Re-rated 2026-10-03: informational.** See the re-verification entry.
