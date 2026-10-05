@@ -159,8 +159,8 @@ README.md                setup, connection details, the three tokens
 four-states evidence is CAP-21 (#74)
 
 *Student*
-- [x] Diary home: scope chips (all gigs / per gig), sprint chips inside a gig, radar with
-      a caption that changes with scope, entry list with status badges, export link.
+- [x] Diary home: a gig picker (all gigs / per gig), sprint chips inside a gig, a radar
+      whose scope the picker and chips name (ADR #58), entry list with status badges, export.
       Scope lives in the URL (ADR #27) so a scoped diary is linkable, and the export link
       opens the sheet CAP-18 fills in. `./run verify-diary` checks it
 - [x] Gig detail: two of the design's three Overview cards -- Timeline

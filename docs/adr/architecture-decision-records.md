@@ -67,6 +67,7 @@ Index
 #55 The review queue is the reviewers' too ....... Proposed
 #56 Frameworks wears no section tint ............. Proposed
 #57 Counter-scores go in together ................ Proposed
+#58 The picker names the radar's scope .......... Proposed
 
 ===============================================================
 
@@ -3241,3 +3242,62 @@ student, which is the part Patrick objected to.
 Use sessionStorage instead of localStorage. It clears when the tab closes, which is a
 little more private on a shared computer, but then work isn't there "next time", which was
 the point.
+
+===============================================================
+
+ADR #58: The gig picker and sprint chips name the radar's scope, not a caption
+Status: Proposed
+Date: 2026-10-06
+
+Context:
+CAP-7 asks for the diary's radar to carry "a caption that changes with the scope, so it is
+always clear what the polygon is actually summarising". The reason is real. Across a gig the
+radar draws the latest score on each competency, which can come from different sprints, and
+only within one sprint is it the same piece of work scored twice
+(AnalyticsController::radar). So dev's diary-scope.ts wrote a sentence for each scope, for
+example "The latest score on each competency on Alumable onboarding redesign" and "Sprint 2
+on Alumable onboarding redesign: your own score against your assessor's, on that sprint
+alone". The /add-screen skill repeats the rule.
+
+CAP-38 took the sentence away in steps and nothing recorded it. Round 1 stopped drawing the
+radar under "All gigs" for a student with two or more gigs, because the unscoped radar
+draws one rubric only, so the whole-record sentence had no radar left to describe. Round 2
+(R2, 1e4cb3f) cut the sentence to "Latest scores" or "Sprint N only". Round 2b (F11, 474d37c)
+dropped that too and put "Scored by <name>" in its place, on Patrick's reading that the gig
+picker already names the gig, the highlighted sprint chip names the sprint, and the legend
+names Self and Counter-score. The pre-merge code read on 2026-10-06 found the criterion, the
+skill and the code disagreeing with no record. Patrick looked again and kept the screen as
+it is: a student has to pick a gig to see a radar at all, and then picks all sprints or one.
+
+Decision:
+The diary's radar has no scope caption. The gig picker and the selected sprint chip are what
+say which scope is drawn. Above the chart, "Scored by <name>" says who counter-scored it, and
+nothing when nobody has. The legend keeps Self and Counter-score, and the footnote names the
+rubric and its levels. CAP-7's criterion is read as met by the selection rather than by a
+sentence, and the /add-screen skill says so.
+
+Consequences:
+Positive:
+The card says each thing once. The scope is on the controls the student just used, at the
+top of the screen, and "Scored by" names who scored it, which Patrick asked for in round 2b (F4).
+Student screens stay as reviewed, with no change under the freeze.
+
+Negative:
+Under "All sprints" each axis is the latest score from whichever sprint scored it last, and
+nothing on the screen says so, so a student may read it as one sprint or as an average.
+"Counter-score" in the legend is our word, not one a student is taught. A screen reader user
+hears the scope from the picker and the chip's pressed state, not next to the chart, and the
+radar's hidden table caption doesn't name the scope either.
+
+Alternatives:
+One sentence above the chart in place of "Scored by", for example "Sprint 1: your self-score
+against Sam Okafor's", or "Your latest score on each competency against Sam Okafor's" under
+all sprints. It names both the comparison and the scope in plain words and fixes the "All
+sprints" reading. Patrick weighed it on 2026-10-06 and kept the current screen.
+
+Plain words in the legend, "Your score" and "<name>'s score", in place of Self and
+Counter-score. It makes the two shapes obvious without adding a line, but it changes the
+shared RadarPanel and a frozen student screen for a wording change.
+
+Restoring dev's full sentences. They were the most exact, and the longest, and Patrick
+removed them on purpose in round 2.

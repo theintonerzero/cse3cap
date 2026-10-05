@@ -177,9 +177,11 @@ Trobe's rubric has six competencies scored 1 to 4; SFIA 9 has different competen
 to 7. Both must render through the same component with no code change. That is the entire
 point of the framework engine.
 
-The radar's caption changes with scope: whole record shows the latest score per competency, a
-single sprint shows a true self versus assessor comparison. An unlabelled radar is ambiguous,
-so the caption is not decoration.
+What the radar draws depends on scope: across a gig it is the latest score per competency, a
+single sprint is a true self versus assessor comparison. On the diary the gig picker and the
+selected sprint chip say which scope is drawn, and the card carries "Scored by <name>" rather
+than a scope caption (ADR #58). Don't add a caption back without superseding it, and any new
+radar elsewhere still has to make its scope clear somehow.
 
 When every assessor value is null, hide the second polygon rather than drawing a flat shape
 at zero.
