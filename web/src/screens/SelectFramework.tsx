@@ -71,7 +71,7 @@ export function SelectFramework() {
           error:
             error instanceof ApiError
               ? error
-              : new ApiError(0, null, 'Something went wrong loading the rubrics.'),
+              : new ApiError(0, null, 'Something went wrong loading the frameworks.'),
         });
       });
 
@@ -123,8 +123,8 @@ export function SelectFramework() {
       <h1 className={styles.heading}>Frameworks</h1>
       <p className={styles.sub}>
         {assignable.length > 0
-          ? 'The rubrics a gig is scored against. Copy one to change it.'
-          : 'The rubrics a gig is scored against. Copy one to change it. Assigning one needs a gig you supervise.'}
+          ? 'The frameworks a gig is scored against. Copy one to change it.'
+          : 'The frameworks a gig is scored against. Copy one to change it. Assigning one needs a gig you supervise.'}
       </p>
 
       {state.status === 'loading' && <LoadingState />}
@@ -175,10 +175,10 @@ function LoadedState({
   if (templates.length === 0 && copies.length === 0) {
     return (
       <div className={styles.empty}>
-        <p className={styles.empty_title}>No rubrics yet.</p>
+        <p className={styles.empty_title}>No frameworks yet.</p>
         <p className={styles.empty_body}>
-          A rubric arrives with the schema, so an empty list means the database has not been
-          seeded. Run <code>php artisan db:seed</code> in <code>api/</code>.
+          A framework arrives with the schema, so an empty list means the database has not
+          been seeded. Run <code>php artisan db:seed</code> in <code>api/</code>.
         </p>
       </div>
     );
@@ -408,7 +408,7 @@ function FrameworkSheet({
           <legend className={styles.section_label}>Assign to a gig</legend>
           {all_taken && (
             <p className={styles.all_taken}>
-              Every gig you supervise already has a rubric.
+              Every gig you supervise already has a framework.
             </p>
           )}
           {assignable.map((gig) => (
@@ -478,9 +478,9 @@ function GigNote({
   return (
     <span className={styles.gig_note}>
       {rubric === null
-        ? 'No rubric yet'
+        ? 'No framework yet'
         : rubric.id === framework.id
-          ? 'Uses this rubric'
+          ? 'Uses this framework'
           : `Uses ${names.get(rubric.id) ?? rubric.name}`}
     </span>
   );
@@ -489,7 +489,7 @@ function GigNote({
 /** Shaped like the loaded screen: two groups, a few rows each. */
 function LoadingState() {
   return (
-    <SkeletonGroup label="Loading rubrics">
+    <SkeletonGroup label="Loading frameworks">
       {[0, 1].map((group) => (
         <div key={group} className={styles.block}>
           <Skeleton variant="text" width="30%" />

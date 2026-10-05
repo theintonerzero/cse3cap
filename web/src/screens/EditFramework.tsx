@@ -85,7 +85,7 @@ export function EditFramework() {
           error:
             error instanceof ApiError
               ? error
-              : new ApiError(0, null, 'Something went wrong loading this rubric.'),
+              : new ApiError(0, null, 'Something went wrong loading this framework.'),
         });
       });
 
@@ -109,10 +109,10 @@ export function EditFramework() {
 
   return (
     <section>
-      <h1 className={styles.heading}>Edit a copy of a rubric</h1>
+      <h1 className={styles.heading}>Edit a copy of a framework</h1>
       <p className={styles.sub}>
-        Saving makes a new rubric of your own. The one it is based on does not change, and
-        nothing already scored against it moves.
+        Saving makes a new framework of your own. The one it is based on does not change,
+        and nothing already scored against it moves.
       </p>
 
       {load.status === 'loading' && <LoadingState />}
@@ -307,12 +307,14 @@ function Editor({
         </Select>
         {copy !== null ? (
           <p className={styles.hint}>
-            Your copy already exists, so its base is fixed. To start from another rubric, go
-            back to Frameworks.
+            Your copy already exists, so its base is fixed. To start from another framework,
+            go back to Frameworks.
           </p>
         ) : (
           dirty && (
-            <p className={styles.hint}>Choosing a different rubric discards your edits.</p>
+            <p className={styles.hint}>
+              Choosing a different framework discards your edits.
+            </p>
           )
         )}
       </div>
@@ -322,7 +324,7 @@ function Editor({
           <p className={styles.empty_title}>Nothing to rename.</p>
           <p className={styles.empty_body}>
             {base.name} has no competencies, so a copy of it would have nothing to edit.
-            Choose another rubric above to base your copy on.
+            Choose another framework above to base your copy on.
           </p>
         </div>
       ) : (
@@ -345,7 +347,7 @@ function Editor({
             {draft.competencies.length}{' '}
             {draft.competencies.length === 1 ? 'competency' : 'competencies'}, scored{' '}
             {base.scale.min} to {base.scale.max}. The number of competencies and levels
-            stays as it is: a rubric with a different shape is a different rubric.
+            stays as it is: a framework with a different shape is a different framework.
           </p>
 
           <ol className={styles.competencies}>
@@ -511,7 +513,7 @@ function SaveOutcome({
           {copy === null
             ? 'Nothing was saved.'
             : owed === null
-              ? `A copy, ${copy.name}, was made, but it does not have the competencies of the rubric it was copied from, so your edits cannot be put on it.`
+              ? `A copy, ${copy.name}, was made, but it does not have the competencies of the framework it was copied from, so your edits cannot be put on it.`
               : `Your copy, ${copy.name}, exists, but ${owed.length} of your edits have not reached it yet. Saving again finishes them on the same copy rather than making another.`}
         </p>
         {save.error && <ErrorNotice error={save.error} />}
@@ -525,7 +527,7 @@ function SaveOutcome({
 /** Shaped like the form: the two fields, then a few competency cards. */
 function LoadingState() {
   return (
-    <SkeletonGroup label="Loading rubric">
+    <SkeletonGroup label="Loading framework">
       <div className={styles.form}>
         <Skeleton variant="block" height="var(--space-48)" />
         <Skeleton variant="block" height="var(--space-48)" />

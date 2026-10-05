@@ -160,7 +160,7 @@ dr_lee_test(
     await page.setViewportSize({ width: 390, height: 600 });
     await page.goto(`/frameworks/${LATROBE}/edit`);
     await expect(
-      page.getByRole('heading', { name: 'Edit a copy of a rubric' }),
+      page.getByRole('heading', { name: 'Edit a copy of a framework' }),
     ).toBeVisible();
 
     const save = page.getByRole('button', { name: 'Save as a new copy' });

@@ -113,15 +113,15 @@ test('each gig says which rubric it uses, and a gig that has one can’t be pick
   await expect(sheet.getByRole('radio', { name: /Develop AI use cases/ })).toBeDisabled();
   await expect(sheet.getByText(`Uses ${TEMPLATE.name}`)).toBeVisible();
   await expect(sheet.getByRole('radio', { name: /Data migration audit/ })).toBeEnabled();
-  await expect(sheet.getByText('No rubric yet')).toBeVisible();
+  await expect(sheet.getByText('No framework yet')).toBeVisible();
 });
 
-test('the rubric a gig already uses reads "Uses this rubric"', async ({ page }) => {
+test('the rubric a gig already uses reads "Uses this framework"', async ({ page }) => {
   await install(page, [TEMPLATE, COPY], ONE_TAKEN);
   await page.goto('/frameworks');
   await row_button(page, TEMPLATE.name).click();
   const sheet = page.getByRole('dialog', { name: TEMPLATE.name });
-  await expect(sheet.getByText('Uses this rubric')).toBeVisible();
+  await expect(sheet.getByText('Uses this framework')).toBeVisible();
   await expect(sheet.getByRole('radio', { name: /Develop AI use cases/ })).toBeDisabled();
 });
 
@@ -138,14 +138,14 @@ test('every gig taken: the sheet says so and nothing can be picked', async ({ pa
   await row_button(page, COPY.name).click();
   const sheet = page.getByRole('dialog', { name: COPY.name });
   await expect(
-    sheet.getByText('Every gig you supervise already has a rubric.'),
+    sheet.getByText('Every gig you supervise already has a framework.'),
   ).toBeVisible();
   for (const radio of await sheet.getByRole('radio').all())
     await expect(radio).toBeDisabled();
   await expect(sheet.getByRole('button', { name: 'Assign', exact: true })).toBeDisabled();
 });
 
-test('after assigning, that gig reads "Uses this rubric" and can’t be picked again', async ({
+test('after assigning, that gig reads "Uses this framework" and can’t be picked again', async ({
   page,
 }) => {
   await install(page, [TEMPLATE, COPY], ONE_TAKEN);
@@ -156,7 +156,7 @@ test('after assigning, that gig reads "Uses this rubric" and can’t be picked a
   await sheet.getByRole('button', { name: 'Assign', exact: true }).click();
   await expect(sheet.getByRole('status')).toHaveText('Assigned to Data migration audit.');
   await expect(sheet.getByRole('radio', { name: /Data migration audit/ })).toBeDisabled();
-  await expect(sheet.getByText('Uses this rubric')).toBeVisible();
+  await expect(sheet.getByText('Uses this framework')).toBeVisible();
   await expect(sheet.getByRole('button', { name: 'Assign', exact: true })).toBeDisabled();
 });
 
@@ -195,7 +195,7 @@ test('/gigs failing never blocks assigning: plain radios, and the assign still g
   await row_button(page, COPY.name).click();
   const sheet = page.getByRole('dialog', { name: COPY.name });
   await expect(sheet.getByRole('radio', { name: /Develop AI use cases/ })).toBeEnabled();
-  await expect(sheet.getByText(/^Uses |No rubric yet/)).toHaveCount(0);
+  await expect(sheet.getByText(/^Uses |No framework yet/)).toHaveCount(0);
   await sheet.getByRole('radio', { name: /Data migration audit/ }).check();
   await sheet.getByRole('button', { name: 'Assign', exact: true }).click();
   await expect(sheet.getByRole('status')).toHaveText('Assigned to Data migration audit.');

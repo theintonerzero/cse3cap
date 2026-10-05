@@ -38,7 +38,7 @@ async function install(page: Page, me: Me) {
   return api;
 }
 
-const WAY_IN = 'Frameworks, copy a rubric or assign one to a gig';
+const WAY_IN = 'Frameworks, copy a framework or assign one to a gig';
 
 test('Dr Lee: no pills; Frameworks is a row on the queue, and back returns', async ({
   page,

@@ -69,11 +69,13 @@ export function ReviewQueue() {
         <Link
           className={styles.wayIn}
           to="/frameworks"
-          aria-label="Frameworks, copy a rubric or assign one to a gig"
+          aria-label="Frameworks, copy a framework or assign one to a gig"
         >
           <span className={styles.wayInMain}>
             <span className={styles.wayInTitle}>Frameworks</span>
-            <span className={styles.wayInMeta}>Copy a rubric, or assign one to a gig</span>
+            <span className={styles.wayInMeta}>
+              Copy a framework, or assign one to a gig
+            </span>
           </span>
           <span className={styles.wayInChevron} aria-hidden="true">
             {'›'}

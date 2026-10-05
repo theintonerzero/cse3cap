@@ -127,7 +127,7 @@ test.describe('a supervisor who is also an employer elsewhere', () => {
     await page.goto(`/frameworks/${FRAMEWORK}/edit`);
 
     await expect(
-      page.getByRole('heading', { name: 'Edit a copy of a rubric' }),
+      page.getByRole('heading', { name: 'Edit a copy of a framework' }),
     ).toBeVisible();
   });
 });

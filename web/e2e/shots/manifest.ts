@@ -851,7 +851,7 @@ export const SHOTS: Shot[] = [
   },
   // Empty is `templates.length === 0 && copies.length === 0`
   // (SelectFramework.tsx's own LoadedState, around line 110) ->
-  // "No rubrics yet." -- the whole list empty, not either group, per that
+  // "No frameworks yet." -- the whole list empty, not either group, per that
   // function's own comment. Only reachable with an unseeded-shaped fixture
   // (the audit's own finding: a seeded database always has templates).
   {
@@ -860,7 +860,7 @@ export const SHOTS: Shot[] = [
     route: '/frameworks',
     viewport: 'desktop',
     state: 'empty',
-    ready: 'No rubrics yet.',
+    ready: 'No frameworks yet.',
     scenario: {
       source: 'fake',
       me: DR_LEE,
@@ -898,7 +898,7 @@ export const SHOTS: Shot[] = [
   // Promise.all), the latter keyed by the route param. Loaded-only for the
   // real shot; "Based on" is the base-picker's own label, rendered only once
   // load.status === 'loaded', regardless of whether the base framework turns
-  // out to have competencies to rename -- the "Edit a copy of a rubric" h1
+  // out to have competencies to rename -- the "Edit a copy of a framework" h1
   // above it renders in every status (same trap as the other screens' own
   // h1s in this file), so it cannot be the wait target.
   //

@@ -75,7 +75,7 @@ test("edit framework: a rubric's wording, and the name a supervisor types, are t
 }) => {
   await page.goto(`/frameworks/${HOSTILE_FRAMEWORK}/edit`);
   await expect(
-    page.getByRole('heading', { name: 'Edit a copy of a rubric' }),
+    page.getByRole('heading', { name: 'Edit a copy of a framework' }),
   ).toBeVisible();
 
   // The base rubric's own wording, as the fields a supervisor edits.

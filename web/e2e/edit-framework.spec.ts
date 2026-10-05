@@ -38,7 +38,7 @@ test('every rubric, in use or not, can be copied and edited', async ({ page, api
 
   await expect(page).toHaveURL(`/frameworks/${LATROBE}/edit`);
   await expect(
-    page.getByRole('heading', { name: 'Edit a copy of a rubric' }),
+    page.getByRole('heading', { name: 'Edit a copy of a framework' }),
   ).toBeVisible();
   expect(api.writes()).toEqual([]);
 });
@@ -225,7 +225,7 @@ test('error: a rubric that does not exist', async ({ page }) => {
   await open(page, NOWHERE);
 
   await expect(
-    page.getByRole('heading', { name: 'Edit a copy of a rubric' }),
+    page.getByRole('heading', { name: 'Edit a copy of a framework' }),
   ).toBeVisible();
   await expect(page.getByRole('alert')).toContainText('Not found');
   await expect(page.getByRole('link', { name: /Frameworks/ }).first()).toBeVisible();
@@ -244,7 +244,7 @@ test('loading: skeletons shaped like the form, not a spinner', async ({ page, ap
   await open(page, LATROBE);
 
   await expect(
-    page.getByRole('status').filter({ hasText: 'Loading rubric' }),
+    page.getByRole('status').filter({ hasText: 'Loading framework' }),
   ).toBeVisible();
   await expect(page.getByLabel('Name of your copy')).toHaveCount(0);
 
@@ -267,12 +267,12 @@ test('a blank field blocks the save and is named', async ({ page, api }) => {
 test('choosing another base warns first, then starts from it', async ({ page }) => {
   await open(page, LATROBE);
   await expect(
-    page.getByText('Choosing a different rubric discards your edits.'),
+    page.getByText('Choosing a different framework discards your edits.'),
   ).toHaveCount(0);
 
   await competency(page, 'collaboration').getByLabel('Competency name').fill('Teamwork');
   await expect(
-    page.getByText('Choosing a different rubric discards your edits.'),
+    page.getByText('Choosing a different framework discards your edits.'),
   ).toBeVisible();
 
   await page.getByLabel('Based on').selectOption(SFIA);
