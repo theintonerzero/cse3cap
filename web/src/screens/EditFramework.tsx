@@ -111,8 +111,7 @@ export function EditFramework() {
     <section>
       <h1 className={styles.heading}>Edit a copy of a framework</h1>
       <p className={styles.sub}>
-        Saving makes a new framework of your own. The one it is based on does not change,
-        and nothing already scored against it moves.
+        Saving makes a new framework of your own. The original never changes.
       </p>
 
       {load.status === 'loading' && <LoadingState />}
@@ -346,8 +345,8 @@ function Editor({
           <p className={styles.shape}>
             {draft.competencies.length}{' '}
             {draft.competencies.length === 1 ? 'competency' : 'competencies'}, scored{' '}
-            {base.scale.min} to {base.scale.max}. The number of competencies and levels
-            stays as it is: a framework with a different shape is a different framework.
+            {base.scale.min} to {base.scale.max}. Names and wording can change; the shape
+            can&rsquo;t.
           </p>
 
           <ol className={styles.competencies}>
