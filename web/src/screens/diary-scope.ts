@@ -118,6 +118,16 @@ export function reflections_in_scope(
 }
 
 /**
+ * The gig whose people "Scored by" names: the one in scope, or a one-gig
+ * student's only gig, whose "All gigs" is that gig. Null under "All gigs"
+ * with two or more, where there is no radar to label.
+ */
+export function named_gig(scope: Scope, gigs: Gig[]): string | null {
+  const mine = student_gigs(gigs);
+  return scope.gig_id ?? (mine.length === 1 ? mine[0].id : null);
+}
+
+/**
  * Who gave the counter-scores the radar is drawing, in a few words
  * (round 2b, Patrick): "Scored by Sam O". The radar names only the role
  * that scored each axis (counter_role), so the name comes from the gig's
@@ -128,16 +138,6 @@ export function reflections_in_scope(
  * which also says nothing: a guess at the plural would be wrong for a gig
  * with one assessor.
  */
-/**
- * The gig whose people "Scored by" names: the one in scope, or a one-gig
- * student's only gig, whose "All gigs" is that gig. Null under "All gigs"
- * with two or more, where there is no radar to label.
- */
-export function named_gig(scope: Scope, gigs: Gig[]): string | null {
-  const mine = student_gigs(gigs);
-  return scope.gig_id ?? (mine.length === 1 ? mine[0].id : null);
-}
-
 export function scored_by(
   counter_roles: (string | null)[],
   participants: Participant[] | null,

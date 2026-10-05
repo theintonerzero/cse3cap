@@ -873,13 +873,6 @@ function EntryCard({
   );
 }
 
-/**
- * Attach and remove evidence. A `link` item is the only kind that ever gets
- * a clickable URL (rel="noopener noreferrer", per the ticket's security
- * comment) -- a `file` or `image` item's label is plain text, because the
- * contract has nothing that serves a file back and this screen does not
- * invent one.
- */
 /** The site a link goes to, for the line under its label. */
 function host_of(uri: string): string {
   try {
@@ -889,6 +882,13 @@ function host_of(uri: string): string {
   }
 }
 
+/**
+ * Attach and remove evidence. A `link` item is the only kind that ever gets
+ * a clickable URL (rel="noopener noreferrer", per the ticket's security
+ * comment) -- a `file` or `image` item's label is plain text, because the
+ * contract has nothing that serves a file back and this screen does not
+ * invent one.
+ */
 function EvidenceList({
   entry,
   framework,
