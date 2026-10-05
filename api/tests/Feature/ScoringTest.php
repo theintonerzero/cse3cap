@@ -263,6 +263,48 @@ class ScoringTest extends TestCase
             ->assertStatus(404)->assertJsonPath('error.code', 'NOT_FOUND');
     }
 
+    public function test_a_classmate_gets_404_rather_than_403(): void
+    {
+        $entry = $this->entries()->first();
+        $classmate = User::create(['display_name' => 'Classmate']);
+        GigParticipant::create([
+            'gig_id' => $this->reflection->gig_id, 'user_id' => $classmate->id, 'role' => 'student',
+        ]);
+        Sanctum::actingAs($classmate);
+
+        $this->postJson("/api/v1/entries/{$entry->id}/scores", ['level_id' => $this->levelOf($entry, 4), 'comment' => 'x'])
+            ->assertStatus(404)->assertJsonPath('error.code', 'NOT_FOUND');
+    }
+
+    public function test_nobody_counter_scores_their_own_reflection_whatever_their_roles(): void
+    {
+        $jane = $this->user('Jane N');
+        GigParticipant::create([
+            'gig_id' => $this->reflection->gig_id, 'user_id' => $jane->id, 'role' => 'assessor',
+        ]);
+        $this->app->forgetScopedInstances();
+        $entry = $this->entries()->first();
+        Sanctum::actingAs($jane);
+
+        $this->postJson("/api/v1/entries/{$entry->id}/scores", ['level_id' => $this->levelOf($entry, 4), 'comment' => 'x'])
+            ->assertStatus(403)->assertJsonPath('error.code', 'ROLE_FORBIDDEN');
+
+        $this->assertSame(0, $entry->scores()->where('scorer_role', '!=', 'self')->count());
+    }
+
+    public function test_an_assessor_row_on_your_own_gig_still_cannot_score_your_own_work(): void
+    {
+        $jane = $this->user('Jane N');
+        GigParticipant::where('gig_id', $this->reflection->gig_id)->where('user_id', $jane->id)
+            ->update(['role' => 'assessor']);
+        $this->app->forgetScopedInstances();
+        $entry = $this->entries()->first();
+        Sanctum::actingAs($jane);
+
+        $this->postJson("/api/v1/entries/{$entry->id}/scores", ['level_id' => $this->levelOf($entry, 4), 'comment' => 'x'])
+            ->assertStatus(403)->assertJsonPath('error.code', 'ROLE_FORBIDDEN');
+    }
+
     public function test_the_last_counter_score_flips_the_reflection_to_assessed(): void
     {
         Sanctum::actingAs($this->user('Sam O'));
