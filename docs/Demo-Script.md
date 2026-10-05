@@ -97,9 +97,10 @@ The point to make: a new competency framework needs no code change.
    side by side.
 2. Both are in use, so both are read-only. Changing a rubric that students have already
    been scored against would rewrite their past.
-3. **Copy and edit a rubric** from La Trobe: rename the copy and reword a level
+3. Open La Trobe and **Edit a copy**: rename the copy and reword a level
    descriptor. Copies are editable until a reflection references them.
-4. **Assign to a gig** shows that a gig holds one rubric at a time.
+4. Open any rubric: under **Assign to a gig**, each gig says which rubric it already
+   uses. A gig holds one rubric for good, so on the demo data none can be picked.
 
 `docs/Framework-Swap-Verification.md` is the evidence behind this section if the client
 asks for it.

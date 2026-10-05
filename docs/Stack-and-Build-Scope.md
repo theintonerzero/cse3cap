@@ -198,8 +198,8 @@ four-states evidence is CAP-21 (#74)
       required when scoring lower. CAP-13 (#56). `./run verify-assessor-stepper` checks it
 
 *Educator (supervisor role)*
-- [x] Select framework: available templates vs saved copies, Copy and edit and Assign
-      actions. Copy and edit is on every row: CAP-16 lifted the original "Edit hidden when
+- [x] Select framework: available templates vs saved copies, Edit a copy and Assign
+      actions. Edit a copy is on every row: CAP-16 lifted the original "Edit hidden when
       `in_use`", because the editor only ever copies and both seeded templates are in use.
       CAP-15 (#46). `./run verify-frameworks` checks it
 - [x] Edit framework: based-on selector, name, competencies with their level descriptors,
