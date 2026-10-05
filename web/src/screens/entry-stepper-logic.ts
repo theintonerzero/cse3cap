@@ -226,3 +226,20 @@ export function missing_before_save_all(
       : [];
   });
 }
+
+/**
+ * How many competencies count as done for the caller: scored on the server,
+ * or held ready to send (a level, and a comment where one is expected).
+ * "you have scored X of N" counts these, so a finished pick moves it while
+ * staying open to change until "Submit scores" (CAP-38 round 3, ADR #57).
+ */
+export function done_count(
+  entries: readonly ReflectionEntry[],
+  framework: FrameworkDetail,
+  drafts: Readonly<Record<string, CounterDraft>>,
+  user_id: string,
+): number {
+  return (
+    entries.length - missing_before_save_all(entries, framework, drafts, user_id).length
+  );
+}

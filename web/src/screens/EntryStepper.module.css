@@ -296,3 +296,22 @@
   padding-top: var(--space-16);
   border-top: var(--border-width-sm) solid var(--color-border);
 }
+
+/* What "Submit scores" is still waiting on (round 3, ADR #57): plain words,
+   no card and no buttons. Reviewer-only; the student's stepper never shows
+   it. */
+.missing {
+  margin: 0 0 var(--space-16);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+
+.missing_lead {
+  margin: 0 0 var(--space-4);
+  font-weight: var(--font-weight-medium);
+}
+
+.missing_list {
+  margin: 0;
+  padding-left: var(--space-16);
+}

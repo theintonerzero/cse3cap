@@ -35,7 +35,7 @@
  * item gets an <a>, and it carries rel="noopener noreferrer" per the same
  * comment.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, FormEvent, ReactNode, SetStateAction } from 'react';
 import { useNavigate, useParams } from 'react-router';
 
@@ -61,6 +61,7 @@ import {
   comment_expected,
   counter_score_failure,
   counter_scores_of,
+  done_count,
   EMPTY_DRAFT,
   first_offending_index,
   first_unscored_index,
@@ -72,6 +73,7 @@ import {
   scored_by_count,
   self_score_of,
 } from './entry-stepper-logic.ts';
+import { kept_as_drafts, read_kept, write_kept, type KeptDraft } from './counter-drafts.ts';
 import type {
   CounterDraft,
   FrameworkDetail,
@@ -117,13 +119,12 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
   const [reload_key, setReloadKey] = useState(0);
   const [step, setStep] = useState(0);
 
-  // Back, Next and "Go to …" move to another competency, and two
+  // Back and Next move to another competency, and two
   // competencies' chips can look nearly the same. So a move goes to the
   // top and puts focus on the new competency's name, which a screen reader
   // then reads out (round 2b). Opening the page or saving does not.
-  // A count of moves rather than a flag: "Go to" the competency already
-  // open sets the same step, which would not re-run an effect on `step`,
-  // and a flag left set would make a later save's step change move focus.
+  // A count of moves rather than a flag: a flag left set would make a
+  // later save's step change move focus.
   const [moves, setMoves] = useState(0);
   const go_to_step = useCallback((next: SetStateAction<number>) => {
     setStep(next);
@@ -149,6 +150,9 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
   // The assessor's unsaved picks, per entry id (see CounterDraft). Held
   // here, not in the panel, so skipping a step does not throw them away.
   const [drafts, setDrafts] = useState<Record<string, CounterDraft>>({});
+  // Whose kept work has been read back (`${me_id}:${reflection_id}`), so
+  // nothing is written over it before it has been (round 3, ADR #57).
+  const restored = useRef<string | null>(null);
   // Set once "Save all scores" has been pressed: from then the list of what
   // is still missing shows, and stays current as the assessor fills it in.
   const [save_all_tried, setSaveAllTried] = useState(false);
@@ -190,6 +194,16 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
             // so a part-scored reflection does not reopen on finished work.
             if (mode === 'assessor' && me_id) {
               setStep(first_unscored_index(reflection.entries, me_id));
+              // Unfinished work kept on this device comes back with the
+              // reflection (round 3, ADR #57). What's on screen wins.
+              const kept = kept_as_drafts(
+                reflection.entries,
+                framework,
+                read_kept(me_id, reflection.id),
+                me_id,
+              );
+              setDrafts((current) => ({ ...kept, ...current }));
+              restored.current = `${me_id}:${reflection.id}`;
             }
           }),
       )
@@ -270,8 +284,23 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
     }));
   }, []);
 
-  // One counter-score, POSTed. The single Save and "Save all scores" both
-  // come through here, so a score is sent from one place only. Resolves
+  // Every change is kept on this device, once the kept work has been read
+  // back. A score sent is dropped from drafts, so the last one sent clears
+  // the key.
+  useEffect(() => {
+    if (mode !== 'assessor' || !me_id || !reflection_id) return;
+    if (restored.current !== `${me_id}:${reflection_id}`) return;
+    const kept: Record<string, KeptDraft> = {};
+    for (const [entry_id, draft] of Object.entries(drafts)) {
+      if (draft.level_id !== null || draft.comment.trim() !== '') {
+        kept[entry_id] = { level_id: draft.level_id, comment: draft.comment };
+      }
+    }
+    write_kept(me_id, reflection_id, kept);
+  }, [mode, me_id, reflection_id, drafts]);
+
+  // One counter-score, POSTed. "Submit scores" sends each through here, so
+  // a score is sent from one place only. Resolves
   // true when the server took it; on failure the message goes into that
   // entry's draft, where the panel shows it.
   const save_entry = async (
@@ -323,16 +352,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
     }
   };
 
-  const save_one = async (entry: ReflectionEntry) => {
-    setCounterSaving(true);
-    try {
-      await save_entry(entry, drafts[entry.id] ?? EMPTY_DRAFT);
-    } finally {
-      setCounterSaving(false);
-    }
-  };
-
-  // "Save all scores": nothing is sent until every competency the caller
+  // "Submit scores": nothing is sent until every competency the caller
   // has not scored has what it needs (missing_before_save_all). Then each
   // is POSTed in rubric order, one at a time. The first failure stops the
   // run on that competency, with its message. Scores already sent stay
@@ -461,8 +481,8 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
             {me_id && (
               <>
                 {' '}
-                &middot; you have scored {scored_by_count(entries, me_id)} of{' '}
-                {entries.length}
+                &middot; you have scored{' '}
+                {done_count(entries, load.framework, drafts, me_id)} of {entries.length}
               </>
             )}
           </p>
@@ -530,7 +550,6 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
             draft={drafts[current.id] ?? EMPTY_DRAFT}
             saving={counter_saving}
             on_draft={(patch) => update_draft(current.id, patch)}
-            on_save={() => void save_one(current)}
           />
         )}
       </EntryCard>
@@ -541,39 +560,23 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
         </p>
       )}
 
-      {/* What "Save all scores" is still waiting on, next to the button
-          that asked, in the screen's own notice block. It stays current as
-          the assessor fills things in, and disappears once nothing is
-          missing. */}
+      {/* What "Submit scores" is still waiting on, in plain words next to
+          the button that asked (round 3, Patrick: "just the text saying
+          which ones are missing is fine"). It stays current as the gaps
+          are filled, and goes once nothing is missing. */}
       {save_all_gaps.length > 0 && (
-        <div className={styles.evidence_add}>
-          <div className={styles.empty} role="alert">
-            <p className={styles.empty_title}>Nearly there.</p>
-            <p className={styles.empty_body}>
-              {save_all_gaps.length === 1
-                ? 'Save all is waiting on one competency, so nothing was sent:'
-                : `Save all is waiting on ${save_all_gaps.length} competencies, so nothing was sent:`}
-            </p>
-            <ul className={styles.evidence_list}>
-              {save_all_gaps.map((gap) => (
-                <li key={gap.entry.id} className={styles.evidence_row}>
-                  <span>
-                    {gap.entry.competency_name} ({gap.index + 1} of {entries.length}){' '}
-                    {gap.needs === 'score'
-                      ? 'still needs a score.'
-                      : 'needs a comment to go with its score.'}
-                  </span>
-                  <Button
-                    variant="secondary"
-                    full_width={false}
-                    on_click={() => go_to_step(gap.index)}
-                  >
-                    Go to {gap.entry.competency_name}
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          </div>
+        <div className={styles.missing} role="alert">
+          <p className={styles.missing_lead}>Nothing was sent. Still to do:</p>
+          <ul className={styles.missing_list}>
+            {save_all_gaps.map((gap) => (
+              <li key={gap.entry.id}>
+                {gap.entry.competency_name} ({gap.index + 1} of {entries.length}){' '}
+                {gap.needs === 'score'
+                  ? 'still needs a score.'
+                  : 'needs a comment to go with its score.'}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
@@ -603,7 +606,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
             disabled={counter_saving}
             on_click={() => void save_all()}
           >
-            {saving_all ? 'Saving all…' : 'Save all scores'}
+            {saving_all ? 'Submitting…' : 'Submit scores'}
           </Button>
         ) : mode === 'assessor' ? (
           <Button
@@ -1057,7 +1060,6 @@ function CounterScorePanel({
   draft,
   saving,
   on_draft,
-  on_save,
 }: {
   entry: ReflectionEntry;
   framework: FrameworkDetail;
@@ -1066,10 +1068,9 @@ function CounterScorePanel({
   /** This session's own save just flipped the reflection to assessed. */
   completed: boolean;
   draft: CounterDraft;
-  /** A counter-score is in flight, from this Save or from Save all. */
+  /** "Submit scores" is sending. */
   saving: boolean;
   on_draft: (patch: Partial<CounterDraft>) => void;
-  on_save: () => void;
 }) {
   const levels = levels_for(framework, entry.competency_id);
   const self_score = self_score_of(entry);
@@ -1083,8 +1084,6 @@ function CounterScorePanel({
       self_score?.level_value ?? null,
       chosen?.level_value ?? null,
     );
-  const has_comment = draft.comment.trim() !== '';
-  const can_save = chosen !== null && !saving && (!comment_required || has_comment);
   const comment_id = `comment-${entry.id}`;
 
   // Closed, not ours, nothing to say: render nothing at all, so the card's
@@ -1138,13 +1137,9 @@ function CounterScorePanel({
         </>
       ) : (
         open && (
-          <form
-            className={styles.levels}
-            onSubmit={(event: FormEvent) => {
-              event.preventDefault();
-              on_save();
-            }}
-          >
+          // No Save here (round 3, ADR #57): the pick and the comment stay
+          // open until "Submit scores" sends every competency at once.
+          <div className={styles.levels}>
             <p className={styles.field_label}>Your score</p>
             <div className={styles.level_row} role="group" aria-label="Your score">
               {levels.map((level) => (
@@ -1174,13 +1169,7 @@ function CounterScorePanel({
                 onChange={(event) => on_draft({ comment: event.target.value })}
               />
             </div>
-
-            <div className={styles.evidence_actions}>
-              <Button type="submit" full_width={false} disabled={!can_save}>
-                {saving ? 'Saving…' : 'Save score'}
-              </Button>
-            </div>
-          </form>
+          </div>
         )
       )}
 

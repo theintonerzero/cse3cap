@@ -64,6 +64,7 @@ Index
 #54 Controls show their edge in light mode ....... Proposed
 #55 The review queue is the reviewers' too ....... Proposed
 #56 Frameworks wears no section tint ............. Proposed
+#57 Counter-scores go in together ................ Proposed
 
 ===============================================================
 
@@ -2996,3 +2997,76 @@ decisions already made rather than a new one.
 Drop the tint on the review queue too. That would make the two reviewer top screens match
 each other, but Patrick kept the mint, and the queue is the screen reviewers land on, where
 the tint does the job #52 gave it.
+
+===============================================================
+
+ADR #57: Counter-scores go in together, and unfinished ones are kept on the device
+Status: Proposed
+Date: 2026-10-05
+
+Context:
+ADR #49 recorded how an assessor's counter-score was saved: one POST per competency, through
+"Save score" or "Save all scores", each final the moment it was sent. It named the costs.
+Picks held in the browser were lost on a reload or another device, and every saved
+counter-score was visible to the student at once, on the stepper and on the radar, so a
+student could watch a reflection being scored one competency at a time.
+
+Patrick reviewed the scoring screen on 2026-10-05 as part of CAP-38. He found "Save score"
+redundant, since the bar's back arrow is the way out and "Save all scores" already sends
+everything. He wanted every pick and comment to stay changeable until the end, a finished
+competency to still move the "you have scored X of N" count, and unfinished work (a score
+with no comment, a comment with no score) to still be there when the reviewer comes back.
+He also called a student seeing partial scores silly, since no university shows a part-marked
+assessment.
+
+The scores table can't hold a draft. level_id is NOT NULL, there is no status column, one row
+is allowed per entry, scorer and role, and the student's views read every row. Holding
+drafts on the server would mean a new table or columns, new endpoints, the contract and a
+migration on the shared database. CAP-38 is a frontend ticket and this round has no database
+changes.
+
+Decision:
+The scoring screen has no per-competency Save. A pick and a comment stay editable until
+"Submit scores" (was "Save all scores") sends every remaining competency. Nothing is sent
+while anything is missing, and the screen says what in plain words. A competency counts as
+done in "you have scored X of N" once it has a level, plus a comment where one is expected.
+
+Unfinished work is kept in the reviewer's browser, in localStorage, one key per person and
+reflection (counter-drafts.ts). Only the level and the comment are kept. It comes back when
+that person opens that reflection again on that device, and only for entries they haven't
+scored. A sent score drops out of it, and the last one sent clears the key. Scores already
+saved before this change stay final and read-only, as ADR #34 and the 409 ALREADY_SCORED
+rule have them.
+
+This narrows #49 for counter-scores only. A student's entry still autosaves, and there are
+still no save popups.
+
+Consequences:
+Positive:
+The student no longer sees a reflection part-scored, because nothing reaches the server until
+the reviewer submits. A reviewer can change their mind about any competency until the end,
+and leaving the screen no longer throws work away. No table, endpoint or contract changes,
+and Scoring still sees each score once.
+
+Negative:
+The kept work lives on one device. Another phone, another browser or cleared site data
+starts from nothing, and a reviewer who expects it to follow them will be surprised. Anyone
+using the same browser profile can read the kept comments, and so could script injected into
+the page, though such script could already read the session token in the same browser. A
+submit is still several POSTs. If one fails part way, the ones before it are saved and
+final, and the screen stops on the one that failed with its message. A reviewer who never
+submits leaves a key behind on that device.
+
+Alternatives:
+Hold drafts on the server, in a new table or as a status on scores. That follows the reviewer
+across devices and is the better long-term answer, but it is a migration on the shared
+database, new endpoints and a contract change, which this frontend ticket can't carry. It is
+a reasonable backend ticket.
+
+Keep the per-competency Save and only rename the batch button. That changes the least, but
+it keeps every score final the moment it is made and keeps partial scores visible to the
+student, which is the part Patrick objected to.
+
+Use sessionStorage instead of localStorage. It clears when the tab closes, which is a
+little more private on a shared computer, but then work isn't there "next time", which was
+the point.

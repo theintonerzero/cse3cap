@@ -185,8 +185,7 @@ test("the student's card leads with the self-score, then the reflection", async 
   expect(score.y, 'self-score above the reflection').toBeLessThan(words.y);
 });
 
-// The assessor's side: a submitted reflection with nothing counter-scored,
-// so "Save all scores" lists a "Go to <competency>" for every entry.
+// The assessor's side: a submitted reflection with nothing counter-scored.
 const SAM: Me = {
   id: id('0008'),
   display_name: 'Sam O',
@@ -261,26 +260,8 @@ const assessor_test = base.extend<{ api: FakeApi }>({
 assessor_test.describe('the assessor', () => {
   assessor_test.use({ reducedMotion: 'reduce' });
 
-  assessor_test(
-    '"Go to" the competency already open still goes to its top',
-    async ({ page }) => {
-      await page.setViewportSize({ width: 390, height: 600 });
-      await page.goto(`/review-queue/reflections/${SUBMITTED}`);
-      await page.getByRole('button', { name: 'Next', exact: true }).click();
-      await expect(page.getByText('Competency 2 of 2')).toBeVisible();
-      await page.getByRole('button', { name: 'Save all scores' }).click();
-      const go = page.getByRole('button', { name: 'Go to Communication' });
-      await go.scrollIntoViewIfNeeded();
-      await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
-
-      await go.click();
-      await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
-      await expect(page.getByText('Communication', { exact: true })).toBeFocused();
-    },
-  );
-
   for (const [reflection, label] of [
-    [SUBMITTED, 'Save all scores'],
+    [SUBMITTED, 'Submit scores'],
     [SCORED, 'Back to the queue'],
   ] as const) {
     assessor_test(`360: "${label}" keeps its label on one line`, async ({ page }) => {
