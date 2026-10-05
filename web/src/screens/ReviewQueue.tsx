@@ -13,6 +13,7 @@ import { Link } from 'react-router';
 import { api, ApiError } from '../api/client.ts';
 import type { paths } from '../api/schema.ts';
 import { useSession } from '../session/useSession.ts';
+import { kept_done_count } from './counter-drafts.ts';
 import { ErrorNotice, ProgressBar, Skeleton, SkeletonGroup } from '../components/index.ts';
 import styles from './ReviewQueue.module.css';
 
@@ -175,6 +176,14 @@ function EmptyState() {
 
 function ReviewQueueRow({ entry }: { entry: ReviewQueueEntry }) {
   const { student, gig_title, sprint_ordinal, progress } = entry;
+  // Sent scores, plus finished ones still waiting on this device for
+  // "Submit scores" (ADR #57), so the bar moves as the scoring screen's
+  // count does. Never past the total.
+  const { me } = useSession();
+  const done = Math.min(
+    progress.entries,
+    progress.scored_by_me + (me ? kept_done_count(me.id, entry.reflection_id) : 0),
+  );
 
   // One link per row, the whole card the target, read like the diary's and
   // the gig page's rows (CAP-38 round 3 Q3): name, a muted meta line, then
@@ -190,7 +199,7 @@ function ReviewQueueRow({ entry }: { entry: ReviewQueueEntry }) {
         to={`/review-queue/reflections/${entry.reflection_id}`}
         aria-label={`${student.display_name}, ${gig_title ?? 'Unknown gig'}${
           sprint_ordinal != null ? `, Sprint ${sprint_ordinal}` : ''
-        }: ${progress.scored_by_me} of ${progress.entries} entries scored`}
+        }: ${done} of ${progress.entries} entries scored`}
       >
         {/* "Jane N · Sprint 2" on one line (Patrick, 2026-10-05): the row
             uses its width, and the gig is the label above it. */}
@@ -202,11 +211,7 @@ function ReviewQueueRow({ entry }: { entry: ReviewQueueEntry }) {
         </span>
 
         <span className={styles.rowProgress}>
-          <ProgressBar
-            current={progress.scored_by_me}
-            total={progress.entries}
-            label="Entries"
-          />
+          <ProgressBar current={done} total={progress.entries} label="Entries" />
         </span>
 
         {/* The character itself, as DiaryHome does: check-tokens.sh reads a

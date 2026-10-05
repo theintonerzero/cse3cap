@@ -290,14 +290,29 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
   useEffect(() => {
     if (mode !== 'assessor' || !me_id || !reflection_id) return;
     if (restored.current !== `${me_id}:${reflection_id}`) return;
+    // Which are ready to send, for the review queue's Entries bar.
+    const waiting = new Set(
+      load.status === 'loaded'
+        ? missing_before_save_all(
+            load.reflection.entries,
+            load.framework,
+            drafts,
+            me_id,
+          ).map((gap) => gap.entry.id)
+        : [],
+    );
     const kept: Record<string, KeptDraft> = {};
     for (const [entry_id, draft] of Object.entries(drafts)) {
       if (draft.level_id !== null || draft.comment.trim() !== '') {
-        kept[entry_id] = { level_id: draft.level_id, comment: draft.comment };
+        kept[entry_id] = {
+          level_id: draft.level_id,
+          comment: draft.comment,
+          done: load.status === 'loaded' && !waiting.has(entry_id),
+        };
       }
     }
     write_kept(me_id, reflection_id, kept);
-  }, [mode, me_id, reflection_id, drafts]);
+  }, [mode, me_id, reflection_id, drafts, load]);
 
   // One counter-score, POSTed. "Submit scores" sends each through here, so
   // a score is sent from one place only. Resolves

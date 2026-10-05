@@ -246,3 +246,28 @@ test('Submit when complete: every score goes, and the device copy is cleared', a
   );
   expect(left).toEqual([]);
 });
+
+test('the device copy marks a finished pick done, for the queue to count', async ({
+  page,
+}) => {
+  await install(page);
+  await page.goto(OPEN);
+  await your_score(page).getByRole('button', { name: /^3 · / }).click();
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await page.getByLabel(/^Why this score/).fill('Half a thought');
+  await expect
+    .poll(() =>
+      page.evaluate(
+        ([key]) => JSON.parse(localStorage.getItem(key) ?? '{}'),
+        [`reflection-diary-counter-drafts:${SAM.id}:${REFLECTION_ID}`],
+      ),
+    )
+    .toEqual({
+      [REFLECTION.entries[0].id]: { level_id: level(0, 3), comment: '', done: true },
+      [REFLECTION.entries[1].id]: {
+        level_id: null,
+        comment: 'Half a thought',
+        done: false,
+      },
+    });
+});

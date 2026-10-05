@@ -28,6 +28,12 @@ const PREFIX = 'reflection-diary-counter-drafts';
 export interface KeptDraft {
   level_id: string | null;
   comment: string;
+  /**
+   * Ready to send (a level, and a comment where one is expected), worked
+   * out by the stepper, which has the rubric. The review queue, which
+   * doesn't, counts these into its Entries bar.
+   */
+  done?: boolean;
 }
 
 function key_for(user_id: string, reflection_id: string): string {
@@ -37,7 +43,12 @@ function key_for(user_id: string, reflection_id: string): string {
 function is_kept(value: unknown): value is KeptDraft {
   if (typeof value !== 'object' || value === null) return false;
   const { level_id, comment } = value as Record<string, unknown>;
-  return (level_id === null || typeof level_id === 'string') && typeof comment === 'string';
+  const { done } = value as Record<string, unknown>;
+  return (
+    (level_id === null || typeof level_id === 'string') &&
+    typeof comment === 'string' &&
+    (done === undefined || typeof done === 'boolean')
+  );
 }
 
 /** This person's kept work on this reflection, by entry id. Empty if none or unreadable. */
@@ -101,4 +112,10 @@ export function kept_as_drafts(
     };
   }
   return drafts;
+}
+
+/** How many of this person's kept entries on this reflection are ready to send. */
+export function kept_done_count(user_id: string, reflection_id: string): number {
+  return Object.values(read_kept(user_id, reflection_id)).filter((one) => one.done === true)
+    .length;
 }
