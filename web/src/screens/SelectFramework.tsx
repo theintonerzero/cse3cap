@@ -262,8 +262,10 @@ function Group({
 }
 
 /**
- * The version, and In use as words (round 3 F2): the gig page's muted meta
- * line. The fw_key slug is for machines.
+ * The version, and In use or Not in use as words (round 3 F2, E8): the gig
+ * page's muted meta line. The fw_key slug is for machines. Patrick
+ * (2026-10-05): "v1" alone "just looks so out of place", so every row says
+ * one or the other; "Made by you" isn't needed, a supervisor sees their own.
  *
  * "In use" is plain text, not Badge and not Chip. Badge takes a
  * BadgeStatus, which is the contract's ReflectionStatus generated from
@@ -279,7 +281,7 @@ function Group({
  * screen does not invent it.
  */
 function meta_line(framework: Framework): string {
-  return framework.in_use ? `${framework.version} · In use` : framework.version;
+  return `${framework.version} · ${framework.in_use ? 'In use' : 'Not in use'}`;
 }
 
 /**
