@@ -15,9 +15,9 @@
 # 2. The screen is REACHABLE, and the link out of it goes somewhere real.
 #    Nothing in the nav addresses a single gig, so the only way in is a
 #    link on the diary home; without one the screen exists and nobody can
-#    click to it. And the card's link back must be SCOPED to a parameter
-#    the diary home actually reads -- a ?gig_id= nobody parses is a link
-#    that silently lands on the unfiltered diary.
+#    click to it. And the way back must be SCOPED: since CAP-38 round 2d
+#    that is the bar's back arrow, returning to the diary as it was left
+#    (diary-return.ts), not a link on the card.
 # 3. No second API client, and no hand-written response type.
 # 4. All four states, including skeletons rather than a spinner.
 # 5. The relative wording is REAL. gig-timing.ts is compiled and called
@@ -77,7 +77,8 @@ say "2. Reachable from the diary, and scoped on the way back"
 # nav cannot carry one because /gigs/:gig_id needs an id and the nav has
 # no single gig to name.
 #
-# Checked as the always-visible control in .about_gig, NOT as any link to
+# Checked as the always-visible control on the gig picker's row
+# (.picker_row since CAP-38 R6; .about_gig before), NOT as any link to
 # /gigs/. The diary home has carried one since CAP-7, inside NothingWritten,
 # which only renders for a student who has written nothing -- so a bare grep
 # for '/gigs/' passes while every student with a reflection still has no way
@@ -85,8 +86,8 @@ say "2. Reachable from the diary, and scoped on the way back"
 #
 # It is a Button that navigates, not an anchor, so the assertion is on the
 # navigate() call rather than on a `to=` prop.
-if grep -q 'styles.about_gig' "$DIARY" && grep -q 'navigate(`/gigs/' "$DIARY"; then
-    ok "the diary home reaches /gigs/:gig_id" "a Button beside the scope chips"
+if grep -q 'styles.picker_row' "$DIARY" && grep -q 'navigate(`/gigs/' "$DIARY"; then
+    ok "the diary home reaches /gigs/:gig_id" "a Button on the gig picker's row"
 else
     bad "the diary home reaches /gigs/:gig_id" "the screen would be URL-only"
 fi
@@ -100,10 +101,22 @@ else
     bad "it uses CAP-3's Button"
 fi
 
+# CAP-38 round 2d (Patrick, CAP-8's owner): the card's "Open your diary for
+# this gig" link is gone as redundant. The way back is the bar's back arrow,
+# which returns to the diary's remembered scope -- the gig just picked, since
+# the diary only offers Gig details once a gig is. So: no second way back on
+# the screen, and the arrow must read the remembered scope, not a bare "/".
+SHELL="web/src/app/AppShell.tsx"
 if grep -q '/?gig_id=' "$SCREEN"; then
-    ok "the card links to /?gig_id="
+    bad "the gig page has no link of its own back to the diary" "round 2d removed it; the back arrow is the way"
 else
-    bad "the card links to /?gig_id=" "criterion 3 is a SCOPED link"
+    ok "the gig page has no link of its own back to the diary"
+fi
+
+if grep -q 'diary_href(me.id)' "$SHELL" && grep -q 'remember_diary_scope' "$DIARY"; then
+    ok "the back arrow returns to the diary's remembered scope" "diary-return.ts"
+else
+    bad "the back arrow returns to the diary's remembered scope" "back would drop the gig"
 fi
 
 if grep -q "params.get('gig_id')" "$SCOPE"; then
@@ -171,12 +184,14 @@ say "4a. The cards"
 
 cards_missing=""
 grep -q 'Timeline' "$SCREEN"          || cards_missing="$cards_missing timeline"
-grep -q 'Reflection diary' "$SCREEN"  || cards_missing="$cards_missing reflection-diary"
+# The frame's "Reflection diary" card is headed "Sprints" since CAP-38
+# round 2e (Patrick): the page already says diary, and it holds the sprints.
+grep -q '>Sprints<' "$SCREEN"         || cards_missing="$cards_missing sprints"
 
 if [ -z "$cards_missing" ]; then
-    ok "Timeline and Reflection diary" "docs/06_figma_diary_frames.pdf p5"
+    ok "Timeline and Sprints" "docs/06_figma_diary_frames.pdf p5"
 else
-    bad "Timeline and Reflection diary" "missing:$cards_missing"
+    bad "Timeline and Sprints" "missing:$cards_missing"
 fi
 
 # The frame's third card, Gig Details, is deliberately NOT built: it holds
@@ -190,12 +205,16 @@ else
     bad "no Gig details card" "it repeats the header"
 fi
 
-# Each card is a Card with one of CAP-1's accents, which is what makes them
-# read as cards rather than as sections. The frame tints them blue and pink.
-if [ "$(grep -c '<Card accent=' "$SCREEN")" -ge 2 ]; then
-    ok "each card carries an accent"
+# No accent fills (CAP-38 round 2c, Patrick): the frame tints the two cards
+# blue and pink, and beside the rest of the diary that read as a different
+# app, worst in dark mode. Timeline is a section label with its facts on the
+# page; the diary sits in a plain card like the diary home's radar. Asserted
+# so the tints do not drift back without a reason.
+if ! grep -q '<Card accent=' "$SCREEN" && grep -q 'styles.section_label' "$SCREEN" \
+    && grep -q 'styles.diary_card' "$SCREEN"; then
+    ok "no accent fills" "Timeline as a section, the diary in a plain card"
 else
-    bad "each card carries an accent" "want 2 accented Cards"
+    bad "no accent fills" "an accented Card is back, or a section lost its class"
 fi
 
 # Criterion 1 asks for the participant roles in the HEADER, which is also

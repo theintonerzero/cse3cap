@@ -274,14 +274,15 @@ export function ExportSheet({ reflections }: ExportSheetProps) {
           <Button ref={download_button} on_click={download} disabled={job.downloading}>
             {job.downloading ? 'Downloading' : 'Download'}
           </Button>
-          <button
-            type="button"
-            className={styles.link}
+          {/* A button that looked like a link (CAP-38): it acts, so it
+              looks like what it is. */}
+          <Button
+            variant="secondary"
             disabled={job.downloading}
-            onClick={() => setJob(IDLE)}
+            on_click={() => setJob(IDLE)}
           >
             Request another
-          </button>
+          </Button>
         </div>
       )}
 

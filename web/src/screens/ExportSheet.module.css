@@ -117,24 +117,6 @@
   color: var(--color-text-muted);
 }
 
-.link {
-  align-self: flex-start;
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  font-size: var(--font-size-sm);
-  color: var(--color-primary);
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.link:disabled {
-  color: var(--color-text-muted);
-  text-decoration: none;
-  cursor: default;
-}
-
 .building:focus {
   outline: none;
 }

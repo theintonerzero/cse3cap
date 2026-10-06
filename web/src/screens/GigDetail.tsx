@@ -36,7 +36,6 @@ import type { components } from '../api/schema.ts';
 import {
   BottomSheet,
   Button,
-  Card,
   ErrorNotice,
   Skeleton,
   SkeletonGroup,
@@ -219,14 +218,21 @@ function GigHeader({ gig, me_id, on_history }: GigHeaderProps) {
 
   return (
     <header className={styles.header}>
-      {on_history && (
-        <div className={styles.header_actions}>
-          <Button variant="secondary" full_width={false} on_click={on_history}>
-            History
-          </Button>
-        </div>
-      )}
-      <h1 className={styles.heading}>{gig.title}</h1>
+      {/* Title and its one action on a line (CAP-38), as the frame draws
+          the pill and History together, rather than History floating
+          above the title on a line of its own. Small, and centred on the
+          title's first line (round 2d, Patrick): a long title wraps
+          downward and History stays where it is. */}
+      <div className={styles.title_row}>
+        <h1 className={styles.heading}>{gig.title}</h1>
+        {on_history && (
+          <span className={styles.title_action}>
+            <Button variant="secondary" size="sm" full_width={false} on_click={on_history}>
+              History
+            </Button>
+          </span>
+        )}
+      </div>
       {meta.length > 0 && <p className={styles.sub}>{meta.join(' \u00b7 ')}</p>}
       <ParticipantList participants={gig.participants} me_id={me_id} />
     </header>
@@ -287,9 +293,13 @@ function TimelineCard({ gig }: { gig: Gig }) {
   if (!gig.starts_on || !gig.ends_on) return null;
 
   return (
+    // No card (round 2c, Patrick): the frame's blue Timeline card read as a
+    // different app beside the rest of the diary, worst in dark mode. A
+    // quiet section label and label-over-value facts, as Alumable's own
+    // gig page sets out GIG DETAILS and TIMELINE.
     <section className={styles.block}>
-      <Card accent="evidence">
-        <h2 className={styles.card_heading}>Timeline</h2>
+      <div>
+        <h2 className={styles.section_label}>Timeline</h2>
         <dl className={styles.timeline}>
           <div className={styles.timeline_cell}>
             <dt className={styles.fact_label}>Start</dt>
@@ -308,14 +318,16 @@ function TimelineCard({ gig }: { gig: Gig }) {
             </div>
           )}
         </dl>
-      </Card>
+      </div>
     </section>
   );
 }
 
 /**
- * The frame's third card, and criterion 3's way into the diary scoped to
- * this gig.
+ * The frame's third card. It used to end in criterion 3's link into the
+ * diary scoped to this gig; round 2d dropped it (Patrick, CAP-8's owner):
+ * this page is only reached from the diary, and the bar's back arrow
+ * returns to the diary as it was left (diary-return.ts), which is this gig.
  *
  * For a student it is the frame's SPRINT / SELF REFLECTION / ASSESSOR
  * REFLECTION rows, the two columns being the reflection states split
@@ -346,9 +358,13 @@ function DiaryCard({
   const is_student = gig.my_role === 'student';
 
   return (
+    // A plain card, as the radar sits in on the diary home, not the frame's
+    // pink one (round 2c, Patrick).
     <section className={styles.block}>
-      <Card accent="pink">
-        <h2 className={styles.card_heading}>Reflection diary</h2>
+      <div className={styles.diary_card}>
+        {/* "Sprints", not "Reflection diary" (round 2e, Patrick): the page
+            and the bar already say diary, and this card holds the sprints. */}
+        <h2 className={styles.card_heading}>Sprints</h2>
 
         <p className={styles.framework}>
           {gig.framework ? (
@@ -380,13 +396,7 @@ function DiaryCard({
         )}
 
         {!is_student && <p className={styles.diary_body}>{NOT_YOUR_DIARY}</p>}
-
-        {is_student && (
-          <Link className={styles.diary_link} to={`/?gig_id=${gig.id}`}>
-            Open your diary for this gig
-          </Link>
-        )}
-      </Card>
+      </div>
     </section>
   );
 }
@@ -555,7 +565,15 @@ function StartReflection({
 
   return (
     <div className={styles.row_start}>
-      <Button variant="secondary" full_width={false} disabled={starting} on_click={start}>
+      {/* Small (round 2c): a row action, sized like the diary's Gig
+          details beside its picker, not a page's main button. */}
+      <Button
+        variant="secondary"
+        size="sm"
+        full_width={false}
+        disabled={starting}
+        on_click={start}
+      >
         {starting ? 'Starting\u2026' : 'Start reflection'}
       </Button>
       {error && (

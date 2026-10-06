@@ -16,12 +16,18 @@
  * matching the contract's own CounterRole enum, which lists exactly those
  * three as the roles a counter-score can come from.
  */
-import { Link, useParams } from 'react-router';
+import { useParams } from 'react-router';
 import { useCallback, useEffect, useState } from 'react';
 
 import { api, ApiError } from '../api/client.ts';
 import type { components } from '../api/schema.ts';
-import { Card, ErrorNotice, Skeleton, SkeletonGroup } from '../components/index.ts';
+import {
+  Card,
+  ErrorNotice,
+  LinkButton,
+  Skeleton,
+  SkeletonGroup,
+} from '../components/index.ts';
 import { by_ordinal, format_full_date } from './gig-timing.ts';
 import styles from './Submitted.module.css';
 
@@ -119,9 +125,11 @@ export function Submitted() {
           <p className={styles.empty_body}>
             There is nothing to confirm until you hand it in.
           </p>
-          <Link className={styles.back_link} to={`/reflections/${reflection.id}`}>
-            Go to the reflection
-          </Link>
+          <div className={styles.empty_action}>
+            <LinkButton to={`/reflections/${reflection.id}`}>
+              Go to the reflection
+            </LinkButton>
+          </div>
         </div>
       </section>
     );
@@ -135,7 +143,12 @@ export function Submitted() {
     : undefined;
 
   return (
-    <section>
+    <section className={styles.done}>
+      {/* A confirmation, centred and marked (CAP-38). The tick is
+          decoration: the heading and the card already say it. */}
+      <span className={styles.tick} aria-hidden="true">
+        ✓
+      </span>
       <h1 className={styles.heading}>Submitted</h1>
       <Card accent="mint">
         <p className={styles.confirmation}>
@@ -155,9 +168,7 @@ export function Submitted() {
       </Card>
 
       <div className={styles.nav}>
-        <Link className={styles.back_button} to="/">
-          Back to diary
-        </Link>
+        <LinkButton to="/">Back to diary</LinkButton>
       </div>
     </section>
   );

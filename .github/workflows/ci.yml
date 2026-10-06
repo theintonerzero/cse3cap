@@ -315,10 +315,11 @@ jobs:
       # ADR #42. Browser checks against a fake API: no backend, no database
       # and no token, so they run here exactly as they run locally. The
       # browser comes from the pinned @playwright/test, not from latest.
-      - name: Install Chromium for the browser checks
+      # Firefox runs one file, e2e/firefox.spec.ts (ADR #51).
+      - name: Install Chromium and Firefox for the browser checks
         if: steps.web.outputs.exists == 'true'
         working-directory: web
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium firefox
 
       - name: Browser checks
         if: steps.web.outputs.exists == 'true'

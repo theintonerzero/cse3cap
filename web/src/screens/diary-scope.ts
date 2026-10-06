@@ -2,9 +2,9 @@
  * Everything the diary home decides about scope, with no React in it.
  *
  * Split out so the screen file stays a screen: the parts worth reading
- * twice -- what a URL means, which rows are actually yours, and what the
- * caption under the radar should say -- are all here, in functions that
- * take their inputs and return a value.
+ * twice -- what a URL means, which rows are actually yours, and who the
+ * radar says scored it -- are all here, in functions that take their
+ * inputs and return a value.
  *
  * Scope lives in the URL (ADR #27), so every one of these is a pure
  * function of the query string and the payloads, which is what makes a
@@ -15,6 +15,7 @@ import type { components } from '../api/schema.ts';
 export type Gig = components['schemas']['Gig'];
 export type Sprint = components['schemas']['Sprint'];
 export type ReflectionSummary = components['schemas']['ReflectionSummary'];
+export type Participant = components['schemas']['GigDetail']['participants'][number];
 
 /** What the chips select. Both null is "all gigs". */
 export interface Scope {
@@ -39,10 +40,19 @@ export function student_gigs(gigs: Gig[]): Gig[] {
  * A scope the data does not support falls back rather than erroring: a
  * stale or shared link is the normal way an unknown id gets here, and an
  * error screen would be the wrong answer to it.
+ *
+ * With exactly one gig to be a student on, the fallback is that gig, not
+ * "all gigs" (CAP-38 round 2e, Patrick): over one gig they are the same
+ * record, and only the gig scope offers its sprints and Gig details. Still
+ * a pure function of the URL and the payload, so a link renders the same
+ * screen twice; a bare "/" just means something different to a student
+ * with one gig than to a student with two.
  */
 export function scope_from_params(params: URLSearchParams, gigs: Gig[]): Scope {
   const mine = student_gigs(gigs);
-  const gig = mine.find((candidate) => candidate.id === params.get('gig_id'));
+  const gig =
+    mine.find((candidate) => candidate.id === params.get('gig_id')) ??
+    (mine.length === 1 ? mine[0] : undefined);
 
   if (!gig) return ALL_GIGS;
 
@@ -108,39 +118,40 @@ export function reflections_in_scope(
 }
 
 /**
- * What the polygon is summarising, in a sentence, because an unlabelled
- * radar is ambiguous: across the whole record and within one gig it is the
- * latest score per competency, and only within one sprint is it a true
- * self-against-counter comparison of the same piece of work. The API
- * scopes it exactly that way (AnalyticsController::radar) and this says so
- * out loud.
- *
- * `counter_role` is whichever role actually counter-scored, from the radar
- * payload, so the sentence says "supervisor" when a supervisor scored it.
- * Null means nobody has yet, and the clause is left off -- RadarPanel
- * already says "Still awaiting a counter-score" above the chart, and
- * saying it twice in different words reads as a fault.
+ * The gig whose people "Scored by" names: the one in scope, or a one-gig
+ * student's only gig, whose "All gigs" is that gig. Null under "All gigs"
+ * with two or more, where there is no radar to label.
  */
-export function radar_caption(
-  scope: Scope,
-  gigs: Gig[],
-  counter_role: string | null,
-): string {
-  const gig = gigs.find((candidate) => candidate.id === scope.gig_id);
+export function named_gig(scope: Scope, gigs: Gig[]): string | null {
+  const mine = student_gigs(gigs);
+  return scope.gig_id ?? (mine.length === 1 ? mine[0].id : null);
+}
 
-  if (!gig) {
-    return 'The latest score on each competency, across your whole record.';
-  }
+/**
+ * Who gave the counter-scores the radar is drawing, in a few words
+ * (round 2b, Patrick): "Scored by Sam O". The radar names only the role
+ * that scored each axis (counter_role), so the name comes from the gig's
+ * participants. It is only ever a name when exactly one person on the gig
+ * holds that role; with two it says "your assessors" rather than guess, and
+ * with no counter-score yet it says nothing (RadarPanel already says it is
+ * awaited). Null participants means not known (yet, or the read failed),
+ * which also says nothing: a guess at the plural would be wrong for a gig
+ * with one assessor.
+ */
+export function scored_by(
+  counter_roles: (string | null)[],
+  participants: Participant[] | null,
+): string | null {
+  if (participants === null) return null;
+  const roles = [...new Set(counter_roles.filter((role): role is string => role !== null))];
+  if (roles.length === 0) return null;
 
-  if (!scope.sprint_id) {
-    return `The latest score on each competency on ${gig.title}.`;
-  }
+  const who = roles.map((role) => {
+    const people = participants.filter((person) => person.role === role);
+    return people.length === 1 ? people[0].display_name : `your ${role}s`;
+  });
 
-  const sprint = gig.sprints.find((candidate) => candidate.id === scope.sprint_id);
-  const which = sprint ? `Sprint ${sprint.ordinal}` : 'This sprint';
-  const against = counter_role ? ` against your ${counter_role}'s` : '';
-
-  return `${which} on ${gig.title}: your own score${against}, on that sprint alone.`;
+  return `Scored by ${who.join(' and ')}`;
 }
 
 /**

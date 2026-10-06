@@ -120,7 +120,7 @@ export function HistorySheet({ reflections }: HistorySheetProps) {
   }
 
   return (
-    <ol className={styles.list}>
+    <ol className={`${styles.list} ${styles.timeline}`}>
       {load.rows.map((row) => (
         <li key={row.id} className={styles.row}>
           <span className={styles.label}>{row.label}</span>

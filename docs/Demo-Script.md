@@ -41,16 +41,18 @@ so Noor gets a second tab of her own in step 2.
 
 The point to make: the record belongs to the student and survives the subject.
 
-1. **Diary** (`/`). Jane's radar plots her self-scores against her assessor's across the La
-   Trobe gig's six competencies. Two polygons, and the gap between them is the
-   conversation.
-2. Change the scope from the whole record to a single sprint. The caption changes with it:
-   the whole record shows the latest score per competency, and a single sprint shows a
-   true self against assessor comparison for that sprint.
-3. Jane is on two gigs with two different rubrics. Switch to **Data migration audit**: SFIA
-   9, a seven-point scale and six different skills, drawn by the same chart.
-4. **Export your record**. The whole record downloads as JSON. That is the guarantee the
-   record is hers, not the platform's.
+1. **Diary** (`/`). Jane is on two gigs, so the diary opens on "All gigs" and asks her to
+   pick one: each gig is scored against its own rubric, and one radar can't draw both. Pick
+   **Develop AI use cases**. Her radar plots her self-scores against her assessor's across
+   La Trobe's six competencies. Two polygons, and the gap between them is the conversation.
+2. Pick a sprint chip. Under "All sprints" each competency shows its latest score, from
+   whichever sprint scored it last. A single sprint is a true self against assessor
+   comparison for that sprint. The card doesn't say which, the picker and the chip do
+   (ADR #58), so say it out loud here.
+3. Switch the picker to her other gig, **Data migration audit**: SFIA 9, a seven-point scale
+   and six different skills, drawn by the same chart.
+4. **Export record**, the floating button at the bottom right. The whole record downloads
+   as JSON. That is the guarantee the record is hers, not the platform's.
 
 ## 2. Writing a reflection (Noor, 4 minutes)
 
@@ -97,9 +99,10 @@ The point to make: a new competency framework needs no code change.
    side by side.
 2. Both are in use, so both are read-only. Changing a rubric that students have already
    been scored against would rewrite their past.
-3. **Copy and edit a rubric** from La Trobe: rename the copy and reword a level
+3. Open La Trobe and **Edit a copy**: rename the copy and reword a level
    descriptor. Copies are editable until a reflection references them.
-4. **Assign to a gig** shows that a gig holds one rubric at a time.
+4. Open any rubric: under **Assign to a gig**, each gig says which rubric it already
+   uses. A gig holds one rubric for good, so on the demo data none can be picked.
 
 `docs/Framework-Swap-Verification.md` is the evidence behind this section if the client
 asks for it.

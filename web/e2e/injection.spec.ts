@@ -22,7 +22,9 @@ test('student stepper: every typed field is text, and a javascript: link is not 
   page,
 }) => {
   await page.goto(`/reflections/${HOSTILE_REFLECTION}`);
-  await expect(page.getByRole('heading', { name: 'Reflection' })).toBeVisible();
+  // The heading is "<gig title> · Sprint N" and the gig title is the payload:
+  // it has to arrive as text (round 2b).
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(`${PAYLOAD} · Sprint 1`);
 
   // One assertion per rendered field, so each one is shown to be on the page
   // as text: the competency name, the narrative, every level descriptor, the
@@ -31,9 +33,21 @@ test('student stepper: every typed field is text, and a javascript: link is not 
   await expect(card.locator('p', { hasText: PAYLOAD }).first()).toHaveText(PAYLOAD);
   await expect(page.getByLabel('Your reflection')).toHaveValue(PAYLOAD);
   for (const value of [1, 2]) {
-    await expect(page.getByRole('button', { name: `${value} · ${PAYLOAD}` })).toBeVisible();
+    await expect(
+      page
+        .getByRole('group', { name: 'Self-score' })
+        .getByRole('button', { name: `${value} · ${PAYLOAD}` }),
+    ).toBeVisible();
   }
-  await expect(page.getByText(`${PAYLOAD}: level 1 — “${PAYLOAD}”`)).toBeVisible();
+  // The counter-score reads as the assessor sees it (CAP-38): the scorer's
+  // name labels a chip row and a read-only comment box, both still text.
+  const counter = page.getByRole('group', { name: `${PAYLOAD}'s score` });
+  for (const value of [1, 2]) {
+    await expect(
+      counter.getByRole('button', { name: `${value} · ${PAYLOAD}` }),
+    ).toBeVisible();
+  }
+  await expect(page.getByLabel(`${PAYLOAD}'s comment`)).toHaveValue(PAYLOAD);
   await expect(page.getByRole('listitem').filter({ hasText: PAYLOAD })).toHaveCount(2);
 
   // StoreEvidenceRequest refuses this scheme (F7), and the screen still
@@ -44,7 +58,7 @@ test('student stepper: every typed field is text, and a javascript: link is not 
 
 test("assessor stepper: the student's name and work are text", async ({ page }) => {
   await page.goto(`/review-queue/reflections/${HOSTILE_REFLECTION}`);
-  await expect(page.getByRole('heading', { name: 'Score reflection' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(`${PAYLOAD} · Sprint 1`);
 
   // The owner's display name comes from Alumable, and the assessor screen
   // puts it in the status line and in two field labels.
@@ -60,10 +74,13 @@ test("edit framework: a rubric's wording, and the name a supervisor types, are t
   api,
 }) => {
   await page.goto(`/frameworks/${HOSTILE_FRAMEWORK}/edit`);
-  await expect(page.getByRole('heading', { name: 'Copy and edit a rubric' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Edit a copy of a framework' }),
+  ).toBeVisible();
 
   // The base rubric's own wording, as the fields a supervisor edits.
-  const competency = page.getByRole('group', { name: 'hostile' });
+  // Found by its field's id: the card is headed by the (hostile) name itself.
+  const competency = page.getByRole('group').filter({ has: page.locator('#name-hostile') });
   await expect(competency.getByLabel('Competency name')).toHaveValue(PAYLOAD);
   await expect(competency.getByLabel('Level 1')).toHaveValue(PAYLOAD);
   await expect(

@@ -115,7 +115,7 @@ screenshots (HO-6).
 
 The diary home keeps its scope in the URL rather than in state (ADR #27), so a scoped diary
 is a link somebody can send. What a scope means -- which rows are yours, which sprints can
-be chipped, what the caption under the radar says -- lives in `src/screens/diary-scope.ts`,
+be chipped, who the radar says scored it -- lives in `src/screens/diary-scope.ts`,
 which is pure and imports no React.
 
 The gig detail screen splits the same way and one step further: `src/screens/gig-timing.ts`

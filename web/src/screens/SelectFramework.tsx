@@ -22,15 +22,30 @@
  * it is not rediscovered as a bug.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router';
 
 import { api, ApiError } from '../api/client.ts';
-import { Button, Card, ErrorNotice, Skeleton, SkeletonGroup } from '../components/index.ts';
+import type { components } from '../api/schema.ts';
+import {
+  BottomSheet,
+  Button,
+  ErrorNotice,
+  LinkButton,
+  Skeleton,
+  SkeletonGroup,
+} from '../components/index.ts';
 import { useSession, type SessionUser } from '../session/useSession.ts';
 import { assignable_gigs, group_frameworks, type Framework } from './framework-groups.ts';
+import { display_names } from './framework-names.ts';
 import styles from './SelectFramework.module.css';
 
 type Participation = SessionUser['participations'][number];
+type GigFramework = components['schemas']['GigFramework'];
+
+/**
+ * Which rubric each gig already uses, by gig id (round 3 E2). A gig missing
+ * from the map is unknown: /gigs has not answered, or failed.
+ */
+type GigRubrics = ReadonlyMap<string, GigFramework | null>;
 
 type State =
   | { status: 'loading' }
@@ -56,12 +71,41 @@ export function SelectFramework() {
           error:
             error instanceof ApiError
               ? error
-              : new ApiError(0, null, 'Something went wrong loading the rubrics.'),
+              : new ApiError(0, null, 'Something went wrong loading the frameworks.'),
         });
       });
 
     return () => controller.abort();
   }, [reload_key]);
+
+  // Which rubric each gig uses, for the assign sheet (round 3 E2). A
+  // helper, not the page: it never shows a loading or error state of its
+  // own. Until it answers, or if it fails, the gigs are plain radios and
+  // the server's 409 still answers a gig that already has one.
+  const [gig_rubrics, setGigRubrics] = useState<GigRubrics>(new Map());
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    api
+      .get('/gigs', { signal: controller.signal })
+      .then((gigs) => setGigRubrics(new Map(gigs.map((gig) => [gig.id, gig.framework]))))
+      .catch(() => {});
+
+    return () => controller.abort();
+  }, []);
+
+  // A gig now uses this rubric, so every sheet opened after says so.
+  const on_assigned = useCallback((gig_id: string, framework: Framework) => {
+    setGigRubrics((current) =>
+      new Map(current).set(gig_id, {
+        id: framework.id,
+        fw_key: framework.fw_key,
+        name: framework.name,
+        version: framework.version,
+      }),
+    );
+  }, []);
 
   // Back to the skeletons first, rather than leaving the error notice on
   // screen while the retry is in flight. Same as ReviewQueue and GigDetail.
@@ -79,14 +123,19 @@ export function SelectFramework() {
       <h1 className={styles.heading}>Frameworks</h1>
       <p className={styles.sub}>
         {assignable.length > 0
-          ? 'The rubrics a gig can be scored against. Copy a template to change one.'
-          : 'The rubrics a gig can be scored against. Assigning one needs a gig you supervise.'}
+          ? 'The frameworks a gig is scored against. Copy one to change it.'
+          : 'The frameworks a gig is scored against. Copy one to change it. Assigning one needs a gig you supervise.'}
       </p>
 
       {state.status === 'loading' && <LoadingState />}
       {state.status === 'error' && <ErrorNotice error={state.error} on_retry={retry} />}
       {state.status === 'loaded' && (
-        <LoadedState frameworks={state.frameworks} assignable={assignable} />
+        <LoadedState
+          frameworks={state.frameworks}
+          assignable={assignable}
+          gig_rubrics={gig_rubrics}
+          on_assigned={on_assigned}
+        />
       )}
     </section>
   );
@@ -101,19 +150,35 @@ export function SelectFramework() {
 function LoadedState({
   frameworks,
   assignable,
+  gig_rubrics,
+  on_assigned,
 }: {
   frameworks: Framework[];
   assignable: Participation[];
+  gig_rubrics: GigRubrics;
+  on_assigned: (gig_id: string, framework: Framework) => void;
 }) {
   const { templates, copies } = group_frameworks(frameworks);
+  // Same-named rubrics read "(2)", "(3)" … (round 3 E7), here and in the
+  // sheet, so each row can be told apart and its sheet says which it is.
+  const names = display_names(frameworks);
+  // One sheet for the screen, not one per row (round 3 E6). The framework
+  // stays set while the sheet is shut, so its title never blanks mid-close.
+  const [open, setOpen] = useState<Framework | null>(null);
+  const [sheet_open, setSheetOpen] = useState(false);
+
+  function open_sheet(framework: Framework) {
+    setOpen(framework);
+    setSheetOpen(true);
+  }
 
   if (templates.length === 0 && copies.length === 0) {
     return (
       <div className={styles.empty}>
-        <p className={styles.empty_title}>No rubrics yet.</p>
+        <p className={styles.empty_title}>No frameworks yet.</p>
         <p className={styles.empty_body}>
-          A rubric arrives with the schema, so an empty list means the database has not been
-          seeded. Run <code>php artisan db:seed</code> in <code>api/</code>.
+          A framework arrives with the schema, so an empty list means the database has not
+          been seeded. Run <code>php artisan db:seed</code> in <code>api/</code>.
         </p>
       </div>
     );
@@ -123,39 +188,59 @@ function LoadedState({
     <>
       <Group
         title="Templates"
-        hint="Shipped with the product. Copy one to edit it."
         frameworks={templates}
-        assignable={assignable}
+        names={names}
+        on_open={open_sheet}
         when_empty="No templates. The database has not been seeded."
       />
       <Group
         title="Saved copies"
-        hint="Copies made by a supervisor."
         frameworks={copies}
-        assignable={assignable}
+        names={names}
+        on_open={open_sheet}
         when_empty="Nothing copied yet."
       />
+
+      <BottomSheet
+        open={sheet_open}
+        title={open ? names.get(open.id) : undefined}
+        onClose={() => setSheetOpen(false)}
+      >
+        {/* Keyed, so another framework opens fresh: nothing picked, no
+            outcome left over from the last one. */}
+        {open && (
+          <FrameworkSheet
+            key={open.id}
+            framework={open}
+            assignable={assignable}
+            gig_rubrics={gig_rubrics}
+            names={names}
+            on_assigned={on_assigned}
+          />
+        )}
+      </BottomSheet>
     </>
   );
 }
 
 function Group({
   title,
-  hint,
   frameworks,
-  assignable,
+  names,
+  on_open,
   when_empty,
 }: {
   title: string;
-  hint: string;
   frameworks: Framework[];
-  assignable: Participation[];
+  names: ReadonlyMap<string, string>;
+  on_open: (framework: Framework) => void;
   when_empty: string;
 }) {
   return (
     <section className={styles.block}>
-      <h2 className={styles.group_heading}>{title}</h2>
-      <p className={styles.sub}>{hint}</p>
+      {/* The gig page's section label (round 3 F2): one line under the
+          screen's heading says what these are, so no hint per group. */}
+      <h2 className={styles.section_label}>{title}</h2>
 
       {frameworks.length === 0 ? (
         <p className={styles.none}>{when_empty}</p>
@@ -163,7 +248,11 @@ function Group({
         <ul className={styles.list}>
           {frameworks.map((framework) => (
             <li key={framework.id}>
-              <FrameworkRow framework={framework} assignable={assignable} />
+              <FrameworkRow
+                framework={framework}
+                name={names.get(framework.id) ?? framework.name}
+                on_open={on_open}
+              />
             </li>
           ))}
         </ul>
@@ -172,29 +261,13 @@ function Group({
   );
 }
 
-type AssignState =
-  | { status: 'idle' }
-  | { status: 'picking' }
-  | { status: 'saving' }
-  | { status: 'refused'; message: string }
-  | { status: 'assigned'; gig_title: string };
-
 /**
- * One rubric, and putting it on a gig.
+ * The version, and In use or Not in use as words (round 3 F2, E8): the gig
+ * page's muted meta line. The fw_key slug is for machines. Patrick
+ * (2026-10-05): "v1" alone "just looks so out of place", so every row says
+ * one or the other; "Made by you" isn't needed, a supervisor sees their own.
  *
- * The picker expands rather than rendering a button per gig. The shared
- * database grows a smoke-test-copy-* framework on every run of smoke.sh, so
- * this list runs to a dozen rows against real data; a button per gig per
- * row is two dozen primary buttons on one screen. One gig is the common
- * case and skips the picking step entirely.
- *
- * Nothing is refetched after a successful assign. The Framework payload is
- * id, fw_key, version, name, is_active, created_by and in_use, and an
- * assignment changes none of them -- in_use means "a reflection references
- * this", not "this is on a gig". A reload here would cost a round trip to
- * redraw identical rows and would throw away the confirmation.
- *
- * "In use" is a plain span, not Badge and not Chip. Badge takes a
+ * "In use" is plain text, not Badge and not Chip. Badge takes a
  * BadgeStatus, which is the contract's ReflectionStatus generated from
  * schema.ts -- draft | submitted | assessed -- and renders its own label
  * from a lookup rather than taking children, so it would neither compile
@@ -207,117 +280,172 @@ type AssignState =
  * framework_assignments. GET /frameworks does not carry that fact and this
  * screen does not invent it.
  */
+function meta_line(framework: Framework): string {
+  return `${framework.version} · ${framework.in_use ? 'In use' : 'Not in use'}`;
+}
+
+/**
+ * One rubric: a whole-row card with a chevron, like every other list in
+ * the app (round 3 E6, Patrick 2026-10-05: the two buttons in every card
+ * "use too much vertical real estate" and "fit in awkwardly"). A button,
+ * not a link, because it opens a sheet rather than a page.
+ */
 function FrameworkRow({
   framework,
+  name,
+  on_open,
+}: {
+  framework: Framework;
+  name: string;
+  on_open: (framework: Framework) => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={styles.row}
+      aria-haspopup="dialog"
+      onClick={() => on_open(framework)}
+    >
+      <span className={styles.row_main}>
+        <span className={styles.name}>{name}</span>
+        <span className={styles.meta}>{meta_line(framework)}</span>
+      </span>
+      {/* The character itself, as the queue's rows do: check-tokens.sh
+          reads a numeric entity as a raw hex colour. */}
+      <span className={styles.chevron} aria-hidden="true">
+        {'›'}
+      </span>
+    </button>
+  );
+}
+
+type AssignState =
+  | { status: 'idle' }
+  | { status: 'saving' }
+  | { status: 'refused'; message: string }
+  | { status: 'assigned'; gig_title: string };
+
+/**
+ * What can be done with one rubric: copy it into the editor, or put it on a
+ * gig (round 3 E6 and E2).
+ *
+ * The gigs are radio rows with one Assign button, not a button per gig: a
+ * supervisor has a few gigs, so every choice shows at once, and nothing is
+ * sent until Assign. One assignable gig is picked already, so it is still
+ * one press, the same flow as two.
+ *
+ * "Edit a copy" is on every rubric, in use or not. The editor never changes
+ * the rubric it starts from -- it copies it (ADR #16, CAP-16) -- so a
+ * reflection referencing this one is no reason to hide it. Both seeded
+ * templates are in use; gating on in_use left a freshly seeded database
+ * with no way into the editor at all.
+ *
+ * Nothing is refetched after a successful assign. The Framework payload is
+ * id, fw_key, version, name, is_active, created_by and in_use, and an
+ * assignment changes none of them -- in_use means "a reflection references
+ * this", not "this is on a gig".
+ */
+function FrameworkSheet({
+  framework,
   assignable,
+  gig_rubrics,
+  names,
+  on_assigned,
 }: {
   framework: Framework;
   assignable: Participation[];
+  gig_rubrics: GigRubrics;
+  names: ReadonlyMap<string, string>;
+  on_assigned: (gig_id: string, framework: Framework) => void;
 }) {
   const [assign, setAssign] = useState<AssignState>({ status: 'idle' });
+  const [picked, setPicked] = useState<string | null>(
+    assignable.length === 1 ? assignable[0].gig_id : null,
+  );
 
-  async function assign_to(gig_id: string, gig_title: string) {
+  // A gig keeps its rubric for good (ADR #35), so one that has a rubric
+  // can't be picked. Unknown (no answer from /gigs) stays pickable.
+  const taken = (gig: Participation) => Boolean(gig_rubrics.get(gig.gig_id));
+  const all_taken = assignable.length > 0 && assignable.every(taken);
+
+  async function assign_to(gig: Participation) {
     setAssign({ status: 'saving' });
 
     try {
       await api.post('/framework-assignments', {
-        body: { framework_id: framework.id, gig_id },
+        body: { framework_id: framework.id, gig_id: gig.gig_id },
       });
-      setAssign({ status: 'assigned', gig_title });
+      setAssign({ status: 'assigned', gig_title: gig.gig_title });
+      setPicked(null);
+      on_assigned(gig.gig_id, framework);
     } catch (error: unknown) {
       if (!(error instanceof ApiError)) throw error;
 
       // DUPLICATE_ASSIGNMENT is the common path on the seeded data: both
       // gigs already carry a rubric. Every other code that can arrive here
       // -- ROLE_FORBIDDEN, NOT_FOUND, a validation failure -- is equally a
-      // considered answer about this one row, so all of them are shown the
-      // same way, in place, rather than replacing the screen.
+      // considered answer about this one rubric, so all of them are shown
+      // the same way, in the sheet, rather than replacing the screen.
       setAssign({ status: 'refused', message: error.message });
     }
   }
 
-  function begin() {
-    if (assignable.length === 1) {
-      const only = assignable[0];
-      void assign_to(only.gig_id, only.gig_title);
-      return;
-    }
-    setAssign({ status: 'picking' });
-  }
+  // Checked only while it can still be picked: the one gig preselected may
+  // turn out to be taken once /gigs answers.
+  const picked_gig = assignable.find((gig) => gig.gig_id === picked && !taken(gig)) ?? null;
+  const saving = assign.status === 'saving';
 
   return (
-    <Card>
-      <div className={styles.row}>
-        <div className={styles.identity}>
-          <p className={styles.name}>{framework.name}</p>
-          <p className={styles.meta}>
-            {framework.fw_key} {'·'} {framework.version}
-          </p>
-        </div>
+    <>
+      <p className={styles.sheet_meta}>{meta_line(framework)}</p>
 
-        <div className={styles.actions}>
-          {framework.in_use && (
-            <span className={styles.in_use} title="A reflection already uses this rubric">
-              In use
-            </span>
+      <LinkButton to={`/frameworks/${framework.id}/edit`} variant="secondary" full_width>
+        Edit a copy
+      </LinkButton>
+
+      {assignable.length > 0 && (
+        <fieldset className={styles.gigs} disabled={saving}>
+          <legend className={styles.section_label}>Assign to a gig</legend>
+          {all_taken && (
+            <p className={styles.all_taken}>
+              Every gig you supervise already has a framework.
+            </p>
           )}
-
-          {/* Every row, in use or not. The editor never changes the rubric
-              it starts from -- it copies it (ADR #16, CAP-16) -- so a
-              reflection referencing this one is no reason to hide it. Both
-              seeded templates are in use; gating on in_use left a freshly
-              seeded database with no way into the editor at all. */}
-          <Link className={styles.edit} to={`/frameworks/${framework.id}/edit`}>
-            <Button variant="secondary" full_width={false}>
-              Copy and edit
-            </Button>
-          </Link>
-
-          {assignable.length > 0 && assign.status !== 'picking' && (
+          {assignable.map((gig) => (
+            <label key={gig.gig_id} className={styles.gig}>
+              <input
+                type="radio"
+                name={`assign-${framework.id}`}
+                value={gig.gig_id}
+                checked={picked_gig?.gig_id === gig.gig_id}
+                disabled={taken(gig)}
+                onChange={() => setPicked(gig.gig_id)}
+              />
+              <span className={styles.gig_text}>
+                <span className={styles.gig_title}>{gig.gig_title}</span>
+                <GigNote
+                  rubric={gig_rubrics.get(gig.gig_id)}
+                  framework={framework}
+                  names={names}
+                />
+              </span>
+            </label>
+          ))}
+          <div className={styles.assign}>
             <Button
-              full_width={false}
-              disabled={assign.status === 'saving'}
-              on_click={begin}
+              disabled={picked_gig === null || saving}
+              on_click={() => {
+                if (picked_gig) void assign_to(picked_gig);
+              }}
             >
-              {assign.status === 'saving'
-                ? 'Assigning…'
-                : assignable.length === 1
-                  ? `Assign to ${assignable[0].gig_title}`
-                  : 'Assign to a gig'}
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {assign.status === 'picking' && (
-        <div className={styles.picker}>
-          <p className={styles.picker_label} id={`pick-${framework.id}`}>
-            Assign {framework.name} to:
-          </p>
-          <div className={styles.picker_options} aria-labelledby={`pick-${framework.id}`}>
-            {assignable.map((gig) => (
-              <Button
-                key={gig.gig_id}
-                full_width={false}
-                on_click={() => void assign_to(gig.gig_id, gig.gig_title)}
-              >
-                {gig.gig_title}
-              </Button>
-            ))}
-            <Button
-              variant="secondary"
-              full_width={false}
-              on_click={() => setAssign({ status: 'idle' })}
-            >
-              Cancel
+              {saving ? 'Assigning…' : 'Assign'}
             </Button>
           </div>
-        </div>
+        </fieldset>
       )}
 
       {/* Announced, because the outcome of pressing a button is not on the
-          button: the row is where it lands and a screen reader is not
-          looking at it. */}
+          button: a screen reader is not looking at the line under it. */}
       {assign.status === 'refused' && (
         <p className={styles.refused} role="status">
           {assign.message}
@@ -328,14 +456,40 @@ function FrameworkRow({
           Assigned to {assign.gig_title}.
         </p>
       )}
-    </Card>
+    </>
+  );
+}
+
+/**
+ * The muted line under a gig: which rubric it uses, if /gigs said. By its
+ * on-screen name (round 3 E7), or the stored one if it isn't listed.
+ */
+function GigNote({
+  rubric,
+  framework,
+  names,
+}: {
+  rubric: GigFramework | null | undefined;
+  framework: Framework;
+  names: ReadonlyMap<string, string>;
+}) {
+  if (rubric === undefined) return null;
+
+  return (
+    <span className={styles.gig_note}>
+      {rubric === null
+        ? 'No framework yet'
+        : rubric.id === framework.id
+          ? 'Uses this framework'
+          : `Uses ${names.get(rubric.id) ?? rubric.name}`}
+    </span>
   );
 }
 
 /** Shaped like the loaded screen: two groups, a few rows each. */
 function LoadingState() {
   return (
-    <SkeletonGroup label="Loading rubrics">
+    <SkeletonGroup label="Loading frameworks">
       {[0, 1].map((group) => (
         <div key={group} className={styles.block}>
           <Skeleton variant="text" width="30%" />

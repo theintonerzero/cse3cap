@@ -59,6 +59,15 @@ Index
 #47 One role per person per gig, student first .. Accepted
 #48 Choosing a rubric is the supervisor's ......... Accepted
 #49 No draft-then-submit or save popups ........... Accepted
+#50 Type, line height and control shape leave Figma .. Proposed
+#51 One Firefox check beside the Chromium suite .. Proposed
+#52 Section tints on the top screens ............. Proposed
+#53 A 20px title step for the app bar ............ Proposed
+#54 Controls show their edge in light mode ....... Proposed
+#55 The review queue is the reviewers' too ....... Proposed
+#56 Frameworks wears no section tint ............. Proposed
+#57 Counter-scores go in together ................ Proposed
+#58 The picker names the radar's scope .......... Proposed
 
 ===============================================================
 
@@ -2804,3 +2813,491 @@ parked score isn't charted.
 Keep the popups as confirmations over the autosave and the final save. Cheap, and closer
 to the design. Not built, and no reason was recorded. This is the one a team could still
 add without touching the API.
+
+===============================================================
+
+ADR #50: Type, line height and control shape depart from the Figma measurements
+Status: Proposed
+Date: 2026-10-03
+
+Context:
+ADR #28 put every design value in `web/src/tokens.css`, and the type block was measured off
+Figma text layers. Those measurements were faithful but they don't make a readable product.
+Line height measured 100% on every layer, so all three line-height tokens are `1` and every
+paragraph, wrapped chip and textarea sits with its lines touching. `--font-size-sm` and
+`--font-size-base` both measured 14px, so the scale can't tell a caption from body text.
+Inter is named as the font but was never loaded, so the product renders in whatever system
+font the reader has. Buttons use a 12px corner while chips and badges are fully round, so
+the controls on one screen don't look like one family.
+
+CAP-38 is the visual pass agreed by the team before the UI freeze on 7 October 2026. The
+live Alumable app was used as a reference (pill controls, roomy type, soft depth), not as a
+spec. Colour was explicitly left alone because ADR #43 tuned it for AA.
+
+Decision:
+Self-host Inter through `@fontsource-variable/inter`. Type scale xs 12, sm 13, base 15, lg
+17, xl 22, 2xl 30, plus a new 3xl 36. Line heights tight 1.2, normal 1.45, relaxed 1.6, and
+the body takes normal. Buttons go fully round like chips and badges. Cards keep their 16px
+corner. Add a section-label letter spacing, two content widths (reading and lists) and two
+shadow tokens, which become a hairline border in dark mode. No colour token changes.
+
+Consequences:
+Positive:
+Every screen gets readable text at once from one file, rather than five people adjusting
+their own screens. The controls read as one set. The font is the same on every machine and
+works offline at the demo, with no request to a font CDN.
+
+Negative:
+The tokens no longer match Figma for type and button shape, so anyone comparing the build
+to a frame will see a difference and needs this record to know it's deliberate. Every
+screen moves at once, which makes the PR's visual diff large and means a regression on one
+screen hides among intended changes. The before and after captures in the PR are the
+mitigation. The font adds about 50KB to the first load. It's another dependency to keep
+updated.
+
+Alternatives:
+Keep the Figma values and polish screen by screen. That respects ADR #28's source but leaves
+the line-height and scale problems in place on every screen, and pushes each fix into a
+screen stylesheet, which is the five-variants problem ADR #43 already named.
+
+Load Inter from Google Fonts. Less to install, but it puts a third-party request on every
+page load and fails offline, and the demo can't depend on venue wifi.
+
+===============================================================
+
+ADR #51: One Firefox check beside the Chromium suite
+Status: Proposed
+Date: 2026-10-03
+
+Context:
+ADR #42 runs every browser check in headless Chromium. That was enough while the checks were
+about requests and states, which don't depend on the engine. CAP-38 made them about layout
+too, and Patrick reviews the build on Firefox for Android.
+
+The first engine difference arrived on 2026-10-03. The radar's screen-reader table was hidden
+by a visually-hidden class on the table itself. Firefox lays a table's caption outside the
+table's own box, so the clip hid the cells and left the caption, a full sentence, painted
+over the chart at phone width. Chromium clips the caption with the table, so all 53 checks
+passed while the bug was on screen for the person reviewing it. Nothing in the suite could
+have caught it.
+
+Decision:
+Add a firefox project to web/playwright.config.ts with testMatch limited to one file,
+web/e2e/firefox.spec.ts. The chromium project ignores that file, so each check runs in one
+engine only. A check goes in the Firefox file when its risk is engine-specific: table and
+caption layout, position: fixed and sticky, and pointer events. Everything else stays in the
+Chromium suite. CI installs Firefox beside Chromium in the same step. This extends #42 and
+changes nothing else it decided: same fake API, same specs folder, same commands.
+
+Consequences:
+Positive:
+The engine the client-facing review happens in is now under test for the things most likely
+to differ. The first check is the caption bug itself, so it can't come back quietly. Running
+one file rather than the whole suite keeps the cost small.
+
+Negative:
+CI downloads and installs a second browser on every run, roughly 80MB and some tens of
+seconds. Someone has to judge which checks have an engine-specific risk, and a wrong call in
+either direction either misses a bug or slows the run. A Firefox-only failure will look like
+flake to anyone who doesn't know this record exists. WebKit, which is what Safari on an
+iPhone runs, is still untested.
+
+Alternatives:
+Run the whole suite in both engines. That's the most coverage for no judgment, but it doubles
+the run time for checks that are engine-neutral by construction, such as which requests a
+save sends.
+
+Check Firefox by hand before each review. No cost in CI, but it's the gap that let this bug
+through, and a check only one person runs is a check the team doesn't have.
+
+===============================================================
+
+ADR #52: Section tints on the top screens
+Status: Proposed
+Date: 2026-10-03
+
+Context:
+ADR #50 made the CAP-38 visual pass colour-neutral because ADR #43 tuned the palette for AA.
+The live Alumable app tints its pages in colours that don't mean anything. Ours has three
+top screens that are different sections, the diary, the review queue and frameworks, and the
+only thing telling them apart is the title in the top bar. The accent colours already exist
+and every one of them was measured against --color-text, so a tint that reuses them needs
+no new judgment about the palette. This is an experiment. The team hasn't seen it on a
+phone in someone's hand yet.
+
+Decision:
+Three tokens, --section-tint-diary, --section-tint-review and --section-tint-frameworks,
+used on the three top screens only. The shell sets data-section from section_for() in
+sections.ts and nothing else changes. The tint is a gradient from the tint down to
+--color-bg over the first 20rem, and the sticky header takes the tint's top colour so it
+blends into the page and doesn't read as a slab. Gig detail, the stepper, history and
+every sheet stay plain, because they are deeper than a section. This extends #50 and
+changes nothing in it. No existing colour token changes.
+
+Light values are the lavender, mint and peach accents themselves. Dark values are the dark
+accents mixed toward --color-bg at 35%, written as hex with the formula in a comment.
+check-contrast.mjs reads hex only and every pair has to be measured, so color-mix() was
+not an option for the value itself. 35% was the only mix rendered, judged by eye on the
+390 and 1440 captures. No other percentage was compared. Peach at 35% is already clearly
+brown in dark mode, so the mix was not raised.
+
+Consequences:
+Positive:
+The page's colour says which section you're in, alongside the bar title. It
+costs three tokens and about 25 lines of CSS and adds no markup. Six new pairs are in
+check-contrast.mjs, measured as --color-text then --color-text-muted on each tint.
+Light: text 13.91:1 on diary, 14.46:1 on review, 13.78:1 on frameworks. Muted 4.90:1,
+5.10:1 and 4.86:1. Dark: text 15.49:1, 13.88:1 and 14.12:1. Muted 8.51:1, 7.63:1 and
+7.76:1. All pass 4.5:1 in both modes. No existing token changed value. The whole
+experiment is one commit and one git revert removes it.
+
+Negative:
+The light muted pairs are close to the line. 4.86:1 on the peach is the narrowest margin
+in the section set, so any later darkening of a tint or lightening of --color-text-muted
+will fail the check. The gradient fades toward --color-bg, so text lower on the page sits
+on a lighter colour than the one measured. That only helps the ratio, but the ratios here
+are for the worst point. The tint is a new colour in the product, and the dark brown for
+frameworks is the most noticeable of the three. The three tint hexes are mixed once and
+copied, so if a dark accent ever changes the tint won't follow it unless someone reruns the
+formula.
+
+Alternatives:
+Use color-mix() in the stylesheet so the tint follows the accent. That would keep the dark
+values in step automatically, but the contrast script can't parse it, and a pair that isn't
+measured isn't covered by ADR #43.
+
+Tint the whole page with a flat colour. Simpler, and the section reads even more clearly,
+but a full-bleed colour behind cards fights the card accents on gig detail and is closer to
+the wash that dark mode can't carry.
+
+Leave the sections to the top bar title. No colour risk and nothing to maintain, but it
+leaves the diary and the review queue looking like the same page with different cards.
+
+===============================================================
+
+ADR #53: A 20px title step for the app bar
+Status: Proposed
+Date: 2026-10-03
+
+Context:
+ADR #50 set the type scale: xs 12, sm 13, base 15, lg 17, xl 22, 2xl 30, 3xl 36. CAP-38's
+second round gave the app a top bar with the section's name centred in it, at lg on a
+desktop and base on a phone, where it had to share three columns with a back arrow and the
+user's name.
+
+Patrick reviewed it on his phone and found the bar title too small. Measured against the
+body text in the same Alumable screenshots, Alumable's own bar titles ("My Gig",
+"Notifications") are about 1.3 times the body size. On our 15px body that is about 20px.
+Neither neighbouring step is close: lg is 1.13 times body and xl is 1.47 times.
+
+Decision:
+Add --font-size-title: 20px to :root in web/src/tokens.css, between lg and xl, and use it for
+the app bar's title at every width. Nothing else uses it. The phone override that dropped the
+title to base is removed. This extends #50 and changes no existing size.
+
+Consequences:
+Positive:
+The bar reads as the page's title the way Alumable's does, on a phone as well as a desktop.
+One token holds the decision, so a later change is one line.
+
+Negative:
+The scale gains a step that only one element uses, which is one more value to keep in mind
+when someone picks a size. On a 390-wide phone the bigger title leaves less room for the
+user's name beside it, which already truncates. Patrick accepted that ("if the name gets cut
+off so be it"). The 20px came from screenshots, not from Alumable's source, so it is an
+estimate.
+
+Alternatives:
+Use xl (22px). No new token, but at 1.47 times body it is noticeably bigger than Alumable's
+and takes more of the phone bar from the name.
+
+Undo the phone override and keep lg (17px). The smallest change, but it is still smaller than
+the reference, which was the point of the review.
+
+===============================================================
+
+ADR #54: Controls show their edge in light mode
+Status: Proposed
+Date: 2026-10-04
+
+Context:
+A secondary button and an unselected chip were filled with --color-surface-alt, #f1f1f1,
+with no border. That was fine on the old plain page, #f6f7f9, but even there it measured
+only 1.05:1. ADR #52 then tinted the top screens, and the same grey measured 1.04:1 on the
+diary's lavender and 1.00:1 on the review queue's mint. Patrick reviewed round 2c in light
+mode on a phone and said the sprint chips, Gig details, History and the like were hard to
+see and caused eye strain. Dark mode was fine and he asked for it to stay as it is. A
+darker grey doesn't solve it. Even #dddde2 only reaches about 1.2:1 on the tints and looks
+muddy on lavender, because light UIs separate a control by its edge, not by fill contrast.
+The product already does this in places. Select, the sprint rows and the people pills are
+white with the hairline border.
+
+Decision:
+Two tokens. --color-control is the fill of a secondary button (and so a secondary
+LinkButton) and of an unselected chip. --shadow-control is its edge, drawn as an inset
+hairline so no control grows by a border's width. Light is #ffffff with an inset 1px
+#d9d9d9, which is --color-surface and --color-border, the same pair Select uses. Dark is
+#303030, the old --color-surface-alt, with no shadow at all, so dark renders identically.
+Selected chips, purple for the student and green for the assessor, keep their fill and drop
+the edge. Badges, empty-state panels, the sprint hint pill and the hover fills keep
+--color-surface-alt because they are not controls. This extends #50 and #52 and changes
+nothing in either. No existing colour token changes value.
+
+Consequences:
+Positive:
+Every secondary control now has a visible edge on every section tint and on a white card, in
+light mode. It matches the gig picker it sits beside, so the diary's top row reads as one
+set. One new pair is in check-contrast.mjs, --color-text on --color-control, at 16.29:1 in
+light and 11.58:1 in dark. Dark mode was captured before and after on five screens at 390
+and 1440 and the PNGs are byte-identical. It's one commit and one git revert removes it.
+
+Negative:
+The edge is #d9d9d9 on white, about 1.4:1. That is a visual cue, not a WCAG 1.4.11 boundary.
+The button stays identifiable by its label, which is how it passed before, but a reader
+who relies on the edge alone gets less than 3:1. A secondary button and a Select now look
+almost the same at rest, and only the chevron or the label tells them apart. The light and
+dark values are hex copies of surface, border and surface-alt, so if one of those ever
+changes the control won't follow unless someone updates both.
+
+Alternatives:
+Darken the grey fill. It was the first idea and the smallest change, but no grey light
+enough to keep the soft look gets past about 1.2:1 against the tints. It would also have
+changed dark mode, or needed a separate dark value anyway.
+
+Drop the light section tints back to the plain page. That undoes ADR #52, and the grey is
+still only 1.05:1 against #f6f7f9, so the controls would stay faint.
+
+Use a real 1px border. Simpler CSS, but it adds 2px to every button and chip, which would move
+the layouts the round 2 Playwright checks pin, such as the picker row lining up with Gig
+details.
+
+===============================================================
+
+ADR #55: The review queue is the reviewers' too
+Status: Proposed
+Date: 2026-10-04
+
+Context:
+routes.tsx says every route is reachable by URL whatever the nav shows. Hiding a nav item
+is a convenience and the 403 is the rule. ADR #48 made the framework screens the first
+exception: someone who supervises nothing gets NotFound there instead of a page of buttons
+that 403. CAP-38's round 3 review found the review queue failing the other way. Switching
+user from Dr Lee to Jane while on /review-queue left Jane on the queue. Its bar treats it
+as a top screen, so the back arrow offered Leave, and Jane has one nav item so no pills
+showed. She had no way back to her diary short of typing the address. Patrick, reviewing:
+"please put checks in place so that Jane can never see the review queue or frameworks
+screen". The main fix is that every change of user now lands on that person's own start
+page. He asked for Page not found as the backstop, "if the checks fail for some reason",
+and ruled out a redirect.
+
+Decision:
+The review queue and its scoring screen, /review-queue and /review-queue/reflections/:id,
+render NotFound for anyone who isn't an assessor, supervisor or employer on at least one
+gig. That's the test the nav already uses for its Review queue item. The guard is
+ReviewerOnly in routes.tsx, beside SupervisorOnly, and the screen never mounts, so its
+requests are never sent. sections.ts takes a reviews flag the way it takes supervises, so
+the bar over that NotFound is the ordinary diary bar. This is a second exception to "every
+route is reachable by URL", on the same terms as #48's. It decides only what is drawn and
+the server still decides what anyone may see. It narrows that principle and changes
+nothing in #48.
+
+Consequences:
+Positive:
+A student can't be shown an empty review queue with no way home, however they reach the
+address: a stale tab, a typed URL, or the browser's back button after a switch. Page not
+found's link goes to "/", where Home sends each person to their own start, which was
+checked for Jane, Sam and Dr Lee. web/e2e/review-queue-access.spec.ts pins it.
+
+Negative:
+Two exceptions make the principle weaker, and the third will be easier to justify. The
+reviewer test is now written in three places, nav_items_for, ReviewerOnly and the shell's
+bar, and they have to change together. SupervisorOnly already lives with the same
+arrangement. docs/Security-Review.md's table of client-side role reads still says every
+route stays reachable by URL by design, and lists neither guard. It needs a line for both.
+
+Alternatives:
+Redirect someone who reviews nothing from the queue to "/". Smoother than an error page,
+and it's what Home already does the other way round. Patrick turned it down: the error
+page is meant to show that a check failed, and getting navigation right is the first
+defence, not the redirect.
+
+Leave the route open and rely on the landing fix alone. Keeps the principle whole and the
+code smaller. Rejected because a stale tab, the back button or a pasted link would still
+strand a student, and the landing fix can't reach any of those.
+
+===============================================================
+
+ADR #56: Frameworks wears no section tint
+Status: Proposed
+Date: 2026-10-04
+
+Context:
+ADR #52 tinted the three top screens, the diary in lavender, the review queue in mint and
+Frameworks in peach, and called it an experiment. Patrick reviewed the reviewer screens on
+2026-10-04 in a narrow window and said the Frameworks page's orange banner looks bad, and
+asked to keep to the decisions already made. In light mode the peach is the strongest of
+the three tints and in dark mode it mixes to a brown, which #52 already named as the most
+noticeable. In the same round the bar stopped naming the section on the reviewer screens
+(it says Reflection Diary for everyone now), so the tint is no longer backing up a title.
+
+Decision:
+/frameworks gets no tint. It renders like a deeper page, with the plain background and the
+white header. The diary's lavender and the review queue's mint stay exactly as #52 set
+them. --section-tint-frameworks is removed from all three theme blocks of tokens.css, with
+its CSS rule in AppShell.module.css and its two pairs in check-contrast.mjs, so nothing is
+left that nobody uses. This narrows #52 and changes nothing else in it.
+
+Consequences:
+Positive:
+The page Patrick objected to reads like the rest of the app's plain pages. One token and its
+two contrast pairs are gone, and the narrowest muted margin in #52's set (4.86:1 on the
+peach) goes with them. The change is one value in the tint lookup in sections.ts plus the
+deletions, so it reverts on its own.
+
+Negative:
+The three sections no longer each have a colour, so the rule "a top screen wears its
+section's tint" now has an exception that someone has to know about. Frameworks is a
+supervisor's screen only, so the inconsistency is between two reviewer pages, not something
+a student meets. If the team later wants a tint back on Frameworks, it starts from nothing
+rather than a token.
+
+Alternatives:
+Swap the peach for a quieter tint. That keeps #52's rule whole, but it means picking and
+measuring a new colour three days before the UI freeze, and Patrick asked to stay with
+decisions already made rather than a new one.
+
+Drop the tint on the review queue too. That would make the two reviewer top screens match
+each other, but Patrick kept the mint, and the queue is the screen reviewers land on, where
+the tint does the job #52 gave it.
+
+===============================================================
+
+ADR #57: Counter-scores go in together, and unfinished ones are kept on the device
+Status: Proposed
+Date: 2026-10-05
+
+Context:
+ADR #49 recorded how an assessor's counter-score was saved: one POST per competency, through
+"Save score" or "Save all scores", each final the moment it was sent. It named the costs.
+Picks held in the browser were lost on a reload or another device, and every saved
+counter-score was visible to the student at once, on the stepper and on the radar, so a
+student could watch a reflection being scored one competency at a time.
+
+Patrick reviewed the scoring screen on 2026-10-05 as part of CAP-38. He found "Save score"
+redundant, since the bar's back arrow is the way out and "Save all scores" already sends
+everything. He wanted every pick and comment to stay changeable until the end, a finished
+competency to still move the "you have scored X of N" count, and unfinished work (a score
+with no comment, a comment with no score) to still be there when the reviewer comes back.
+He also called a student seeing partial scores silly, since no university shows a part-marked
+assessment.
+
+The scores table can't hold a draft. level_id is NOT NULL, there is no status column, one row
+is allowed per entry, scorer and role, and the student's views read every row. Holding
+drafts on the server would mean a new table or columns, new endpoints, the contract and a
+migration on the shared database. CAP-38 is a frontend ticket and this round has no database
+changes.
+
+Decision:
+The scoring screen has no per-competency Save. A pick and a comment stay editable until
+"Submit scores" (was "Save all scores") sends every remaining competency. Nothing is sent
+while anything is missing, and the screen says what in plain words. A competency counts as
+done in "you have scored X of N" once it has a level, plus a comment where one is expected.
+
+Unfinished work is kept in the reviewer's browser, in localStorage, one key per person and
+reflection (counter-drafts.ts). Only the level and the comment are kept. It comes back when
+that person opens that reflection again on that device, and only for entries they haven't
+scored. A sent score drops out of it, and the last one sent clears the key. Scores already
+saved before this change stay final and read-only, as ADR #34 and the 409 ALREADY_SCORED
+rule have them.
+
+This narrows #49 for counter-scores only. A student's entry still autosaves, and there are
+still no save popups.
+
+Consequences:
+Positive:
+The student no longer sees a reflection part-scored, because nothing reaches the server until
+the reviewer submits. A reviewer can change their mind about any competency until the end,
+and leaving the screen no longer throws work away. No table, endpoint or contract changes,
+and Scoring still sees each score once.
+
+Negative:
+The kept work lives on one device. Another phone, another browser or cleared site data
+starts from nothing, and a reviewer who expects it to follow them will be surprised. Anyone
+using the same browser profile can read the kept comments, and so could script injected into
+the page, though such script could already read the session token in the same browser. A
+submit is still several POSTs. If one fails part way, the ones before it are saved and
+final, and the screen stops on the one that failed with its message. A reviewer who never
+submits leaves a key behind on that device.
+
+Alternatives:
+Hold drafts on the server, in a new table or as a status on scores. That follows the reviewer
+across devices and is the better long-term answer, but it is a migration on the shared
+database, new endpoints and a contract change, which this frontend ticket can't carry. It is
+a reasonable backend ticket.
+
+Keep the per-competency Save and only rename the batch button. That changes the least, but
+it keeps every score final the moment it is made and keeps partial scores visible to the
+student, which is the part Patrick objected to.
+
+Use sessionStorage instead of localStorage. It clears when the tab closes, which is a
+little more private on a shared computer, but then work isn't there "next time", which was
+the point.
+
+===============================================================
+
+ADR #58: The gig picker and sprint chips name the radar's scope, not a caption
+Status: Proposed
+Date: 2026-10-06
+
+Context:
+CAP-7 asks for the diary's radar to carry "a caption that changes with the scope, so it is
+always clear what the polygon is actually summarising". The reason is real. Across a gig the
+radar draws the latest score on each competency, which can come from different sprints, and
+only within one sprint is it the same piece of work scored twice
+(AnalyticsController::radar). So dev's diary-scope.ts wrote a sentence for each scope, for
+example "The latest score on each competency on Alumable onboarding redesign" and "Sprint 2
+on Alumable onboarding redesign: your own score against your assessor's, on that sprint
+alone". The /add-screen skill repeats the rule.
+
+CAP-38 took the sentence away in steps and nothing recorded it. Round 1 stopped drawing the
+radar under "All gigs" for a student with two or more gigs, because the unscoped radar
+draws one rubric only, so the whole-record sentence had no radar left to describe. Round 2
+(R2, 1e4cb3f) cut the sentence to "Latest scores" or "Sprint N only". Round 2b (F11, 474d37c)
+dropped that too and put "Scored by <name>" in its place, on Patrick's reading that the gig
+picker already names the gig, the highlighted sprint chip names the sprint, and the legend
+names Self and Counter-score. The pre-merge code read on 2026-10-06 found the criterion, the
+skill and the code disagreeing with no record. Patrick looked again and kept the screen as
+it is: a student has to pick a gig to see a radar at all, and then picks all sprints or one.
+
+Decision:
+The diary's radar has no scope caption. The gig picker and the selected sprint chip are what
+say which scope is drawn. Above the chart, "Scored by <name>" says who counter-scored it, and
+nothing when nobody has. The legend keeps Self and Counter-score, and the footnote names the
+rubric and its levels. CAP-7's criterion is read as met by the selection rather than by a
+sentence, and the /add-screen skill says so.
+
+Consequences:
+Positive:
+The card says each thing once. The scope is on the controls the student just used, at the
+top of the screen, and "Scored by" names who scored it, which Patrick asked for in round 2b (F4).
+Student screens stay as reviewed, with no change under the freeze.
+
+Negative:
+Under "All sprints" each axis is the latest score from whichever sprint scored it last, and
+nothing on the screen says so, so a student may read it as one sprint or as an average.
+"Counter-score" in the legend is our word, not one a student is taught. A screen reader user
+hears the scope from the picker and the chip's pressed state, not next to the chart, and the
+radar's hidden table caption doesn't name the scope either.
+
+Alternatives:
+One sentence above the chart in place of "Scored by", for example "Sprint 1: your self-score
+against Sam Okafor's", or "Your latest score on each competency against Sam Okafor's" under
+all sprints. It names both the comparison and the scope in plain words and fixes the "All
+sprints" reading. Patrick weighed it on 2026-10-06 and kept the current screen.
+
+Plain words in the legend, "Your score" and "<name>'s score", in place of Self and
+Counter-score. It makes the two shapes obvious without adding a line, but it changes the
+shared RadarPanel and a frozen student screen for a wording change.
+
+Restoring dev's full sentences. They were the most exact, and the longest, and Patrick
+removed them on purpose in round 2.

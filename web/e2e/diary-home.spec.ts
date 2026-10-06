@@ -1,0 +1,373 @@
+/**
+ * CAP-38: Diary Home's gig picker and the radar it scopes (ADR #42).
+ *
+ * "All gigs" over two or more gigs shows a prompt, not a radar. An unscoped
+ * GET /me/radar answers with one rubric only -- the latest reflection's
+ * (docs/openapi.yaml, /me/radar) -- so drawing it under "All gigs" would
+ * show one gig and call it all of them. With a single gig, "all" and "that
+ * gig" are the same thing and the radar shows as before.
+ *
+ * Self-contained scenario, ids prefixed '3838' (CAP-38) so they collide with
+ * no other spec's (aaaa/bbbb/cccc/ffff, 9999, 2323, 3636).
+ */
+import { test as base, expect } from '@playwright/test';
+
+import type { components, paths } from '../src/api/schema.ts';
+import { FakeApi, type GigDetail, type ReflectionSummary } from './fake-api.ts';
+
+type Me = components['schemas']['Me'];
+type Radar = paths['/me/radar']['get']['responses']['200']['content']['application/json'];
+
+const id = (n: string) => `3838${n}-0000-4838-8838-383838383838`;
+const STUDENT = id('0001');
+const FRAMEWORK = id('0002');
+const GIG_ONE = id('0003');
+const SPRINT_ONE = id('0004');
+const GIG_TWO = id('0007');
+const SPRINT_TWO = id('0008');
+
+function gig(gig_id: string, title: string, sprint_id: string): GigDetail {
+  return {
+    id: gig_id,
+    title,
+    org_name: 'Alumable',
+    starts_on: '2026-08-01',
+    ends_on: '2026-11-01',
+    my_role: 'student',
+    sprints: [{ id: sprint_id, ordinal: 1, opens_on: '2026-08-01', due_on: '2026-08-14' }],
+    framework: {
+      id: FRAMEWORK,
+      fw_key: 'e2e-diary',
+      name: 'E2E diary rubric',
+      version: 'v1',
+    },
+    reflection_summary: { draft: 0, submitted: 1, assessed: 0 },
+    participants: [{ id: STUDENT, display_name: 'Ash', role: 'student' }],
+  };
+}
+
+function reflection(
+  reflection_id: string,
+  gig_id: string,
+  sprint_id: string,
+): ReflectionSummary {
+  return {
+    id: reflection_id,
+    status: 'submitted',
+    gig_id,
+    sprint_id,
+    sprint_ordinal: 1,
+    framework_id: FRAMEWORK,
+    framework_version: 'v1',
+    submitted_at: '2026-08-14T10:00:00.000000Z',
+    created_at: '2026-08-10T10:00:00.000000Z',
+    updated_at: '2026-08-14T10:00:00.000000Z',
+  };
+}
+
+const ONE = gig(GIG_ONE, 'Gig one', SPRINT_ONE);
+const TWO = gig(GIG_TWO, 'Gig two', SPRINT_TWO);
+
+function me(gigs: GigDetail[]): Me {
+  return {
+    id: STUDENT,
+    display_name: 'Ash',
+    participations: gigs.map((g) => ({
+      gig_id: g.id,
+      gig_title: g.title,
+      role: g.my_role,
+    })),
+  };
+}
+
+const RADAR: Radar = {
+  scope: { gig_id: null, sprint_id: null },
+  framework: { id: FRAMEWORK, fw_key: 'e2e-diary', scale_min: 1, scale_max: 4 },
+  axes: [
+    {
+      code: 'a',
+      short_label: 'A',
+      position: 1,
+      self: 3,
+      counter: 2,
+      counter_role: 'assessor',
+    },
+    {
+      code: 'b',
+      short_label: 'B',
+      position: 2,
+      self: 2,
+      counter: 3,
+      counter_role: 'assessor',
+    },
+    {
+      code: 'c',
+      short_label: 'C',
+      position: 3,
+      self: 4,
+      counter: 3,
+      counter_role: 'assessor',
+    },
+  ],
+};
+
+/** `gigs` picks the scenario; `radar_calls` counts GET /me/radar. */
+const test = base.extend<{ gigs: GigDetail[]; radar_calls: () => number }>({
+  gigs: [[ONE, TWO], { option: true }],
+  radar_calls: [
+    async ({ page, gigs }, provide) => {
+      const api = new FakeApi(
+        [],
+        me(gigs),
+        gigs,
+        gigs.map((g, n) => reflection(id(`00a${n}`), g.id, g.sprints[0].id)),
+      );
+      await api.install(page);
+
+      let calls = 0;
+      await page.route('**/api/v1/me/radar**', (route) => {
+        calls += 1;
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(RADAR),
+        });
+      });
+
+      await provide(() => calls);
+      expect(api.unexpected, 'requests the fake does not serve').toEqual([]);
+    },
+    { auto: true },
+  ],
+});
+
+test.describe('a student on two gigs', () => {
+  test('All gigs: a prompt instead of a radar, and no radar request', async ({
+    page,
+    radar_calls,
+  }) => {
+    await page.goto('/');
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Reflection Diary' }),
+    ).toBeVisible();
+    await expect(page.getByText('Pick a gig to see its radar.')).toBeVisible();
+    await expect(page.locator('table caption')).toHaveCount(0);
+    // Both gigs' reflections are still listed: only the radar waits.
+    await expect(page.getByRole('link', { name: /Gig one/ })).toBeVisible();
+    await expect(page.getByRole('link', { name: /Gig two/ })).toBeVisible();
+    expect(radar_calls()).toBe(0);
+  });
+
+  test('choosing a gig scopes the URL and draws its radar', async ({
+    page,
+    radar_calls,
+  }) => {
+    await page.goto('/');
+    await page.getByLabel('Gig').selectOption({ label: 'Gig two' });
+
+    await expect(page).toHaveURL(new RegExp(`gig_id=${GIG_TWO}`));
+    await expect(page.locator('table caption')).toBeVisible();
+    // At least one, not exactly one: dev StrictMode mounts effects twice
+    // and aborts the first request.
+    expect(radar_calls()).toBeGreaterThan(0);
+
+    await page.getByLabel('Gig').selectOption({ label: 'All gigs' });
+    await expect(page).not.toHaveURL(/gig_id=/);
+    await expect(page.getByText('Pick a gig to see its radar.')).toBeVisible();
+  });
+
+  test('a scoped gig still offers its sprints', async ({ page }) => {
+    await page.goto(`/?gig_id=${GIG_TWO}`);
+    await page
+      .getByRole('group', { name: 'Sprint' })
+      .getByRole('button', { name: 'Sprint 1' })
+      .click();
+    await expect(page).toHaveURL(new RegExp(`sprint_id=${SPRINT_TWO}`));
+  });
+
+  // Round 2b (Patrick): the picker and the highlighted chip already say
+  // what the radar draws, so it carries no scope label of its own.
+  test('the radar has no scope label, for a gig or a sprint', async ({ page }) => {
+    await page.goto('/');
+    await page.getByLabel('Gig').selectOption({ label: 'Gig one' });
+    await expect(page.getByText(/^Levels 1–4 on E2E diary rubric/)).toBeVisible();
+    await expect(page.getByText('Latest scores', { exact: true })).toHaveCount(0);
+
+    await page
+      .getByRole('group', { name: 'Sprint' })
+      .getByRole('button', { name: 'Sprint 1' })
+      .click();
+    await expect(page).toHaveURL(new RegExp(`sprint_id=${SPRINT_ONE}`));
+    await expect(page.getByText(/^Levels 1–4 on E2E diary rubric/)).toBeVisible();
+    await expect(page.getByText('Sprint 1 only', { exact: true })).toHaveCount(0);
+  });
+});
+
+test.describe('a student on one gig', () => {
+  test.use({ gigs: [ONE] });
+
+  test('the radar shows unscoped, as it always has', async ({ page, radar_calls }) => {
+    await page.goto('/');
+    await expect(page.locator('table caption')).toBeVisible();
+    await expect(page.getByText('Pick a gig to see its radar.')).toHaveCount(0);
+    expect(radar_calls()).toBeGreaterThan(0);
+  });
+
+  test('under All gigs the radar has no scope label either', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByText(/^Levels 1–4 on E2E diary rubric/)).toBeVisible();
+    await expect(page.getByText('Latest scores', { exact: true })).toHaveCount(0);
+  });
+});
+
+const SAM = { id: id('0009'), display_name: 'Sam O', role: 'assessor' as const };
+const KIM = { id: id('000a'), display_name: 'Kim L', role: 'assessor' as const };
+
+test.describe('who scored it', () => {
+  test.describe('one assessor on the gig', () => {
+    test.use({ gigs: [{ ...ONE, participants: [...ONE.participants, SAM] }] });
+
+    test('the radar says "Scored by" and their name', async ({ page }) => {
+      await page.goto('/');
+      await expect(page.getByText(/^Levels 1–4 on E2E diary rubric/)).toBeVisible();
+      const by = page.getByText('Scored by Sam O', { exact: true });
+      await expect(by).toBeVisible();
+      // It takes the label's old place: the first thing in the radar card.
+      const card = (await page.locator('[class*="radar_block"]').first().boundingBox())!;
+      const line = (await by.boundingBox())!;
+      expect(line.x - card.x, 'from the card edge').toBeLessThanOrEqual(24);
+    });
+
+    test('nothing is said before anyone has counter-scored', async ({ page }) => {
+      await page.route('**/api/v1/me/radar**', (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            ...RADAR,
+            axes: RADAR.axes.map((axis) => ({
+              ...axis,
+              counter: null,
+              counter_role: null,
+            })),
+          }),
+        }),
+      );
+      await page.goto('/');
+      await expect(page.getByText(/^Levels 1–4 on E2E diary rubric/)).toBeVisible();
+      await expect(page.getByText(/^Scored by/)).toHaveCount(0);
+    });
+  });
+
+  test.describe('one assessor, and the gig is slow or fails to load', () => {
+    test.use({ gigs: [{ ...ONE, participants: [...ONE.participants, SAM] }] });
+    const FOOT = /^Levels 1–4 on E2E diary rubric/;
+
+    test('a slow gig read never shows "your assessors" in the meantime', async ({
+      page,
+    }) => {
+      await page.route(`**/api/v1/gigs/${GIG_ONE}`, async (route) => {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        await route.fallback();
+      });
+      await page.goto('/');
+      await expect(page.getByText(FOOT)).toBeVisible();
+      // Read once, without retrying: the wrong wording would only be there
+      // until the slow read lands.
+      expect(await page.getByText('Scored by your assessors').count()).toBe(0);
+      await expect(page.getByText('Scored by Sam O', { exact: true })).toBeVisible();
+    });
+
+    test('a failed gig read leaves the line off', async ({ page }) => {
+      await page.route(`**/api/v1/gigs/${GIG_ONE}`, (route) => route.abort('failed'));
+      await page.goto('/');
+      await expect(page.getByText(FOOT)).toBeVisible();
+      await expect(page.getByText(/^Scored by/)).toHaveCount(0);
+    });
+
+    test('a sprint chip does not read the gig again', async ({ page }) => {
+      let reads = 0;
+      page.on('request', (request) => {
+        if (request.url().endsWith(`/api/v1/gigs/${GIG_ONE}`)) reads += 1;
+      });
+      await page.goto(`/?gig_id=${GIG_ONE}`);
+      await expect(page.getByText('Scored by Sam O', { exact: true })).toBeVisible();
+      const before = reads;
+      await page
+        .getByRole('group', { name: 'Sprint' })
+        .getByRole('button', { name: 'Sprint 1' })
+        .click();
+      await expect(page).toHaveURL(new RegExp(`sprint_id=${SPRINT_ONE}`));
+      await expect(page.getByText('Scored by Sam O', { exact: true })).toBeVisible();
+      expect(reads, 'gig reads after the chip').toBe(before);
+    });
+  });
+
+  test.describe('two assessors on the gig', () => {
+    test.use({ gigs: [{ ...ONE, participants: [...ONE.participants, SAM, KIM] }] });
+
+    test('it does not guess which one', async ({ page }) => {
+      await page.goto('/');
+      await expect(
+        page.getByText('Scored by your assessors', { exact: true }),
+      ).toBeVisible();
+    });
+  });
+});
+
+test.describe('coming back to the diary', () => {
+  test('the bar back arrow returns to the gig and sprint you had picked', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await page.getByLabel('Gig').selectOption({ label: 'Gig two' });
+    await page
+      .getByRole('group', { name: 'Sprint' })
+      .getByRole('button', { name: 'Sprint 1' })
+      .click();
+    await expect(page.getByText(/^Levels 1–4 on E2E diary rubric/)).toBeVisible();
+
+    await page
+      .getByRole('link', { name: /Sprint 1/ })
+      .first()
+      .click();
+    await expect(page).toHaveURL(/\/reflections\//);
+    await page
+      .getByRole('banner')
+      .getByRole('link', { name: 'Back to Reflection Diary' })
+      .click();
+
+    await expect(page).toHaveURL(new RegExp(`gig_id=${GIG_TWO}`));
+    await expect(page).toHaveURL(new RegExp(`sprint_id=${SPRINT_TWO}`));
+    await expect(page.getByText(/^Levels 1–4 on E2E diary rubric/)).toBeVisible();
+  });
+});
+
+test.describe('a student who also assesses', () => {
+  // Wrapped as [value, options]: a bare array of objects reads as that tuple.
+  test.use({
+    gigs: [
+      [ONE, TWO, { ...gig(id('000b'), 'Gig assessed', id('000c')), my_role: 'assessor' }],
+      { scope: 'test' },
+    ],
+  });
+
+  test('the Diary pill keeps the filter you are looking at', async ({ page }) => {
+    await page.goto('/');
+    await page.getByLabel('Gig').selectOption({ label: 'Gig two' });
+    await page
+      .getByRole('group', { name: 'Sprint' })
+      .getByRole('button', { name: 'Sprint 1' })
+      .click();
+    await expect(page).toHaveURL(new RegExp(`sprint_id=${SPRINT_TWO}`));
+    const pill = page
+      .getByRole('navigation', { name: 'Main' })
+      .getByRole('link', { name: 'Diary' });
+    await expect(pill).toHaveAttribute('href', new RegExp(`sprint_id=${SPRINT_TWO}`));
+  });
+});
+
+test('the gig picker says what to do: "Select a gig"', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('combobox', { name: 'Select a gig' })).toBeVisible();
+});
