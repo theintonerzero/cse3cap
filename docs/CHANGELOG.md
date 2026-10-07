@@ -99,6 +99,8 @@ Becomes **1.0.0**, planned for 12 October 2026: `dev` merged to `main` and tagge
   run with a MySQL syntax error, because `SHOW ... LIKE ?` cannot take a placeholder (CAP-26).
 
 ### Changed
+- CI runs `./run verify` against the seeded API after the smoke test, and a skipped live
+  half fails it rather than passing quietly (#112, CAP-50).
 - Assigning a rubric to a gig is supervisor only. An employer now gets 403, and the framework
   screens show NotFound to anyone who supervises no gig (#100, CAP-46, ADR #48).
 - `docs/Stack-and-Build-Scope.md` §4.3 matches the gig page as built, and ADR #49 records
