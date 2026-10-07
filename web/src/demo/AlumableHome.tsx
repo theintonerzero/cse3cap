@@ -24,6 +24,7 @@ import {
   SkeletonGroup,
 } from '../components/index.ts';
 import { nav_items_for } from '../app/nav.ts';
+import { gig_dates } from '../screens/gig-timing.ts';
 import { useSession } from '../session/useSession.ts';
 import styles from './AlumableHome.module.css';
 
@@ -40,12 +41,6 @@ const ROLE_LABEL: Record<Gig['my_role'], string> = {
   supervisor: 'Supervisor',
   employer: 'Employer',
 };
-
-function year_range(gig: Gig): string | null {
-  if (!gig.starts_on || !gig.ends_on) return null;
-  const year = (iso: string) => iso.slice(0, 4);
-  return `${year(gig.starts_on)}–${year(gig.ends_on)}`;
-}
 
 export function AlumableHome() {
   // Gate on the session the way AppShell does: this screen lives outside the
@@ -154,7 +149,9 @@ export function AlumableHome() {
               gig.reflection_summary.draft +
               gig.reflection_summary.submitted +
               gig.reflection_summary.assessed;
-            const range = year_range(gig);
+            // The diary's own gig date line (GigDetail uses it too), so the
+            // two never disagree and the timezone trap is handled once.
+            const range = gig_dates(gig.starts_on, gig.ends_on);
             return (
               <li key={gig.id}>
                 <Link to={`/gigs/${gig.id}`} className={styles.card}>

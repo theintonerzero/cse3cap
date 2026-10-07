@@ -86,6 +86,34 @@ test('a new gig with no reflections, org or dates reads as new, never "null" or 
   expect(api.unexpected, 'requests the fake does not serve').toEqual([]);
 });
 
+test("a gig's dates read as the diary writes them, not a bare year range", async ({
+  page,
+}) => {
+  const api = new FakeApi([], janeOn([gig]), [gig]);
+  await api.install(page);
+
+  await page.goto('/home');
+
+  const card = page.getByRole('link', { name: /Develop AI use cases/ });
+  // gig_dates, the diary's own: "1 Aug – 1 Nov" or "Aug 1 – Nov 1" by locale.
+  await expect(card).toContainText('Aug');
+  await expect(card).not.toContainText('2026–2026');
+});
+
+test('My Gigs fits a phone: no sideways scroll at 390 wide', async ({ page }) => {
+  const api = new FakeApi([], janeOn([gig]), [gig]);
+  await api.install(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  await page.goto('/home');
+  await expect(page.getByRole('link', { name: /Develop AI use cases/ })).toBeVisible();
+
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow).toBe(0);
+});
+
 test('home shows the empty state for a persona on no gigs', async ({ page }) => {
   const api = new FakeApi([], janeOn([]), []);
   await api.install(page);
