@@ -51,7 +51,8 @@
 .role {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
-  color: var(--brand-on-primary);
+  /* Ink on the bright brand orange: 7.6:1. White on it was 1.99:1. */
+  color: var(--brand-ink);
   background: var(--brand-primary);
   border-radius: var(--radius-full);
   padding: var(--space-4) var(--space-8);
