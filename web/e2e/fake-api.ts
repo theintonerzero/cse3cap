@@ -116,6 +116,18 @@ export class FakeApi {
   }
 
   /**
+   * A gig takes this framework as its rubric server-side, mid-test, as if a
+   * supervisor assigned it in another tab. The page only sees it on its next
+   * GET. Staged data, not a rule: the refusal a delete meets after this is
+   * injected with fail(), and FrameworkDeletionTest holds the rule itself.
+   */
+  assign(framework_id: string): void {
+    const framework = this.frameworks.find((f) => f.id === framework_id);
+    if (!framework) throw new Error(`The fake has no framework ${framework_id}.`);
+    framework.assigned = true;
+  }
+
+  /**
    * Signs the page in with a placeholder, not a credential: the session
    * reads a slot from sessionStorage, and the fake answers /auth/me without
    * looking at the header.
@@ -298,6 +310,16 @@ export class FakeApi {
       return reply(route, 200, framework);
     }
 
+    // CAP-50: shape only. Who may delete and the never-assigned rule are
+    // FrameworkPolicy's and FrameworkEditing's; a spec that wants the 403 or
+    // the 409 asks for it with fail().
+    if (key === 'DELETE /frameworks/:id') {
+      const at = this.frameworks.findIndex((f) => f.id === id);
+      if (at === -1) return reply(route, 404, envelope('NOT_FOUND', 'Not found.'));
+      this.frameworks.splice(at, 1);
+      return route.fulfill({ status: 204 });
+    }
+
     if (key === 'PATCH /competencies/:id') {
       for (const framework of this.frameworks) {
         const competency = framework.competencies.find((c) => c.id === id);
@@ -341,6 +363,7 @@ export class FakeApi {
       name: name.trim(),
       created_by: this.me.id,
       in_use: false,
+      assigned: false,
       competencies: base.competencies.map((competency): Competency => ({
         ...structuredClone(competency),
         id: this.mint(),
@@ -363,8 +386,8 @@ function summary_of(reflection: ReflectionSummary | ReflectionDetail): Reflectio
 }
 
 function summary(detail: FrameworkDetail): Framework {
-  const { id, fw_key, version, name, created_by, in_use } = detail;
-  return { id, fw_key, version, name, is_active: true, created_by, in_use };
+  const { id, fw_key, version, name, created_by, in_use, assigned } = detail;
+  return { id, fw_key, version, name, is_active: true, created_by, in_use, assigned };
 }
 
 function envelope(code: ErrorCode, message: string): components['schemas']['Error'] {

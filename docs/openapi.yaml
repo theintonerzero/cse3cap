@@ -189,6 +189,7 @@ paths:
                   is_active: true
                   created_by: null
                   in_use: true
+                  assigned: true
                 - id: bbbb2222-0000-4bbb-8bbb-bbbbbbbbbbbb
                   fw_key: sfia9
                   version: '9.0'
@@ -196,6 +197,7 @@ paths:
                   is_active: true
                   created_by: null
                   in_use: false
+                  assigned: false
         '401':
           $ref: '#/components/responses/Unauthenticated'
 
@@ -260,6 +262,7 @@ paths:
                 name: La Trobe six-competency
                 created_by: null
                 in_use: true
+                assigned: true
                 comment_required: true
                 evidence_required: false
                 accepted_file_types: [pdf, png, jpg]
@@ -283,6 +286,31 @@ paths:
           $ref: '#/components/responses/Unauthenticated'
         '404':
           $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Frameworks]
+      operationId: deleteFramework
+      summary: Delete your own copy, until it is assigned to a gig
+      description: >
+        A copy made by mistake can be removed, with its competencies and
+        levels, for as long as no gig has it as its rubric (ADR #59). Once a
+        framework is assigned it is kept for good: assignments are
+        permanent, and a reflection takes its framework from the gig's
+        assignment, so a framework never assigned has never scored anyone.
+        A seeded base template can never be deleted.
+      parameters:
+        - $ref: '#/components/parameters/FrameworkId'
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403':
+          description: >
+            Not your copy, a seeded base template, or the caller supervises
+            no gig. Only the supervisor who made a copy can delete it.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/FrameworkAssigned' }
 
   /competencies/{competency_id}:
     patch:
@@ -1177,6 +1205,19 @@ components:
               code: FRAMEWORK_IN_USE
               message: This framework has been used to score a reflection and can no longer be changed.
               details: { framework_id: aaaa1111-0000-4aaa-8aaa-aaaaaaaaaaaa }
+    FrameworkAssigned:
+      description: >
+        A gig has this framework as its rubric, so it is kept for good and
+        cannot be deleted. Also the answer when an assignment lands while
+        the delete is under way.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            error:
+              code: FRAMEWORK_ASSIGNED
+              message: This framework is assigned to a gig, so it can't be deleted. Frameworks assigned to a gig are kept so every score stays readable.
+              details: { framework_id: aaaa1111-0000-4aaa-8aaa-aaaaaaaaaaaa }
     NoContent:
       description: Done. No body.
     NotFound:
@@ -1226,6 +1267,7 @@ components:
                 - FILE_TOO_LARGE
                 - FRAMEWORK_NOT_ASSIGNED
                 - FRAMEWORK_IN_USE
+                - FRAMEWORK_ASSIGNED
                 - ALREADY_SCORED
                 - ROLE_FORBIDDEN
                 - UNAUTHENTICATED
@@ -1473,7 +1515,7 @@ components:
 
     Framework:
       type: object
-      required: [id, fw_key, version, name, is_active, created_by, in_use]
+      required: [id, fw_key, version, name, is_active, created_by, in_use, assigned]
       properties:
         id: { type: string, format: uuid }
         fw_key: { type: string }
@@ -1489,6 +1531,11 @@ components:
           description: >
             True when at least one reflection references it, which makes it
             permanently read-only. Derived, never stored.
+        assigned:
+          type: boolean
+          description: >
+            True when a gig has it as its rubric, which means it can never
+            be deleted (ADR #59). Derived, never stored.
 
     Level:
       type: object
@@ -1527,9 +1574,9 @@ components:
     FrameworkDetail:
       type: object
       required:
-        [id, fw_key, version, name, created_by, in_use, comment_required,
-         evidence_required, accepted_file_types, max_file_bytes, scale,
-         competencies]
+        [id, fw_key, version, name, created_by, in_use, assigned,
+         comment_required, evidence_required, accepted_file_types,
+         max_file_bytes, scale, competencies]
       properties:
         id: { type: string, format: uuid }
         fw_key: { type: string }
@@ -1537,6 +1584,7 @@ components:
         name: { type: string }
         created_by: { type: [string, 'null'], format: uuid }
         in_use: { type: boolean }
+        assigned: { type: boolean }
         comment_required: { type: boolean }
         evidence_required: { type: boolean }
         accepted_file_types:

@@ -47,6 +47,7 @@ const RUBRIC: FrameworkDetail = {
   name: 'E2E rubric',
   created_by: null,
   in_use: true,
+  assigned: true,
   comment_required: false,
   evidence_required: false,
   accepted_file_types: ['pdf'],

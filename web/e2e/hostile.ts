@@ -67,6 +67,7 @@ const FRAMEWORK: FrameworkDetail = {
   name: PAYLOAD,
   created_by: null,
   in_use: false,
+  assigned: false,
   comment_required: true,
   evidence_required: false,
   accepted_file_types: ['pdf'],

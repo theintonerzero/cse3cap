@@ -33,6 +33,7 @@ const TEMPLATE: FrameworkDetail = {
   name: 'La Trobe six-competency',
   created_by: null,
   in_use: true,
+  assigned: true,
   comment_required: true,
   evidence_required: false,
   accepted_file_types: ['pdf'],
@@ -63,6 +64,7 @@ const UNUSED_TEMPLATE: FrameworkDetail = {
   version: '9.0',
   name: 'SFIA 9',
   in_use: false,
+  assigned: false,
 };
 const USED_COPY: FrameworkDetail = {
   ...TEMPLATE,
@@ -72,6 +74,7 @@ const USED_COPY: FrameworkDetail = {
   name: 'Capstone teamwork rubric',
   created_by: LEE.id,
   in_use: true,
+  assigned: true,
 };
 const UNUSED_COPY: FrameworkDetail = {
   ...TEMPLATE,
@@ -80,6 +83,7 @@ const UNUSED_COPY: FrameworkDetail = {
   name: 'Copy of La Trobe six-competency',
   created_by: LEE.id,
   in_use: false,
+  assigned: false,
 };
 
 async function install(page: Page) {
