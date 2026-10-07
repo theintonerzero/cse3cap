@@ -10,13 +10,13 @@ use Illuminate\Auth\Access\Response;
 /**
  * Frameworks are readable by everyone and writable by almost nobody.
  *
- * Two rules decide every mutation, and they are both here rather than in
- * the four controllers that need them:
+ * Who may change or delete one is decided here rather than in the
+ * controllers that need it: it has to be your own copy, and a seeded base
+ * template is nobody's.
  *
- *   * it has to be your own copy, and a seeded base template is nobody's
- *   * it has to be unused, permanently and irreversibly
- *
- * The second is the load-bearing one. Every reflection snapshots the
+ * Whether it may change at all is not a permission. A framework in use is
+ * read-only, and one assigned to a gig is never deleted, for its owner as
+ * much as for anyone (FrameworkEditing). Every reflection snapshots the
  * framework version it was scored against, and that snapshot is only
  * meaningful if the thing it points at cannot change underneath it.
  */
@@ -58,5 +58,26 @@ class FrameworkPolicy
         }
 
         return Response::allow();
+    }
+
+    /**
+     * Your own copy, and you still supervise a gig (ADR #59). The second
+     * test is create's, asked rather than retyped: deleting a copy is
+     * undoing one, and somebody who could not make a copy now should not
+     * be able to remove one either.
+     */
+    public function delete(User $user, Framework $framework): Response
+    {
+        if ($framework->created_by !== $user->id) {
+            return Response::deny(
+                $framework->created_by === null
+                    ? 'That is a seeded base template, and a template is never deleted.'
+                    : 'That framework belongs to someone else. Only the person who made a copy can delete it.'
+            );
+        }
+
+        return $this->create($user)->allowed()
+            ? Response::allow()
+            : Response::deny('Only a supervisor can delete a framework copy.');
     }
 }

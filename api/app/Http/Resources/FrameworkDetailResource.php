@@ -25,6 +25,7 @@ class FrameworkDetailResource extends JsonResource
             'name' => $this->name,
             'created_by' => $this->created_by,
             'in_use' => (bool) $this->reflections_exists,
+            'assigned' => (bool) $this->assignments_exists,
             'comment_required' => (bool) $this->comment_required,
             'evidence_required' => (bool) $this->evidence_required,
             'accepted_file_types' => $this->accepted_file_types,
