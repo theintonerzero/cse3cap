@@ -309,3 +309,22 @@
   --shadow-card: 0 0 0 1px var(--color-border);
   --shadow-sheet: 0 0 0 1px var(--color-border);
 }
+
+/*
+ * Alumable demo shell only (CAP-51, ADR #60). Scoped to [data-brand="alumable"]
+ * so the diary's own tokens above are untouched: the shell wears these, the
+ * diary keeps its own. Brand orange is the Alumable wordmark sampled from the
+ * app's own logo (#FFA33C); the rest are chosen to sit with it and to clear
+ * WCAG AA for the text pairs the shell uses. Not a second product theme --
+ * only the demo surround reads them.
+ */
+[data-brand='alumable'] {
+  --brand-primary: #ffa33c;
+  --brand-primary-strong: #e07d12;
+  --brand-on-primary: #ffffff;
+  --brand-surface: #fff8f0;
+  --brand-card: #ffffff;
+  --brand-ink: #2b2233;
+  --brand-ink-muted: #6b5d54;
+  --brand-border: #f0d9bf;
+}

@@ -38,6 +38,13 @@ what crosses between them and what breaks quietly when they drift is
 [`docs/Frontend-and-Backend.md`](../docs/Frontend-and-Backend.md). Read that before your
 first change.
 
+The **Alumable demo shell** (CAP-51, ADR #60) is off by default. Set `VITE_DEMO_SHELL=1` in
+`web/.env.local` to turn it on: the app then opens on an Alumable-branded sign-in and a My
+Gigs home around the diary, for the client demo. Add `VITE_DEMO_TOKENS` (a JSON array of
+personas, see `web/.env.example`) for one-click sign-in; without it the welcome falls back to
+the seeded-token paste. Both live only in `web/.env.local`, which is git-ignored. With the
+flag unset the app is the diary exactly as it ships.
+
 You do not need the backend running to build a screen. Mock the contract instead:
 
 ```bash

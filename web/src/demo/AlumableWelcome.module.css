@@ -1,0 +1,85 @@
+.screen {
+  min-height: 100vh;
+  background: var(--brand-surface);
+  color: var(--brand-ink);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-32);
+  padding: var(--space-48) var(--space-16);
+}
+
+.header {
+  display: flex;
+  justify-content: center;
+}
+
+.logo {
+  height: auto;
+  max-width: 14rem;
+  width: 60%;
+}
+
+.panel {
+  width: 100%;
+  max-width: 24rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  text-align: center;
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+}
+
+.intro {
+  margin: 0;
+  color: var(--brand-ink-muted);
+  font-size: var(--font-size-base);
+}
+
+.personas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+.persona {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-16);
+  border: var(--border-width-sm) solid var(--brand-border);
+  border-radius: var(--radius-lg);
+  background: var(--brand-card);
+  color: var(--brand-ink);
+  cursor: pointer;
+  text-align: left;
+}
+
+.persona:hover {
+  border-color: var(--brand-primary);
+}
+
+.persona:focus-visible {
+  outline: 0.125rem solid var(--brand-primary);
+  outline-offset: 0.125rem;
+}
+
+.personaName {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-medium);
+}
+
+.personaRole {
+  font-size: var(--font-size-sm);
+  color: var(--brand-ink-muted);
+}

@@ -44,39 +44,13 @@ import {
 } from '../components/index.ts';
 import { getStoredTheme, setTheme, type Theme } from '../theme.ts';
 import { TokenGate } from '../session/TokenGate.tsx';
-import { useSession, type SessionUser } from '../session/useSession.ts';
+import { AlumableWelcome } from '../demo/AlumableWelcome.tsx';
+import { demoMode } from '../demo/demoMode.ts';
+import { useSession } from '../session/useSession.ts';
 import styles from './AppShell.module.css';
 import { diary_href } from './diary-return.ts';
+import { nav_items_for } from './nav.ts';
 import { section_for } from './sections.ts';
-
-interface NavItem {
-  to: string;
-  label: string;
-}
-
-/**
- * What this user can see, from what the server said they are. ADR #17 maps
- * the educator to the supervisor role, which is why frameworks sit there.
- */
-function nav_items_for(me: SessionUser): NavItem[] {
-  const roles = new Set(me.participations.map((participation) => participation.role));
-
-  const items: NavItem[] = [];
-
-  if (roles.has('student')) {
-    items.push({ to: '/', label: 'Diary' });
-  }
-
-  if (roles.has('assessor') || roles.has('supervisor') || roles.has('employer')) {
-    items.push({ to: '/review-queue', label: 'Review queue' });
-  }
-
-  if (roles.has('supervisor')) {
-    items.push({ to: '/frameworks', label: 'Frameworks' });
-  }
-
-  return items;
-}
 
 function initial_theme(): Theme {
   const stored = getStoredTheme();
@@ -128,7 +102,9 @@ export function AppShell() {
   }, [handing_over, at_home, navigate]);
 
   if (state === 'no_token') {
-    return <TokenGate mode="screen" />;
+    // CAP-51: in the demo shell, the no-token entry is the Alumable sign-in
+    // rather than the raw token gate (ADR #60). The product path is unchanged.
+    return demoMode() ? <AlumableWelcome /> : <TokenGate mode="screen" />;
   }
 
   // The skeleton stays up through a hand-over, so the previous person's
@@ -184,6 +160,13 @@ export function AppShell() {
               >
                 <BackIcon />
               </Link>
+            ) : demoMode() ? (
+              // CAP-51: in the demo shell the diary is a section of Alumable,
+              // so leaving a top screen (the review queue) goes back to My
+              // Gigs rather than out to the sign-in. ADR #60.
+              <Link to="/home" className={styles.back} aria-label="Back to My Gigs">
+                <BackIcon />
+              </Link>
             ) : (
               <button
                 type="button"
@@ -216,7 +199,15 @@ export function AppShell() {
                 {
                   kind: 'item',
                   label: 'Switch user',
-                  on_select: () => setSwitcherOpen(true),
+                  // CAP-51: in the demo shell, switching goes to the Alumable
+                  // sign-in, whose cards name each person. The slot sheet
+                  // cannot: Jane and Noor share the student slot.
+                  on_select: demoMode()
+                    ? () => {
+                        leave();
+                        navigate('/welcome');
+                      }
+                    : () => setSwitcherOpen(true),
                 },
                 {
                   kind: 'checkbox',
