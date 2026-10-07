@@ -43,6 +43,9 @@ RULE="web/src/screens/framework-groups.ts"
 NAMES="web/src/screens/framework-names.ts"
 ROUTES="web/src/app/routes.tsx"
 SHELL_TSX="web/src/app/AppShell.tsx"
+# CAP-51: nav_items_for moved out of AppShell into one module, so the shell
+# and the Alumable demo home read the same rule. The checks follow it there.
+NAV_TS="web/src/app/nav.ts"
 
 if [ -t 1 ]; then
     blu=$'\033[1;34m'; grn=$'\033[1;32m'; red=$'\033[1;31m'
@@ -81,13 +84,24 @@ say "2. Reachable, and the way out lands somewhere"
 
 # The way IN. Unlike the gig detail there is no id to name, so the nav can
 # and does carry it -- for a supervisor, which is ADR #17's educator.
-if grep -q "to: '/frameworks'" "$SHELL_TSX"; then
+if grep -q "to: '/frameworks'" "$NAV_TS"; then
     ok "the nav addresses /frameworks" "since CAP-5"
 else
     bad "the nav addresses /frameworks" "the screen would be URL-only"
 fi
 
-if sed -n "/nav_items_for/,/^}/p" "$SHELL_TSX" | grep -q "roles.has('supervisor')"; then
+# The rule only reaches the bar if the shell still takes its nav from it.
+if grep -q "import { nav_items_for } from './nav.ts'" "$SHELL_TSX" \
+    && grep -q "nav_items_for(me)" "$SHELL_TSX"; then
+    ok "the shell builds its nav from nav_items_for" "app/nav.ts, CAP-51"
+else
+    bad "the shell builds its nav from nav_items_for" "the rule would be dead code"
+fi
+
+# The /frameworks item itself, not just any supervisor mention: the review
+# queue's condition names supervisor too, which once let an ungated
+# frameworks item pass this check.
+if grep -B2 "to: '/frameworks'" "$NAV_TS" | grep -q "if (roles.has('supervisor'))"; then
     ok "the nav item is gated on supervisor" "a convenience; the 403 is the rule"
 else
     bad "the nav item is gated on supervisor"
