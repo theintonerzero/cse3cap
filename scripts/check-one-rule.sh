@@ -86,6 +86,13 @@ check "the reflections-you-review join" \
       "api/app/Models/Reflection.php" \
       "whereColumn('gig_participants.gig_id'"
 
+# CAP-50, ADR #59: a framework is deletable only until it is assigned. The
+# refusal's code is the rule's literal; a second place raising it would be a
+# second copy of the rule, and the two would drift.
+check "a framework is deletable only until assigned" \
+      "api/app/Services/FrameworkEditing.php" \
+      "'FRAMEWORK_ASSIGNED'"
+
 # CAP-19: "authorisation lives in api/app/Policies/ and nowhere else". The
 # audit found the create-reflection role check as abort_if(403) in
 # ReflectionCreator and the export ownership check as abort(404) in

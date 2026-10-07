@@ -16,12 +16,15 @@
 # 4. All four states, skeletons rather than a spinner.
 # 5. Scope, ADR #16: renaming and rewording only. No add, no remove, no
 #    framework from nothing, and no UI for any of them -- not even disabled.
-#    FRAMEWORK_IN_USE is handled by code, not by message.
+#    FRAMEWORK_IN_USE is handled by code, not by message. The one delete is
+#    the framework the screen opened (CAP-50, ADR #59), and
+#    FRAMEWORK_ASSIGNED is handled by code too.
 # 6. The save logic, actually EXECUTED: which PATCHes a save still owes,
 #    matched by code and level value, and what a retry resends.
 # 7. The API really carries what the editor renders, and really refuses a
-#    write to a seeded template. Read-only; needs a server and Dr Lee's
-#    token and skips itself loudly when there is neither.
+#    write or a delete on a seeded template. Read-only, since both are
+#    refused; needs a server and Dr Lee's token and skips itself loudly when
+#    there is neither.
 
 set -uo pipefail
 
@@ -158,11 +161,19 @@ else
     ok "no competency or level is created or deleted"
 fi
 
-if grep -qE "\.delete\(" "$SCREEN"; then
-    bad "nothing is deleted from this screen"
+# ADR #59 narrows ADR #16 by exactly one call: the framework the screen
+# opened, as a whole. Any other delete is a change of shape, or a second
+# way to lose a framework.
+deletes="$(grep -oE "\.delete\('[^']*'" "$SCREEN" "$RULE" | cut -d: -f2- | sort -u)"
+if [ "$deletes" = ".delete('/frameworks/{framework_id}'" ]; then
+    ok "the one delete is the framework itself" "ADR #59"
 else
-    ok "nothing is deleted from this screen"
+    bad "the one delete is the framework itself" "found: ${deletes:-none}"
 fi
+
+grep -q "'FRAMEWORK_ASSIGNED'" "$SCREEN" \
+    && ok "FRAMEWORK_ASSIGNED is handled by code" "the server's refusal, shown as it is" \
+    || bad "FRAMEWORK_ASSIGNED is handled by code"
 
 # "Do not add UI for any of them, not even disabled." The words a control
 # for it would carry.
@@ -388,6 +399,17 @@ else
             ok "a PATCH on a seeded template is refused" "403, so the editor must copy"
         else
             bad "a PATCH on a seeded template is refused" "got $CODE"
+        fi
+
+        # A template belongs to nobody, so nobody deletes one (ADR #59).
+        # Refused by the policy before any row is read for the rule, which
+        # is what keeps this check read-only.
+        CODE="$(curl -s -o /dev/null -w '%{http_code}' -X DELETE "$BASE/frameworks/$TEMPLATE" \
+            -H "Authorization: Bearer $TOKEN" -H 'Accept: application/json')"
+        if [ "$CODE" = "403" ]; then
+            ok "a DELETE on a seeded template is refused" "403"
+        else
+            bad "a DELETE on a seeded template is refused" "got $CODE"
         fi
     fi
 fi

@@ -125,9 +125,11 @@ Delete Jane's smoke reflections first if they are in the way. Entries, scores, e
 events cascade with the reflection row. `reflections.user_id` is `ON DELETE RESTRICT`, so a
 user cannot be deleted out from under their record (`docs/Retention-and-Erasure.md`).
 
-Smoke also leaves a framework behind each run: Dr Lee copies La Trobe and renames the copy
-"Renamed by smoke test" (`scripts/smoke.sh`). They are never assigned or scored against, so
-they are harmless, but they pile up in the rubric list. To clear them, announced first:
+Smoke copies La Trobe as Dr Lee and renames the copy "Renamed by smoke test"
+(`scripts/smoke.sh`). Since CAP-50 it deletes that copy again at the end of the framework
+section, so a run that reaches it leaves no framework behind. Runs from before CAP-50, and a
+run that stops partway, left theirs. They are never assigned or scored against, so they are
+harmless, but they pile up in the framework list. To clear them, announced first:
 
 ```sql
 DELETE FROM frameworks WHERE name = 'Renamed by smoke test';
