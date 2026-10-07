@@ -12,11 +12,12 @@
  * is hand-fetched.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, Navigate } from 'react-router';
 
 import { api, ApiError } from '../api/client.ts';
 import type { components } from '../api/schema.ts';
 import { Card, ErrorNotice, ProgressBar, Skeleton, SkeletonGroup } from '../components/index.ts';
+import { useSession } from '../session/useSession.ts';
 import styles from './AlumableHome.module.css';
 
 type Gig = components['schemas']['Gig'];
@@ -40,12 +41,19 @@ function year_range(gig: Gig): string | null {
 }
 
 export function AlumableHome() {
+  // Gate on the session the way AppShell does: this screen lives outside the
+  // shell, so without this it would fetch /gigs before SessionProvider sets the
+  // bearer token (on a refresh or a direct/bookmarked /home), 401 against the
+  // real backend, and drop the persona. Fetch only once the session is ready.
+  const { state: session_state, error: session_error, retry: session_retry } = useSession();
   const [load, setLoad] = useState<Load>({ status: 'loading' });
   const [reload_key, setReloadKey] = useState(0);
 
   const retry = useCallback(() => setReloadKey((key) => key + 1), []);
 
   useEffect(() => {
+    if (session_state !== 'ready') return;
+
     const controller = new AbortController();
     setLoad({ status: 'loading' });
 
@@ -61,13 +69,19 @@ export function AlumableHome() {
       });
 
     return () => controller.abort();
-  }, [reload_key]);
+  }, [reload_key, session_state]);
+
+  // Signed out in demo mode means sign in, not an empty diary.
+  if (session_state === 'no_token') return <Navigate to="/welcome" replace />;
+
+  const loading =
+    session_state === 'loading' || (session_state === 'ready' && load.status === 'loading');
 
   return (
     <main data-brand="alumable" className={styles.home}>
       <h1 className={styles.heading}>My gigs</h1>
 
-      {load.status === 'loading' && (
+      {loading && (
         <SkeletonGroup label="Loading your gigs">
           <div className={styles.cards}>
             {[0, 1].map((n) => (
@@ -80,9 +94,15 @@ export function AlumableHome() {
         </SkeletonGroup>
       )}
 
-      {load.status === 'error' && <ErrorNotice error={load.error} on_retry={retry} />}
+      {session_state === 'error' && session_error && (
+        <ErrorNotice error={session_error} on_retry={session_retry} />
+      )}
 
-      {load.status === 'loaded' && load.gigs.length === 0 && (
+      {session_state === 'ready' && load.status === 'error' && (
+        <ErrorNotice error={load.error} on_retry={retry} />
+      )}
+
+      {session_state === 'ready' && load.status === 'loaded' && load.gigs.length === 0 && (
         <p className={styles.empty}>No gigs yet. When Alumable puts you on one, it shows here.</p>
       )}
 

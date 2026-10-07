@@ -68,6 +68,21 @@ test('home shows the empty state for a persona on no gigs', async ({ page }) => 
   expect(api.unexpected, 'requests the fake does not serve').toEqual([]);
 });
 
+test('home redirects to the sign-in when signed out, without fetching gigs', async ({
+  page,
+}) => {
+  const api = new FakeApi([], janeOn([gig]), [gig]);
+  await api.install(page); // seeds a token...
+  await page.addInitScript(() => sessionStorage.clear()); // ...then clear it: signed out.
+
+  await page.goto('/home');
+
+  await expect(page).toHaveURL(/\/welcome$/);
+  // The gate must stop the fetch before any token is set, or a refresh on the
+  // real backend 401s and drops the persona.
+  expect(api.calls.some((call) => call.route === 'GET /gigs')).toBe(false);
+});
+
 test('home errors with a retry when gigs cannot be fetched', async ({ page }) => {
   const api = new FakeApi([], janeOn([gig]), [gig]);
   api.fail('GET /gigs', { kind: 'network' });
