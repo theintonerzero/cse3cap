@@ -10,6 +10,55 @@ fixes what it finds leaves no record that the class of problem existed.
 
 ---
 
+## 2026-10-07 · CAP-51, the Alumable demo shell
+
+**Reviewer:** Tony To, via Claude Code · **Ticket:** CAP-51 · **Commit reviewed:** `d3adb06`
+(`dev` after #114 and #115)
+
+### Scope
+
+The demo shell's one new input, the `VITE_DEMO_SHELL` flag and the `VITE_DEMO_TOKENS`
+personas in `web/src/demo/demoMode.ts`, against the rule F1 set: a seeded token never
+reaches public JavaScript. Nothing under `api/`, `db/` or `docs/openapi.yaml` changed.
+
+### Method
+
+A production build (`npm run build`) on a machine set up the way `docs/Demo-Script.md`
+said to set it up, with four real seeded tokens in `web/.env.local`, then the built
+`dist/assets/*.js` searched for token shapes. Only counts were printed, never a match.
+
+### Findings
+
+#### F15 · Demo persona tokens compiled into a production build: High, fixed
+
+Vite reads `web/.env.local` in every mode, `vite build` included, and inlines each
+`import.meta.env.VITE_*` it meets as a string literal. `demoPersonas()` read
+`VITE_DEMO_TOKENS` with no `import.meta.env.DEV` gate, so the build carried **three
+Sanctum-shaped tokens and four persona entries** into `main-*.js`, and `demoMode()` turned
+the shell on in production. That is F1's class exactly: 60-day, full-ability bearer tokens
+in public JavaScript.
+
+**Never shipped.** No deploy has run (CAP-26), and CI builds without a `.env.local`. It
+was found by checking CAP-51's acceptance criterion "no tokens in … the production
+build", not by an incident. It's fixed inside CAP-51 rather than raised as a separate
+ticket because it was found before any build left a laptop, and this entry is the record
+that the class of problem existed.
+
+**Fix.** `demoMode()` and `demoPersonas()` read their env only behind
+`import.meta.env.DEV`, which is statically false in a production build, so the literal is
+folded away and the shell is off in every production build. The demo docs now keep the
+personas in `web/.env.development.local`, which `vite build` never reads.
+`scripts/check-bundle-secrets.sh` plants a canary persona beside its canary token and
+fails if it survives. It failed on the unfixed code and passes on the fix. A rebuild with
+the real file: 0 tokens, 0 personas, and the served build shows the diary's own token
+entry at `/`, `/welcome` and `/home`.
+
+### Sign-off
+
+F15 fixed and guarded by `./run bundle-secrets` in CI. No other finding.
+
+---
+
 ## 2026-10-06 · CAP-38, the UI update branch
 
 **Reviewer:** Patrick Anley, via Claude Code · **Ticket:** CAP-38 · **Commit reviewed:**
