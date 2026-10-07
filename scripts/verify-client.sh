@@ -20,10 +20,15 @@
 #   3. Live      the client against the real API on :8000 and prism on :4010
 #
 # Part 3 needs the backend running (./run api) and a seeded token, which it
-# reads from web/.env or from the file the seeder wrote. It starts prism
-# itself and stops it again. It CREATES ROWS on the shared database: one
-# export per run, the same as smoke.sh. It skips itself, loudly, rather than
-# failing, when the backend is not up.
+# reads from web/.env or from the file the seeder wrote ($TOKENS, as smoke.sh
+# reads it). It starts prism itself and stops it again. It CREATES ROWS on
+# the shared database: one export per run, the same as smoke.sh. It skips
+# itself, loudly, rather than failing, when the backend is not up.
+#
+# CI sets VERIFY_REQUIRE_LIVE=1, which turns every skip into a failure: a
+# green run there has to mean the client was driven against a real server,
+# not that it quietly found none (CAP-50). API_ORIGIN points it at the server
+# smoke.sh used, http://127.0.0.1:8000 there; localhost:8000 by default.
 #
 # Everything it writes into web/src is removed on exit, Ctrl-C included.
 # Windows: use Git Bash or WSL, as with smoke.sh.
@@ -423,16 +428,17 @@ fi
 
 # The token: web/.env first, then the file the seeder wrote.
 TOKEN="$(grep -s '^VITE_API_TOKEN=' "$WEB/.env" | cut -d= -f2-)"
-[ -z "$TOKEN" ] && TOKEN="$(token_for 'Jane N' "$HOME/reflection-diary-tokens.txt")"
+[ -z "$TOKEN" ] && TOKEN="$(token_for 'Jane N' "${TOKENS:-$HOME/reflection-diary-tokens.txt}")"
 
-printf '\n%sagainst the real API      %shttp://localhost:8000/api/v1%s\n' "$b$off" "$dim" "$off"
-if ! curl -s -o /dev/null --max-time 2 http://localhost:8000/up; then
-    skp "nothing serving on :8000" "start it with ./run api, then run this again"
+API_ORIGIN="${API_ORIGIN:-http://localhost:8000}"
+printf '\n%sagainst the real API      %s%s/api/v1%s\n' "$b$off" "$dim" "$API_ORIGIN" "$off"
+if ! curl -s -o /dev/null --max-time 2 "$API_ORIGIN/up"; then
+    skp "nothing serving at $API_ORIGIN" "start it with ./run api, then run this again"
 elif [ -z "$TOKEN" ]; then
     skp "no seeded token" "put VITE_API_TOKEN in web/.env, or reseed with php artisan db:seed --class=DemoSeeder"
 else
     printf '  %screates one export row on the shared database, as smoke.sh does%s\n' "$dim" "$off"
-    run_suite "real" real http://localhost:8000/api/v1 "$TOKEN"
+    run_suite "real" real "$API_ORIGIN/api/v1" "$TOKEN"
 fi
 
 printf '\n%sthe failure paths%s\n' "$b$off" "$off"
@@ -444,4 +450,9 @@ printf '\n%s%s passed%s' "$grn" "$pass" "$off"
 [ "$fail" -gt 0 ] && printf ', %s%s FAILED%s' "$red" "$fail" "$off"
 [ "$skip" -gt 0 ] && printf ', %s%s skipped%s' "$ylw" "$skip" "$off"
 printf '\n'
+
+if [ "${VERIFY_REQUIRE_LIVE:-0}" = 1 ] && [ "$skip" -gt 0 ]; then
+    printf '%sVERIFY_REQUIRE_LIVE is set, so a skip is a failure.%s\n' "$red" "$off"
+    exit 1
+fi
 exit $([ "$fail" -eq 0 ] && echo 0 || echo 1)

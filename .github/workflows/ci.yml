@@ -237,6 +237,45 @@ jobs:
           done
           bash scripts/smoke.sh
 
+      # The typed client against the same seeded server, and against prism
+      # (CAP-50). ./run verify used to run only by hand, and its live half
+      # skips rather than fails when nothing is serving, so
+      # VERIFY_REQUIRE_LIVE turns any skip into a failure here: green has to
+      # mean it was really driven against the API. The server smoke.sh
+      # started is normally still up; the step checks rather than assumes.
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install the frontend for the client check
+        working-directory: web
+        run: npm ci
+
+      - name: Typed API client against the real API and prism
+        shell: bash
+        env:
+          DB_CONNECTION: mysql_test
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_USERNAME: root
+          DB_PASSWORD: ci
+          DB_TEST_DATABASE: reflection_diary_test_ci
+          MYSQL_ATTR_SSL_CA: ''
+          TOKENS: ${{ runner.temp }}/seed.txt
+          API_ORIGIN: http://127.0.0.1:8000
+          VERIFY_REQUIRE_LIVE: '1'
+        run: |
+          if ! curl -fsS -o /dev/null http://127.0.0.1:8000/up; then
+            (cd api && php artisan serve --host=127.0.0.1 --port=8000 >> "$RUNNER_TEMP/serve.log" 2>&1 &)
+            for _ in $(seq 1 30); do
+              curl -fsS -o /dev/null http://127.0.0.1:8000/up && break
+              sleep 1
+            done
+          fi
+          bash scripts/verify-client.sh
+
       - name: Show the API log if the smoke run failed
         if: failure()
         run: cat "$RUNNER_TEMP/serve.log" || true
