@@ -25,7 +25,7 @@ Index
 #13 Contract first with OpenAPI and a mock server .. Accepted
 #14 Shared VPS database instead of local Docker .... Accepted, access per #21
 #15 Three seeded tokens instead of a login screen .. Accepted
-#16 Copy then edit for frameworks .................. Accepted
+#16 Copy then edit for frameworks .................. Accepted, extended by #59
 #17 Educator mapped to the supervisor role ......... Accepted
 #18 Stack versions moved to current releases ....... Accepted
 #19 Virtual generated columns, context check ....... Accepted
@@ -68,6 +68,7 @@ Index
 #56 Frameworks wears no section tint ............. Proposed
 #57 Counter-scores go in together ................ Proposed
 #58 The picker names the radar's scope .......... Proposed
+#59 A copy can be deleted until it is assigned .. Proposed
 
 ===============================================================
 
@@ -592,7 +593,7 @@ unenforceable and untestable.
 ===============================================================
 
 ADR #16: Copy then edit for frameworks
-Status: Accepted
+Status: Accepted, extended by #59
 Date: 2026-08-06
 
 Context:
@@ -3301,3 +3302,84 @@ shared RadarPanel and a frozen student screen for a wording change.
 
 Restoring dev's full sentences. They were the most exact, and the longest, and Patrick
 removed them on purpose in round 2.
+
+===============================================================
+
+ADR #59: A framework copy can be deleted until it is assigned
+Status: Proposed
+Extends: #16
+Date: 2026-10-07
+
+Context:
+ADR #16 made editing mean copying, and listed "more rows in the frameworks table over time,
+one per copy" as a cost. After CAP-38 merged (PR #110) Patrick pointed out what that cost is
+in practice. A supervisor who gets a copy wrong, the wrong base or a name they regret, has
+no way to remove it. The only fix is another copy, and the mistake stays in the framework
+list beside it. The smoke test had the same problem, leaving a "Renamed by smoke test" copy
+behind each run (docs/Runbook.md).
+
+What a delete must never do is take a rubric out from under a score. Two facts already in
+the code make that easy to state. A gig's assignment is permanent: FrameworkAssigner
+refuses a second rubric and there is no route that removes one (ADR #33, #35). And a
+reflection takes its framework from its gig's assignment (ReflectionCreator, ADR #35). So a
+framework that has never been assigned has never scored anyone, and one that has been
+assigned may, now or later. The schema backs this up already. fk_fa_fw and fk_refl_fw have
+no ON DELETE clause, so MySQL refuses to delete a framework either one references.
+
+This was raised a week before the v1.0.0 tag (CAP-30), so a schema change was not on the
+table.
+
+Decision:
+DELETE /frameworks/{framework_id} removes a framework with its competencies and their levels,
+through the cascades the schema already has, when all three of these hold. The caller made
+the copy. The caller supervises a gig somewhere, the same test FrameworkPolicy::create uses.
+No framework_assignments row references it. The first two are FrameworkPolicy::delete and
+answer 403. The third is FrameworkEditing::assertDeletable and answers 409
+FRAMEWORK_ASSIGNED with details.framework_id, because it is a conflict about the framework's
+history rather than a question of who is asking. A seeded base template is never deleted.
+
+The check and the delete share a transaction, but an assignment can still land between
+them. Then fk_fa_fw refuses with 1451. FrameworkEditing catches that one error, matched on
+the constraint's name, and answers the same 409. Any other 1451 stays a 500. A reflection on
+a framework with no assignment would mean ADR #35 had been broken, and calling that
+"assigned" would hide it. No foreign key changes.
+
+Both framework resources carry a derived boolean, assigned. The editor offers "Delete
+framework" to the copy's creator while assigned is false, and confirms in a bottom sheet
+that names the framework first.
+
+This extends ADR #16 rather than superseding it. Copy then edit is still the only way to
+change a rubric, and a framework in use is still read-only for good. What changes is that a
+copy made by mistake no longer has to stay.
+
+Consequences:
+Positive:
+A supervisor can clean up a mistake, which shrinks the cost ADR #16 accepted. The smoke test
+now deletes the copy it makes, so test runs stop adding to the shared framework list. The
+rule is one query on a table that already exists, with the database's own foreign key
+behind it, so there is no new state to keep right and no migration.
+
+Negative:
+Once a copy is assigned it can never be cleaned up, even if no student has reflected yet
+and the assignment itself was the mistake. There is still no unassign route, so the way out
+of a wrong rubric is still a new gig. A deleted copy is gone, with no undo and nothing that
+records it existed, so the confirm step has to say so plainly. The editor decides whether
+to offer the button from what it loaded, so a copy assigned in another tab still shows it
+until the server's 409 takes it away. And the 403 messages written in the policy never
+reach the client: the error renderer replaces every 403 message with the generic
+ROLE_FORBIDDEN text, as it already does for editing.
+
+Alternatives:
+Archive instead, by setting is_active false. The column already exists and GET
+/frameworks?active=true already filters on it, so it needs no schema change and loses
+nothing. But nothing sets it today, so it needs is_active added to UpdateFrameworkRequest
+and somewhere to see archived copies again, and every archived row is still in the table.
+It hides the clutter rather than removing it, and the clutter is what Patrick raised.
+
+A soft delete column, deleted_at on frameworks. It keeps the row for audit and makes an undo
+possible. It is also a schema change a week before the tag, and every framework query would
+need a scope to leave the deleted rows out. A bigger change than the problem.
+
+No delete, the status quo. The safest option, and the one ADR #16 accepted. It leaves
+supervisors with copies they cannot remove and nothing to do about a mistake but make
+another copy.

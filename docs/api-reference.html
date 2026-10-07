@@ -436,6 +436,7 @@ curl -H "Authorization: Bearer $JANE" \
             <tr><td>View a reflection</td><td class="yes">own</td><td class="yes">their gigs</td><td class="yes">their gigs</td><td class="yes">their gigs</td></tr>
             <tr><td>Counter-score, review queue</td><td class="no">&mdash;</td><td class="yes">yes</td><td class="yes">yes</td><td class="yes">yes</td></tr>
             <tr><td>Create and edit frameworks (own copies, not in use)</td><td class="no">&mdash;</td><td class="no">&mdash;</td><td class="yes">yes</td><td class="no">&mdash;</td></tr>
+            <tr><td>Delete a framework (own copy, never assigned)</td><td class="no">&mdash;</td><td class="no">&mdash;</td><td class="yes">yes</td><td class="no">&mdash;</td></tr>
             <tr><td>Assign a framework to a gig</td><td class="no">&mdash;</td><td class="no">&mdash;</td><td class="yes">yes</td><td class="no">&mdash;</td></tr>
             <tr><td>Analytics and export</td><td class="yes">own</td><td class="yes">own</td><td class="yes">own</td><td class="yes">own</td></tr>
           </tbody>
@@ -463,7 +464,7 @@ curl -H "Authorization: Bearer $JANE" \
             <tr><td class="mono">401</td><td>Missing or invalid token</td><td class="mono">UNAUTHENTICATED</td></tr>
             <tr><td class="mono">403</td><td>You can see it, but your role may not do this</td><td class="mono">ROLE_FORBIDDEN</td></tr>
             <tr><td class="mono">404</td><td>No such thing, or it is not yours</td><td class="mono">NOT_FOUND</td></tr>
-            <tr><td class="mono">409</td><td>Conflict with something that already exists or a state you are not in</td><td class="mono">DUPLICATE_REFLECTION, DUPLICATE_ASSIGNMENT, ALREADY_SCORED, NOT_DRAFT, NOT_SUBMITTED, FRAMEWORK_IN_USE</td></tr>
+            <tr><td class="mono">409</td><td>Conflict with something that already exists or a state you are not in</td><td class="mono">DUPLICATE_REFLECTION, DUPLICATE_ASSIGNMENT, ALREADY_SCORED, NOT_DRAFT, NOT_SUBMITTED, FRAMEWORK_IN_USE, FRAMEWORK_ASSIGNED</td></tr>
           </tbody>
         </table>
       </div>
@@ -476,7 +477,7 @@ curl -H "Authorization: Bearer $JANE" \
 
     <section id="endpoints">
       <h2>Endpoints</h2>
-      <p>Thirty endpoints, all live. The contract and the router are compared mechanically and agree exactly, and everything below has been driven end to end over HTTP with real bearer tokens.</p>
+      <p>Thirty-one endpoints, all live. The contract and the router are compared mechanically and agree exactly, and everything below has been driven end to end over HTTP with real bearer tokens.</p>
 
       <h3 id="ep-me">Identity</h3>
 
@@ -560,14 +561,14 @@ curl -H "Authorization: Bearer $JANE" \
           <span class="path">/frameworks</span>
           <span class="chip chip--live">live</span>
         </div>
-        <p>Available rubrics. <code>created_by</code> is null for a seeded base template and set for someone's copy, which is how the framework picker groups them. <code>in_use</code> is derived from whether any reflection references it, never stored.</p>
+        <p>Available rubrics. <code>created_by</code> is null for a seeded base template and set for someone's copy, which is how the framework picker groups them. <code>in_use</code> is derived from whether any reflection references it, and <code>assigned</code> from whether a gig has it as its rubric. Neither is stored.</p>
 <pre><code>[
   { "id": "d7018d17-9547-11f1-9b81-f227eb28d537", "fw_key": "latrobe6",
     "version": "v1",  "name": "La Trobe six-competency",
-    "is_active": true, "created_by": null, "in_use": false },
+    "is_active": true, "created_by": null, "in_use": false, "assigned": true },
   { "id": "d70190aa-9547-11f1-9b81-f227eb28d537", "fw_key": "sfia9",
     "version": "9.0", "name": "SFIA 9",
-    "is_active": true, "created_by": null, "in_use": false }
+    "is_active": true, "created_by": null, "in_use": false, "assigned": true }
 ]</code></pre>
         <p>Accepts <code>?active=true</code>. Once <code>in_use</code> turns true the framework is permanently read-only: editing one would silently change what past students were scored against.</p>
       </div>
@@ -586,6 +587,7 @@ curl -H "Authorization: Bearer $JANE" \
   "name": "La Trobe six-competency",
   "created_by": null,
   "in_use": false,
+  "assigned": true,
   "comment_required": true,
   "evidence_required": false,
   "accepted_file_types": null,
@@ -607,6 +609,23 @@ curl -H "Authorization: Bearer $JANE" \
           <p>Ask for SFIA 9 and you get <code>"scale": { "min": 1, "max": 7 }</code>, seven levels per competency and a populated <code>category</code>. The axis count, the scale and every descriptor change with no code change on either side. That is the point of storing the rubric as data, and it is a definition-of-done item for the whole project.</p>
         </div>
         <p><code>scale</code> is read from the <code>v_framework_scale</code> view rather than computed in PHP, because a SFIA skill is valid over only part of the seven-point scale and the bounds belong to the level rows.</p>
+      </div>
+
+      <div class="endpoint">
+        <div class="sig">
+          <span class="verb">DELETE</span>
+          <span class="path">/frameworks/<span class="param">{framework_id}</span></span>
+          <span class="chip chip--live">live</span>
+        </div>
+        <p>Removes a copy made by mistake, with its competencies and levels. Only the supervisor who made the copy can, and only while no gig has it as its rubric (ADR #59, extending ADR #16). Returns 204 with no body.</p>
+<pre><code>{
+  "error": {
+    "code": "FRAMEWORK_ASSIGNED",
+    "message": "This framework is assigned to a gig, so it can't be deleted. Frameworks assigned to a gig are kept so every score stays readable.",
+    "details": { "framework_id": "d7018d17-9547-11f1-9b81-f227eb28d537" }
+  }
+}</code></pre>
+        <p>A seeded base template, someone else's copy, or a caller who supervises no gig gets 403. An assigned framework gets the 409 above, for good, because assignments are permanent. An assignment that lands while the delete is under way is refused by the foreign key and answered with the same 409.</p>
       </div>
 
       <h3 id="ep-reflections">Reflections</h3>
@@ -812,7 +831,7 @@ curl -H "Authorization: Bearer $JANE" \
 
     <section id="rules">
       <h2>The business rules</h2>
-      <p>Seven rules carry the product. Each has exactly one implementation, and this is where it lives.</p>
+      <p>Eight rules carry the product. Each has exactly one implementation, and this is where it lives.</p>
       <div class="tablewrap">
         <table>
           <thead><tr><th>Rule</th><th>Implemented in</th></tr></thead>
@@ -821,6 +840,7 @@ curl -H "Authorization: Bearer $JANE" \
             <tr><td>A comment is required when a counter-score is below the student's own</td><td class="mono">Scoring</td></tr>
             <tr><td>The level must belong to the entry's competency</td><td class="mono">Scoring</td></tr>
             <tr><td>A framework referenced by any reflection is permanently read-only</td><td class="mono">FrameworkEditing</td></tr>
+            <tr><td>A framework copy can be deleted only until a gig has it as its rubric</td><td class="mono">FrameworkEditing</td></tr>
             <tr><td>A gig is scored against one rubric, never two</td><td class="mono">FrameworkAssigner</td></tr>
             <tr><td>One entry per competency, created eagerly with the reflection</td><td class="mono">ReflectionCreator</td></tr>
             <tr><td>Assessed once every entry carries a counter-score</td><td class="mono">Scoring</td></tr>
@@ -834,7 +854,7 @@ curl -H "Authorization: Bearer $JANE" \
       <h2>Testing it</h2>
 
       <h3>The suite</h3>
-      <p>157 feature tests and 6 unit tests against real MySQL, not sqlite: the schema uses generated columns, <code>CHECK</code> constraints and window functions that sqlite cannot express, so an in-memory suite would be testing a different database from the one we ship on.</p>
+      <p>166 feature tests and 6 unit tests against real MySQL, not sqlite: the schema uses generated columns, <code>CHECK</code> constraints and window functions that sqlite cannot express, so an in-memory suite would be testing a different database from the one we ship on.</p>
 <pre><code>cd api && php artisan test</code></pre>
       <p>They test the denials, not just the permissions. A policy that returns true for everyone passes every happy-path test ever written.</p>
 
@@ -852,7 +872,7 @@ curl -H "Authorization: Bearer $JANE" \
 
       <div class="note">
         <span class="note__label">The contract cannot drift</span>
-        <p>The operations <code>docs/openapi.yaml</code> declares and the routes the application serves are compared mechanically, and they agree exactly: thirty for thirty. An endpoint added without its contract entry, or a contract entry with no endpoint behind it, shows up as a mismatch rather than as a frontend bug three weeks later.</p>
+        <p>The operations <code>docs/openapi.yaml</code> declares and the routes the application serves are compared mechanically, and they agree exactly: thirty-one for thirty-one. An endpoint added without its contract entry, or a contract entry with no endpoint behind it, shows up as a mismatch rather than as a frontend bug three weeks later.</p>
       </div>
     </section>
 
