@@ -13,9 +13,11 @@ and issuing tokens; do those first.
 - [ ] You have four tokens: Jane N, Sam O and Dr Lee from the seeder, and Noor A from the
       one-liner in [Issue a token](Runbook.md#issue-a-token). Jane shows a finished record, Noor writes a
       new reflection, Sam assesses it, and Dr Lee shows the rubric.
-- [ ] Noor has an empty sprint on the La Trobe gig. On 4 October her sprints 2 and 3 were
-      empty, so the writing step can run twice. Every run uses one up for good, because a
-      submitted reflection cannot be deleted through the app. Check before the demo:
+- [ ] Noor has an empty sprint on the La Trobe gig. On 7 October only her sprint 3 was
+      empty (sprints 1 and 2 hold drafts), so the writing step can run once more: keep it
+      for the real demo and rehearse as Priya R or Tom H. Every run uses one up for good,
+      because a submitted reflection cannot be deleted through the app. Check before the
+      demo:
 
       ```sql
       SELECT s.ordinal, r.status FROM sprints s JOIN gigs g ON g.id = s.gig_id
@@ -111,7 +113,8 @@ asks for it.
 
 | Question | Short answer |
 | --- | --- |
-| Where do users sign in? | Not yet. Three seeded tokens stand in for Alumable's login (ADR #15). Real sign-in would come from Alumable's platform through the `external_ref` columns |
+| Where do users sign in? | Through Alumable. The diary has no login of its own (ADR #15). Today seeded accounts stand in for Alumable's: pasted as tokens, or picked on the Alumable sign-in when the demo runs inside the shell (CAP-51). Wired to the real platform, sign-in comes through the `external_ref` columns |
+| Is this live inside Alumable? | Not yet. The Alumable sign-in, My Gigs and the header around the diary are a demo surround (ADR #60). The gigs, roles, reflections and scores inside it are the diary's real data. Running it inside Alumable's own app is the next step, with Alumable's API and their go-ahead |
 | Can an assessor change a score later? | No. A submitted counter-score is final, by design |
 | What happens when a student graduates? | The record stays theirs, and export is the guarantee (`docs/Retention-and-Erasure.md`) |
 | Can we add our own framework? | Yes, by copying a seeded one and rewording it. Adding or removing competencies was cut from scope |
