@@ -107,6 +107,10 @@ export default defineConfig({
       env: {
         VITE_API_BASE_URL: `${ORIGIN}/api/v1`,
         VITE_API_TOKEN: '',
+        // Blanked like the token: a developer's web/.env.local set up for the
+        // demo (docs/Demo-Script.md) must not turn the product suite into it.
+        VITE_DEMO_SHELL: '',
+        VITE_DEMO_TOKENS: '',
       },
     },
     {
@@ -128,6 +132,8 @@ export default defineConfig({
         VITE_API_BASE_URL: `${ORIGIN_DEMO_PASTE}/api/v1`,
         VITE_API_TOKEN: '',
         VITE_DEMO_SHELL: '1',
+        // Blank, not absent: absent, Vite would take web/.env.local's personas.
+        VITE_DEMO_TOKENS: '',
       },
     },
   ],
