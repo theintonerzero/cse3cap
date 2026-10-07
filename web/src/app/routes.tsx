@@ -29,6 +29,7 @@
 import type { ReactNode } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
 
+import { AlumableHome } from '../demo/AlumableHome.tsx';
 import { AlumableWelcome } from '../demo/AlumableWelcome.tsx';
 import { demoMode } from '../demo/demoMode.ts';
 import { DiaryHome } from '../screens/DiaryHome.tsx';
@@ -97,6 +98,7 @@ export function AppRoutes() {
        * product has no extra routes. ADR #60.
        */}
       {demoMode() && <Route path="welcome" element={<AlumableWelcome />} />}
+      {demoMode() && <Route path="home" element={<AlumableHome />} />}
 
       <Route element={<AppShell />}>
         <Route index element={<Home />} />
