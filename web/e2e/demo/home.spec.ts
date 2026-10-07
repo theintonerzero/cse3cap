@@ -114,6 +114,19 @@ test('My Gigs fits a phone: no sideways scroll at 390 wide', async ({ page }) =>
   expect(overflow).toBe(0);
 });
 
+test("the progress bar wears Alumable's orange, not the diary's purple", async ({
+  page,
+}) => {
+  const api = new FakeApi([], janeOn([gig]), [gig]);
+  await api.install(page);
+
+  await page.goto('/home');
+
+  const fill = page.getByRole('progressbar').first().locator('div').first();
+  // --color-primary inside [data-brand='alumable']: #a85500, the AA orange.
+  await expect(fill).toHaveCSS('background-color', 'rgb(168, 85, 0)');
+});
+
 test('home shows the empty state for a persona on no gigs', async ({ page }) => {
   const api = new FakeApi([], janeOn([]), []);
   await api.install(page);

@@ -37,6 +37,12 @@ test('with no demo tokens the welcome falls back to the seeded-token paste', asy
   await page.goto('/welcome');
 
   await expect(page.getByRole('img', { name: /alumable/i })).toBeVisible();
-  await expect(page.getByText(/paste one of the three seeded tokens/i)).toBeVisible();
+  // The shell's own words, not the diary's "Reflection Diary / This demo has
+  // no login screen", which contradicted the Alumable sign-in above it.
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Sign in with Alumable');
+  await expect(page.getByText('No profiles are set up on this computer.')).toBeVisible();
+  await expect(page.getByText(/no login screen/i)).toHaveCount(0);
+  // The paste itself still works the way the diary's does.
+  await expect(page.getByRole('button', { name: /Student/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /Jane N/ })).toHaveCount(0);
 });

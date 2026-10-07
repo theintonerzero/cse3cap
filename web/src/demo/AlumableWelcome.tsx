@@ -56,7 +56,11 @@ export function AlumableWelcome() {
           </ul>
         </main>
       ) : (
-        <TokenGate mode="screen" />
+        <TokenGate
+          mode="screen"
+          heading="Sign in with Alumable"
+          intro="No profiles are set up on this computer. Paste a seeded token to continue."
+        />
       )}
     </div>
   );
