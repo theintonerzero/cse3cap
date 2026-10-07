@@ -7,9 +7,9 @@ rebuilds this file from `composer licenses`, `composer audit`, `web/package-lock
 
 | | |
 | --- | --- |
-| Generated | 2026-10-07 09:50 UTC |
-| Commit | `f839463` |
-| Lockfiles | `api/composer.lock` sha256 `4c8be6e73f61d8df8a0bf537f8dd7f9a5e0c882db2dffbe84505c158de5ac79b`, `web/package-lock.json` sha256 `3bc1b188907de6b3db2cd83d288b3b4b3e75992b0b7bfaf9dbd16eb4dff14645` |
+| Generated | 2026-10-07 10:24 UTC |
+| Commit | `9575857` |
+| Lockfiles | `api/composer.lock` sha256 `4c8be6e73f61d8df8a0bf537f8dd7f9a5e0c882db2dffbe84505c158de5ac79b`, `web/package-lock.json` sha256 `b1a28b09c866b4cfca18789ce819b227c99f6f4a40e379863f2c088a5914fe7f` |
 | Tools | PHP 8.5.9, Composer version 2.10.2, Node v26.7.0, npm 11.19.0 |
 | Packages | 117 Composer (12 direct), 117 npm (14 direct) |
 | Advisories | none |
@@ -94,7 +94,7 @@ The permissive list is in `scripts/dependency-register.py`: 0BSD, Apache-2.0, BS
 | `react-router` | `8.4.0` | 8.4.0 | MIT | no |
 | `recharts` | `^3.10.1` | 3.10.1 | MIT | no |
 | `typescript` | `~6.0.2` | 6.0.3 | Apache-2.0 | yes |
-| `vite` | `^8.3.1` | 8.3.1 | MIT | yes |
+| `vite` | `^8.3.2` | 8.3.2 | MIT | yes |
 
 Transitive packages are counted above and listed in `api/composer.lock` and
 `web/package-lock.json`, which are the record of exactly what is installed.
