@@ -22,12 +22,17 @@
  * The base comes from the route, so the page is linkable and the selector is
  * just navigation. Select framework links every row here as "Edit a copy";
  * in_use does not gate that, because the base is only ever read.
+ *
+ * The one thing this screen deletes is the framework it opened, and only
+ * when the viewer made that copy and no gig has it as its rubric (CAP-50,
+ * ADR #59). Never a competency or a level: that would change the shape.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 
 import { api, ApiError } from '../api/client.ts';
 import {
+  BottomSheet,
   Button,
   Card,
   ErrorNotice,
@@ -35,6 +40,7 @@ import {
   Skeleton,
   SkeletonGroup,
 } from '../components/index.ts';
+import { useSession } from '../session/useSession.ts';
 import { group_frameworks, type Framework } from './framework-groups.ts';
 import { display_names, free_name } from './framework-names.ts';
 import {
@@ -97,6 +103,24 @@ export function EditFramework() {
     setReloadKey((key) => key + 1);
   }, []);
 
+  // A refused delete reads the framework again, so `assigned` is what the
+  // server holds. In place rather than through the skeletons, so the editor
+  // and any unsaved edits stay mounted. If the read fails there is nothing
+  // to undo: the refusal is already on screen and the button already gone.
+  const refresh_base = useCallback(() => {
+    if (!framework_id) return;
+    api
+      .get('/frameworks/{framework_id}', { path: { framework_id } })
+      .then((base) =>
+        setLoad((current) =>
+          current.status === 'loaded' ? { ...current, base } : current,
+        ),
+      )
+      .catch(() => {});
+  }, [framework_id]);
+
+  const fail = useCallback((error: ApiError) => setLoad({ status: 'error', error }), []);
+
   // Back to the skeletons here, in the event, rather than in the effect:
   // a synchronous setState inside an effect is a cascading render.
   const choose_base = useCallback(
@@ -126,6 +150,8 @@ export function EditFramework() {
           base={load.base}
           frameworks={load.frameworks}
           on_choose_base={choose_base}
+          on_delete_refused={refresh_base}
+          on_delete_failed={fail}
         />
       )}
     </section>
@@ -145,10 +171,14 @@ function Editor({
   base,
   frameworks,
   on_choose_base,
+  on_delete_refused,
+  on_delete_failed,
 }: {
   base: FrameworkDetail;
   frameworks: Framework[];
   on_choose_base: (id: string) => void;
+  on_delete_refused: () => void;
+  on_delete_failed: (error: ApiError) => void;
 }) {
   // The copy's starting name, worked out once per base (the screen remounts
   // on a new base): "<base> (2)", the first number free (round 3 E12).
@@ -320,6 +350,16 @@ function Editor({
               Choosing a different framework discards your edits.
             </p>
           )
+        )}
+        {/* Once a copy exists the page is about that copy, and a delete
+            here would be ambiguous about which framework it meant. */}
+        {copy === null && (
+          <DeleteFramework
+            framework={base}
+            disabled={saving}
+            on_refused={on_delete_refused}
+            on_failed={on_delete_failed}
+          />
         )}
       </div>
 
@@ -532,6 +572,108 @@ function SaveOutcome({
   }
 
   return null;
+}
+
+/**
+ * CAP-50, ADR #59. Offered to the viewer who made this copy while no gig has
+ * it as its rubric. That is the server's rule (FrameworkPolicy::delete,
+ * FrameworkEditing::assertDeletable); this only decides whether to offer it,
+ * and a refusal from the server is shown rather than second-guessed.
+ */
+function DeleteFramework({
+  framework,
+  disabled,
+  on_refused,
+  on_failed,
+}: {
+  framework: FrameworkDetail;
+  disabled: boolean;
+  on_refused: () => void;
+  on_failed: (error: ApiError) => void;
+}) {
+  const { me } = useSession();
+  const navigate = useNavigate();
+  const [confirming, setConfirming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [refusal, setRefusal] = useState<string | null>(null);
+
+  if (me === null || framework.created_by !== me.id) return null;
+
+  async function confirm() {
+    setDeleting(true);
+    try {
+      await api.delete('/frameworks/{framework_id}', {
+        path: { framework_id: framework.id },
+      });
+      // Replace, so Back does not return to a framework that is gone.
+      void navigate('/frameworks', { replace: true, state: { deleted: framework.name } });
+    } catch (error: unknown) {
+      setDeleting(false);
+      setConfirming(false);
+
+      // A gig took it as its rubric since this page loaded. Kept for good,
+      // so the button goes now rather than after the refresh lands.
+      if (error instanceof ApiError && error.code === 'FRAMEWORK_ASSIGNED') {
+        setRefusal(error.message);
+        on_refused();
+        return;
+      }
+
+      on_failed(
+        error instanceof ApiError
+          ? error
+          : new ApiError(0, null, 'Something went wrong deleting this framework.'),
+      );
+    }
+  }
+
+  return (
+    <>
+      {refusal === null && !framework.assigned && (
+        <div className={styles.delete}>
+          <Button
+            variant="secondary"
+            size="sm"
+            full_width={false}
+            disabled={disabled}
+            on_click={() => setConfirming(true)}
+          >
+            Delete framework
+          </Button>
+        </div>
+      )}
+      {refusal !== null && (
+        <p className={styles.refused} role="status">
+          {refusal}
+        </p>
+      )}
+
+      <BottomSheet
+        open={confirming}
+        title={`Delete ${framework.name}?`}
+        onClose={() => {
+          if (!deleting) setConfirming(false);
+        }}
+      >
+        <p className={styles.confirm_body}>
+          This removes {framework.name} and its competencies and descriptors. It can&rsquo;t
+          be undone.
+        </p>
+        <div className={styles.confirm_actions}>
+          <Button disabled={deleting} on_click={() => void confirm()}>
+            {deleting ? 'Deleting…' : 'Delete framework'}
+          </Button>
+          <Button
+            variant="secondary"
+            disabled={deleting}
+            on_click={() => setConfirming(false)}
+          >
+            Keep it
+          </Button>
+        </div>
+      </BottomSheet>
+    </>
+  );
 }
 
 /** Shaped like the form: the two fields, then a few competency cards. */

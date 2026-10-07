@@ -256,3 +256,22 @@
     );
   }
 }
+
+/* CAP-50: the delete sits under "Based on", small, so it never reads as
+   the page's main action. The confirm sheet stacks its two buttons as the
+   app shell's Leave sheet does. */
+.delete {
+  margin-top: var(--space-4);
+}
+
+.confirm_body {
+  margin: calc(-1 * var(--space-8)) 0 var(--space-24);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text);
+}
+
+.confirm_actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}

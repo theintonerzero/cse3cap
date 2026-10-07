@@ -22,6 +22,7 @@
  * it is not rediscovered as a bug.
  */
 import { useCallback, useEffect, useState } from 'react';
+import { useLocation } from 'react-router';
 
 import { api, ApiError } from '../api/client.ts';
 import type { components } from '../api/schema.ts';
@@ -54,6 +55,9 @@ type State =
 
 export function SelectFramework() {
   const { me } = useSession();
+  // The editor sends a deleted copy's name here (CAP-50), so the list says
+  // what just happened before anyone looks for the missing row.
+  const deleted: unknown = (useLocation().state as { deleted?: unknown } | null)?.deleted;
   const [state, setState] = useState<State>({ status: 'loading' });
   const [reload_key, setReloadKey] = useState(0);
 
@@ -126,6 +130,11 @@ export function SelectFramework() {
           ? 'The frameworks a gig is scored against. Copy one to change it.'
           : 'The frameworks a gig is scored against. Copy one to change it. Assigning one needs a gig you supervise.'}
       </p>
+      {typeof deleted === 'string' && (
+        <p className={styles.deleted} role="status">
+          Deleted {deleted}.
+        </p>
+      )}
 
       {state.status === 'loading' && <LoadingState />}
       {state.status === 'error' && <ErrorNotice error={state.error} on_retry={retry} />}
