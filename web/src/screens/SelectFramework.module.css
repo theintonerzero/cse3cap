@@ -241,3 +241,11 @@
   font-size: var(--font-size-sm);
   color: var(--color-success);
 }
+
+/* CAP-50: a copy deleted from the editor, said once on arrival. The same
+   pairing as .assigned. */
+.deleted {
+  margin: var(--space-12) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-success);
+}

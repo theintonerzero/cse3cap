@@ -19,7 +19,7 @@ after the subject closes and after they graduate.
 | Part | State |
 | --- | --- |
 | Database | Applied and verified on the shared instance. 14 tables, 5 views |
-| Backend | **Complete.** 30 endpoints, all seven business rules, 157 feature tests and 6 unit tests |
+| Backend | **Complete.** 31 endpoints, all eight business rules, 167 feature tests and 6 unit tests |
 | Contract | `docs/openapi.yaml` matches the served routes, checked mechanically |
 | Frontend | **Complete.** Design tokens, the ten core components, the typed client, the app shell and every screen in the build scope, with 53 Playwright browser checks |
 | Release | v1.0.0 planned for 12 October 2026. Changes are in [`docs/CHANGELOG.md`](docs/CHANGELOG.md) |
@@ -444,7 +444,7 @@ set to null rather than deleted.
 
 ### What the API serves
 
-All thirty endpoints are live: identity, gigs, frameworks, the reflection write path,
+All thirty-one endpoints are live: identity, gigs, frameworks, the reflection write path,
 scoring, analytics and export. Run `php artisan serve` in `api/` and call
 `http://localhost:8000/api/v1`.
 
@@ -470,8 +470,8 @@ in the repository is the copy that everyone can read, and the one to edit.
 ### Testing it
 
 ```bash
-./run test                          # 157 feature and 6 unit tests, against real MySQL
-./run smoke                         # 67 checks, over HTTP, with the three real tokens (CI runs it too)
+./run test                          # 167 feature and 6 unit tests, against real MySQL
+./run smoke                         # 71 checks, over HTTP, with the three real tokens (CI runs it too)
 ./run verify                        # 28 checks on the typed API client, both servers
 ./run e2e                           # 53 browser checks, Playwright against a fake API
 ./run check                         # the suite, lint, contract, guards, build and browser checks

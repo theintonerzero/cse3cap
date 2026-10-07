@@ -37,4 +37,9 @@ class Framework extends Model
     {
         return $this->hasMany(Reflection::class);
     }
+
+    public function assignments(): HasMany
+    {
+        return $this->hasMany(FrameworkAssignment::class);
+    }
 }

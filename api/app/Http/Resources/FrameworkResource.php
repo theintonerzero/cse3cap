@@ -21,6 +21,9 @@ class FrameworkResource extends JsonResource
             // in_use is derived, not stored. A framework any reflection
             // references is permanently read only.
             'in_use' => (bool) $this->reflections_exists,
+            // assigned is derived too. A framework a gig has as its rubric
+            // can never be deleted (ADR #59).
+            'assigned' => (bool) $this->assignments_exists,
         ];
     }
 }

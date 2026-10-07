@@ -39,6 +39,7 @@ const RUBRIC: FrameworkDetail = {
   name: 'La Trobe six-competency',
   created_by: null,
   in_use: true,
+  assigned: true,
   comment_required: true,
   evidence_required: false,
   accepted_file_types: ['pdf'],

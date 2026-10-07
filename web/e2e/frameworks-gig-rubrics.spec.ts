@@ -36,6 +36,7 @@ const TEMPLATE: FrameworkDetail = {
   name: 'La Trobe six-competency',
   created_by: null,
   in_use: true,
+  assigned: true,
   comment_required: true,
   evidence_required: false,
   accepted_file_types: ['pdf'],
@@ -64,6 +65,7 @@ const COPY: FrameworkDetail = {
   name: 'Copy of La Trobe six-competency',
   created_by: LEE.id,
   in_use: false,
+  assigned: false,
 };
 
 async function install(page: Page, frameworks: FrameworkDetail[], gigs: GigDetail[]) {

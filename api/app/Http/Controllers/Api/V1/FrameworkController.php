@@ -11,6 +11,7 @@ use App\Models\Framework;
 use App\Services\FrameworkEditing;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Gate;
 
 class FrameworkController extends Controller
@@ -21,7 +22,7 @@ class FrameworkController extends Controller
     {
         $frameworks = Framework::query()
             ->when($request->boolean('active'), fn ($q) => $q->where('is_active', true))
-            ->withExists('reflections')
+            ->withExists(['reflections', 'assignments'])
             ->orderBy('name')
             ->get();
 
@@ -30,7 +31,7 @@ class FrameworkController extends Controller
 
     public function show(Framework $framework): FrameworkDetailResource
     {
-        $framework->loadExists('reflections');
+        $framework->loadExists(['reflections', 'assignments']);
         $framework->load('competencies.levels');
 
         return new FrameworkDetailResource($framework);
@@ -49,7 +50,7 @@ class FrameworkController extends Controller
         $base = Framework::findOrFail($request->validated('based_on_framework_id'));
         $copy = $this->editing->copy($base, $request->user(), $request->validated('name'));
 
-        $copy->loadExists('reflections');
+        $copy->loadExists(['reflections', 'assignments']);
         $copy->load('competencies.levels');
 
         return (new FrameworkDetailResource($copy))->response()->setStatusCode(201);
@@ -62,9 +63,20 @@ class FrameworkController extends Controller
 
         $framework->update($request->validated());
 
-        $framework->loadExists('reflections');
+        $framework->loadExists(['reflections', 'assignments']);
         $framework->load('competencies.levels');
 
         return new FrameworkDetailResource($framework);
+    }
+
+    /**
+     * A copy made by mistake can go, until it is a gig's rubric (ADR #59).
+     */
+    public function destroy(Framework $framework): Response
+    {
+        Gate::authorize('delete', $framework);
+        $this->editing->delete($framework);
+
+        return response()->noContent();
     }
 }

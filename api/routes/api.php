@@ -27,10 +27,13 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
     Route::get('/frameworks/{framework}', [FrameworkController::class, 'show']);
 
     // Copy-then-edit. There is no route that creates a framework from
-    // nothing, and none that deletes one: a rubric someone was scored
-    // against has to stay readable for as long as the score does.
+    // nothing. A rubric someone was scored against has to stay readable for
+    // as long as the score does, so the one delete is safe by construction:
+    // your own copy, only while no gig has it as its rubric, and a gig is
+    // the only way a framework reaches a reflection (ADR #35, ADR #59).
     Route::post('/frameworks', [FrameworkController::class, 'store']);
     Route::patch('/frameworks/{framework}', [FrameworkController::class, 'update']);
+    Route::delete('/frameworks/{framework}', [FrameworkController::class, 'destroy']);
     Route::patch('/competencies/{competency}', [CompetencyController::class, 'update']);
     Route::patch('/levels/{level}', [LevelController::class, 'update']);
 

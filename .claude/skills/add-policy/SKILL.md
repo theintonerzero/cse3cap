@@ -36,6 +36,7 @@ method. If your endpoint is not covered by a row, add the row first, then the po
 | view a reflection | own | their gigs | their gigs | their gigs |
 | counter-score, review queue | - | yes | yes | yes |
 | create/edit frameworks (own copies, not in use) | - | - | yes | - |
+| delete a framework (own copy, never assigned) | - | - | yes | - |
 | assign framework to gig | - | - | yes | - |
 | analytics and export | own | own | own | own |
 
@@ -59,6 +60,9 @@ that should fail:
 - Counter-scoring requires `status = submitted`. There is no scoring a draft.
 - Editing a framework requires it to be owned by the caller **and** not referenced by any
   reflection. In-use frameworks are permanently read only.
+- Deleting a framework requires it to be owned by the caller **and** never assigned to a
+  gig. The ownership half is `FrameworkPolicy::delete`; the assigned half is a 409 from
+  `FrameworkEditing`, not a 403 (ADR #59).
 - Deleting a reflection is draft only. Submitted and assessed records cannot be deleted
   through the API at all, which is part of the ownership promise.
 

@@ -14,12 +14,13 @@ Becomes **1.0.0**, planned for 12 October 2026: `dev` merged to `main` and tagge
 
 ### What 1.0.0 contains
 
-- A Laravel 13 API on MySQL 9.7: thirty endpoints, all seven business rules in their own
+- A Laravel 13 API on MySQL 9.7: thirty-one endpoints, all eight business rules in their own
   service classes, authorisation in policies, and one error envelope for every failure.
   Contract in `docs/openapi.yaml`.
 - A React 19 frontend: the diary home with its captioned radar, the gig page and its history,
   the entry stepper for students and assessors, the submitted confirmation, the review queue,
-  framework selection and copy-then-edit, and export to JSON and PDF.
+  framework selection and copy-then-edit, deleting a copy until it is assigned, and export
+  to JSON and PDF.
 - A swappable rubric: La Trobe's six competencies and SFIA 9 run through the same code
   (`docs/Framework-Swap-Verification.md`).
 - Demo data shaped to show calibration gaps, three seeded tokens in place of a login
@@ -48,11 +49,13 @@ Becomes **1.0.0**, planned for 12 October 2026: `dev` merged to `main` and tagge
   evidence items, export files are never pruned, and the API has no rate limit (CAP-42).
 - The seeded gigs run 3 August to 26 October 2026, so after that the demo shows only past
   gigs.
-- Each `./run smoke` leaves a renamed framework copy in the database it runs against.
 
 ## Sprint 5: 30 September to 13 October 2026
 
 ### Added
+- A supervisor can delete a framework copy they made, until a gig has it as its rubric:
+  `DELETE /frameworks/{framework_id}`, 409 `FRAMEWORK_ASSIGNED` once assigned, and a
+  confirmed delete on the edit framework screen (#111, CAP-50, ADR #59).
 - Design inventory: every Figma prototype frame by node ID, what the build did with it and
   why, and the `/design-inventory` skill that refreshes it (#90, CAP-40).
 - A demo deploy kit whoever holds the VPS can run, with a documented rollback (#88, CAP-26,

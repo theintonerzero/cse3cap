@@ -173,6 +173,17 @@ call "the gig already has one"        409 "$LEE"  POST /framework-assignments \
 call "and the same one again is too"  409 "$LEE"  POST /framework-assignments \
      "{\"gig_id\":\"$GIG\",\"framework_id\":\"$GIG_FW\"}"
 
+# CAP-50, ADR #59. The copy above was never assigned (both refusals said
+# so), so its owner can delete it, and the run leaves nothing behind. The
+# refusals come first, while it still exists. The 409 for an assigned copy
+# is FrameworkDeletionTest's: here it would need a gig with no rubric, and
+# the smoke test makes no gigs.
+say "A copy goes until it is assigned"
+call "a student cannot delete it"     403 "$JANE" DELETE "/frameworks/$COPY"
+call "nobody deletes a seeded base"   403 "$LEE"  DELETE "/frameworks/$FW_LATROBE"
+call "Dr Lee deletes her copy"        204 "$LEE"  DELETE "/frameworks/$COPY"
+call "and it is gone"                 404 "$LEE"  GET "/frameworks/$COPY"
+
 say "Jane writes a reflection"
 
 # One reflection per student per sprint is a unique index, so a second run
