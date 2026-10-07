@@ -23,6 +23,7 @@ import {
   Skeleton,
   SkeletonGroup,
 } from '../components/index.ts';
+import { nav_items_for } from '../app/nav.ts';
 import { useSession } from '../session/useSession.ts';
 import styles from './AlumableHome.module.css';
 
@@ -51,17 +52,26 @@ export function AlumableHome() {
   // shell, so without this it would fetch /gigs before SessionProvider sets the
   // bearer token (on a refresh or a direct/bookmarked /home), 401 against the
   // real backend, and drop the persona. Fetch only once the session is ready.
-  const { state: session_state, error: session_error, retry: session_retry } = useSession();
+  const {
+    state: session_state,
+    me,
+    error: session_error,
+    retry: session_retry,
+  } = useSession();
   const [load, setLoad] = useState<Load>({ status: 'loading' });
   const [reload_key, setReloadKey] = useState(0);
 
-  const retry = useCallback(() => setReloadKey((key) => key + 1), []);
+  // Loading is set here, by the event, as DiaryHome does; the screen mounts
+  // already loading, and switching profile remounts it via /welcome.
+  const retry = useCallback(() => {
+    setLoad({ status: 'loading' });
+    setReloadKey((key) => key + 1);
+  }, []);
 
   useEffect(() => {
     if (session_state !== 'ready') return;
 
     const controller = new AbortController();
-    setLoad({ status: 'loading' });
 
     api
       .get('/gigs', { signal: controller.signal })
@@ -86,9 +96,29 @@ export function AlumableHome() {
   const loading =
     session_state === 'loading' || (session_state === 'ready' && load.status === 'loading');
 
+  // In the product "/" sends a reviewer straight to their queue; here "/" is
+  // My Gigs for everyone, so it offers the same places the shell's nav would
+  // (nav_items_for), less the diary itself, which the gig cards open.
+  const shortcuts =
+    session_state === 'ready' && me
+      ? nav_items_for(me).filter((item) => item.to !== '/')
+      : [];
+
   return (
     <main data-brand="alumable" className={styles.home}>
       <h1 className={styles.heading}>My gigs</h1>
+
+      {shortcuts.length > 0 && (
+        <ul className={styles.shortcuts} aria-label="Your reviewing">
+          {shortcuts.map((item) => (
+            <li key={item.to}>
+              <Link to={item.to} className={styles.shortcut}>
+                {item.label}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
 
       {loading && (
         <SkeletonGroup label="Loading your gigs">
@@ -135,11 +165,17 @@ export function AlumableHome() {
                     </div>
                     <span className={styles.title}>{gig.title}</span>
                     {range && <span className={styles.dates}>{range}</span>}
-                    <ProgressBar
-                      current={gig.reflection_summary.assessed}
-                      total={total}
-                      label="Reflections assessed"
-                    />
+                    {/* ProgressBar clamps its total to at least 1, so a gig with
+                        nothing yet would read "0 of 1". Say it plainly instead. */}
+                    {total === 0 ? (
+                      <span className={styles.fresh}>No reflections yet</span>
+                    ) : (
+                      <ProgressBar
+                        current={gig.reflection_summary.assessed}
+                        total={total}
+                        label="Reflections assessed"
+                      />
+                    )}
                   </Card>
                 </Link>
               </li>

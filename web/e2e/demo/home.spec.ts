@@ -62,6 +62,30 @@ test('home lists the gigs as Alumable cards that link into the diary', async ({ 
   expect(api.unexpected, 'requests the fake does not serve').toEqual([]);
 });
 
+test('a new gig with no reflections, org or dates reads as new, never "null" or "0 of 1"', async ({
+  page,
+}) => {
+  const bare: GigDetail = {
+    ...gig,
+    id: id('0009'),
+    title: 'New gig',
+    org_name: null,
+    starts_on: null,
+    ends_on: null,
+    reflection_summary: { draft: 0, submitted: 0, assessed: 0 },
+  };
+  const api = new FakeApi([], janeOn([bare]), [bare]);
+  await api.install(page);
+
+  await page.goto('/home');
+
+  await expect(page.getByRole('link', { name: /New gig/ })).toBeVisible();
+  await expect(page.getByText('No reflections yet')).toBeVisible();
+  await expect(page.getByRole('progressbar')).toHaveCount(0);
+  await expect(page.getByRole('main')).not.toContainText('null');
+  expect(api.unexpected, 'requests the fake does not serve').toEqual([]);
+});
+
 test('home shows the empty state for a persona on no gigs', async ({ page }) => {
   const api = new FakeApi([], janeOn([]), []);
   await api.install(page);

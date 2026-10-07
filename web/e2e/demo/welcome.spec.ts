@@ -65,3 +65,15 @@ test('welcome shows Alumable branding and a persona signs in on one click', asyn
   await expect(page).toHaveURL(/\/home$/);
   expect(api.calls.some((call) => call.route === 'GET /auth/me')).toBe(true);
 });
+
+test('from signed out, one click lands on My Gigs and stays there', async ({ page }) => {
+  // The real demo starts here: a fresh tab with no token. The first click must
+  // not bounce back to the sign-in while the new session is still resolving.
+  await page.addInitScript(() => sessionStorage.clear());
+  await page.goto('/welcome');
+
+  await page.getByRole('button', { name: /Jane N/ }).click();
+
+  await expect(page.getByRole('link', { name: /Develop AI use cases/ })).toBeVisible();
+  await expect(page).toHaveURL(/\/home$/);
+});

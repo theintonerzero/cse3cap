@@ -9,7 +9,8 @@
 .header {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  gap: var(--space-12);
   padding: var(--space-16);
   border-bottom: var(--border-width-sm) solid var(--brand-border);
   background: var(--brand-card);
@@ -64,6 +65,39 @@
 }
 
 .tab:focus-visible {
+  outline: 0.125rem solid var(--brand-primary);
+  outline-offset: 0.125rem;
+}
+
+.who {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+.name {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--brand-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.switch {
+  flex: none;
+  border: var(--border-width-sm) solid var(--brand-border);
+  border-radius: var(--radius-full);
+  background: var(--brand-surface);
+  color: var(--brand-primary-strong);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  padding: var(--space-4) var(--space-12);
+  cursor: pointer;
+}
+
+.switch:focus-visible {
   outline: 0.125rem solid var(--brand-primary);
   outline-offset: 0.125rem;
 }
