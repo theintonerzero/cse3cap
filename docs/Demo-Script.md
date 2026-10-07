@@ -145,5 +145,12 @@ back-arrow out of a gig returns to the Alumable home. Everything from step 1 onw
 unchanged once a persona is chosen. Without `VITE_DEMO_TOKENS` the welcome falls back to the
 seeded-token paste, so the shell still works on a machine that has not set the personas up.
 
+Moving between people works differently in the shell. Where the script says to switch user,
+press **Switch profile** at the top right of My Gigs, or **Switch user** in the diary's ⋮
+menu. Both return to the Alumable sign-in, whose cards name each person, which matters
+because Jane and Noor share the student token slot. For Sam and Dr Lee, My Gigs shows a
+**Review queue** button (and **Frameworks** for Dr Lee) above their gigs: that is the way
+into sections 3 and 4. The review queue's back-arrow returns to My Gigs.
+
 The wrapper is demo-only and flag-gated: with `VITE_DEMO_SHELL` unset the app is the diary as
 it ships, which is what every other document here describes.
