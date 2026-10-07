@@ -1,0 +1,69 @@
+.frame {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--brand-surface);
+  color: var(--brand-ink);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-16);
+  border-bottom: var(--border-width-sm) solid var(--brand-border);
+  background: var(--brand-card);
+}
+
+.brand {
+  display: inline-flex;
+}
+
+.logo {
+  height: auto;
+  width: 9rem;
+  max-width: 50%;
+}
+
+.body {
+  flex: 1 1 auto;
+}
+
+.tabs {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  justify-content: space-around;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-16);
+  border-top: var(--border-width-sm) solid var(--brand-border);
+  background: var(--brand-card);
+}
+
+.tab {
+  flex: 1 1 0;
+  border: none;
+  background: transparent;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--brand-ink-muted);
+  text-align: center;
+  text-decoration: none;
+  padding: var(--space-8);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.tab:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.active {
+  color: var(--brand-primary-strong);
+}
+
+.tab:focus-visible {
+  outline: 0.125rem solid var(--brand-primary);
+  outline-offset: 0.125rem;
+}

@@ -29,6 +29,7 @@
 import type { ReactNode } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
 
+import { AlumableChrome } from '../demo/AlumableChrome.tsx';
 import { AlumableHome } from '../demo/AlumableHome.tsx';
 import { AlumableWelcome } from '../demo/AlumableWelcome.tsx';
 import { demoMode } from '../demo/demoMode.ts';
@@ -98,10 +99,25 @@ export function AppRoutes() {
        * product has no extra routes. ADR #60.
        */}
       {demoMode() && <Route path="welcome" element={<AlumableWelcome />} />}
-      {demoMode() && <Route path="home" element={<AlumableHome />} />}
+      {demoMode() && (
+        <Route
+          path="home"
+          element={
+            <AlumableChrome>
+              <AlumableHome />
+            </AlumableChrome>
+          }
+        />
+      )}
 
       <Route element={<AppShell />}>
-        <Route index element={<Home />} />
+        {/*
+         * CAP-51: in the demo shell the diary is entered from the Alumable
+         * home, so "/" lands there. The diary's own screens stay reachable by
+         * their paths, and the back-arrow out of a gig goes to "/", which this
+         * redirect carries on to /home. ADR #60.
+         */}
+        <Route index element={demoMode() ? <Navigate to="/home" replace /> : <Home />} />
 
         <Route path="gigs/:gig_id" element={<GigDetail />} />
 
