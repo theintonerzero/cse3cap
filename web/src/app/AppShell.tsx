@@ -44,6 +44,8 @@ import {
 } from '../components/index.ts';
 import { getStoredTheme, setTheme, type Theme } from '../theme.ts';
 import { TokenGate } from '../session/TokenGate.tsx';
+import { AlumableWelcome } from '../demo/AlumableWelcome.tsx';
+import { demoMode } from '../demo/demoMode.ts';
 import { useSession, type SessionUser } from '../session/useSession.ts';
 import styles from './AppShell.module.css';
 import { diary_href } from './diary-return.ts';
@@ -128,7 +130,9 @@ export function AppShell() {
   }, [handing_over, at_home, navigate]);
 
   if (state === 'no_token') {
-    return <TokenGate mode="screen" />;
+    // CAP-51: in the demo shell, the no-token entry is the Alumable sign-in
+    // rather than the raw token gate (ADR #60). The product path is unchanged.
+    return demoMode() ? <AlumableWelcome /> : <TokenGate mode="screen" />;
   }
 
   // The skeleton stays up through a hand-over, so the previous person's

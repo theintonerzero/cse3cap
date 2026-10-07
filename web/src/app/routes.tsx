@@ -29,6 +29,8 @@
 import type { ReactNode } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
 
+import { AlumableWelcome } from '../demo/AlumableWelcome.tsx';
+import { demoMode } from '../demo/demoMode.ts';
 import { DiaryHome } from '../screens/DiaryHome.tsx';
 import { EditFramework } from '../screens/EditFramework.tsx';
 import { EntryStepper } from '../screens/EntryStepper.tsx';
@@ -88,6 +90,14 @@ function ReviewerOnly({ children }: { children: ReactNode }) {
 export function AppRoutes() {
   return (
     <Routes>
+      {/*
+       * CAP-51: the Alumable demo surround, top-level so it carries its own
+       * Alumable chrome rather than the diary's AppShell. Registered only in
+       * demo mode; in production these paths fall through to NotFound, so the
+       * product has no extra routes. ADR #60.
+       */}
+      {demoMode() && <Route path="welcome" element={<AlumableWelcome />} />}
+
       <Route element={<AppShell />}>
         <Route index element={<Home />} />
 
