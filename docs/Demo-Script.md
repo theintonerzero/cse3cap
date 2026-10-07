@@ -134,7 +134,8 @@ diary read as a feature inside Alumable: an Alumable sign-in, a "My Gigs" home, 
 Alumable chrome around them. It is the same diary and the same data underneath, just
 entered through Alumable's skin.
 
-Turn it on with two lines in `web/.env.local` (git-ignored), then `./run dev`:
+Turn it on with two lines in `web/.env.development.local` (git-ignored, and read only by the
+development server, never by a production build), then `./run dev`:
 
 ```
 VITE_DEMO_SHELL=1

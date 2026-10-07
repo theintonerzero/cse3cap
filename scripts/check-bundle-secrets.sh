@@ -42,6 +42,9 @@ die() { printf '%sError:%s %s\n' "$red" "$off" "$1" >&2; exit 2; }
 # Recognisable, and not a real credential. If this string ever appears in a
 # built asset the build carried an environment value into public code.
 CANARY='CANARY-bundle-secrets-do-not-ship-8f14e45f'
+# The demo shell's personas (CAP-51) carry real seeded tokens too, read from
+# VITE_DEMO_TOKENS. Same rule, same check: none may reach a production build.
+DEMO_CANARY='CANARY-demo-persona-do-not-ship-3c59dc04'
 LOCAL_ENV="$WEB/.env.production.local"
 OUT="$WEB/.bundle-secrets-out"
 
@@ -52,6 +55,10 @@ trap cleanup EXIT INT TERM
 
 say "Building for production with a token in the environment"
 printf 'VITE_API_BASE_URL=/api/v1\nVITE_API_TOKEN=%s\n' "$CANARY" > "$LOCAL_ENV"
+# As a presenter's machine is set up for the demo (docs/Demo-Script.md): the
+# shell switched on and a persona with a token.
+printf 'VITE_DEMO_SHELL=1\nVITE_DEMO_TOKENS=[{"id":"canary","name":"Canary","role_hint":"Student","slot":"student","token":"%s"}]\n' \
+    "$DEMO_CANARY" >> "$LOCAL_ENV"
 
 build_log="$(cd "$WEB" && npx vite build --outDir "$OUT" --emptyOutDir --logLevel error 2>&1)"
 status=$?
@@ -86,6 +93,23 @@ fi
 
 printf '  %sok%s     no token in the production bundle\n' "$green" "$off"
 
+demo_hits="$(grep -rl "$DEMO_CANARY" "$OUT" 2>/dev/null)"
+
+if [ -n "$demo_hits" ]; then
+    printf '  %sFAIL%s   a demo persona token from the environment is in the built output:\n' "$red" "$off"
+    printf '%s\n' "$demo_hits" | sed 's/^/           /'
+    cat <<'WHY'
+
+         Vite reads web/.env.local in every mode, vite build included, and a
+         presenter may keep the demo personas there. web/src/demo/
+         demoMode.ts must read VITE_DEMO_TOKENS (and the flag) only behind
+         import.meta.env.DEV, as client.ts does for its seed. CAP-51.
+WHY
+    exit 1
+fi
+
+printf '  %sok%s     no demo persona token in the production bundle\n' "$green" "$off"
+
 # The inverse, so a pass cannot come from the build silently ignoring the
 # environment file. If the base URL did not make it in either, the check
 # proved nothing and should say so rather than reporting a green tick.
@@ -96,5 +120,5 @@ if ! grep -rq "api/v1" "$OUT" 2>/dev/null; then
 fi
 
 printf '  %sok%s     the environment file was read, so the absence above is real\n' "$green" "$off"
-printf '\n%sPassed.%s A production build cannot carry VITE_API_TOKEN.\n' "$green" "$off"
+printf '\n%sPassed.%s A production build cannot carry VITE_API_TOKEN or a demo persona token.\n' "$green" "$off"
 exit 0

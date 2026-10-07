@@ -12,9 +12,15 @@
  */
 import type { SlotId } from '../session/tokens.ts';
 
-/** True only when the build was served with VITE_DEMO_SHELL=1. */
+/**
+ * True only on the development server with VITE_DEMO_SHELL=1. Never in a
+ * production build: import.meta.env.DEV is statically false there, so the
+ * shell is off in every one (CAP-51, criterion 1), whatever the env files say.
+ * Vite reads web/.env.local for `vite build` too, so a flag left there would
+ * otherwise reach a production build: the env alone cannot promise this (F15).
+ */
 export function demoMode(): boolean {
-  return import.meta.env.VITE_DEMO_SHELL === '1';
+  return import.meta.env.DEV ? import.meta.env.VITE_DEMO_SHELL === '1' : false;
 }
 
 /**
@@ -37,7 +43,12 @@ export interface DemoPersona {
  */
 export function demoPersonas(): DemoPersona[] {
   try {
-    const raw = import.meta.env.VITE_DEMO_TOKENS;
+    // Behind DEV, as client.ts keeps its seed (F1 in docs/Security-Review.md):
+    // Vite inlines VITE_DEMO_TOKENS as a string literal, real seeded tokens
+    // included, and only a statically false branch keeps it out of the
+    // bundle. scripts/check-bundle-secrets.sh builds with a canary persona and
+    // fails if it survives.
+    const raw = import.meta.env.DEV ? import.meta.env.VITE_DEMO_TOKENS : undefined;
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];

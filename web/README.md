@@ -39,10 +39,12 @@ what crosses between them and what breaks quietly when they drift is
 first change.
 
 The **Alumable demo shell** (CAP-51, ADR #60) is off by default. Set `VITE_DEMO_SHELL=1` in
-`web/.env.local` to turn it on: the app then opens on an Alumable-branded sign-in and a My
+`web/.env.development.local` to turn it on: the app then opens on an Alumable-branded sign-in and a My
 Gigs home around the diary, for the client demo. Add `VITE_DEMO_TOKENS` (a JSON array of
 personas, see `web/.env.example`) for one-click sign-in; without it the welcome falls back to
-the seeded-token paste. Both live only in `web/.env.local`, which is git-ignored. With the
+the seeded-token paste. Both live only in `web/.env.development.local`, which is git-ignored and which `vite build`
+never reads; the shell is also gated on `import.meta.env.DEV`, so no production build can
+carry it or its tokens (F15 in `docs/Security-Review.md`). With the
 flag unset the app is the diary exactly as it ships.
 
 You do not need the backend running to build a screen. Mock the contract instead:

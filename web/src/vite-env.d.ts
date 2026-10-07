@@ -35,7 +35,7 @@ interface ImportMetaEnv {
 
   /**
    * Demo personas, as a JSON array of { id, name, role_hint, slot, token }.
-   * Lives only in a git-ignored env (web/.env.local), never in committed
+   * Lives only in a git-ignored env (web/.env.development.local), never in committed
    * source or a production bundle. Absent, the welcome falls back to the
    * seeded-token paste.
    */
