@@ -122,3 +122,28 @@ asks for it.
 Each run uses up one of Noor's empty sprints, and the app cannot give it back: a submitted
 reflection is part of the student's record. Run the check above before the next demo, and
 move to Priya or Tom when Noor has none left. Nothing else changes the seeded data.
+
+## Running it inside the Alumable shell (CAP-51)
+
+The script above runs the diary on its own, opening on the token prompt. For the client
+demo to David Yip there is an optional Alumable-branded wrapper (ADR #60) that makes the
+diary read as a feature inside Alumable: an Alumable sign-in, a "My Gigs" home, and the
+Alumable chrome around them. It is the same diary and the same data underneath, just
+entered through Alumable's skin.
+
+Turn it on with two lines in `web/.env.local` (git-ignored), then `./run dev`:
+
+```
+VITE_DEMO_SHELL=1
+VITE_DEMO_TOKENS=[{"id":"jane","name":"Jane N","role_hint":"Student","slot":"student","token":"<Jane's token>"}, ...]
+```
+
+Use the same four seeded tokens the script already needs (`docs/Runbook.md`, Issue a token),
+one per persona. The app now opens on **Sign in with Alumable**: pick a profile and it lands
+on **My Gigs**, where each gig card opens that gig's diary exactly as in the main script. The
+back-arrow out of a gig returns to the Alumable home. Everything from step 1 onward is
+unchanged once a persona is chosen. Without `VITE_DEMO_TOKENS` the welcome falls back to the
+seeded-token paste, so the shell still works on a machine that has not set the personas up.
+
+The wrapper is demo-only and flag-gated: with `VITE_DEMO_SHELL` unset the app is the diary as
+it ships, which is what every other document here describes.

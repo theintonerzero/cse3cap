@@ -69,6 +69,7 @@ Index
 #57 Counter-scores go in together ................ Proposed
 #58 The picker names the radar's scope .......... Proposed
 #59 A copy can be deleted until it is assigned .. Proposed
+#60 Alumable demo shell, demo-only .............. Proposed
 
 ===============================================================
 
@@ -3386,3 +3387,63 @@ need a scope to leave the deleted rows out. A bigger change than the problem.
 No delete, the status quo. The safest option, and the one ADR #16 accepted. It leaves
 supervisors with copies they cannot remove and nothing to do about a mistake but make
 another copy.
+
+===============================================================
+
+ADR #60: Alumable demo shell, demo-only and flag-gated
+Status: Proposed
+Date: 2026-10-07
+
+Context:
+The Reflection Diary is a finished end to end app with its own gigs, sprints, roles, scoring
+and a written demo script, but it opens on "paste a token" rather than anything that looks
+like Alumable. For the client demo to David Yip it needs to read as a feature living inside
+Alumable. Gigs and participant roles are real Alumable concepts that the diary already
+mirrors, so the diary can sit inside an Alumable surround honestly. Rebuilding Alumable's own
+screens was ruled out: they are Alumable's, they live on Alumable's own platform, and most of
+them (chat, contracts, payments) have nothing to do with the diary.
+
+ADR #15 records that the product has no login screen. Sign in is Alumable's, reaching the
+diary through the external_ref columns, and three seeded tokens stand in for it. A demo that
+adds an Alumable sign in appears to contradict that, so the line has to be drawn clearly.
+
+Decision:
+Add a thin demo harness in web/, gated by the VITE_DEMO_SHELL env flag. With the flag unset,
+which is the default and every production build, the app is exactly the diary with its token
+gate, and the harness is unreachable. With the flag on, the entry becomes an Alumable branded
+"Sign in with Alumable" (personas one click in through a git-ignored token env, or fall back
+to the seeded-token paste), a "My Gigs" home drawn from GET /gigs, and the Alumable chrome
+framing them, after which the real diary opens per gig. The harness adds no API route, no
+schema change and no business rule, and reconstructs none of Alumable's own features.
+Alumable's logos are committed under a demo-only path and used for this demo with the
+client's permission.
+
+This does not reverse ADR #15. The demo sign in is a stand in for Alumable's identity, exactly
+as the seeded tokens already are, and the product still has no login of its own.
+
+Consequences:
+Positive:
+The demo reads as a feature inside Alumable while every claim it makes is real: the gigs, the
+roles and the scoring are the diary's own data under Alumable's skin. The flag keeps the
+harness out of the product build and removable in one place. No product code path changes, so
+the risk to the diary is nil, and the existing suite running flag off proves it.
+
+Negative:
+A second, demo-only entry now exists in the codebase, which is more to understand and a thing
+that can rot if the diary's session or routing changes under it. Alumable's logos sit in a
+public repo, which rests on the client's permission and would need revisiting if that
+permission changed. The surround is a skin over real data, not a real Alumable integration,
+so it must be described honestly and not oversold.
+
+Alternatives:
+Ask the client for the real Alumable source or API and integrate against it. Highest fidelity
+and the correct long term path, but it depends on a handover that may not arrive before the
+demo, and embedding a web module in their app is its own project. Worth pursuing in
+parallel, not blocking on.
+
+Rebuild Alumable's own screens in our stack. Enormous, not ours to rebuild, and almost all
+of it irrelevant to the diary story.
+
+Reskin the diary in place with no new screens. Smallest effort, but it loses the "inside
+Alumable" framing that is the whole point of the demo, and blurs the product's own styling
+with the host's.
