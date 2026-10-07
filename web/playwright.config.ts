@@ -42,7 +42,13 @@ const DEMO_TOKENS = JSON.stringify([
   { id: 'jane', name: 'Jane N', role_hint: 'Student', slot: 'student', token: 'demo-jane' },
   { id: 'noor', name: 'Noor A', role_hint: 'Student', slot: 'student', token: 'demo-noor' },
   { id: 'sam', name: 'Sam O', role_hint: 'Assessor', slot: 'assessor', token: 'demo-sam' },
-  { id: 'lee', name: 'Dr Lee', role_hint: 'Supervisor', slot: 'supervisor', token: 'demo-lee' },
+  {
+    id: 'lee',
+    name: 'Dr Lee',
+    role_hint: 'Supervisor',
+    slot: 'supervisor',
+    token: 'demo-lee',
+  },
 ]);
 
 const PRODUCT_IGNORE = ['**/shots/**', '**/demo/**'];

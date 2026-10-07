@@ -16,7 +16,13 @@ import { Link, Navigate } from 'react-router';
 
 import { api, ApiError } from '../api/client.ts';
 import type { components } from '../api/schema.ts';
-import { Card, ErrorNotice, ProgressBar, Skeleton, SkeletonGroup } from '../components/index.ts';
+import {
+  Card,
+  ErrorNotice,
+  ProgressBar,
+  Skeleton,
+  SkeletonGroup,
+} from '../components/index.ts';
 import { useSession } from '../session/useSession.ts';
 import styles from './AlumableHome.module.css';
 
@@ -64,7 +70,10 @@ export function AlumableHome() {
         if (error instanceof DOMException && error.name === 'AbortError') return;
         setLoad({
           status: 'error',
-          error: error instanceof ApiError ? error : new ApiError(0, null, 'Could not load gigs.'),
+          error:
+            error instanceof ApiError
+              ? error
+              : new ApiError(0, null, 'Could not load gigs.'),
         });
       });
 
@@ -103,7 +112,9 @@ export function AlumableHome() {
       )}
 
       {session_state === 'ready' && load.status === 'loaded' && load.gigs.length === 0 && (
-        <p className={styles.empty}>No gigs yet. When Alumable puts you on one, it shows here.</p>
+        <p className={styles.empty}>
+          No gigs yet. When Alumable puts you on one, it shows here.
+        </p>
       )}
 
       {load.status === 'loaded' && load.gigs.length > 0 && (

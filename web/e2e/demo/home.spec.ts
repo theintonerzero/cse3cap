@@ -38,7 +38,11 @@ function janeOn(gigs: GigDetail[]): Me {
   return {
     id: JANE,
     display_name: 'Jane N',
-    participations: gigs.map((g) => ({ gig_id: g.id, gig_title: g.title, role: g.my_role })),
+    participations: gigs.map((g) => ({
+      gig_id: g.id,
+      gig_title: g.title,
+      role: g.my_role,
+    })),
   };
 }
 
