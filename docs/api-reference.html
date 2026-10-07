@@ -854,7 +854,7 @@ curl -H "Authorization: Bearer $JANE" \
       <h2>Testing it</h2>
 
       <h3>The suite</h3>
-      <p>166 feature tests and 6 unit tests against real MySQL, not sqlite: the schema uses generated columns, <code>CHECK</code> constraints and window functions that sqlite cannot express, so an in-memory suite would be testing a different database from the one we ship on.</p>
+      <p>167 feature tests and 6 unit tests against real MySQL, not sqlite: the schema uses generated columns, <code>CHECK</code> constraints and window functions that sqlite cannot express, so an in-memory suite would be testing a different database from the one we ship on.</p>
 <pre><code>cd api && php artisan test</code></pre>
       <p>They test the denials, not just the permissions. A policy that returns true for everyone passes every happy-path test ever written.</p>
 

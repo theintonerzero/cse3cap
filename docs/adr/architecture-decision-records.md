@@ -3365,9 +3365,12 @@ and the assignment itself was the mistake. There is still no unassign route, so 
 of a wrong rubric is still a new gig. A deleted copy is gone, with no undo and nothing that
 records it existed, so the confirm step has to say so plainly. The editor decides whether
 to offer the button from what it loaded, so a copy assigned in another tab still shows it
-until the server's 409 takes it away. And the 403 messages written in the policy never
-reach the client: the error renderer replaces every 403 message with the generic
-ROLE_FORBIDDEN text, as it already does for editing.
+until the server's 409 takes it away. The race has a second side. A delete that commits
+while someone is assigning the same copy makes their insert fail on fk_fa_fw with 1452,
+which nothing maps, so they get a 500 rather than a 404. No row is lost or left half
+written, and before this a framework never disappeared, so the path is new. And the 403
+messages written in the policy never reach the client: the error renderer replaces every
+403 message with the generic ROLE_FORBIDDEN text, as it already does for editing.
 
 Alternatives:
 Archive instead, by setting is_active false. The column already exists and GET

@@ -22,7 +22,7 @@
  * it is not rediscovered as a bug.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { useLocation } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 
 import { api, ApiError } from '../api/client.ts';
 import type { components } from '../api/schema.ts';
@@ -56,8 +56,17 @@ type State =
 export function SelectFramework() {
   const { me } = useSession();
   // The editor sends a deleted copy's name here (CAP-50), so the list says
-  // what just happened before anyone looks for the missing row.
-  const deleted: unknown = (useLocation().state as { deleted?: unknown } | null)?.deleted;
+  // what just happened before anyone looks for the missing row. Kept from
+  // the first render, then cleared from history, so a reload does not say
+  // it again.
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [deleted] = useState<unknown>(
+    () => (location.state as { deleted?: unknown } | null)?.deleted,
+  );
+  useEffect(() => {
+    if (deleted !== undefined) void navigate('.', { replace: true, state: null });
+  }, [deleted, navigate]);
   const [state, setState] = useState<State>({ status: 'loading' });
   const [reload_key, setReloadKey] = useState(0);
 

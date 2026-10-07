@@ -27,7 +27,7 @@
  * when the viewer made that copy and no gig has it as its rubric (CAP-50,
  * ADR #59). Never a competency or a level: that would change the shape.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 
 import { api, ApiError } from '../api/client.ts';
@@ -113,7 +113,9 @@ export function EditFramework() {
       .get('/frameworks/{framework_id}', { path: { framework_id } })
       .then((base) =>
         setLoad((current) =>
-          current.status === 'loaded' ? { ...current, base } : current,
+          current.status === 'loaded' && current.base.id === base.id
+            ? { ...current, base }
+            : current,
         ),
       )
       .catch(() => {});
@@ -596,6 +598,14 @@ function DeleteFramework({
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [refusal, setRefusal] = useState<string | null>(null);
+  const refusal_ref = useRef<HTMLParagraphElement>(null);
+  const warning_id = useId();
+
+  // The button the refusal answers is gone by now, so focus would fall to
+  // the page. It goes to the refusal instead, which is also read out.
+  useEffect(() => {
+    if (refusal !== null) refusal_ref.current?.focus();
+  }, [refusal]);
 
   if (me === null || framework.created_by !== me.id) return null;
 
@@ -629,8 +639,9 @@ function DeleteFramework({
 
   return (
     <>
-      {refusal === null && !framework.assigned && (
-        <div className={styles.delete}>
+      {/* One child of the field, so an empty status adds no gap. */}
+      <div className={styles.delete}>
+        {refusal === null && !framework.assigned && (
           <Button
             variant="secondary"
             size="sm"
@@ -640,35 +651,39 @@ function DeleteFramework({
           >
             Delete framework
           </Button>
-        </div>
-      )}
-      {refusal !== null && (
-        <p className={styles.refused} role="status">
+        )}
+        {/* Always in the page, so the refusal is an update a screen reader
+            announces rather than a region that arrived already full. */}
+        <p ref={refusal_ref} className={styles.refused} role="status" tabIndex={-1}>
           {refusal}
         </p>
-      )}
+      </div>
 
       <BottomSheet
         open={confirming}
         title={`Delete ${framework.name}?`}
+        describedBy={warning_id}
         onClose={() => {
           if (!deleting) setConfirming(false);
         }}
       >
-        <p className={styles.confirm_body}>
+        <p id={warning_id} className={styles.confirm_body}>
           This removes {framework.name} and its competencies and descriptors. It can&rsquo;t
           be undone.
         </p>
+        {/* Keep it first: the sheet focuses its first control, and an
+            Enter held down on the trigger must land on the answer that
+            loses nothing. */}
         <div className={styles.confirm_actions}>
-          <Button disabled={deleting} on_click={() => void confirm()}>
-            {deleting ? 'Deleting…' : 'Delete framework'}
-          </Button>
           <Button
             variant="secondary"
             disabled={deleting}
             on_click={() => setConfirming(false)}
           >
             Keep it
+          </Button>
+          <Button disabled={deleting} on_click={() => void confirm()}>
+            {deleting ? 'Deleting…' : 'Delete framework'}
           </Button>
         </div>
       </BottomSheet>

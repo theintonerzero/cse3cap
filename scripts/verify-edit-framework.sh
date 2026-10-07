@@ -164,11 +164,15 @@ fi
 # ADR #59 narrows ADR #16 by exactly one call: the framework the screen
 # opened, as a whole. Any other delete is a change of shape, or a second
 # way to lose a framework.
+#
+# Counted on .delete( alone first, so a call whose path Prettier wrapped onto
+# the next line, or a template literal, still counts as a second delete.
+calls="$(cat "$SCREEN" "$RULE" | grep -oE '\.delete\(' | wc -l | tr -d ' ')"
 deletes="$(grep -oE "\.delete\('[^']*'" "$SCREEN" "$RULE" | cut -d: -f2- | sort -u)"
-if [ "$deletes" = ".delete('/frameworks/{framework_id}'" ]; then
+if [ "$calls" = "1" ] && [ "$deletes" = ".delete('/frameworks/{framework_id}'" ]; then
     ok "the one delete is the framework itself" "ADR #59"
 else
-    bad "the one delete is the framework itself" "found: ${deletes:-none}"
+    bad "the one delete is the framework itself" "$calls call(s), found: ${deletes:-none}"
 fi
 
 grep -q "'FRAMEWORK_ASSIGNED'" "$SCREEN" \

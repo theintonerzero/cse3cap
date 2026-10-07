@@ -8,6 +8,7 @@ use App\Models\FrameworkAssignment;
 use App\Models\Gig;
 use App\Models\GigParticipant;
 use App\Models\Level;
+use App\Models\Reflection;
 use App\Models\User;
 use App\Services\FrameworkEditing;
 use Database\Seeders\DemoSeeder;
@@ -201,6 +202,33 @@ class FrameworkDeletionTest extends TestCase
 
         $this->assertNotNull(Framework::find($copy->id));
         $this->assertSame(6, $copy->competencies()->count());
+    }
+
+    /**
+     * Only fk_fa_fw's 1451 means "assigned". A reflection on a framework no
+     * gig has cannot be made through the API (ADR #35), so this one is
+     * written directly, as FrameworkMutationTest does. fk_refl_fw then
+     * refuses the delete, and that refusal is a broken invariant, not a
+     * conflict to explain: it stays a 500 and the framework stays put.
+     */
+    public function test_a_different_foreign_key_refusal_is_not_dressed_as_assigned(): void
+    {
+        $lee = $this->lee();
+        $copy = $this->copyFor($lee);
+        $gig = Gig::where('title', 'Develop AI use cases')->firstOrFail();
+        Reflection::create([
+            'user_id' => User::where('display_name', 'Jane N')->firstOrFail()->id,
+            'gig_id' => $gig->id,
+            'sprint_id' => $gig->sprints()->firstOrFail()->id,
+            'framework_id' => $copy->id,
+            'framework_version' => $copy->version,
+            'status' => 'draft',
+        ]);
+
+        Sanctum::actingAs($lee);
+        $this->deleteJson("/api/v1/frameworks/{$copy->id}")->assertStatus(500);
+
+        $this->assertNotNull(Framework::find($copy->id));
     }
 
     /**

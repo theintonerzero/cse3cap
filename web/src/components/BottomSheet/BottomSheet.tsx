@@ -6,6 +6,10 @@ export interface BottomSheetProps {
   open: boolean;
   onClose: () => void;
   title?: string;
+  /** The id of the sheet's own text that says what is at stake, read with
+   *  the title when the sheet opens (aria-describedby). A confirm needs it:
+   *  the title alone is a question with no consequence (CAP-50). */
+  describedBy?: string;
   children: ReactNode;
 }
 
@@ -19,7 +23,13 @@ const FLICK_SPEED = 0.6;
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-export function BottomSheet({ open, onClose, title, children }: BottomSheetProps) {
+export function BottomSheet({
+  open,
+  onClose,
+  title,
+  describedBy,
+  children,
+}: BottomSheetProps) {
   const sheetRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
 
@@ -220,6 +230,7 @@ export function BottomSheet({ open, onClose, title, children }: BottomSheetProps
         role="dialog"
         aria-modal="true"
         aria-label={title}
+        aria-describedby={describedBy}
         tabIndex={-1}
         onClick={stopPropagation}
         onPointerDown={on_pointer_down}

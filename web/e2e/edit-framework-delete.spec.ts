@@ -132,6 +132,42 @@ test('an owner deletes an unassigned copy and lands on Frameworks with a confirm
   expect(api.writes()[0].path).toBe(`/frameworks/${MINE}`);
 });
 
+// Review finding: the sheet focuses its first control, so a held or doubled
+// Enter on the trigger must land on the safe answer, and a screen reader
+// must hear the warning, not only the title.
+test('the confirm starts on Keep it and reads out that it cannot be undone', async ({
+  page,
+  api,
+}) => {
+  await open(page, MINE);
+  await delete_button(page).focus();
+  await page.keyboard.press('Enter');
+
+  const sheet = page.getByRole('dialog', { name: 'Delete Made by mistake?' });
+  await expect(sheet.getByRole('button', { name: 'Keep it' })).toBeFocused();
+  await expect(sheet).toHaveAccessibleDescription(/can.t be undone/);
+
+  await page.keyboard.press('Enter');
+  await expect(sheet).toHaveCount(0);
+  expect(api.writes()).toEqual([]);
+});
+
+test('the confirmation on Frameworks is said once, not again on a reload', async ({
+  page,
+}) => {
+  await open(page, MINE);
+  await delete_button(page).click();
+  await page
+    .getByRole('dialog', { name: 'Delete Made by mistake?' })
+    .getByRole('button', { name: 'Delete framework' })
+    .click();
+  await expect(page.getByText('Deleted Made by mistake.')).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Frameworks' })).toBeVisible();
+  await expect(page.getByText('Deleted Made by mistake.')).toHaveCount(0);
+});
+
 test('keeping it deletes nothing', async ({ page, api }) => {
   await open(page, MINE);
   await delete_button(page).click();
@@ -189,6 +225,36 @@ test('a refusal shows the server’s message, the button goes, and the edits sta
   const refused_at = routes.indexOf('DELETE /frameworks/:id');
   expect(refused_at).toBeGreaterThan(-1);
   expect(routes.slice(refused_at + 1)).toContain('GET /frameworks/:id');
+});
+
+// Review finding: the button must go on the refusal itself, not because the
+// refresh happens to say assigned. Here the refresh fails, so only the
+// refusal can be what hides it. Focus goes to the message, since the button
+// it came from is gone.
+test('after a refusal the button stays gone even if the refresh fails', async ({
+  page,
+  api,
+}) => {
+  await open(page, MINE);
+  api.fail('DELETE /frameworks/:id', {
+    kind: 'error',
+    status: 409,
+    code: 'FRAMEWORK_ASSIGNED',
+    message: REFUSAL,
+  });
+  api.fail('GET /frameworks/:id', { kind: 'network' });
+
+  await delete_button(page).click();
+  await page
+    .getByRole('dialog', { name: 'Delete Made by mistake?' })
+    .getByRole('button', { name: 'Delete framework' })
+    .click();
+
+  const message = page.getByRole('status').filter({ hasText: REFUSAL });
+  await expect(message).toBeVisible();
+  await expect(message).toBeFocused();
+  await expect(delete_button(page)).toHaveCount(0);
+  await expect(page.getByLabel('Name of your copy')).toBeVisible();
 });
 
 test('any other failure is the screen’s error state', async ({ page, api }) => {
