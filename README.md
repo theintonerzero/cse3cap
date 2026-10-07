@@ -472,7 +472,7 @@ in the repository is the copy that everyone can read, and the one to edit.
 ```bash
 ./run test                          # 167 feature and 6 unit tests, against real MySQL
 ./run smoke                         # 71 checks, over HTTP, with the three real tokens (CI runs it too)
-./run verify                        # 28 checks on the typed API client, both servers
+./run verify                        # 28 checks on the typed API client, both servers (CI runs it too)
 ./run e2e                           # 53 browser checks, Playwright against a fake API
 ./run check                         # the suite, lint, contract, guards, build and browser checks
 ```
@@ -487,7 +487,8 @@ rather than dropping the shared schema.
 the token, resolves the base URL, unwraps the error envelope and refuses off-contract calls
 at compile time, against the real API and against the prism mock. It has no test suite
 behind it and every screen is built on it, so it is checked directly. `--static` skips the
-parts that need servers.
+parts that need servers. CI runs it after the smoke test against the same seeded API, with
+`VERIFY_REQUIRE_LIVE=1` so a skipped live half fails rather than passing quietly.
 
 The suite proves the rules in isolation. The smoke script drives the whole product through
 a running server, which is where wiring bugs live: it writes a reflection as Jane, submits
