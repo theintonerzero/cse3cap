@@ -53,6 +53,9 @@ Becomes **1.0.0**, planned for 12 October 2026: `dev` merged to `main` and tagge
 ## Sprint 5: 30 September to 13 October 2026
 
 ### Added
+- A supervisor can delete a framework copy they made, until a gig has it as its rubric:
+  `DELETE /frameworks/{framework_id}`, 409 `FRAMEWORK_ASSIGNED` once assigned, and a
+  confirmed delete on the edit framework screen (#111, CAP-50, ADR #59).
 - Design inventory: every Figma prototype frame by node ID, what the build did with it and
   why, and the `/design-inventory` skill that refreshes it (#90, CAP-40).
 - A demo deploy kit whoever holds the VPS can run, with a documented rollback (#88, CAP-26,
