@@ -27,9 +27,15 @@ const path_matches = [...routes_source.matchAll(/<Route\s+(?:index\s+)?path="([^
 const has_index_route = /<Route\s+index\s+element/.test(routes_source);
 const all_paths = has_index_route ? ['', ...path_matches] : path_matches;
 
-// Filter out placeholder routes (which don't get screenshots)
+// Filter out placeholder routes (which don't get screenshots), and the
+// Alumable demo shell's two routes (CAP-51, ADR #60): they exist only on the
+// dev server with VITE_DEMO_SHELL on, are not product screens, and have no
+// place in the User Manual.
 const placeholders = new Set(['entries/:entry_id']);
-const routed_paths = all_paths.filter((path) => !placeholders.has(path));
+const demo_only = new Set(['welcome', 'home']);
+const routed_paths = all_paths.filter(
+  (path) => !placeholders.has(path) && !demo_only.has(path),
+);
 
 const covered_ids = new Set(SHOTS.map((shot) => shot.id));
 const covered_screens = new Set(SHOTS.map((shot) => shot.screen));
