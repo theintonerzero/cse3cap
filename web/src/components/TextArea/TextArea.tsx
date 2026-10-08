@@ -1,8 +1,15 @@
-import { useEffect, useId, useRef, useState } from 'react';
-import type { ChangeEvent } from 'react';
+import { useEffect, useId, useImperativeHandle, useRef, useState } from 'react';
+import type { ChangeEvent, Ref } from 'react';
 import styles from './TextArea.module.css';
 
 export type TextAreaSaveStatus = 'idle' | 'saving' | 'saved' | 'failed';
+
+/** For a parent that must not lose the last edit (CAP-52): flush() sends a
+ * pending edit now rather than waiting out the debounce, and resolves when
+ * the newest save settles, rejecting if it failed. */
+export interface TextAreaHandle {
+  flush: () => Promise<void>;
+}
 
 export interface TextAreaProps {
   value: string;
@@ -17,6 +24,7 @@ export interface TextAreaProps {
   /** Debounce before onSave fires after the user stops typing. */
   debounceMs?: number;
   id?: string;
+  ref?: Ref<TextAreaHandle>;
 }
 
 const STATUS_LABEL: Record<TextAreaSaveStatus, string> = {
@@ -36,6 +44,7 @@ export function TextArea({
   disabled = false,
   debounceMs = 600,
   id,
+  ref,
 }: TextAreaProps) {
   const generatedId = useId();
   const fieldId = id ?? generatedId;
@@ -48,6 +57,7 @@ export function TextArea({
   const onStatusChangeRef = useRef(onStatusChange);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const pendingValueRef = useRef(value);
+  const inflightRef = useRef<Promise<void> | null>(null);
 
   useEffect(() => {
     saveRef.current = onSave;
@@ -57,12 +67,52 @@ export function TextArea({
     onStatusChangeRef.current = onStatusChange;
   }, [onStatusChange]);
 
-  useEffect(() => () => clearTimeout(timeoutRef.current), []);
-
   const updateStatus = (next: TextAreaSaveStatus) => {
     setStatus(next);
     onStatusChangeRef.current?.(next);
   };
+
+  // One way to save, used by the debounce, flush() and unmount alike.
+  const start_save = (): Promise<void> => {
+    timeoutRef.current = undefined;
+    const toSave = pendingValueRef.current;
+    const saving = saveRef.current(toSave);
+    inflightRef.current = saving;
+    saving
+      .then(() => {
+        // A later keystroke may have started a newer save already; only
+        // this save's own result should be allowed to set the status.
+        if (pendingValueRef.current === toSave) updateStatus('saved');
+      })
+      .catch(() => {
+        if (pendingValueRef.current === toSave) updateStatus('failed');
+      });
+    return saving;
+  };
+
+  useImperativeHandle(ref, () => ({
+    flush: () => {
+      if (timeoutRef.current !== undefined) {
+        clearTimeout(timeoutRef.current);
+        return start_save();
+      }
+      return inflightRef.current ?? Promise.resolve();
+    },
+  }));
+
+  // Leaving with an edit still waiting sends it rather than dropping it
+  // (CAP-52). Nothing typed means no timer, so React's dev double-mount
+  // sends nothing.
+  useEffect(
+    () => () => {
+      if (timeoutRef.current === undefined) return;
+      clearTimeout(timeoutRef.current);
+      start_save().catch(() => {});
+    },
+    // start_save reads refs only, so the first render's copy is current.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
 
   const handleChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
     const next = event.target.value;
@@ -71,19 +121,7 @@ export function TextArea({
     clearTimeout(timeoutRef.current);
     updateStatus('saving');
 
-    timeoutRef.current = setTimeout(() => {
-      const toSave = pendingValueRef.current;
-      saveRef
-        .current(toSave)
-        .then(() => {
-          // A later keystroke may have started a newer save already; only
-          // this save's own result should be allowed to set the status.
-          if (pendingValueRef.current === toSave) updateStatus('saved');
-        })
-        .catch(() => {
-          if (pendingValueRef.current === toSave) updateStatus('failed');
-        });
-    }, debounceMs);
+    timeoutRef.current = setTimeout(start_save, debounceMs);
   };
 
   const statusId = `${fieldId}-status`;
