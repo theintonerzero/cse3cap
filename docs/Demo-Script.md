@@ -113,8 +113,8 @@ asks for it.
 
 | Question | Short answer |
 | --- | --- |
-| Where do users sign in? | Through Alumable. The diary has no login of its own (ADR #15). Today seeded accounts stand in for Alumable's: pasted as tokens, or picked on the Alumable sign-in when the demo runs inside the shell (CAP-51). Wired to the real platform, sign-in comes through the `external_ref` columns |
-| Is this live inside Alumable? | Not yet. The Alumable sign-in, My Gigs and the header around the diary are a demo surround (ADR #60). The gigs, roles, reflections and scores inside it are the diary's real data. Running it inside Alumable's own app is the next step, with Alumable's API and their go-ahead |
+| Where do users sign in? | Through Alumable. The diary has no login of its own (ADR #15). Today seeded accounts stand in for Alumable's: pasted as tokens, or picked on the demo's profile picker when it runs inside the Alumable shell (CAP-51). Wired to the real platform, sign-in comes through the `external_ref` columns |
+| Is this live inside Alumable? | Not yet. The profile picker, My Gigs and the header around the diary are a demo surround (ADR #60). The gigs, roles, reflections and scores inside it are the diary's real data. Running it inside Alumable's own app is the next step, with Alumable's API and their go-ahead |
 | Can an assessor change a score later? | No. A submitted counter-score is final, by design |
 | What happens when a student graduates? | The record stays theirs, and export is the guarantee (`docs/Retention-and-Erasure.md`) |
 | Can we add our own framework? | Yes, by copying a seeded one and rewording it. Adding or removing competencies was cut from scope |
@@ -130,9 +130,12 @@ move to Priya or Tom when Noor has none left. Nothing else changes the seeded da
 
 The script above runs the diary on its own, opening on the token prompt. For the client
 demo to David Yip there is an optional Alumable-branded wrapper (ADR #60) that makes the
-diary read as a feature inside Alumable: an Alumable sign-in, a "My Gigs" home, and the
+diary read as a feature inside Alumable: a profile picker, a "My Gigs" home, and the
 Alumable chrome around them. It is the same diary and the same data underneath, just
-entered through Alumable's skin.
+entered through Alumable's skin. It says on screen that it is a demo (the picker is headed
+**Reflection Diary demo**, and the header carries a **Demo** badge), so nobody takes it for
+the real Alumable sign-in. It follows the theme like the diary does: with the laptop or the
+diary's ⋮ menu set to dark, the picker and My Gigs are dark too.
 
 Turn it on with two lines in `web/.env.development.local` (git-ignored, and read only by the
 development server, never by a production build), then `./run dev`:
@@ -143,15 +146,18 @@ VITE_DEMO_TOKENS=[{"id":"jane","name":"Jane N","role_hint":"Student","slot":"stu
 ```
 
 Use the same four seeded tokens the script already needs (`docs/Runbook.md`, Issue a token),
-one per persona. The app now opens on **Sign in with Alumable**: pick a profile and it lands
-on **My Gigs**, where each gig card opens that gig's diary exactly as in the main script. The
-back-arrow out of a gig returns to the Alumable home. Everything from step 1 onward is
-unchanged once a persona is chosen. Without `VITE_DEMO_TOKENS` the welcome falls back to the
-seeded-token paste, so the shell still works on a machine that has not set the personas up.
+one per persona. The app now opens on **Reflection Diary demo**: pick a profile and it lands
+on **My Gigs**. For a student the first card there is **Reflection Diary**, which opens the
+diary home with the radar: that is step 1 of the main script, so start each student section
+from it. The gig cards below it open that gig's page directly. For a student the back-arrow
+out of a gig goes to the diary home, as it does in the product, and the diary home's
+back-arrow returns to My Gigs. For Sam and Dr Lee, who have no diary home, it returns to My
+Gigs. Without `VITE_DEMO_TOKENS` the picker falls back to the seeded-token paste, so the
+shell still works on a machine that has not set the personas up.
 
 Moving between people works differently in the shell. Where the script says to switch user,
 press **Switch profile** at the top right of My Gigs, or **Switch user** in the diary's ⋮
-menu. Both return to the Alumable sign-in, whose cards name each person, which matters
+menu. Both return to the profile picker, whose cards name each person, which matters
 because Jane and Noor share the student token slot. For Sam and Dr Lee, My Gigs shows a
 **Review queue** button (and **Frameworks** for Dr Lee) above their gigs: that is the way
 into sections 3 and 4. The review queue's back-arrow returns to My Gigs.
