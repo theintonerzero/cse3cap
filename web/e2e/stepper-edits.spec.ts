@@ -278,3 +278,41 @@ test('a save that failed as its card was left is re-sent before Submit posts', a
     routes.indexOf('POST /reflections/:id/submit'),
   );
 });
+
+test('an older save failing late never overwrites newer text', async ({ page, api }) => {
+  // A route registered after the fake's runs before it. The first narrative
+  // PATCH waits at the gate and is then aborted, so the fake never sees it;
+  // every later request falls through to the fake.
+  let patches = 0;
+  let first_seen!: () => void;
+  const first_intercepted = new Promise<void>((resolve) => (first_seen = resolve));
+  let open_gate!: () => void;
+  const gate = new Promise<void>((resolve) => (open_gate = resolve));
+  await page.route('**/api/v1/entries/**', async (route) => {
+    if (route.request().method() !== 'PATCH' || ++patches > 1) return route.fallback();
+    first_seen();
+    await gate;
+    return route.abort('failed');
+  });
+
+  await page.goto(`/reflections/${DRAFT}`);
+  await narrative(page).fill('Older text');
+  await first_intercepted;
+
+  const newer_saved = page.waitForResponse(
+    (r) =>
+      r.request().method() === 'PATCH' &&
+      (r.request().postData() ?? '').includes('Older text and newer'),
+  );
+  await narrative(page).fill('Older text and newer');
+  await newer_saved;
+
+  open_gate();
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await page.getByRole('button', { name: 'Submit', exact: true }).click();
+
+  await expect(page).toHaveURL(new RegExp(`/reflections/${DRAFT}/submitted$`));
+  // Only requests the fake served are recorded: it never saw the aborted
+  // first one, so a re-send of the older text is the only way to find it here.
+  expect(narratives_sent(api)).toEqual(['Older text and newer']);
+});
