@@ -9,7 +9,9 @@ and issuing tokens; do those first.
 
 ## Before you start
 
-- [ ] `./run dev` is running and `http://localhost:5173` loads.
+- [ ] `./run demo` (Windows: `./run.ps1 demo`) is running and `http://localhost:5173`
+      loads. It checks the database and sets up the demo people first
+      ([Runbook](Runbook.md#run-the-demo-on-your-laptop)); `./run dev` works too.
 - [ ] You have four tokens: Jane N, Sam O and Dr Lee from the seeder, and Noor A from the
       one-liner in [Issue a token](Runbook.md#issue-a-token). Jane shows a finished record, Noor writes a
       new reflection, Sam assesses it, and Dr Lee shows the rubric.
@@ -50,7 +52,8 @@ The point to make: the record belongs to the student and survives the subject.
    pick one: each gig is scored against its own rubric, and one radar can't draw both. Pick
    **Develop AI use cases**. Her radar plots her self-scores against her assessor's across
    La Trobe's six competencies. Two polygons, and the gap between them is the conversation.
-2. Pick a sprint chip. Under "All sprints" each competency shows its latest score, from
+2. Pick a sprint chip (**Sprint 2** shows the clearest comparison; Jane's Sprint 1 scores sit
+   near the centre). Under "All sprints" each competency shows its latest score, from
    whichever sprint scored it last. A single sprint is a true self against assessor
    comparison for that sprint. The card doesn't say which, the picker and the chip do
    (ADR #58), so say it out loud here.
@@ -65,10 +68,11 @@ The point to make: the record belongs to the student and survives the subject.
 
 ## 2. Writing a reflection (Noor, 4 minutes)
 
-Open a second tab at `http://localhost:5173` and paste Noor's token into **Student**. She is
+Open a second tab from the address bar (a duplicated tab copies Jane's sign-in) at
+`http://localhost:5173` and paste Noor's token into **Student**. She is
 Jane's classmate on the La Trobe gig, part-way through the course.
 
-1. Open the **La Trobe** gig. The sprints are listed with their due dates. Sprint 1 holds
+1. Pick **Develop AI use cases** (the La Trobe gig) and press **Gig details ›**. The sprints are listed with their due dates. Sprint 1 holds
    her draft. (Her **History** is empty, because drafts are not events. Section 1 showed it
    on Jane.)
 2. Her next empty sprint offers **Start reflection** on its row. Press it: the draft is
@@ -96,10 +100,12 @@ explained.
    Noor's reflection from step 2.
 2. Open Noor's. Her narrative and evidence are read-only; her self-score is shown next to
    the assessor's choice.
-3. Score every competency, one of them below Noor's self-score, and leave that one's
-   comment empty. Press **Submit scores**. Nothing is sent: a pop-up names the competency
-   that "needs a comment to go with its score", because a lower counter-score has to be
-   explained. **Okay** takes you to it. Add the comment.
+3. Score every competency (**Next** moves on; **Submit scores** is on the last one), one of
+   them below Noor's self-score, and leave the comments empty. Press **Submit scores**.
+   Nothing is sent: a pop-up lists each competency that "needs a comment to go with its
+   score". Both seeded rubrics require a comment on every counter-score, a setting of the
+   rubric; on a rubric without it, only a score lower than the student's needs one, and that
+   rule is the server's. **Okay** takes you to the first. Add the comments.
 4. Press **Submit scores** again. With every entry counter-scored, the reflection becomes
    assessed by itself.
 5. Point out that Sam sees only the La Trobe gig. He is not on the SFIA gig, so it does
@@ -115,10 +121,11 @@ The point to make: a new competency framework needs no code change.
    side by side.
 2. Both are in use, so both are read-only. Changing a rubric that students have already
    been scored against would rewrite their past.
-3. Open La Trobe and **Edit a copy**: rename the copy and reword a level
-   descriptor. Copies are editable until a reflection references them. After a rehearsal,
-   open that copy and press **Delete framework**, so the shared database doesn't collect a
-   "La Trobe (n)" for every run. A copy can be deleted until it is assigned.
+3. Open La Trobe and **Edit a copy**: rename the copy, reword a level descriptor, and press
+   **Save as a new copy**. Copies are editable until a reflection references them. After a
+   rehearsal, open the copy under **Saved copies**, press **Edit a copy**, then **Delete
+   framework** and confirm, so the shared database doesn't collect a "La Trobe (n)" for every
+   run. A copy can be deleted until it is assigned.
 4. Open any rubric: under **Assign to a gig**, each gig says which rubric it already
    uses. A gig holds one rubric for good, so on the demo data none can be picked.
 
@@ -161,7 +168,7 @@ hour before.
 
 **Failure drills**
 - [ ] Network off mid-screen: an error with Retry, and Retry recovers
-- [ ] Refresh mid-stepper: the draft is still there
+- [ ] Refresh mid-stepper once the narrative shows **Saved**: the draft is still there
 - [ ] Port 3306 refused: the hotspot, then the video
 
 ## Questions to expect

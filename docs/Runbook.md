@@ -59,6 +59,36 @@ a database a demo depends on.
 ./run mock           # prism on :4010; point VITE_API_BASE_URL at it
 ```
 
+## Run the demo on your laptop
+
+Anyone on the team can run the full client demo (`docs/Demo-Script.md`) on their own laptop,
+against the shared database:
+
+```bash
+./run demo           # Windows: ./run.ps1 demo
+```
+
+It checks two things, then starts both servers exactly as `./run dev` does:
+
+1. **The shared database answers** on the host and port in `api/.env`. If it doesn't, it
+   stops and says so: venue and campus wifi often block port 3306, so switch to a phone
+   hotspot and run it again. If it still fails, present the recorded video.
+2. **The demo sign-in's people.** It reads the team's tokens file,
+   `~/reflection-diary-tokens.txt` (on Windows `%USERPROFILE%\reflection-diary-tokens.txt`;
+   `TOKENS=` points elsewhere), and writes Jane N, Noor A, Sam O and Dr Lee (and Priya R and
+   Tom H if their lines are there) into `web/.env.development.local`. That file is git-ignored
+   and read only by the dev server, never by a production build (F15). It keeps any other line
+   in that file, and prints who it found, never a token.
+
+**Getting the tokens file.** It is the seeder's output saved as printed, one `Name token`
+line per person, plus Noor's from [Issue a token](#issue-a-token). Tony holds the current
+one and sends it to each presenter directly, never in a channel, a commit or a pull request.
+Save it at the path above and keep it to yourself. Without it the demo still starts, and the
+sign-in asks you to paste a token instead.
+
+First time on the laptop, run `./run setup` before this: the demo needs `api/.env` and the
+dependencies it installs. Then open `http://localhost:5173`; Ctrl-C stops both servers.
+
 ## Stop it
 
 Ctrl-C in the terminal running `./run dev`. It stops both servers; if a port is still held
