@@ -348,6 +348,70 @@ export class FakeApi {
       return reply(route, 404, envelope('NOT_FOUND', 'Not found.'));
     }
 
+    if (key === 'PATCH /entries/:id') {
+      const owner = this.reflections.find(
+        (r): r is ReflectionDetail => 'entries' in r && r.entries.some((e) => e.id === id),
+      );
+      const entry = owner?.entries.find((e) => e.id === id);
+      if (!owner || !entry)
+        return reply(route, 404, envelope('NOT_FOUND', 'No such entry.'));
+      const { narrative = entry.narrative } = (body ?? {}) as { narrative?: string | null };
+      entry.narrative = narrative;
+      return reply(route, 200, {
+        id,
+        reflection_id: owner.id,
+        competency_id: entry.competency_id,
+        narrative,
+        updated_at: '2026-08-17T10:00:00.000000Z',
+      });
+    }
+
+    if (key === 'PUT /entries/:id/scores/self') {
+      const { level_id } = body as { level_id: string };
+      const level = this.frameworks
+        .flatMap((f) => f.competencies.flatMap((c) => c.levels))
+        .find((l) => l.id === level_id);
+      if (!level) return reply(route, 404, envelope('NOT_FOUND', 'No such level.'));
+      return reply(route, 200, {
+        id: this.mint(),
+        reflection_entry_id: id,
+        scorer_role: 'student',
+        scorer_class: 'self',
+        level_id,
+        level_value: level.level_value,
+        comment: null,
+        scored_at: '2026-08-17T10:00:00.000000Z',
+      });
+    }
+
+    if (key === 'POST /entries/:id/evidence') {
+      // JSON links only: handle() parses every body as JSON, so a multipart
+      // file upload would need its own parsing before it could be served.
+      const { kind, label, uri } = body as { kind: 'link'; label: string; uri: string };
+      return reply(route, 201, {
+        id: this.mint(),
+        reflection_entry_id: id,
+        kind,
+        label,
+        uri,
+        size_bytes: null,
+        uploaded_at: '2026-08-17T10:00:00.000000Z',
+      });
+    }
+
+    if (key === 'DELETE /evidence/:id') return route.fulfill({ status: 204 });
+
+    if (key === 'POST /reflections/:id/submit') {
+      // The response's shape only. The gate is SubmitGate.php's and is tested
+      // in api/tests; a refusal here is injected with fail().
+      const reflection = this.reflections.find((r) => r.id === id);
+      if (!reflection)
+        return reply(route, 404, envelope('NOT_FOUND', 'No such reflection.'));
+      (reflection as ReflectionDetail).status = 'submitted';
+      (reflection as ReflectionDetail).submitted_at = '2026-08-17T10:00:00.000000Z';
+      return reply(route, 200, reflection);
+    }
+
     this.unexpected.push(key);
     return reply(route, 404, envelope('NOT_FOUND', `The fake does not serve ${key}.`));
   }
