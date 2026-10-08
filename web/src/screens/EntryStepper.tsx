@@ -460,15 +460,21 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
 
     try {
       await narrative_ref.current?.flush();
-      const settled = await Promise.allSettled([...pending_saves.current]);
-      if (settled.some((result) => result.status === 'rejected')) throw new Error();
+      // Wait for every save still out. Whether one failed is not read from
+      // here: an older save failing after a newer one landed is harmless, and
+      // failed_saves holds only entries whose newest save failed.
+      await Promise.allSettled([...pending_saves.current]);
       // Words a left card could not save are sent again, here, before the
       // reflection becomes unchangeable.
       for (const entry_id of [...failed_saves.current]) {
         const on_screen = load.reflection.entries.find((e) => e.id === entry_id);
+        if (!on_screen) {
+          failed_saves.current.delete(entry_id);
+          continue;
+        }
         await api.patch('/entries/{entry_id}', {
           path: { entry_id },
-          body: { narrative: on_screen?.narrative ?? '' },
+          body: { narrative: on_screen.narrative ?? '' },
         });
         failed_saves.current.delete(entry_id);
       }
