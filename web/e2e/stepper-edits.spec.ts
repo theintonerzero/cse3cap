@@ -307,7 +307,9 @@ test('an older save failing late never overwrites newer text', async ({ page, ap
   await narrative(page).fill('Older text and newer');
   await newer_saved;
 
+  const aborted = page.waitForEvent('requestfailed');
   open_gate();
+  await aborted;
   await page.getByRole('button', { name: 'Next', exact: true }).click();
   await page.getByRole('button', { name: 'Submit', exact: true }).click();
 
@@ -315,4 +317,64 @@ test('an older save failing late never overwrites newer text', async ({ page, ap
   // Only requests the fake served are recorded: it never saw the aborted
   // first one, so a re-send of the older text is the only way to find it here.
   expect(narratives_sent(api)).toEqual(['Older text and newer']);
+});
+
+test('a superseded save failing during Submit does not refuse it', async ({
+  page,
+  api,
+}) => {
+  // As in the test above, the first narrative PATCH waits at a gate and is
+  // aborted; the newer one is served by the fake.
+  let patches = 0;
+  let first_seen!: () => void;
+  const first_intercepted = new Promise<void>((resolve) => (first_seen = resolve));
+  let open_gate!: () => void;
+  const gate = new Promise<void>((resolve) => (open_gate = resolve));
+  await page.route('**/api/v1/entries/**', async (route) => {
+    if (route.request().method() !== 'PATCH' || ++patches > 1) return route.fallback();
+    first_seen();
+    await gate;
+    return route.abort('failed');
+  });
+
+  await page.goto(`/reflections/${DRAFT}`);
+  await narrative(page).fill('Older text');
+  await first_intercepted;
+  const newer_saved = page.waitForResponse(
+    (r) =>
+      r.request().method() === 'PATCH' &&
+      (r.request().postData() ?? '').includes('Older text and newer'),
+  );
+  await narrative(page).fill('Older text and newer');
+  await newer_saved;
+
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await page.getByRole('button', { name: 'Submit', exact: true }).click();
+  // The newest text is already saved; only the older save is still out.
+  const aborted = page.waitForEvent('requestfailed');
+  open_gate();
+  await aborted;
+
+  await expect(page).toHaveURL(new RegExp(`/reflections/${DRAFT}/submitted$`));
+  expect(narratives_sent(api)).toEqual(['Older text and newer']);
+});
+
+test('leaving by history, with no click, still sends the waiting edit', async ({
+  page,
+  api,
+}) => {
+  await page.goto(`/gigs/${GIG}`);
+  // An in-app arrival, so going back is a same-document traversal: nothing
+  // clicks, nothing blurs, and only the unmount can send the words.
+  await page.evaluate((path) => {
+    history.pushState(null, '', path);
+    dispatchEvent(new PopStateEvent('popstate'));
+  }, `/reflections/${DRAFT}`);
+  await narrative(page).fill('Typed, then Back with no click.');
+  await page.goBack();
+
+  await expect(page).toHaveURL(new RegExp(`/gigs/${GIG}$`));
+  await expect
+    .poll(() => narratives_sent(api))
+    .toContain('Typed, then Back with no click.');
 });
