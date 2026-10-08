@@ -62,6 +62,12 @@ export default defineConfig({
       // read their token from SHOTS_<SLOT>_TOKEN at test time instead
       // (helpers.ts's token_env_var).
       VITE_API_TOKEN: '',
+      // The User Manual shows the product, never the demo sign-in (CAP-51,
+      // ADR #61). A presenter's machine keeps the shell on in
+      // web/.env.development.local, which the dev server reads; a set-but-
+      // empty value here beats it, as the e2e product server does.
+      VITE_DEMO_SHELL: '',
+      VITE_DEMO_TOKENS: '',
     },
   },
 });
