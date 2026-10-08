@@ -125,6 +125,44 @@ The point to make: a new competency framework needs no code change.
 `docs/Framework-Swap-Verification.md` is the evidence behind this section if the client
 asks for it.
 
+## Rehearsal checklist
+
+Run this end to end at least once before the demo, as Priya R or Tom H for section 2 so
+Noor's last empty sprint is kept. Tick it again an hour before.
+
+**Pre-flight**
+- [ ] Shell on or off decided (see "Presenting without it"), and everyone presenting knows
+      which
+- [ ] `dev` pulled, `npm ci` in `web/` and `composer install` in `api/`
+- [ ] Port 3306 reachable on the venue network or the hotspot
+- [ ] `./run api` and `./run dev` running, and the shell's four personas in
+      `web/.env.development.local`
+- [ ] Noor (or Priya or Tom) has an empty sprint, using the query above
+- [ ] The team has agreed no reseed, no migration and no token revoke on demo day
+- [ ] Video on the laptop, browser at 100 % zoom, window at least 1280 wide, theme chosen
+
+**The shell**
+- [ ] The picker reads "Reflection Diary demo", with four named cards and the Demo badge
+- [ ] Jane's My Gigs: the Reflection Diary card first, then her gigs. Sam's and Dr Lee's:
+      shortcuts, and no diary card
+- [ ] **Switch profile**, in the header or the diary's ⋮ menu, returns to the picker
+- [ ] Dark, from the system or from the diary's menu: no white flash between screens
+
+**Each section**
+- [ ] §1: two polygons on the radar, a sprint chip redraws it, SFIA shows seven levels,
+      export downloads, History lists events, the back-arrows go gig → diary → My Gigs
+- [ ] §2: Start reflection, narrative saved, link added, self-score picked, the gate refuses
+      a blank, then Submit names the assessor
+- [ ] §3: the reflection is in Sam's queue, the comment rule refuses, Submit scores marks it
+      assessed, and Noor's radar then includes it
+- [ ] §4: both rubrics read-only, a copy edited and then deleted, Assign shows each gig's
+      rubric
+
+**Failure drills**
+- [ ] Network off mid-screen: an error with Retry, and Retry recovers
+- [ ] Refresh mid-stepper: the draft is still there
+- [ ] Port 3306 refused: the hotspot, then the video
+
 ## Questions to expect
 
 | Question | Short answer |
