@@ -177,11 +177,25 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
   // last words as it goes, and Submit must wait for those too, not only for
   // the card on screen (CAP-52).
   const pending_saves = useRef(new Set<Promise<void>>());
-  const track_save = useCallback((saving: Promise<void>) => {
-    pending_saves.current.add(saving);
-    const done = () => pending_saves.current.delete(saving);
-    saving.then(done, done);
-  }, []);
+  // What a refused narrative save was carrying, by entry: a card that has left
+  // the screen cannot retry it, and Submit must not post without it.
+  const failed_saves = useRef(new Map<string, string>());
+  const track_save = useCallback(
+    (entry_id: string, value: string, saving: Promise<void>) => {
+      pending_saves.current.add(saving);
+      saving.then(
+        () => {
+          pending_saves.current.delete(saving);
+          failed_saves.current.delete(entry_id);
+        },
+        () => {
+          pending_saves.current.delete(saving);
+          failed_saves.current.set(entry_id, value);
+        },
+      );
+    },
+    [],
+  );
   // What "Submit scores" found missing, shown in a pop-up until "Okay",
   // which goes to the first of them (round 3, Patrick 2026-10-05).
   const [missing, setMissing] = useState<SaveAllGap[] | null>(null);
@@ -446,6 +460,15 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
       await narrative_ref.current?.flush();
       const settled = await Promise.allSettled([...pending_saves.current]);
       if (settled.some((result) => result.status === 'rejected')) throw new Error();
+      // Words a left card could not save are sent again, here, before the
+      // reflection becomes unchangeable.
+      for (const [entry_id, value] of [...failed_saves.current]) {
+        await api.patch('/entries/{entry_id}', {
+          path: { entry_id },
+          body: { narrative: value },
+        });
+        failed_saves.current.delete(entry_id);
+      }
     } catch {
       setSubmitError(
         new ApiError(
@@ -743,7 +766,7 @@ function EntryCard({
   on_update: EntryUpdate;
   narrative_ref: Ref<TextAreaHandle>;
   /** Registers a save so Submit can wait for it after this card is gone. */
-  track_save: (saving: Promise<void>) => void;
+  track_save: (entry_id: string, value: string, saving: Promise<void>) => void;
   mode: StepperMode;
   owner_name: string;
   /** Who is looking, so assessor mode can leave their own score to the panel. */
@@ -771,7 +794,7 @@ function EntryCard({
             body: { narrative: value },
           })
           .then(() => {});
-        track_save(saving);
+        track_save(entry.id, value, saving);
         await saving;
       } catch (error) {
         const api_error = as_api_error(error, 'Could not save that.');
