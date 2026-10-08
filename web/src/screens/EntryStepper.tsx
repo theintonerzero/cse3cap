@@ -177,25 +177,27 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
   // last words as it goes, and Submit must wait for those too, not only for
   // the card on screen (CAP-52).
   const pending_saves = useRef(new Set<Promise<void>>());
-  // What a refused narrative save was carrying, by entry: a card that has left
-  // the screen cannot retry it, and Submit must not post without it.
-  const failed_saves = useRef(new Map<string, string>());
-  const track_save = useCallback(
-    (entry_id: string, value: string, saving: Promise<void>) => {
-      pending_saves.current.add(saving);
-      saving.then(
-        () => {
-          pending_saves.current.delete(saving);
-          failed_saves.current.delete(entry_id);
-        },
-        () => {
-          pending_saves.current.delete(saving);
-          failed_saves.current.set(entry_id, value);
-        },
-      );
-    },
-    [],
-  );
+  // Entries whose newest narrative save was refused. A card that has left the
+  // screen cannot retry it, and Submit must not post without it. Saves for one
+  // entry can overlap (the debounce starts a new one while an old one is in
+  // flight), so only the newest save's outcome counts, never settle order.
+  const failed_saves = useRef(new Set<string>());
+  const latest_save = useRef(new Map<string, Promise<void>>());
+  const track_save = useCallback((entry_id: string, saving: Promise<void>) => {
+    pending_saves.current.add(saving);
+    latest_save.current.set(entry_id, saving);
+    const settle = (failed: boolean) => {
+      pending_saves.current.delete(saving);
+      if (latest_save.current.get(entry_id) !== saving) return;
+      latest_save.current.delete(entry_id);
+      if (failed) failed_saves.current.add(entry_id);
+      else failed_saves.current.delete(entry_id);
+    };
+    saving.then(
+      () => settle(false),
+      () => settle(true),
+    );
+  }, []);
   // What "Submit scores" found missing, shown in a pop-up until "Okay",
   // which goes to the first of them (round 3, Patrick 2026-10-05).
   const [missing, setMissing] = useState<SaveAllGap[] | null>(null);
@@ -462,10 +464,11 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
       if (settled.some((result) => result.status === 'rejected')) throw new Error();
       // Words a left card could not save are sent again, here, before the
       // reflection becomes unchangeable.
-      for (const [entry_id, value] of [...failed_saves.current]) {
+      for (const entry_id of [...failed_saves.current]) {
+        const on_screen = load.reflection.entries.find((e) => e.id === entry_id);
         await api.patch('/entries/{entry_id}', {
           path: { entry_id },
-          body: { narrative: value },
+          body: { narrative: on_screen?.narrative ?? '' },
         });
         failed_saves.current.delete(entry_id);
       }
@@ -766,7 +769,7 @@ function EntryCard({
   on_update: EntryUpdate;
   narrative_ref: Ref<TextAreaHandle>;
   /** Registers a save so Submit can wait for it after this card is gone. */
-  track_save: (entry_id: string, value: string, saving: Promise<void>) => void;
+  track_save: (entry_id: string, saving: Promise<void>) => void;
   mode: StepperMode;
   owner_name: string;
   /** Who is looking, so assessor mode can leave their own score to the panel. */
@@ -794,7 +797,7 @@ function EntryCard({
             body: { narrative: value },
           })
           .then(() => {});
-        track_save(entry.id, value, saving);
+        track_save(entry.id, saving);
         await saving;
       } catch (error) {
         const api_error = as_api_error(error, 'Could not save that.');
