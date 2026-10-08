@@ -159,3 +159,55 @@ test('typing while a link saves is not wiped when it returns', async ({ page, ap
   await expect(page.getByText('Stand-up notes')).toBeVisible();
   await expect(narrative(page)).toHaveValue('Typed while the link was on its way.');
 });
+
+const narratives_sent = (api: FakeApi) =>
+  api
+    .writes()
+    .filter((call) => call.route === 'PATCH /entries/:id')
+    .map((call) => (call.body as { narrative: string }).narrative);
+
+test('Next straight after typing still saves the last words', async ({ page, api }) => {
+  await page.goto(`/reflections/${DRAFT}`);
+  await narrative(page).fill('Last words before Next.');
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+
+  await expect(page.getByText('Competency 2 of 2')).toBeVisible();
+  await expect.poll(() => narratives_sent(api)).toContain('Last words before Next.');
+});
+
+test('Submit straight after typing saves first, then submits', async ({ page, api }) => {
+  await page.goto(`/reflections/${DRAFT}`);
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await narrative(page).fill('Last words before Submit.');
+  await page.getByRole('button', { name: 'Submit', exact: true }).click();
+
+  await expect(page).toHaveURL(new RegExp(`/reflections/${DRAFT}/submitted$`));
+  const routes = api.writes().map((call) => call.route);
+  const saved = api
+    .writes()
+    .findIndex(
+      (call) =>
+        call.route === 'PATCH /entries/:id' &&
+        (call.body as { narrative: string }).narrative === 'Last words before Submit.',
+    );
+  expect(saved, `writes were ${routes.join(', ')}`).toBeGreaterThanOrEqual(0);
+  expect(saved).toBeLessThan(routes.indexOf('POST /reflections/:id/submit'));
+});
+
+test('if the last save fails, Submit sends nothing and says why', async ({ page, api }) => {
+  api.fail('PATCH /entries/:id', { kind: 'network' });
+  await page.goto(`/reflections/${DRAFT}`);
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await narrative(page).fill('This one will not save.');
+  await page.getByRole('button', { name: 'Submit', exact: true }).click();
+
+  await expect(page.getByText(/last edit did not save/)).toBeVisible();
+  expect(api.writes().map((call) => call.route)).not.toContain(
+    'POST /reflections/:id/submit',
+  );
+});
+
+test('a read-only entry with no evidence says so', async ({ page }) => {
+  await page.goto(`/reflections/${SUBMITTED}`);
+  await expect(page.getByText('No evidence attached.')).toBeVisible();
+});
