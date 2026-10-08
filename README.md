@@ -607,6 +607,7 @@ and the reasoning behind the unusual decisions.
 | [`docs/Deployment.md`](docs/Deployment.md)                       | The demo on the VPS: setup, deploy, rollback, and changing Caddy safely |
 | [`docs/Demo-Script.md`](docs/Demo-Script.md)                     | The client demo, step by step, for someone new to the product |
 | [`docs/Design-Inventory.md`](docs/Design-Inventory.md)           | Every Figma frame and what the build did with it              |
+| [`docs/AI-Sidecar-Plan.md`](docs/AI-Sidecar-Plan.md)             | Proposal only: AI feature list and architecture. Nothing built |
 | [`docs/CHANGELOG.md`](docs/CHANGELOG.md)                         | What changed, by release, and by sprint before v1.0.0          |
 | [`.claude/skills/jira-tickets/`](.claude/skills/jira-tickets/)   | How agents read and move COA4 tickets (ADR #38)               |
 | [`docs/erd.png`](docs/erd.png)                                   | Entity relationship diagram, with a legend of hidden constraints |
