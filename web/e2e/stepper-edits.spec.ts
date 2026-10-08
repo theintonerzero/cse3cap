@@ -195,7 +195,9 @@ test('Submit straight after typing saves first, then submits', async ({ page, ap
 });
 
 test('if the last save fails, Submit sends nothing and says why', async ({ page, api }) => {
-  api.fail('PATCH /entries/:id', { kind: 'network' });
+  // Two failures: Submit's mousedown blurs the box and starts the save, and
+  // flush() may then retry it. Both fail, so the refusal holds in either order.
+  api.fail('PATCH /entries/:id', { kind: 'network' }, 2);
   await page.goto(`/reflections/${DRAFT}`);
   await page.getByRole('button', { name: 'Next', exact: true }).click();
   await narrative(page).fill('This one will not save.');
@@ -253,4 +255,26 @@ test('Submit retries a failed save instead of refusing on the stale failure', as
     'Saved on the second try.',
     'Saved on the second try.',
   ]);
+});
+
+test('a save that failed as its card was left is re-sent before Submit posts', async ({
+  page,
+  api,
+}) => {
+  api.fail('PATCH /entries/:id', { kind: 'network' });
+  await page.goto(`/reflections/${DRAFT}`);
+  await narrative(page).fill('Words from card one.');
+  const failed = page.waitForEvent('requestfailed');
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await failed;
+  await expect(page.getByText('Competency 2 of 2')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Submit', exact: true }).click();
+
+  await expect(page).toHaveURL(new RegExp(`/reflections/${DRAFT}/submitted$`));
+  expect(narratives_sent(api)).toEqual(['Words from card one.', 'Words from card one.']);
+  const routes = api.writes().map((call) => call.route);
+  expect(routes.lastIndexOf('PATCH /entries/:id')).toBeLessThan(
+    routes.indexOf('POST /reflections/:id/submit'),
+  );
 });
