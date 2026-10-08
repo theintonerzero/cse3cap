@@ -24,7 +24,7 @@ import logo from './assets/alumable-horizontal.png';
 import styles from './AlumableWelcome.module.css';
 
 export function AlumableWelcome() {
-  const { sign_in_with } = useSession();
+  const { sign_in_with, last_sign_in_rejected } = useSession();
   const personas = demoPersonas();
 
   return (
@@ -54,6 +54,15 @@ export function AlumableWelcome() {
               </li>
             ))}
           </ul>
+          {/* A revoked token or a reseeded database on the day: say so, rather
+              than the click quietly returning here (the paste gate says the
+              same). The session sets this on a 401 from /auth/me. */}
+          {last_sign_in_rejected && (
+            <p className={styles.rejected} role="alert">
+              That profile could not sign in: its token was rejected. Check the tokens in
+              web/.env.development.local.
+            </p>
+          )}
         </main>
       ) : (
         <TokenGate

@@ -128,7 +128,9 @@ asks for it.
 ## Rehearsal checklist
 
 Run this end to end at least once before the demo, as Priya R or Tom H for section 2 so
-Noor's last empty sprint is kept. Tick it again an hour before.
+Noor's last empty sprint is kept. With the demo sign-in on, add them to `VITE_DEMO_TOKENS`
+for the rehearsal, since the picker offers only the people listed there. Tick it again an
+hour before.
 
 **Pre-flight**
 - [ ] Demo sign-in on or off decided (see "Presenting without it"), and everyone

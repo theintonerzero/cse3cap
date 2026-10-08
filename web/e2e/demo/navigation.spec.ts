@@ -13,7 +13,7 @@ async function as_jane(page: import('@playwright/test').Page) {
   await page.goto('/');
   await page.getByRole('button', { name: /Jane N/ }).click();
   await expect(
-    page.getByRole('heading', { level: 1, name: 'Reflection Diary' }),
+    page.getByRole('heading', { level: 1, name: 'Reflection Diary', exact: true }),
   ).toBeVisible();
 }
 
@@ -41,7 +41,7 @@ test("a gig's back-arrow goes up to the diary home, as in the product", async ({
 
   await expect(page).toHaveURL(/\/(\?.*)?$/);
   await expect(
-    page.getByRole('heading', { level: 1, name: 'Reflection Diary' }),
+    page.getByRole('heading', { level: 1, name: 'Reflection Diary', exact: true }),
   ).toBeVisible();
 });
 

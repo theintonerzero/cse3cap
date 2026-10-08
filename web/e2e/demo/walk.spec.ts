@@ -16,7 +16,7 @@ test('signed out → the demo picker → Jane → her diary → a gig → back',
 
   await page.getByRole('button', { name: /Jane N/ }).click();
   await expect(
-    page.getByRole('heading', { level: 1, name: 'Reflection Diary' }),
+    page.getByRole('heading', { level: 1, name: 'Reflection Diary', exact: true }),
   ).toBeVisible();
 
   await go(page, `/gigs/${GIG_ID}`);
@@ -26,7 +26,7 @@ test('signed out → the demo picker → Jane → her diary → a gig → back',
 
   await page.getByRole('link', { name: 'Back to Reflection Diary' }).click();
   await expect(
-    page.getByRole('heading', { level: 1, name: 'Reflection Diary' }),
+    page.getByRole('heading', { level: 1, name: 'Reflection Diary', exact: true }),
   ).toBeVisible();
 
   expect(api.unexpected, 'requests the fake does not serve').toEqual([]);

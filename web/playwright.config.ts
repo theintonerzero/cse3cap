@@ -19,7 +19,7 @@
  * app ships, so it also proves the demo shell (CAP-51) stays invisible by
  * default. The demo shell has its own two servers and projects, under
  * e2e/demo/: `demo` carries VITE_DEMO_TOKENS so a persona signs in on one
- * click; `demo-paste` carries none, to prove the skinned-paste fallback.
+ * click; `demo-paste` carries none, to prove the paste fallback.
  * Both are reached only by e2e/demo/**, which the product projects ignore.
  *
  *   ./run e2e                  from the repository root
@@ -91,8 +91,8 @@ export default defineConfig({
       testMatch: ['**/demo/**/*.spec.ts'],
       testIgnore: ['**/demo/welcome-paste.spec.ts'],
     },
-    // CAP-51: the demo shell, flag on, no persona tokens, so the welcome
-    // falls back to the skinned paste.
+    // CAP-51: the demo shell, flag on, no persona tokens, so the picker
+    // falls back to the seeded-token paste.
     {
       name: 'demo-paste',
       use: { ...devices['Desktop Chrome'], baseURL: ORIGIN_DEMO_PASTE },

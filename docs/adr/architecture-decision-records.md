@@ -3449,6 +3449,7 @@ Reskin the diary in place with no new screens. Smallest effort, but it loses the
 Alumable" framing that is the whole point of the demo, and blurs the product's own styling
 with the host's.
 
+===============================================================
 
 ADR #61: The demo shell is a sign-in only
 Status: Proposed

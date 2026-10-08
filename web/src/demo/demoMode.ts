@@ -6,8 +6,8 @@
  * It is off in every production build, where the app is exactly the diary
  * with its own token entry. Demo-only, not product scope.
  *
- * No React here on purpose: the gate is read in routing and in the shell, and
- * it is easier to trust when it is not tangled with a render cycle. This
+ * No React here on purpose: the gate is read in AppShell's render and its
+ * menu, and it is easier to trust when it is not tangled with a render cycle. This
  * mirrors session/tokens.ts, which keeps the same rule for the same reason.
  */
 import type { SlotId } from '../session/tokens.ts';

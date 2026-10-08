@@ -18,7 +18,7 @@ test('Switch user shows the picker in place, and Noor lands on her own diary', a
   await page.goto('/');
   await page.getByRole('button', { name: /Jane N/ }).click();
   await expect(
-    page.getByRole('heading', { level: 1, name: 'Reflection Diary' }),
+    page.getByRole('heading', { level: 1, name: 'Reflection Diary', exact: true }),
   ).toBeVisible();
 
   await go(page, `/gigs/${GIG_ID}`);
@@ -37,7 +37,7 @@ test('the shell has no second switch button', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: /Jane N/ }).click();
   await expect(
-    page.getByRole('heading', { level: 1, name: 'Reflection Diary' }),
+    page.getByRole('heading', { level: 1, name: 'Reflection Diary', exact: true }),
   ).toBeVisible();
 
   await expect(page.getByRole('button', { name: 'Switch profile' })).toHaveCount(0);

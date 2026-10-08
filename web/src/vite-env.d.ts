@@ -26,10 +26,10 @@ interface ImportMetaEnv {
   readonly VITE_API_TOKEN?: string;
 
   /**
-   * Demo shell flag (CAP-51). "1" turns on the Alumable-branded sign-in and
-   * My Gigs home around the diary. Unset in every production build, where the
-   * app is the diary with its own token entry. Demo-only, not product scope
-   * (ADR #60).
+   * Demo sign-in flag (CAP-51). "1" swaps the token gate for a one-click
+   * picker of named demo people, and changes nothing else. Read only on the
+   * dev server (import.meta.env.DEV, F15), so never in a production build.
+   * Demo-only, not product scope (ADR #61).
    */
   readonly VITE_DEMO_SHELL?: string;
 

@@ -39,8 +39,8 @@ test('with no demo tokens the welcome falls back to the seeded-token paste', asy
   await page.goto('/');
 
   await expect(page.getByRole('img', { name: /alumable/i })).toBeVisible();
-  // The shell's own words, not the diary's "Reflection Diary / This demo has
-  // no login screen", which contradicted the Alumable sign-in above it.
+  // The demo sign-in's own words, not the diary's "Reflection Diary / This
+  // demo has no login screen", which contradicted the picker it replaces.
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Reflection Diary demo');
   await expect(page.getByText('No profiles are set up on this computer.')).toBeVisible();
   await expect(page.getByText(/no login screen/i)).toHaveCount(0);
