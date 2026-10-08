@@ -102,8 +102,9 @@ export function AppShell() {
   }, [handing_over, at_home, navigate]);
 
   if (state === 'no_token') {
-    // CAP-51: in the demo shell, the no-token entry is the Alumable sign-in
-    // rather than the raw token gate (ADR #60). The product path is unchanged.
+    // CAP-51: in the demo shell, the no-token entry is a one-click picker of
+    // named people rather than the raw token gate (ADR #61). It renders in
+    // place, as the gate does; the product path is unchanged.
     return demoMode() ? <AlumableWelcome /> : <TokenGate mode="screen" />;
   }
 
@@ -160,13 +161,6 @@ export function AppShell() {
               >
                 <BackIcon />
               </Link>
-            ) : demoMode() ? (
-              // CAP-51: in the demo shell the diary is a section of Alumable,
-              // so leaving a top screen (the review queue) goes back to My
-              // Gigs rather than out to the sign-in. ADR #60.
-              <Link to="/home" className={styles.back} aria-label="Back to My Gigs">
-                <BackIcon />
-              </Link>
             ) : (
               <button
                 type="button"
@@ -199,15 +193,12 @@ export function AppShell() {
                 {
                   kind: 'item',
                   label: 'Switch user',
-                  // CAP-51: in the demo shell, switching goes to the Alumable
-                  // sign-in, whose cards name each person. The slot sheet
-                  // cannot: Jane and Noor share the student slot.
-                  on_select: demoMode()
-                    ? () => {
-                        leave();
-                        navigate('/welcome');
-                      }
-                    : () => setSwitcherOpen(true),
+                  // CAP-51 (ADR #61): in the demo shell, switching signs out,
+                  // and the picker appears in place, its cards naming each
+                  // person. The slot sheet cannot: Jane and Noor share the
+                  // student slot. Picking someone else lands on "/" through
+                  // the hand-over above.
+                  on_select: demoMode() ? leave : () => setSwitcherOpen(true),
                 },
                 {
                   kind: 'checkbox',

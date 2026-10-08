@@ -6,7 +6,7 @@
  */
 import { test, expect } from '@playwright/test';
 
-import { GIG_ID, shell } from './people.ts';
+import { GIG_ID, go, shell } from './people.ts';
 
 test('signed out → the demo picker → Jane → her diary → a gig → back', async ({ page }) => {
   const api = await shell(page);
@@ -19,7 +19,7 @@ test('signed out → the demo picker → Jane → her diary → a gig → back',
     page.getByRole('heading', { level: 1, name: 'Reflection Diary' }),
   ).toBeVisible();
 
-  await page.goto(`/gigs/${GIG_ID}`);
+  await go(page, `/gigs/${GIG_ID}`);
   await expect(
     page.getByRole('heading', { level: 1, name: 'Develop AI use cases' }),
   ).toBeVisible();

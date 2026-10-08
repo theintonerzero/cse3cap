@@ -1,10 +1,10 @@
 /**
  * The demo-shell flag and its personas (CAP-51).
  *
- * The flag gates an Alumable-branded demo harness around the diary: a
- * "Sign in with Alumable" welcome and a My Gigs home. It is off in every
- * production build, where the app is exactly the diary with its own token
- * entry. Demo-only, not product scope (ADR #60).
+ * The flag swaps the diary's token gate for a one-click picker of named
+ * demo people, under the Alumable logo, and changes nothing else (ADR #61).
+ * It is off in every production build, where the app is exactly the diary
+ * with its own token entry. Demo-only, not product scope.
  *
  * No React here on purpose: the gate is read in routing and in the shell, and
  * it is easier to trust when it is not tangled with a render cycle. This

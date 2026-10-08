@@ -9,7 +9,7 @@
  */
 import { test, expect } from '@playwright/test';
 
-import { GIG_ID, shell } from './people.ts';
+import { GIG_ID, go, shell } from './people.ts';
 
 test('Switch user shows the picker in place, and Noor lands on her own diary', async ({
   page,
@@ -21,7 +21,7 @@ test('Switch user shows the picker in place, and Noor lands on her own diary', a
     page.getByRole('heading', { level: 1, name: 'Reflection Diary' }),
   ).toBeVisible();
 
-  await page.goto(`/gigs/${GIG_ID}`);
+  await go(page, `/gigs/${GIG_ID}`);
   await page.getByRole('button', { name: 'More options' }).click();
   await page.getByRole('menuitem', { name: 'Switch user' }).click();
 

@@ -35,6 +35,7 @@ const test = base.extend<{ api: FakeApi }>({
 test('with no demo tokens the welcome falls back to the seeded-token paste', async ({
   page,
 }) => {
+  await page.addInitScript(() => sessionStorage.clear());
   await page.goto('/');
 
   await expect(page.getByRole('img', { name: /alumable/i })).toBeVisible();

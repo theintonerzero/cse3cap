@@ -6,7 +6,7 @@
  */
 import { test, expect } from '@playwright/test';
 
-import { GIG_ID, shell } from './people.ts';
+import { GIG_ID, go, shell } from './people.ts';
 
 async function as_jane(page: import('@playwright/test').Page) {
   await shell(page);
@@ -20,7 +20,7 @@ async function as_jane(page: import('@playwright/test').Page) {
 for (const path of ['/home', '/welcome']) {
   test(`${path} is not a page in the shell`, async ({ page }) => {
     await as_jane(page);
-    await page.goto(path);
+    await go(page, path);
     await expect(page.getByRole('heading', { name: 'My gigs' })).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Reflection Diary demo' })).toHaveCount(
       0,
@@ -35,7 +35,7 @@ test("a gig's back-arrow goes up to the diary home, as in the product", async ({
   page,
 }) => {
   await as_jane(page);
-  await page.goto(`/gigs/${GIG_ID}`);
+  await go(page, `/gigs/${GIG_ID}`);
 
   await page.getByRole('link', { name: 'Back to Reflection Diary' }).click();
 

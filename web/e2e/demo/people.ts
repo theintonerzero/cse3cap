@@ -51,6 +51,18 @@ export const PEOPLE: Record<string, Me> = {
   'demo-lee': person('0014', 'Dr Lee', 'supervisor'),
 };
 
+/**
+ * Moves within the app, without a reload. A page load re-runs FakeApi's init
+ * script, which re-seeds its supervisor token and so signs the picked person
+ * out again; react-router follows pushState plus popstate as its own link.
+ */
+export async function go(page: Page, path: string): Promise<void> {
+  await page.evaluate((to) => {
+    history.pushState({}, '', to);
+    dispatchEvent(new PopStateEvent('popstate'));
+  }, path);
+}
+
 /** Signed out, with FakeApi behind it and /auth/me answering per token. */
 export async function shell(page: Page): Promise<FakeApi> {
   const api = new FakeApi([], PEOPLE['demo-jane'], [GIG]);
