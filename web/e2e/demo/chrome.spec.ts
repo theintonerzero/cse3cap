@@ -1,9 +1,9 @@
 /**
  * CAP-51: the Alumable chrome and the demo-mode entry.
  *
- * Runs on the `demo` project. The chrome frames the home; the index redirects
- * into it; and leaving a gig lands back on it, so the diary reads as a section
- * of Alumable rather than a separate app.
+ * Runs on the `demo` project. The chrome frames the home and says it is a
+ * demo. How the diary is entered from it, and left back to it, is
+ * diary-entry.spec.ts.
  *
  * Self-contained ids prefixed '5153' so they collide with no other spec's.
  */
@@ -52,22 +52,23 @@ test('the Alumable chrome frames the home', async ({ page }) => {
   await expect(page.getByRole('button', { name: /chat/i })).toBeDisabled();
 });
 
-test('the index redirects to /home in demo mode', async ({ page }) => {
-  await sign_in(page);
-  await page.goto('/');
-
-  await expect(page).toHaveURL(/\/home$/);
-});
-
-test('the diary back-arrow inside a gig returns to the Alumable home', async ({ page }) => {
+test('the chrome says it is a demo', async ({ page }) => {
+  // Labelled plainly (8 Oct): nobody should take the surround for live Alumable.
   await sign_in(page);
   await page.goto('/home');
 
-  await page.getByRole('link', { name: /Develop AI use cases/ }).click();
-  await expect(page).toHaveURL(new RegExp(`/gigs/${GIG}`));
+  await expect(page.getByRole('banner')).toContainText('Demo');
+});
 
-  // The diary's own "up one level" goes to "/", which the demo index redirects
-  // to the Alumable home rather than the diary.
-  await page.getByRole('link', { name: /Back to Reflection Diary/i }).click();
-  await expect(page).toHaveURL(/\/home$/);
+test('at phone width the Demo badge leaves the signed-in name whole', async ({ page }) => {
+  // Jane and Noor share a token slot, so the name is how a presenter knows
+  // who is signed in. The badge must not squeeze it to "Jan…".
+  await page.setViewportSize({ width: 390, height: 844 });
+  await sign_in(page);
+  await page.goto('/home');
+
+  const name = page.getByRole('banner').getByText('Jane N', { exact: true });
+  await expect(name).toBeVisible();
+  const clipped = await name.evaluate((el) => el.scrollWidth > el.clientWidth);
+  expect(clipped).toBe(false);
 });

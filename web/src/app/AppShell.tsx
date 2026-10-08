@@ -102,7 +102,7 @@ export function AppShell() {
   }, [handing_over, at_home, navigate]);
 
   if (state === 'no_token') {
-    // CAP-51: in the demo shell, the no-token entry is the Alumable sign-in
+    // CAP-51: in the demo shell, the no-token entry is the demo profile picker
     // rather than the raw token gate (ADR #60). The product path is unchanged.
     return demoMode() ? <AlumableWelcome /> : <TokenGate mode="screen" />;
   }
@@ -146,24 +146,32 @@ export function AppShell() {
   // written after the diary renders, so it lags one filter behind there.
   const diary_to = location.pathname === '/' ? `/${location.search}` : diary_href(me.id);
   const role_summary = [...new Set(me.participations.map((p) => p.role))].join(', ');
+  // CAP-51 follow-up: in the demo shell, a reviewer who opened a gig from My
+  // Gigs has no diary home to go back to ("/" would send them on to the queue
+  // under a "Back to Reflection Diary" label), so the gig goes back to My Gigs.
+  const parent =
+    demoMode() && section.parent?.to === '/' && !items.some((item) => item.to === '/')
+      ? { to: '/home', title: 'My Gigs' }
+      : section.parent;
 
   return (
     <div className={styles.shell} data-section={section.tint ?? undefined}>
       <header className={styles.header}>
         <div className={show_nav ? styles.bar : `${styles.bar} ${styles.single_row}`}>
           <div className={styles.back_slot}>
-            {section.parent ? (
+            {parent ? (
               <Link
-                to={section.parent.to === '/' ? diary_href(me.id) : section.parent.to}
+                to={parent.to === '/' ? diary_href(me.id) : parent.to}
                 className={styles.back}
-                aria-label={`Back to ${section.parent.title}`}
+                aria-label={`Back to ${parent.title}`}
               >
                 <BackIcon />
               </Link>
             ) : demoMode() ? (
               // CAP-51: in the demo shell the diary is a section of Alumable,
-              // so leaving a top screen (the review queue) goes back to My
-              // Gigs rather than out to the sign-in. ADR #60.
+              // so leaving a top screen (the diary home, the review queue)
+              // goes back to My Gigs rather than out to the profile picker.
+              // ADR #60.
               <Link to="/home" className={styles.back} aria-label="Back to My Gigs">
                 <BackIcon />
               </Link>

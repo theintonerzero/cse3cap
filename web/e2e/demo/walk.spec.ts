@@ -1,6 +1,6 @@
 /**
  * CAP-51: the demo's opening, walked end to end in one spec (acceptance
- * criterion 6): signed out → Sign in with Alumable → a persona → My Gigs →
+ * criterion 6): signed out → the demo sign-in → a persona → My Gigs →
  * that gig's page in the diary.
  *
  * The other demo specs pin each step on its own. This one proves they join
@@ -39,16 +39,16 @@ const me: Me = {
   participations: [{ gig_id: GIG, gig_title: gig.title, role: 'student' }],
 };
 
-test('signed out → Sign in with Alumable → Jane → My Gigs → her gig in the diary', async ({
+test('signed out → the demo sign-in → Jane → My Gigs → her gig in the diary', async ({
   page,
 }) => {
   const api = new FakeApi([], me, [gig]);
   await api.install(page);
   await page.addInitScript(() => sessionStorage.clear());
 
-  // 1. A fresh tab: the Alumable sign-in, in place at "/".
+  // 1. A fresh tab: the demo profile picker, in place at "/".
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Sign in with Alumable' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Reflection Diary demo' })).toBeVisible();
 
   // 2. One click as Jane: My Gigs, with her gig on it.
   await page.getByRole('button', { name: /Jane N/ }).click();

@@ -1,6 +1,10 @@
 /**
  * The Alumable demo sign-in (CAP-51, ADR #60).
  *
+ * It says plainly that it is a demo (8 Oct): the profiles are seeded people,
+ * not an Alumable account, and nothing on screen should suggest otherwise to
+ * someone who knows the real Alumable sign-in.
+ *
  * Demo-only, behind demoMode(). It dresses the diary's own token entry in the
  * Alumable brand: with personas supplied through VITE_DEMO_TOKENS it offers a
  * card per profile that signs in on one click and goes to the Alumable home;
@@ -38,8 +42,11 @@ export function AlumableWelcome() {
 
       {personas.length > 0 ? (
         <main className={styles.panel}>
-          <h1 className={styles.heading}>Sign in with Alumable</h1>
-          <p className={styles.intro}>Pick a profile to continue to your gigs.</p>
+          <h1 className={styles.heading}>Reflection Diary demo</h1>
+          <p className={styles.intro}>
+            Pick a profile to continue. These are demo profiles on seeded data, not a real
+            Alumable sign-in.
+          </p>
           <ul className={styles.personas}>
             {personas.map((persona) => (
               <li key={persona.id}>
@@ -58,7 +65,7 @@ export function AlumableWelcome() {
       ) : (
         <TokenGate
           mode="screen"
-          heading="Sign in with Alumable"
+          heading="Reflection Diary demo"
           intro="No profiles are set up on this computer. Paste a seeded token to continue."
         />
       )}

@@ -7,7 +7,7 @@
  * Alumable's other features (it is entry + home only). Demo-only.
  *
  * The header names who is signed in and offers Switch profile, which goes
- * back to the Alumable sign-in. The demo moves between four people, and Jane
+ * back to the profile picker. The demo moves between four people, and Jane
  * and Noor share the student token slot, so the sign-in's named cards are the
  * only switcher that can tell them apart.
  */
@@ -30,9 +30,13 @@ export function AlumableChrome({ children }: { children: ReactNode }) {
   return (
     <div data-brand="alumable" className={styles.frame}>
       <header className={styles.header}>
-        <Link to="/home" className={styles.brand}>
-          <img src={logo} alt="Alumable logo" className={styles.logo} />
-        </Link>
+        <div className={styles.brandRow}>
+          <Link to="/home" className={styles.brand}>
+            <img src={logo} alt="Alumable logo" className={styles.logo} />
+          </Link>
+          {/* Labelled plainly (8 Oct): a demo surround, not live Alumable. */}
+          <span className={styles.demo}>Demo</span>
+        </div>
         {me && (
           <div className={styles.who}>
             <span className={styles.name}>{me.display_name}</span>

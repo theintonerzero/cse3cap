@@ -1,11 +1,12 @@
 /**
  * CAP-51: reviewers in the demo shell.
  *
- * In the product, "/" sends someone who only reviews straight to the review
- * queue. In the demo shell "/" is My Gigs for everyone, so My Gigs has to
- * offer the way in: the same places the app's own nav would give that person
- * (nav_items_for), and the queue's back arrow returns to My Gigs rather than
- * leaving for the sign-in.
+ * "/" routes as it does in the product: someone who only reviews goes
+ * straight to the review queue. A reviewer has no Reflection Diary card on My
+ * Gigs, so My Gigs offers the reviewing places instead, the same ones the
+ * app's own nav would give that person (nav_items_for). Every way back,
+ * from the queue or from a gig opened on My Gigs, returns to My Gigs rather
+ * than leaving for the profile picker.
  *
  * Self-contained ids prefixed '5154' so they collide with no other spec's.
  */
@@ -59,6 +60,19 @@ test('an assessor reaches the Review queue from My Gigs, and its back returns th
   await page.getByRole('main').getByRole('link', { name: 'Review queue' }).click();
   await expect(page).toHaveURL(/\/review-queue$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Review queue' })).toBeVisible();
+
+  await page.getByRole('banner').getByRole('link', { name: 'Back to My Gigs' }).click();
+  await expect(page).toHaveURL(/\/home$/);
+});
+
+test("an assessor's back-arrow out of a gig returns to My Gigs", async ({ page }) => {
+  // A reviewer has no diary home: "/" would send them on to the queue under a
+  // "Back to Reflection Diary" label. In the shell the gig came from My Gigs.
+  await sign_in(page, person('Sam O', '0010', 'assessor'), 'assessor');
+  await page.goto('/home');
+
+  await page.getByRole('link', { name: /Develop AI use cases/ }).click();
+  await expect(page).toHaveURL(new RegExp(`/gigs/${GIG}`));
 
   await page.getByRole('banner').getByRole('link', { name: 'Back to My Gigs' }).click();
   await expect(page).toHaveURL(/\/home$/);

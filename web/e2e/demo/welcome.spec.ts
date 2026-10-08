@@ -77,3 +77,12 @@ test('from signed out, one click lands on My Gigs and stays there', async ({ pag
   await expect(page.getByRole('link', { name: /Develop AI use cases/ })).toBeVisible();
   await expect(page).toHaveURL(/\/home$/);
 });
+
+test('the sign-in says plainly it is a demo, not Alumable sign-in', async ({ page }) => {
+  await page.goto('/welcome');
+
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Reflection Diary demo' }),
+  ).toBeVisible();
+  await expect(page.getByText(/not a real Alumable sign-in/)).toBeVisible();
+});

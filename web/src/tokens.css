@@ -316,24 +316,26 @@
  * keeps its own. Not a second product theme -- only the demo surround reads
  * them.
  *
- * Brand orange is the Alumable wordmark (#FFA33C). It is a fill only: no text
- * sits on it except --brand-ink, at 7.6:1. Text in orange uses
- * --brand-primary-strong, darkened from #E07D12 (2.95:1 on white) to clear
- * AA: 5.29:1 on white, 5.04:1 on --brand-surface.
+ * Brand orange is the Alumable wordmark (#FFA33C). It is a fill only: the one
+ * text that sits on it is --brand-on-primary, dark ink at 7.6:1, in both
+ * themes. Text in orange uses --brand-primary-strong, darkened from #E07D12
+ * (2.95:1 on white) to clear AA: 5.29:1 on white, 5.04:1 on --brand-surface.
+ * --color-primary becomes that AA orange, so the ProgressBar fill and any
+ * primary button read as Alumable's.
  *
- * The shell draws the diary's own components (Card, ProgressBar, ErrorNotice,
- * and TokenGate when no personas are set), whose tokens flip in the dark
- * theme while the brand's do not. Unpinned, a dark Card put --brand-ink titles
- * at 1.02:1. So the second half of this block puts back, for the shell only,
- * the light value of every token the two dark blocks override: the surround
- * is light in either theme, as Alumable is. They mirror :root above, and
- * e2e/demo/contrast.spec.ts measures the rendered text in both themes so a
- * drift that matters fails. --color-primary becomes the AA orange, so the
- * ProgressBar fill and any primary button read as Alumable's.
+ * The shell follows the theme the diary is in (Patrick, 8 Oct: a light shell
+ * flashed white between dark diary screens). It used to pin the light value
+ * of every diary token so it stayed light in either theme; now the diary's
+ * own tokens flip under it as usual, and only the brand's are given a dark
+ * set, below the dark blocks. The shell draws the diary's own components
+ * (Card, ProgressBar, ErrorNotice, TokenGate), so e2e/demo/contrast.spec.ts
+ * measures the rendered text in both themes and e2e/demo/dark.spec.ts checks
+ * the surround itself goes dark.
  */
 [data-brand='alumable'] {
   --brand-primary: #ffa33c;
   --brand-primary-strong: #a85500;
+  --brand-on-primary: #2b2233;
   --brand-surface: #fff8f0;
   --brand-card: #ffffff;
   --brand-ink: #2b2233;
@@ -343,29 +345,39 @@
   --color-primary: #a85500;
   --color-primary-hover: #8f4800;
   --color-focus-ring: #a85500;
+}
 
-  --color-accent-coral: #ffe0db;
-  --color-accent-cream: #fbefd5;
-  --color-accent-evidence: #e9f3fd;
-  --color-accent-lavender: #efebfa;
-  --color-accent-mint: #e9f4ee;
-  --color-accent-peach: #ffe8d6;
-  --color-accent-pink: #ffe0fb;
-  --color-bg: #f6f7f9;
-  --color-border: #d9d9d9;
-  --color-control: #ffffff;
-  --color-danger: #8c5226;
-  --color-danger-bg: #ffe5c4;
-  --color-success: #317234;
-  --color-success-bg: #e9f4ee;
-  --color-surface: #ffffff;
-  --color-surface-alt: #f1f1f1;
-  --color-text: #202020;
-  --color-text-inverse: #ffffff;
-  --color-text-muted: #666666;
-  --section-tint-diary: #efebfa;
-  --section-tint-review: #e9f4ee;
-  --shadow-card: 0 1px 2px rgb(20 16 31 / 0.06), 0 4px 12px rgb(20 16 31 / 0.05);
-  --shadow-control: inset 0 0 0 1px #d9d9d9;
-  --shadow-sheet: 0 -8px 24px rgb(20 16 31 / 0.12);
+/*
+ * The brand in the dark theme, twice for the same reason the diary's dark
+ * set is: the system preference unless light was chosen, and an explicit
+ * dark choice. A warm near-black under the orange, so the surround reads as
+ * Alumable rather than the diary's cool grey. Orange text lightens to keep
+ * AA on it; the orange fill and the ink on it do not change.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) [data-brand='alumable'] {
+    --brand-primary-strong: #ffb562;
+    --brand-surface: #17130f;
+    --brand-card: #241d17;
+    --brand-ink: #f5ede4;
+    --brand-ink-muted: #c8b9aa;
+    --brand-border: #4a3a2b;
+
+    --color-primary: #ffa33c;
+    --color-primary-hover: #ffb562;
+    --color-focus-ring: #ffa33c;
+  }
+}
+
+:root[data-theme='dark'] [data-brand='alumable'] {
+  --brand-primary-strong: #ffb562;
+  --brand-surface: #17130f;
+  --brand-card: #241d17;
+  --brand-ink: #f5ede4;
+  --brand-ink-muted: #c8b9aa;
+  --brand-border: #4a3a2b;
+
+  --color-primary: #ffa33c;
+  --color-primary-hover: #ffb562;
+  --color-focus-ring: #ffa33c;
 }

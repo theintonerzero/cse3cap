@@ -2,7 +2,7 @@
  * The demo-shell flag and its personas (CAP-51).
  *
  * The flag gates an Alumable-branded demo harness around the diary: a
- * "Sign in with Alumable" welcome and a My Gigs home. It is off in every
+ * labelled profile picker and a My Gigs home. It is off in every
  * production build, where the app is exactly the diary with its own token
  * entry. Demo-only, not product scope (ADR #60).
  *

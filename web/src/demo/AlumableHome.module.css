@@ -51,8 +51,9 @@
 .role {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
-  /* Ink on the bright brand orange: 7.6:1. White on it was 1.99:1. */
-  color: var(--brand-ink);
+  /* Dark ink on the bright brand orange in both themes: 7.6:1. White on it
+     was 1.99:1, and --brand-ink turns light in the dark theme. */
+  color: var(--brand-on-primary);
   background: var(--brand-primary);
   border-radius: var(--radius-full);
   padding: var(--space-4) var(--space-8);
@@ -70,6 +71,13 @@
   display: block;
   margin-top: var(--space-4);
   margin-bottom: var(--space-12);
+  font-size: var(--font-size-sm);
+  color: var(--brand-ink-muted);
+}
+
+.lede {
+  display: block;
+  margin-top: var(--space-4);
   font-size: var(--font-size-sm);
   color: var(--brand-ink-muted);
 }

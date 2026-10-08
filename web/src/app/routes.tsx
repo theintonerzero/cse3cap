@@ -112,12 +112,12 @@ export function AppRoutes() {
 
       <Route element={<AppShell />}>
         {/*
-         * CAP-51: in the demo shell the diary is entered from the Alumable
-         * home, so "/" lands there. The diary's own screens stay reachable by
-         * their paths, and the back-arrow out of a gig goes to "/", which this
-         * redirect carries on to /home. ADR #60.
+         * "/" is the diary home in the demo shell too (CAP-51 follow-up). It
+         * used to redirect to /home, which left the diary home and its radar
+         * unreachable in the demo. Now My Gigs opens it from its Reflection
+         * Diary card, and its back-arrow returns to My Gigs (AppShell).
          */}
-        <Route index element={demoMode() ? <Navigate to="/home" replace /> : <Home />} />
+        <Route index element={<Home />} />
 
         <Route path="gigs/:gig_id" element={<GigDetail />} />
 

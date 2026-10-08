@@ -3,7 +3,7 @@
  *
  * The demo moves between Jane, Noor, Sam and Dr Lee. Jane and Noor share the
  * student token slot, so the diary's slot-based switcher cannot tell them
- * apart; in the demo shell every switch goes back to the Alumable sign-in,
+ * apart; in the demo shell every switch goes back to the profile picker,
  * whose cards name each person.
  *
  * Self-contained ids prefixed '5155' so they collide with no other spec's.
@@ -44,7 +44,7 @@ async function sign_in(page: Page) {
   return api;
 }
 
-test('My Gigs names who is signed in, and Switch profile returns to the sign-in', async ({
+test('My Gigs names who is signed in, and Switch profile returns to the profile picker', async ({
   page,
 }) => {
   await sign_in(page);
@@ -57,7 +57,7 @@ test('My Gigs names who is signed in, and Switch profile returns to the sign-in'
   await expect(page.getByRole('button', { name: /Noor A/ })).toBeVisible();
 });
 
-test("inside the diary, the menu's Switch user goes to the Alumable sign-in", async ({
+test("inside the diary, the menu's Switch user goes to the profile picker", async ({
   page,
 }) => {
   await sign_in(page);

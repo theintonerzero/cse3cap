@@ -16,14 +16,33 @@
   background: var(--brand-card);
 }
 
+.brandRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
 .brand {
   display: inline-flex;
 }
 
+.demo {
+  flex: none;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--brand-ink-muted);
+  border: var(--border-width-sm) solid var(--brand-border);
+  border-radius: var(--radius-full);
+  padding: 0 var(--space-8);
+}
+
 .logo {
   height: auto;
-  width: 9rem;
-  max-width: 50%;
+  /* 7rem, down from 9rem, so the Demo badge and the full name both fit
+     beside Switch profile at phone width. */
+  width: 7rem;
+  display: block;
 }
 
 .body {

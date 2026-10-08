@@ -5,8 +5,8 @@
  * scripts/check-contrast.mjs checks token pairs in tokens.css's :root and
  * dark blocks. It cannot see the shell: the [data-brand='alumable'] block
  * overrides tokens on an element, not on :root, and the shell draws the
- * diary's own components (Card, ProgressBar) whose colours flip with the
- * theme while the brand's do not. So this measures what the browser actually
+ * diary's own components (Card, ProgressBar) inside the brand's surround,
+ * both flipping with the theme. So this measures what the browser actually
  * renders: each element's computed text colour against the first opaque
  * background behind it. 4.5:1 for normal text, 3:1 for large; disabled
  * controls are exempt (WCAG 1.4.3).
@@ -143,12 +143,12 @@ for (const scheme of ['light', 'dark'] as const) {
       expect(await failures(page)).toEqual([]);
     });
 
-    test('the Alumable sign-in text meets AA', async ({ page }) => {
+    test('the demo profile picker text meets AA', async ({ page }) => {
       await new FakeApi([], ME, GIGS).install(page);
       await page.addInitScript(() => sessionStorage.clear());
       await page.goto('/welcome');
       await expect(
-        page.getByRole('heading', { name: 'Sign in with Alumable' }),
+        page.getByRole('heading', { name: 'Reflection Diary demo' }),
       ).toBeVisible();
 
       expect(await failures(page)).toEqual([]);

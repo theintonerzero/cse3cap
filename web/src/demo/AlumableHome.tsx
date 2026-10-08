@@ -6,6 +6,11 @@
  * skin. Each card links into that gig's existing diary flow at /gigs/:id, so
  * the diary opens as a feature inside Alumable rather than a separate app.
  *
+ * A student also gets a Reflection Diary card above the gigs, the way the
+ * Figma "My gigs" sheet (3:139) carries a diary row. It opens the diary home
+ * and its radar, step 1 of docs/Demo-Script.md, which the shell otherwise
+ * had no way to reach (Patrick, 8 Oct).
+ *
  * The four states are the diary's own pattern (DiaryHome.tsx): a loading
  * skeleton, an ErrorNotice with retry, an empty state for a persona on no
  * gigs, and the cards. Every call goes through the typed client; nothing here
@@ -23,6 +28,7 @@ import {
   Skeleton,
   SkeletonGroup,
 } from '../components/index.ts';
+import { diary_href } from '../app/diary-return.ts';
 import { nav_items_for } from '../app/nav.ts';
 import { gig_dates } from '../screens/gig-timing.ts';
 import { useSession } from '../session/useSession.ts';
@@ -91,17 +97,27 @@ export function AlumableHome() {
   const loading =
     session_state === 'loading' || (session_state === 'ready' && load.status === 'loading');
 
-  // In the product "/" sends a reviewer straight to their queue; here "/" is
-  // My Gigs for everyone, so it offers the same places the shell's nav would
-  // (nav_items_for), less the diary itself, which the gig cards open.
-  const shortcuts =
-    session_state === 'ready' && me
-      ? nav_items_for(me).filter((item) => item.to !== '/')
-      : [];
+  // The same places the diary's own nav offers (nav_items_for). The diary
+  // itself, which only a student has, gets a card of its own; the reviewing
+  // places are buttons above the gigs.
+  const items = session_state === 'ready' && me ? nav_items_for(me) : [];
+  const has_diary = items.some((item) => item.to === '/');
+  const shortcuts = items.filter((item) => item.to !== '/');
 
   return (
     <main data-brand="alumable" className={styles.home}>
       <h1 className={styles.heading}>My gigs</h1>
+
+      {has_diary && (
+        <Link to={diary_href(me?.id ?? null)} className={styles.card}>
+          <Card>
+            <span className={styles.title}>Reflection Diary</span>
+            <span className={styles.lede}>
+              Your radar, reflections and record across every gig
+            </span>
+          </Card>
+        </Link>
+      )}
 
       {shortcuts.length > 0 && (
         <ul className={styles.shortcuts} aria-label="Your reviewing">
