@@ -31,8 +31,11 @@ and issuing tokens; do those first.
       be the one who writes.
 - [ ] A browser window wide enough to show the radar next to the list, and a second tab if
       you want to keep Jane open while you are Sam.
-- [ ] A fallback if the network refuses port 3306: the same build against `./run mock`
-      shows every screen, with canned data that does not persist.
+- [ ] A fallback if the network refuses port 3306. First a phone hotspot: check
+      `nc -z rddb.darkovski.dev 3306` on it beforehand. Then the recorded walk-through
+      video, on the laptop and playable offline. Not `./run mock`: its data is generated
+      from the contract, so titles read "string", every profile signs in as the same
+      person, and sections 3 and 4 cannot run.
 
 On first load the app asks for a token. Paste each one into its slot: **Student** for
 Jane, **Assessor** for Sam, **Supervisor** for Dr Lee. Pick Jane's to start. Switch later
@@ -53,8 +56,12 @@ The point to make: the record belongs to the student and survives the subject.
    (ADR #58), so say it out loud here.
 3. Switch the picker to her other gig, **Data migration audit**: SFIA 9, a seven-point scale
    and six different skills, drawn by the same chart.
-4. **Export record**, the floating button at the bottom right. The whole record downloads
-   as JSON. That is the guarantee the record is hers, not the platform's.
+4. **Export record**, the floating button at the bottom right. Pick **PDF** or **JSON**, press
+   **Request a PDF export** (or JSON), then **Download** when it is ready: the whole record,
+   every gig and every sprint, in one file. That is the guarantee the record is hers, not
+   the platform's.
+5. **Gig details ›**, then **History**: every submission and assessment on that gig, dated.
+   Show it here on Jane: Noor's reflections are still drafts, and a draft has no history yet.
 
 ## 2. Writing a reflection (Noor, 4 minutes)
 
@@ -62,16 +69,21 @@ Open a second tab at `http://localhost:5173` and paste Noor's token into **Stude
 Jane's classmate on the La Trobe gig, part-way through the course.
 
 1. Open the **La Trobe** gig. The sprints are listed with their due dates. Sprint 1 holds
-   her draft. **History** shows every submission and assessment, dated.
+   her draft. (Her **History** is empty, because drafts are not events. Section 1 showed it
+   on Jane.)
 2. Her next empty sprint offers **Start reflection** on its row. Press it: the draft is
    created and opens in the stepper, which goes one competency at a time.
 3. For the first competency: write two sentences of narrative, add evidence with **Add a
-   link** (any `https://` address), and choose a self-score. Each level shows its
-   descriptor, so the student is scoring against words rather than a number.
-4. Do the same for the rest. Saving happens as you go.
-5. Press **Submit**. If anything the rubric requires is missing, the screen says what, jumps
-   to the first competency at fault and highlights every one, instead of failing
-   generically. On success the confirmation names the assessor, and the reflection is now
+   link** (give it a label and any `https://` address, then **Add link**), and choose a
+   self-score. Each level shows its descriptor, so the student is scoring against words
+   rather than a number.
+4. Do the same for the rest. Saving happens as you go. Until CAP-52 is merged, let each
+   narrative show **Saved** before pressing **Next** or **Submit**, and don't type while a
+   score is saving. Both can lose words in the current build. Delete this sentence once
+   CAP-52 is on `dev`.
+5. Press **Submit**. If anything the rubric requires is missing, the screen says what and
+   jumps to the first competency at fault, instead of failing generically. It reports one
+   kind of gap at a time: writing first, then self-scores, then evidence. On success the confirmation names the assessor, and the reflection is now
    in their review queue. Nothing is emailed: notifications are worked out from the queue,
    not sent.
 
@@ -84,10 +96,12 @@ explained.
    Noor's reflection from step 2.
 2. Open Noor's. Her narrative and evidence are read-only; her self-score is shown next to
    the assessor's choice.
-3. Score one competency below Noor's self-score and try to save without a comment. It is
-   refused: a lower counter-score needs a comment. Add one.
-4. Score the rest and press **Save all scores**. With every entry counter-scored, the
-   reflection becomes assessed by itself.
+3. Score every competency, one of them below Noor's self-score, and leave that one's
+   comment empty. Press **Submit scores**. Nothing is sent: a pop-up names the competency
+   that "needs a comment to go with its score", because a lower counter-score has to be
+   explained. **Okay** takes you to it. Add the comment.
+4. Press **Submit scores** again. With every entry counter-scored, the reflection becomes
+   assessed by itself.
 5. Point out that Sam sees only the La Trobe gig. He is not on the SFIA gig, so it does
    not exist for him. Roles are worked out per gig on the server, not sent by the browser.
 
@@ -102,7 +116,9 @@ The point to make: a new competency framework needs no code change.
 2. Both are in use, so both are read-only. Changing a rubric that students have already
    been scored against would rewrite their past.
 3. Open La Trobe and **Edit a copy**: rename the copy and reword a level
-   descriptor. Copies are editable until a reflection references them.
+   descriptor. Copies are editable until a reflection references them. After a rehearsal,
+   open that copy and press **Delete framework**, so the shared database doesn't collect a
+   "La Trobe (n)" for every run. A copy can be deleted until it is assigned.
 4. Open any rubric: under **Assign to a gig**, each gig says which rubric it already
    uses. A gig holds one rubric for good, so on the demo data none can be picked.
 
@@ -156,11 +172,23 @@ Gigs. Without `VITE_DEMO_TOKENS` the picker falls back to the seeded-token paste
 shell still works on a machine that has not set the personas up.
 
 Moving between people works differently in the shell. Where the script says to switch user,
-press **Switch profile** at the top right of My Gigs, or **Switch user** in the diary's ⋮
-menu. Both return to the profile picker, whose cards name each person, which matters
+press **Switch profile** at the top right of My Gigs, or **Switch profile** in the diary's ⋮
+menu: the same button, by the same name. Both return to the profile picker, whose cards name each person, which matters
 because Jane and Noor share the student token slot. For Sam and Dr Lee, My Gigs shows a
 **Review queue** button (and **Frameworks** for Dr Lee) above their gigs: that is the way
 into sections 3 and 4. The review queue's back-arrow returns to My Gigs.
 
 The wrapper is demo-only and flag-gated: with `VITE_DEMO_SHELL` unset the app is the diary as
 it ships, which is what every other document here describes.
+
+### Presenting without it
+
+The shell is a wrapper, not the product, and the demo does not depend on it. If it is not
+solid on the day (the team's call, 8 Oct: decide by the end of the rehearsal), turn it off.
+Delete the `VITE_DEMO_SHELL=1` line from `web/.env.development.local` and restart
+`./run dev`. Nothing else changes: no revert, no rebuild of anything else, and a production
+build never had it. The script above then runs exactly as written, from the token prompt,
+with Noor in a second tab because she and Jane share the Student slot. To show where the
+diary lives inside Alumable, put the Figma frames in the slides before the live demo: the
+Home feed's Reflection Diary card, the My gigs sheet, the Learn tab and the Profile's Record
+tab (`docs/Design-Inventory.md`, the `host app` rows).
