@@ -57,15 +57,24 @@ test('My Gigs names who is signed in, and Switch profile returns to the profile 
   await expect(page.getByRole('button', { name: /Noor A/ })).toBeVisible();
 });
 
-test("inside the diary, the menu's Switch user goes to the profile picker", async ({
+test("inside the diary, the menu's Switch profile goes to the profile picker", async ({
   page,
 }) => {
   await sign_in(page);
   await page.goto(`/gigs/${GIG}`);
 
   await page.getByRole('button', { name: 'More options' }).click();
-  await page.getByRole('menuitem', { name: 'Switch user' }).click();
+  await page.getByRole('menuitem', { name: 'Switch profile' }).click();
 
   await expect(page).toHaveURL(/\/welcome$/);
   await expect(page.getByRole('button', { name: /Noor A/ })).toBeVisible();
+});
+
+test('the diary menu has no second "Switch user" in the demo shell', async ({ page }) => {
+  // One switch button, one name (Patrick, 8 Oct): the header says Switch
+  // profile, so the diary's menu must not offer a differently named twin.
+  await sign_in(page);
+  await page.goto(`/gigs/${GIG}`);
+  await page.getByRole('button', { name: 'More options' }).click();
+  await expect(page.getByRole('menuitem', { name: 'Switch user' })).toHaveCount(0);
 });

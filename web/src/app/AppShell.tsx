@@ -206,10 +206,12 @@ export function AppShell() {
               items={[
                 {
                   kind: 'item',
-                  label: 'Switch user',
-                  // CAP-51: in the demo shell, switching goes to the Alumable
-                  // sign-in, whose cards name each person. The slot sheet
-                  // cannot: Jane and Noor share the student slot.
+                  // CAP-51: in the demo shell the header says "Switch profile",
+                  // so the menu says it too: one button, one name (Patrick,
+                  // 8 Oct). It goes to the profile picker, whose cards name
+                  // each person. The slot sheet cannot: Jane and Noor share
+                  // the student slot.
+                  label: demoMode() ? 'Switch profile' : 'Switch user',
                   on_select: demoMode()
                     ? () => {
                         leave();
