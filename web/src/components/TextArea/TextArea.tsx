@@ -58,6 +58,10 @@ export function TextArea({
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const pendingValueRef = useRef(value);
   const inflightRef = useRef<Promise<void> | null>(null);
+  // Whether the newest save was refused, so flush() tries it again rather
+  // than handing back the same old rejection ("Try again" must be able to
+  // succeed without new typing).
+  const lastFailedRef = useRef(false);
 
   useEffect(() => {
     saveRef.current = onSave;
@@ -82,9 +86,11 @@ export function TextArea({
       .then(() => {
         // A later keystroke may have started a newer save already; only
         // this save's own result should be allowed to set the status.
+        if (inflightRef.current === saving) lastFailedRef.current = false;
         if (pendingValueRef.current === toSave) updateStatus('saved');
       })
       .catch(() => {
+        if (inflightRef.current === saving) lastFailedRef.current = true;
         if (pendingValueRef.current === toSave) updateStatus('failed');
       });
     return saving;
@@ -96,9 +102,20 @@ export function TextArea({
         clearTimeout(timeoutRef.current);
         return start_save();
       }
+      if (lastFailedRef.current) return start_save();
       return inflightRef.current ?? Promise.resolve();
     },
   }));
+
+  // Leaving the box sends an edit still waiting. The unmount flush below is
+  // the backstop, but by then a parent may have cleared the session token
+  // (the demo shell's Switch user does, synchronously); the menu button
+  // takes focus first, while it is still set.
+  const handleBlur = () => {
+    if (timeoutRef.current === undefined) return;
+    clearTimeout(timeoutRef.current);
+    start_save().catch(() => {});
+  };
 
   // Leaving with an edit still waiting sends it rather than dropping it
   // (CAP-52). Nothing typed means no timer, so React's dev double-mount
@@ -143,6 +160,7 @@ export function TextArea({
         placeholder={placeholder}
         disabled={disabled}
         onChange={handleChange}
+        onBlur={handleBlur}
         aria-describedby={status !== 'idle' ? statusId : undefined}
       />
       <span

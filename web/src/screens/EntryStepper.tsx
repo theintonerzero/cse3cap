@@ -195,6 +195,15 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
   // The narrative box, so Submit can ask it to send an edit still waiting
   // out its debounce (CAP-52).
   const narrative_ref = useRef<TextAreaHandle>(null);
+  // Narrative saves in flight, from any card. A card that unmounts sends its
+  // last words as it goes, and Submit must wait for those too, not only for
+  // the card on screen (CAP-52).
+  const pending_saves = useRef(new Set<Promise<void>>());
+  const track_save = useCallback((saving: Promise<void>) => {
+    pending_saves.current.add(saving);
+    const done = () => pending_saves.current.delete(saving);
+    saving.then(done, done);
+  }, []);
   // What "Submit scores" found missing, shown in a pop-up until "Okay",
   // which goes to the first of them (round 3, Patrick 2026-10-05).
   const [missing, setMissing] = useState<SaveAllGap[] | null>(null);
@@ -460,6 +469,8 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
 
     try {
       await narrative_ref.current?.flush();
+      const settled = await Promise.allSettled([...pending_saves.current]);
+      if (settled.some((result) => result.status === 'rejected')) throw new Error();
     } catch {
       setSubmitError(
         new ApiError(
@@ -622,6 +633,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
         offending={is_offending(current, offending)}
         on_update={update_entry}
         narrative_ref={narrative_ref}
+        track_save={track_save}
         mode={mode}
         owner_name={reflection.owner.display_name}
         viewer_id={me_id}
@@ -766,6 +778,7 @@ function EntryCard({
   offending = false,
   on_update,
   narrative_ref,
+  track_save,
   mode,
   owner_name,
   viewer_id = null,
@@ -781,6 +794,8 @@ function EntryCard({
   offending?: boolean;
   on_update: EntryUpdate;
   narrative_ref: Ref<TextAreaHandle>;
+  /** Registers a save so Submit can wait for it after this card is gone. */
+  track_save: (saving: Promise<void>) => void;
   mode: StepperMode;
   owner_name: string;
   /** Who is looking, so assessor mode can leave their own score to the panel. */
@@ -815,10 +830,14 @@ function EntryCard({
         // onChange already wrote the student's keystrokes there as they
         // typed, and that is authoritative. Echoing this response would
         // revert an edit typed during this request's own round trip.
-        await api.patch('/entries/{entry_id}', {
-          path: { entry_id: entry.id },
-          body: { narrative: value },
-        });
+        const saving = api
+          .patch('/entries/{entry_id}', {
+            path: { entry_id: entry.id },
+            body: { narrative: value },
+          })
+          .then(() => {});
+        track_save(saving);
+        await saving;
         setSavedNarrative(value);
       } catch (error) {
         const api_error = as_api_error(error, 'Could not save that.');
@@ -826,7 +845,7 @@ function EntryCard({
         throw api_error; // TextArea's own status turns "failed" on a rejection.
       }
     },
-    [entry.id],
+    [entry.id, track_save],
   );
 
   // CAP-66: the scale shows a choice at once. A tap saves at once; arrow keys
