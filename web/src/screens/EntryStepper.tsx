@@ -101,6 +101,14 @@ import styles from './EntryStepper.module.css';
  */
 type StepperMode = 'student' | 'assessor';
 
+/** Applies `change` to the entry as it is now, not as a caller last saw it:
+ * a save that comes back late patches only the field it owns, so text typed
+ * while it was in flight survives (CAP-52). */
+type EntryUpdate = (
+  entry_id: string,
+  change: (entry: ReflectionEntry) => ReflectionEntry,
+) => void;
+
 type Load =
   | { status: 'loading' }
   | { status: 'error'; error: ApiError }
@@ -231,7 +239,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
     setReloadKey((key) => key + 1);
   }, []);
 
-  const update_entry = useCallback((next: ReflectionEntry) => {
+  const update_entry = useCallback<EntryUpdate>((entry_id, change) => {
     setLoad((current) => {
       if (current.status !== 'loaded') return current;
       return {
@@ -239,7 +247,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
         reflection: {
           ...current.reflection,
           entries: current.reflection.entries.map((entry) =>
-            entry.id === next.id ? next : entry,
+            entry.id === entry_id ? change(entry) : entry,
           ),
         },
       };
@@ -562,7 +570,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
         framework={load.framework}
         read_only={read_only}
         offending={is_offending(current, offending)}
-        on_change={update_entry}
+        on_update={update_entry}
         mode={mode}
         owner_name={reflection.owner.display_name}
         viewer_id={me_id}
@@ -689,7 +697,7 @@ function EntryCard({
   framework,
   read_only,
   offending = false,
-  on_change,
+  on_update,
   mode,
   owner_name,
   viewer_id = null,
@@ -699,7 +707,7 @@ function EntryCard({
   framework: FrameworkDetail;
   read_only: boolean;
   offending?: boolean;
-  on_change: (next: ReflectionEntry) => void;
+  on_update: EntryUpdate;
   mode: StepperMode;
   owner_name: string;
   /** Who is looking, so assessor mode can leave their own score to the panel. */
@@ -742,13 +750,15 @@ function EntryCard({
           path: { entry_id: entry.id },
           body: { level_id },
         });
-        const others = entry.scores.filter((existing) => existing.scorer_class !== 'self');
-        on_change({ ...entry, scores: [...others, score] });
+        on_update(entry.id, (current) => ({
+          ...current,
+          scores: [...current.scores.filter((s) => s.scorer_class !== 'self'), score],
+        }));
       } catch (error) {
         setScoreError(as_api_error(error, 'Could not save that score.').message);
       }
     },
-    [entry, on_change],
+    [entry.id, on_update],
   );
 
   const narrative = (
@@ -756,7 +766,9 @@ function EntryCard({
       <TextArea
         label={mode === 'assessor' ? `${owner_name} wrote` : 'Your reflection'}
         value={entry.narrative ?? ''}
-        onChange={(value) => on_change({ ...entry, narrative: value })}
+        onChange={(value) =>
+          on_update(entry.id, (current) => ({ ...current, narrative: value }))
+        }
         onSave={save_narrative}
         disabled={read_only}
         placeholder="What did you do, and what did you learn from it?"
@@ -865,7 +877,7 @@ function EntryCard({
         entry={entry}
         framework={framework}
         read_only={read_only}
-        on_change={on_change}
+        on_update={on_update}
       />
 
       {children}
@@ -893,12 +905,12 @@ function EvidenceList({
   entry,
   framework,
   read_only,
-  on_change,
+  on_update,
 }: {
   entry: ReflectionEntry;
   framework: FrameworkDetail;
   read_only: boolean;
-  on_change: (next: ReflectionEntry) => void;
+  on_update: EntryUpdate;
 }) {
   const [adding_link, setAddingLink] = useState(false);
   const [label, setLabel] = useState('');
@@ -911,15 +923,15 @@ function EvidenceList({
       setError(null);
       try {
         await api.delete('/evidence/{evidence_id}', { path: { evidence_id } });
-        on_change({
-          ...entry,
-          evidence: entry.evidence.filter((e) => e.id !== evidence_id),
-        });
+        on_update(entry.id, (current) => ({
+          ...current,
+          evidence: current.evidence.filter((e) => e.id !== evidence_id),
+        }));
       } catch (deleteError) {
         setError(as_api_error(deleteError, 'Could not remove that.').message);
       }
     },
-    [entry, on_change],
+    [entry.id, on_update],
   );
 
   const add_link = useCallback(
@@ -931,7 +943,10 @@ function EvidenceList({
           path: { entry_id: entry.id },
           body: { kind: 'link', label, uri },
         });
-        on_change({ ...entry, evidence: [...entry.evidence, evidence] });
+        on_update(entry.id, (current) => ({
+          ...current,
+          evidence: [...current.evidence, evidence],
+        }));
         setLabel('');
         setUri('');
         setAddingLink(false);
@@ -939,7 +954,7 @@ function EvidenceList({
         setError(as_api_error(addError, 'Could not attach that link.').message);
       }
     },
-    [entry, label, uri, on_change],
+    [entry.id, label, uri, on_update],
   );
 
   const add_file = useCallback(
@@ -956,12 +971,15 @@ function EvidenceList({
           path: { entry_id: entry.id },
           body: form,
         });
-        on_change({ ...entry, evidence: [...entry.evidence, evidence] });
+        on_update(entry.id, (current) => ({
+          ...current,
+          evidence: [...current.evidence, evidence],
+        }));
       } catch (addError) {
         setError(as_api_error(addError, 'Could not attach that file.').message);
       }
     },
-    [entry, on_change],
+    [entry.id, on_update],
   );
 
   return (
