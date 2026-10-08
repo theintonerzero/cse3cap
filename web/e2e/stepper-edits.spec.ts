@@ -211,3 +211,46 @@ test('a read-only entry with no evidence says so', async ({ page }) => {
   await page.goto(`/reflections/${SUBMITTED}`);
   await expect(page.getByText('No evidence attached.')).toBeVisible();
 });
+
+test('Submit waits for the save a card started as it was left', async ({ page, api }) => {
+  const release = api.hold('PATCH /entries/:id');
+  await page.goto(`/reflections/${DRAFT}`);
+  await narrative(page).fill('Typed on card one, then Next.');
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await expect.poll(() => narratives_sent(api)).toContain('Typed on card one, then Next.');
+
+  await page.getByRole('button', { name: 'Submit', exact: true }).click();
+  // A round trip through the same fake, sent after the click: whatever Submit
+  // was going to post has reached the fake before this does.
+  await page.evaluate(() => fetch('/api/v1/auth/me'));
+  expect(
+    api.writes().map((call) => call.route),
+    'Submit must not post while the earlier card is still saving',
+  ).not.toContain('POST /reflections/:id/submit');
+
+  release();
+  await expect(page).toHaveURL(new RegExp(`/reflections/${DRAFT}/submitted$`));
+  const routes = api.writes().map((call) => call.route);
+  expect(routes.indexOf('PATCH /entries/:id')).toBeLessThan(
+    routes.indexOf('POST /reflections/:id/submit'),
+  );
+});
+
+test('Submit retries a failed save instead of refusing on the stale failure', async ({
+  page,
+  api,
+}) => {
+  api.fail('PATCH /entries/:id', { kind: 'network' });
+  await page.goto(`/reflections/${DRAFT}`);
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await narrative(page).fill('Saved on the second try.');
+  await expect(page.getByText('Could not save')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Submit', exact: true }).click();
+
+  await expect(page).toHaveURL(new RegExp(`/reflections/${DRAFT}/submitted$`));
+  expect(narratives_sent(api)).toEqual([
+    'Saved on the second try.',
+    'Saved on the second try.',
+  ]);
+});
