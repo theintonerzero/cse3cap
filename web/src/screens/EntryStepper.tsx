@@ -36,7 +36,7 @@
  * comment.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ChangeEvent, FormEvent, ReactNode, SetStateAction } from 'react';
+import type { ChangeEvent, FormEvent, ReactNode, Ref, SetStateAction } from 'react';
 import { useNavigate, useParams } from 'react-router';
 
 import { api, ApiError } from '../api/client.ts';
@@ -55,6 +55,7 @@ import {
 // component: TextArea autosaves, and a counter-score comment must travel
 // once, with its level, in the POST. Same look, no new styles.
 import text_area_styles from '../components/TextArea/TextArea.module.css';
+import type { TextAreaHandle } from '../components/TextArea/TextArea.tsx';
 import { useSession } from '../session/useSession.ts';
 import type { SessionUser } from '../session/useSession.ts';
 import {
@@ -169,6 +170,9 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
   // Whose kept work has been read back (`${me_id}:${reflection_id}`), so
   // nothing is written over it before it has been (round 3, ADR #57).
   const restored = useRef<string | null>(null);
+  // The narrative box, so Submit can ask it to send an edit still waiting
+  // out its debounce (CAP-52).
+  const narrative_ref = useRef<TextAreaHandle>(null);
   // What "Submit scores" found missing, shown in a pop-up until "Okay",
   // which goes to the first of them (round 3, Patrick 2026-10-05).
   const [missing, setMissing] = useState<SaveAllGap[] | null>(null);
@@ -430,6 +434,20 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
     setSubmitError(null);
 
     try {
+      await narrative_ref.current?.flush();
+    } catch {
+      setSubmitError(
+        new ApiError(
+          0,
+          null,
+          'Your last edit did not save, so nothing was submitted. Check the connection and try again.',
+        ),
+      );
+      setSubmitting(false);
+      return;
+    }
+
+    try {
       await api.post('/reflections/{reflection_id}/submit', { path: { reflection_id } });
       navigate(`/reflections/${reflection_id}/submitted`);
     } catch (error) {
@@ -571,6 +589,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
         read_only={read_only}
         offending={is_offending(current, offending)}
         on_update={update_entry}
+        narrative_ref={narrative_ref}
         mode={mode}
         owner_name={reflection.owner.display_name}
         viewer_id={me_id}
@@ -698,6 +717,7 @@ function EntryCard({
   read_only,
   offending = false,
   on_update,
+  narrative_ref,
   mode,
   owner_name,
   viewer_id = null,
@@ -708,6 +728,7 @@ function EntryCard({
   read_only: boolean;
   offending?: boolean;
   on_update: EntryUpdate;
+  narrative_ref: Ref<TextAreaHandle>;
   mode: StepperMode;
   owner_name: string;
   /** Who is looking, so assessor mode can leave their own score to the panel. */
@@ -770,6 +791,7 @@ function EntryCard({
           on_update(entry.id, (current) => ({ ...current, narrative: value }))
         }
         onSave={save_narrative}
+        ref={narrative_ref}
         disabled={read_only}
         placeholder="What did you do, and what did you learn from it?"
       />
@@ -985,6 +1007,10 @@ function EvidenceList({
   return (
     <div className={styles.evidence}>
       <p className={styles.field_label}>Evidence</p>
+
+      {read_only && entry.evidence.length === 0 && (
+        <p className={styles.evidence_empty}>No evidence attached.</p>
+      )}
 
       {entry.evidence.length > 0 && (
         <ul className={styles.evidence_list}>
