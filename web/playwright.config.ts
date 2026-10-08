@@ -88,7 +88,7 @@ export default defineConfig({
     {
       name: 'demo',
       use: { ...devices['Desktop Chrome'], baseURL: ORIGIN_DEMO },
-      testMatch: ['**/demo/**'],
+      testMatch: ['**/demo/**/*.spec.ts'],
       testIgnore: ['**/demo/welcome-paste.spec.ts'],
     },
     // CAP-51: the demo shell, flag on, no persona tokens, so the welcome

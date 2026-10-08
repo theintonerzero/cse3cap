@@ -1,79 +1,39 @@
 /**
- * CAP-51: the Alumable demo welcome, with persona tokens present.
+ * CAP-51: the demo sign-in, with persona tokens present (ADR #61).
  *
- * Runs on the `demo` project (VITE_DEMO_SHELL=1, VITE_DEMO_TOKENS set). A
- * persona signs in on one click and lands on the Alumable home. The backend
- * is the same fake every other spec uses; the token is a placeholder it never
- * checks.
- *
- * Self-contained ids prefixed '5151' (CAP-51) so they collide with no other
- * spec's.
+ * Runs on the `demo` project. With nobody signed in, the token gate is
+ * replaced in place by a one-click picker of named people, labelled plainly
+ * as a demo. Picking one signs in and leaves the app where the product would
+ * be: at "/", which for a student is the diary home.
  */
-import { test as base, expect } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 
-import type { components } from '../../src/api/schema.ts';
-import { FakeApi, type GigDetail } from '../fake-api.ts';
+import { shell } from './people.ts';
 
-type Me = components['schemas']['Me'];
-
-const id = (n: string) => `5151${n}-0000-4515-8515-515151515151`;
-const JANE = id('0001');
-const FRAMEWORK = id('0002');
-const GIG = id('0003');
-
-const gig: GigDetail = {
-  id: GIG,
-  title: 'Develop AI use cases',
-  org_name: 'Alumable',
-  starts_on: '2026-08-01',
-  ends_on: '2026-11-01',
-  my_role: 'student',
-  sprints: [{ id: id('0004'), ordinal: 1, opens_on: '2026-08-01', due_on: '2026-08-14' }],
-  framework: { id: FRAMEWORK, fw_key: 'e2e-demo', name: 'E2E rubric', version: 'v1' },
-  reflection_summary: { draft: 0, submitted: 1, assessed: 0 },
-  participants: [{ id: JANE, display_name: 'Jane N', role: 'student' }],
-};
-
-const me: Me = {
-  id: JANE,
-  display_name: 'Jane N',
-  participations: [{ gig_id: GIG, gig_title: gig.title, role: 'student' }],
-};
-
-const test = base.extend<{ api: FakeApi }>({
-  api: [
-    async ({ page }, provide) => {
-      const api = new FakeApi([], me, [gig]);
-      await api.install(page);
-      await provide(api);
-      expect(api.unexpected, 'requests the fake does not serve').toEqual([]);
-    },
-    { auto: true },
-  ],
-});
-
-test('welcome shows Alumable branding and a persona signs in on one click', async ({
-  page,
-  api,
-}) => {
-  await page.goto('/welcome');
+test('the picker is plainly a demo, with the Alumable logo', async ({ page }) => {
+  await shell(page);
+  await page.goto('/');
 
   await expect(page.getByRole('img', { name: /alumable/i })).toBeVisible();
-
-  await page.getByRole('button', { name: /Jane N/ }).click();
-
-  await expect(page).toHaveURL(/\/home$/);
-  expect(api.calls.some((call) => call.route === 'GET /auth/me')).toBe(true);
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Reflection Diary demo' }),
+  ).toBeVisible();
+  await expect(page.getByText(/not a real Alumable sign-in/)).toBeVisible();
+  for (const name of ['Jane N', 'Noor A', 'Sam O', 'Dr Lee']) {
+    await expect(page.getByRole('button', { name: new RegExp(name) })).toBeVisible();
+  }
 });
 
-test('from signed out, one click lands on My Gigs and stays there', async ({ page }) => {
-  // The real demo starts here: a fresh tab with no token. The first click must
-  // not bounce back to the sign-in while the new session is still resolving.
-  await page.addInitScript(() => sessionStorage.clear());
-  await page.goto('/welcome');
+test('one click as Jane opens her diary home, and it stays', async ({ page }) => {
+  const api = await shell(page);
+  await page.goto('/');
 
   await page.getByRole('button', { name: /Jane N/ }).click();
 
-  await expect(page.getByRole('link', { name: /Develop AI use cases/ })).toBeVisible();
-  await expect(page).toHaveURL(/\/home$/);
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Reflection Diary' }),
+  ).toBeVisible();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole('heading', { name: 'Reflection Diary demo' })).toHaveCount(0);
+  expect(api.unexpected, 'requests the fake does not serve').toEqual([]);
 });
