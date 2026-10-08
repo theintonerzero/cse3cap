@@ -67,6 +67,7 @@ export function AlumableWelcome() {
           mode="screen"
           heading="Reflection Diary demo"
           intro="No profiles are set up on this computer. Paste a seeded token to continue."
+          on_done={() => navigate('/home')}
         />
       )}
     </div>

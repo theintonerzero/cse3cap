@@ -46,3 +46,38 @@ test('with no demo tokens the welcome falls back to the seeded-token paste', asy
   await expect(page.getByRole('button', { name: /Student/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /Jane N/ })).toHaveCount(0);
 });
+
+test('a pasted token at /welcome goes on to My Gigs', async ({ page }) => {
+  // After Switch profile on a machine with no personas set up, the paste used
+  // to sign in and then sit on /welcome with nothing to say it had worked.
+  await page.goto('/welcome');
+  await page.getByRole('button', { name: /Student/ }).click();
+  await page.getByRole('textbox', { name: 'Paste the student token' }).fill('1|demo-paste');
+  await page.getByRole('button', { name: 'Use this token' }).click();
+
+  await expect(page).toHaveURL(/\/home$/);
+  await expect(page.getByRole('heading', { level: 1, name: 'My gigs' })).toBeVisible();
+});
+
+test('a rejected pasted token comes back to the picker, saying so', async ({
+  page,
+  api,
+}) => {
+  api.fail('GET /auth/me', {
+    kind: 'error',
+    status: 401,
+    code: 'UNAUTHENTICATED',
+    message: 'Bad token.',
+  });
+  // Start signed out, so the paste's own /auth/me is the one that is refused:
+  // install() seeds a supervisor token, whose load-time /auth/me would
+  // otherwise take the injected 401.
+  await page.addInitScript(() => sessionStorage.clear());
+  await page.goto('/welcome');
+  await page.getByRole('button', { name: /Student/ }).click();
+  await page.getByRole('textbox', { name: 'Paste the student token' }).fill('1|wrong');
+  await page.getByRole('button', { name: 'Use this token' }).click();
+
+  await expect(page).toHaveURL(/\/welcome$/);
+  await expect(page.getByRole('alert')).toContainText('That token was rejected');
+});
