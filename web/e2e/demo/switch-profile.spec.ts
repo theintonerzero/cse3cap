@@ -76,5 +76,8 @@ test('the diary menu has no second "Switch user" in the demo shell', async ({ pa
   await sign_in(page);
   await page.goto(`/gigs/${GIG}`);
   await page.getByRole('button', { name: 'More options' }).click();
+  // The menu is open, and its switch says Switch profile: only then does the
+  // absence of "Switch user" mean anything.
+  await expect(page.getByRole('menuitem', { name: 'Switch profile' })).toBeVisible();
   await expect(page.getByRole('menuitem', { name: 'Switch user' })).toHaveCount(0);
 });

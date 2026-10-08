@@ -50,6 +50,8 @@ test('with no demo tokens the welcome falls back to the seeded-token paste', asy
 test('a pasted token at /welcome goes on to My Gigs', async ({ page }) => {
   // After Switch profile on a machine with no personas set up, the paste used
   // to sign in and then sit on /welcome with nothing to say it had worked.
+  // Signed out first, as after Switch profile: install() seeds a token.
+  await page.addInitScript(() => sessionStorage.clear());
   await page.goto('/welcome');
   await page.getByRole('button', { name: /Student/ }).click();
   await page.getByRole('textbox', { name: 'Paste the student token' }).fill('1|demo-paste');
@@ -57,6 +59,9 @@ test('a pasted token at /welcome goes on to My Gigs', async ({ page }) => {
 
   await expect(page).toHaveURL(/\/home$/);
   await expect(page.getByRole('heading', { level: 1, name: 'My gigs' })).toBeVisible();
+  // And it stays: the new session resolves into My Gigs, not back to the picker.
+  await expect(page.getByText(/No gigs yet/)).toBeVisible();
+  await expect(page).toHaveURL(/\/home$/);
 });
 
 test('a rejected pasted token comes back to the picker, saying so', async ({

@@ -39,8 +39,8 @@ and issuing tokens; do those first.
 
 On first load the app asks for a token. Paste each one into its slot: **Student** for
 Jane, **Assessor** for Sam, **Supervisor** for Dr Lee. Pick Jane's to start. Switch later
-by clicking the name at the top left, which opens **Switch user**. Tokens are kept per tab,
-so Noor gets a second tab of her own in step 2.
+from the ⋮ menu at the top right: **Switch user**. Tokens are kept per tab, so Noor gets a
+second tab of her own in step 2.
 
 ## 1. The record a student keeps (Jane, 3 minutes)
 
@@ -83,9 +83,9 @@ Jane's classmate on the La Trobe gig, part-way through the course.
    CAP-52 is on `dev`.
 5. Press **Submit**. If anything the rubric requires is missing, the screen says what and
    jumps to the first competency at fault, instead of failing generically. It reports one
-   kind of gap at a time: writing first, then self-scores, then evidence. On success the confirmation names the assessor, and the reflection is now
-   in their review queue. Nothing is emailed: notifications are worked out from the queue,
-   not sent.
+   kind of gap at a time: writing first, then self-scores, then evidence. On success the
+   confirmation names the assessor, and the reflection is now in their review queue.
+   Nothing is emailed: notifications are worked out from the queue, not sent.
 
 ## 3. Assessing it (Sam, 4 minutes)
 
@@ -211,8 +211,8 @@ shell still works on a machine that has not set the personas up.
 
 Moving between people works differently in the shell. Where the script says to switch user,
 press **Switch profile** at the top right of My Gigs, or **Switch profile** in the diary's ⋮
-menu: the same button, by the same name. Both return to the profile picker, whose cards name each person, which matters
-because Jane and Noor share the student token slot. For Sam and Dr Lee, My Gigs shows a
+menu: the same button, by the same name. Both return to the profile picker, whose cards
+name each person, which matters because Jane and Noor share the student token slot. For Sam and Dr Lee, My Gigs shows a
 **Review queue** button (and **Frameworks** for Dr Lee) above their gigs: that is the way
 into sections 3 and 4. The review queue's back-arrow returns to My Gigs.
 
