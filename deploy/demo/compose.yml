@@ -34,6 +34,24 @@ services:
     mem_limit: 128m
     networks: [web]
 
+  # The AI sidecar (CAP-69, ADR #64). Its env file is optional: before it
+  # exists on the box the sidecar starts with AI off and no database, and the
+  # app shows no AI, so the timer can ship this before the box is ready.
+  diary-ai:
+    image: diary-ai:${DIARY_SHA:?set by scripts/deploy-demo.sh}
+    build:
+      context: ../..
+      dockerfile: deploy/demo/ai.Dockerfile
+    restart: unless-stopped
+    env_file:
+      - path: ${DIARY_HOME:-/home/ubuntu/diary}/shared/ai.env
+        required: false
+    # As diary-api: the certificate names rddb.darkovski.dev.
+    external_links:
+      - "mysql:rddb.darkovski.dev"
+    mem_limit: 2g
+    networks: [web]
+
 networks:
   web:
     external: true

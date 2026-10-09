@@ -349,6 +349,34 @@ else:
               r.stdout + r.stderr)
 
 # ---------------------------------------------------------------------------
+print("deploy/demo: the AI sidecar (CAP-69, ADR #64)")
+ai_df = read(DEMO / "ai.Dockerfile")
+ai_env = read(DEMO / "ai.env.example")
+check("ai.Dockerfile builds the sidecar from the lockfile, without dev tools",
+      "uv sync --frozen --no-dev" in ai_df, ai_df)
+check("the embedding model is baked into the image, not fetched on the first request",
+      "FASTEMBED_CACHE_PATH" in ai_df and "FastEmbedder()" in ai_df, ai_df)
+check("it serves the app factory on 8000, not as root",
+      "sidecar.app:create_app" in ai_df and "--factory" in ai_df and "8000" in ai_df
+      and re.search(r"^USER\s+(?!root)\S+", ai_df, re.M) is not None, ai_df)
+ai_service = re.search(r"\n  diary-ai:\n((?:    .*\n|\s*\n)+)", compose)
+svc = ai_service.group(1) if ai_service else ""
+check("compose runs it as diary-ai, built from ai.Dockerfile at the deployed SHA",
+      "diary-ai:${DIARY_SHA" in svc and "dockerfile: deploy/demo/ai.Dockerfile" in svc, svc or compose)
+check("its env file is optional, so a deploy before the box is ready still starts it, with AI off",
+      re.search(r"env_file:\s*\n\s*- path: .*shared/ai\.env\s*\n\s*required: false", svc) is not None, svc)
+check("it reaches rddb by the name its certificate carries, like the API",
+      '"mysql:rddb.darkovski.dev"' in svc, svc)
+check("it is held to 2g", "mem_limit: 2g" in svc, svc)
+check("ai.env.example starts with AI off and holds no key",
+      re.search(r"^AI_ENABLED=false$", ai_env, re.M) is not None
+      and re.search(r"^ANTHROPIC_API_KEY=$", ai_env, re.M) is not None, ai_env)
+check("ai.env.example verifies the database name over TLS with the repo's roots",
+      "DATABASE_CA=" in ai_env and "letsencrypt-roots.pem" in ai_env, ai_env)
+for f in ("ai.Dockerfile", "ai.env.example"):
+    check(f"deploy/demo/{f} holds no secret",
+          re.search(r"sk-ant-[A-Za-z0-9_-]{10,}", read(DEMO / f)) is None)
+
 print("deploy/demo/site.caddy with a generated gate")
 # ---------------------------------------------------------------------------
 GATE_SCRIPT = ROOT / "scripts" / "demo-gate.sh"
