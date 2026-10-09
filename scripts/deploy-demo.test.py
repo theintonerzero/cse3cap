@@ -62,6 +62,13 @@ for path in demo_files:
     hit = secret.search(path.read_text(errors="ignore"))
     check(f"{path.relative_to(ROOT)} holds no secret", hit is None, hit.group(0) if hit else "")
 
+print("deploy/demo/api.Dockerfile")
+api_df = read(DEMO / "api.Dockerfile")
+# The first migration loads db/01-schema.sql (source of truth one) from beside
+# api/, and MYSQL_ATTR_SSL_CA names db/letsencrypt-roots.pem the same way.
+check("the image carries db/ beside api/, schema included",
+      re.search(r"^COPY db/ /app/db/\s*$", api_df, re.M) is not None, api_df)
+
 print("deploy/demo/web.Caddyfile")
 web = read(DEMO / "web.Caddyfile")
 check("personas.json is never cached", re.search(r"personas\.json[\s\S]*?no-store", web) is not None, web)

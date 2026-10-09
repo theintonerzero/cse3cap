@@ -13,8 +13,9 @@ COPY api/ ./
 RUN composer dump-autoload --no-dev --optimize --classmap-authoritative \
  && rm -f .env
 
-# The CA bundle MYSQL_ATTR_SSL_CA names, relative to api/.
-COPY db/letsencrypt-roots.pem /app/db/letsencrypt-roots.pem
+# db/ beside api/, as in the repository: the first migration loads
+# db/01-schema.sql, and MYSQL_ATTR_SSL_CA names db/letsencrypt-roots.pem.
+COPY db/ /app/db/
 # The reset builds personas.json here; the box has no PHP.
 COPY scripts/demo-personas.php /app/scripts/demo-personas.php
 COPY scripts/lib/token-for.php scripts/lib/demo-people.php /app/scripts/lib/
