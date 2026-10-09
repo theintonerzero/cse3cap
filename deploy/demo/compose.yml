@@ -1,0 +1,41 @@
+# The live demo (CAP-54, ADR #62). Its own compose project, so bringing the
+# diary up or down never touches MySQL or Caddy in /home/ubuntu/server.
+# scripts/deploy-demo.sh sets DIARY_SHA and DIARY_HOME; nothing here is secret.
+name: diary
+
+services:
+  diary-api:
+    image: diary-api:${DIARY_SHA:?set by scripts/deploy-demo.sh}
+    build:
+      context: ../..
+      dockerfile: deploy/demo/api.Dockerfile
+    restart: unless-stopped
+    env_file: ${DIARY_HOME:-/home/ubuntu/diary}/shared/api.env
+    volumes:
+      - diary_storage:/app/api/storage
+    # The certificate is issued for rddb.darkovski.dev, so the name must stay;
+    # the host gateway reaches MySQL's published 3306 without leaving the box.
+    extra_hosts:
+      - "rddb.darkovski.dev:host-gateway"
+    mem_limit: 512m
+    networks: [web]
+
+  diary-web:
+    image: diary-web:${DIARY_SHA:?set by scripts/deploy-demo.sh}
+    build:
+      context: ../..
+      dockerfile: deploy/demo/web.Dockerfile
+    restart: unless-stopped
+    depends_on: [diary-api]
+    volumes:
+      - ${DIARY_HOME:-/home/ubuntu/diary}/shared/demo:/srv/demo:ro
+    mem_limit: 128m
+    networks: [web]
+
+networks:
+  web:
+    external: true
+    name: server_web
+
+volumes:
+  diary_storage:
