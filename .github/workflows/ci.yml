@@ -299,6 +299,39 @@ jobs:
         if: failure()
         run: cat "$RUNNER_TEMP/serve.log" || true
 
+  ai:
+    name: AI sidecar
+    runs-on: ubuntu-latest
+    # ADR #64. The store tests get a throwaway MySQL of their own, never the
+    # shared server: they drop and recreate every table.
+    services:
+      mysql:
+        image: mysql:9.7
+        env:
+          MYSQL_ROOT_PASSWORD: test
+          MYSQL_DATABASE: diary_ai
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -ptest"
+          --health-interval=5s --health-timeout=5s --health-retries=30
+    defaults:
+      run:
+        working-directory: ai
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10
+
+      - name: Install
+        run: uv sync --locked
+
+      # The test that loads the real embedding model is marked slow and left
+      # out here, as it is locally by default.
+      - name: Tests
+        env:
+          AI_TEST_DATABASE_URL: mysql://root:test@127.0.0.1:3306/diary_ai
+        run: uv run pytest -v
+
   frontend:
     name: Frontend
     runs-on: ubuntu-latest

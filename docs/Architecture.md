@@ -52,6 +52,10 @@ Two things the picture is deliberately showing.
 - **The contract sits between the two halves, not inside either.** `schema.ts` is generated
   from it and the API's routes are compared against it in CI
   (`scripts/check-contract-drift.sh`, CAP-25). Neither side writes types for the other.
+- **The AI sidecar is beside the API, not inside it** (ADR #64). `ai/` is a Python service at
+  `/ai/v1` with its own contract and its own database, `diary_ai`. It reads the API with the
+  caller's own token and never writes to it, so authorisation keeps its one home in Laravel.
+  It is off unless `AI_ENABLED` is set, and the picture above is the whole product without it.
 - **The database is not on anyone's laptop.** Five people and the test suite's own schema
   share one MySQL on the VPS, and it refuses unencrypted connections. A missing CA reads as
   "Access denied", not as a TLS error (`docs/Runbook.md`).
