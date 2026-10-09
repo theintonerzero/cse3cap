@@ -29,6 +29,9 @@ jobs:
       - name: Lint the OpenAPI contract
         run: npx -y @redocly/cli@latest lint docs/openapi.yaml
 
+      - name: Lint the AI sidecar's contract (ADR #64)
+        run: npx -y @redocly/cli@latest lint docs/ai-openapi.yaml
+
       # CAP-25. Both halves of the seam against the contract, in one job:
       # web/src/api/schema.ts must be what the contract generates, and
       # Laravel's routes must be its operations. Each drifts silently

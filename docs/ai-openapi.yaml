@@ -1,0 +1,85 @@
+openapi: 3.1.0
+info:
+  title: Reflection Diary AI sidecar
+  version: 0.1.0
+  description: >
+    The AI sidecar (ADR #64). Off unless AI_ENABLED is set, when every route
+    answers 404 AI_DISABLED. Every request is resolved through the diary's
+    /auth/me first, with the caller's own bearer token, and the sidecar never
+    writes to the diary. Same error envelope and snake_case as docs/openapi.yaml.
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+servers:
+  - url: /ai/v1
+security:
+  - bearer: []
+paths:
+  /status:
+    get:
+      operationId: getStatus
+      summary: Which AI features are on.
+      description: >
+        Called once per session by the frontend. A 404 or a network failure
+        means no AI element renders and every screen is as it is without AI.
+      responses:
+        "200":
+          description: On, with the features this deployment serves.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Status"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "503":
+          $ref: "#/components/responses/Error"
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+  responses:
+    Error:
+      description: The diary's error envelope.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    Status:
+      type: object
+      required: [features]
+      properties:
+        features:
+          type: array
+          items:
+            type: string
+            enum: [coach, related, calibration, search, themes]
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, details]
+          properties:
+            code:
+              type: string
+              enum:
+                - UNAUTHENTICATED
+                - ROLE_FORBIDDEN
+                - NOT_FOUND
+                - VALIDATION_FAILED
+                - AI_DISABLED
+                - AI_RATE_LIMITED
+                - AI_UNAVAILABLE
+            message:
+              type: string
+            details:
+              type: object
+              description: >
+                AI_RATE_LIMITED carries retry_after, in seconds. AI_UNAVAILABLE
+                carries reason, one of timeout, upstream, refusal,
+                invalid_reply, daily_cap.

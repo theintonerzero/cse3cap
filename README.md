@@ -599,6 +599,7 @@ and the reasoning behind the unusual decisions.
 | [`docs/Retention-and-Erasure.md`](docs/Retention-and-Erasure.md) | What is kept, what can be deleted, and what cannot            |
 | [`docs/Framework-Swap-Verification.md`](docs/Framework-Swap-Verification.md) | Proof the rubric is data, and what the seed cannot prove |
 | [`docs/openapi.yaml`](docs/openapi.yaml)                         | Machine-readable contract, source of truth                    |
+| [`docs/ai-openapi.yaml`](docs/ai-openapi.yaml)                   | The AI sidecar's contract, `/ai/v1` (ADR #64)                 |
 | [`docs/Stack-and-Build-Scope.md`](docs/Stack-and-Build-Scope.md) | What is being built, and the definition of done               |
 | [`docs/adr/`](docs/adr/)                                         | Architecture decision records                                 |
 | [`docs/Security-Review.md`](docs/Security-Review.md)             | Security reviews, appended per change                         |
