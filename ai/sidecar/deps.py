@@ -13,6 +13,7 @@ class Deps:
     store: object
     embedder: object
     limiter: object
+    themes: object = None  # ThemeCache; optional so features that don't use it build Deps without it
 
 
 def get_deps(request: Request) -> Deps:

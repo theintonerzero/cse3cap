@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 import httpx
 from fastapi import APIRouter, Depends, FastAPI, Request
 
-from . import errors, routes_calibration, routes_coach, routes_related, routes_search
+from . import errors, routes_calibration, routes_coach, routes_related, routes_search, routes_themes
 from .caller import Caller, caller
 from .config import Settings
 
@@ -27,10 +27,11 @@ async def _build_deps(settings: Settings):
     from .limits import RateLimiter
     from .spend import SpendLedger
     from .store import VectorStore
+    from .themes import ThemeCache
 
     pool = await connect(settings.database_url)
     gateway = ClaudeGateway(client_for(settings.anthropic_api_key), SpendLedger(pool, settings.daily_cap_usd), settings.model)
-    return pool, Deps(gateway=gateway, store=VectorStore(pool), embedder=FastEmbedder(), limiter=RateLimiter(pool))
+    return pool, Deps(gateway=gateway, store=VectorStore(pool), embedder=FastEmbedder(), limiter=RateLimiter(pool), themes=ThemeCache(pool))
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -61,5 +62,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     routes_related.register(router)
     routes_calibration.register(router)
     routes_search.register(router)
+    routes_themes.register(router)
     app.include_router(router)
     return app

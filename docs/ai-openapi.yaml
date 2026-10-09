@@ -169,12 +169,48 @@ paths:
         "503":
           $ref: "#/components/responses/Error"
 
+  /gigs/{gig_id}/themes:
+    get:
+      operationId: getThemes
+      summary: Three to five recurring themes across a gig's reflections.
+      description: >
+        For the gig's assessors and supervisors, by the diary's /auth/me, and
+        not for anyone who is also a student on it. Read from the submitted
+        and assessed reflections' narratives, never drafts and never names.
+        Claude is asked once per gig per UTC day; every other request that
+        day is served from the cache. Fewer than five narratives is an empty
+        list, with no Claude call.
+      parameters:
+        - $ref: "#/components/parameters/GigId"
+      responses:
+        "200":
+          description: The themes, possibly none.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Themes"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+        "503":
+          $ref: "#/components/responses/Error"
+
 components:
   securitySchemes:
     bearer:
       type: http
       scheme: bearer
   parameters:
+    GigId:
+      name: gig_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     ReflectionId:
       name: reflection_id
       in: path
@@ -260,6 +296,15 @@ components:
               excerpt:
                 type: string
                 description: The narrative's first line, cut at a word.
+    Themes:
+      type: object
+      required: [themes]
+      properties:
+        themes:
+          type: array
+          maxItems: 5
+          items:
+            type: string
     Status:
       type: object
       required: [features]
