@@ -99,6 +99,7 @@ All of these run on the box, reached with `ssh accord`.
 
 | To | Run |
 | --- | --- |
+| Present it on a laptop or projector | Open `https://diary.darkovski.dev/phone`: the app in a Galaxy S24 Ultra frame, at the phone's own size (CAP-55) |
 | Hold it still for a presentation | `touch /home/ubuntu/diary/freeze`, and `rm` it afterwards |
 | Start the data again | `/home/ubuntu/diary/src/scripts/demo-reset.sh`. Everyone signed in reloads |
 | Go back to the commit before | `/home/ubuntu/diary/bin/deploy-demo.sh $(cat /home/ubuntu/diary/previous)`. This freezes the timer; `rm /home/ubuntu/diary/freeze` to follow `dev` again |
