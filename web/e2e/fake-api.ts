@@ -454,6 +454,24 @@ export class FakeApi {
       return route.fulfill({ status: 204 });
     }
 
+    // Saving a narrative. Shape only: the stepper's draft-only rule is the API's.
+    if (key === 'PATCH /entries/:id') {
+      for (const reflection of this.reflections) {
+        if (!('entries' in reflection)) continue;
+        const entry = reflection.entries.find((e) => e.id === id);
+        if (!entry) continue;
+        entry.narrative = (body as { narrative: string | null }).narrative;
+        return reply(route, 200, {
+          id: entry.id,
+          reflection_id: reflection.id,
+          competency_id: entry.competency_id,
+          narrative: entry.narrative,
+          updated_at: '2026-10-05T00:00:00.000000Z',
+        });
+      }
+      return reply(route, 404, envelope('NOT_FOUND', 'Not found.'));
+    }
+
     if (key === 'PATCH /competencies/:id') {
       for (const framework of this.frameworks) {
         const competency = framework.competencies.find((c) => c.id === id);

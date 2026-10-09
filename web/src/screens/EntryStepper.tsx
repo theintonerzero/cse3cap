@@ -57,6 +57,7 @@ import {
 import button_styles from '../components/Button/Button.module.css';
 import text_area_styles from '../components/TextArea/TextArea.module.css';
 import { CoachPanel } from '../ai/CoachPanel.tsx';
+import { RelatedDisclosure } from '../ai/RelatedDisclosure.tsx';
 import { useAiStatus } from '../ai/useAiStatus.ts';
 import { useSession } from '../session/useSession.ts';
 import type { SessionUser } from '../session/useSession.ts';
@@ -580,6 +581,9 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
         owner_name={reflection.owner.display_name}
         viewer_id={me_id}
         coach_reflection_id={!read_only && ai_features?.has('coach') ? reflection.id : null}
+        related_reflection_id={
+          !read_only && ai_features?.has('related') ? reflection.id : null
+        }
       >
         {mode === 'assessor' && me && (
           <CounterScorePanel
@@ -710,6 +714,7 @@ function EntryCard({
   owner_name,
   viewer_id = null,
   coach_reflection_id = null,
+  related_reflection_id = null,
   children,
 }: {
   entry: ReflectionEntry;
@@ -723,12 +728,17 @@ function EntryCard({
   viewer_id?: string | null;
   /** ADR #64: the reflection to coach on, when this card may show the coach. */
   coach_reflection_id?: string | null;
+  /** ADR #64: the reflection to find earlier, similar entries for, when shown. */
+  related_reflection_id?: string | null;
   /** The assessor's own score, last in the card so it reads after the evidence. */
   children?: ReactNode;
 }) {
   const self_label = mode === 'assessor' ? `${owner_name}'s self-score` : 'Self-score';
   const [narrative_error, setNarrativeError] = useState<string | null>(null);
   const [score_error, setScoreError] = useState<string | null>(null);
+  // Counts saves, not keystrokes: similar reflections are looked up again
+  // when the narrative settles.
+  const [saves, setSaves] = useState(0);
   const levels = levels_for(framework, entry.competency_id);
   const self_score = self_score_of(entry);
 
@@ -744,6 +754,7 @@ function EntryCard({
           path: { entry_id: entry.id },
           body: { narrative: value },
         });
+        setSaves((n) => n + 1);
       } catch (error) {
         const api_error = as_api_error(error, 'Could not save that.');
         setNarrativeError(api_error.message);
@@ -883,6 +894,13 @@ function EntryCard({
           reflection_id={coach_reflection_id}
           entry_id={entry.id}
           narrative={entry.narrative ?? ''}
+        />
+      )}
+      {related_reflection_id && (
+        <RelatedDisclosure
+          reflection_id={related_reflection_id}
+          entry_id={entry.id}
+          saved={saves}
         />
       )}
       {counter_scores}

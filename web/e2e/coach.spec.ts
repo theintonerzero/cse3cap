@@ -108,6 +108,7 @@ test('no coach on a submitted reflection', async ({ page, api }) => {
 
 test('no coach when the sidecar does not serve it', async ({ page, api }) => {
   api.ai_status(['related']);
+  api.ai_reply('GET /reflections/:id/entries/:id/related', { entries: [] });
   await page.goto(`/reflections/${DRAFT}`);
   await expect(page.getByText('Competency 1 of 2')).toBeVisible();
   await page.waitForLoadState('networkidle');

@@ -25,6 +25,10 @@ export const DRAFT = id('0005');
 export const SUBMITTED = id('0006');
 export const LONG_ENTRY = id('00e0');
 export const SHORT_ENTRY = id('00e1');
+export const EARLIER = id('0004');
+export const EARLIER_ENTRY = id('01e0');
+export const EARLIER_TEXT =
+  'In sprint one I raised a blocker about the test database in standup, and Sam paired with me that afternoon to sort it out.';
 
 export const LONG =
   'I kept the team updated on my blockers during standups, and when the migration stalled on Wednesday I posted it in the channel before lunch.';
@@ -113,6 +117,18 @@ export function reflection_for_tests(
   };
 }
 
+/** Jane's assessed sprint 1, the earlier reflection similar-reflections points at. */
+export function earlier_reflection(): ReflectionDetail {
+  const r = reflection_for_tests(EARLIER, 'assessed');
+  r.sprint_ordinal = 1;
+  r.entries = r.entries.map((e, n) => ({
+    ...e,
+    id: n === 0 ? EARLIER_ENTRY : id(`01e${n}`),
+    narrative: n === 0 ? EARLIER_TEXT : '',
+  }));
+  return r;
+}
+
 export const test = base.extend<{ api: FakeApi }>({
   api: [
     async ({ page }, provide) => {
@@ -123,6 +139,7 @@ export const test = base.extend<{ api: FakeApi }>({
         [
           reflection_for_tests(DRAFT, 'draft'),
           reflection_for_tests(SUBMITTED, 'submitted'),
+          earlier_reflection(),
         ],
       );
       await api.install(page);
