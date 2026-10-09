@@ -153,7 +153,11 @@ export default defineConfig({
       url: ORIGIN_DEMO_LIVE,
       reuseExistingServer: false,
       env: {
-        VITE_API_BASE_URL: `${ORIGIN_DEMO_LIVE}/api/v1`,
+        // Relative, exactly as web/.env.production and the deployed build have
+        // it (one origin, ADR #45 and #62). Every other server here uses an
+        // absolute URL, which is how client.ts's `new URL()` on a relative base
+        // reached the live demo untested: every sign-in failed before fetch.
+        VITE_API_BASE_URL: '/api/v1',
         VITE_API_TOKEN: '',
         VITE_DEMO_SHELL: '',
         VITE_DEMO_TOKENS: '',
