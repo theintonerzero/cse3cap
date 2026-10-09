@@ -271,6 +271,10 @@ case "${1:-help}" in
     # carries the shared database. A check, like verify and smoke.
     check-host) step ./scripts/check-deploy-host.sh "${2:-}" ;;
 
+    # The live demo's scripts and deploy/demo, against stubs and a local
+    # Caddy (CAP-54). Writes nothing outside a temporary directory.
+    deploy-demo-test) step python3 scripts/deploy-demo.test.py ;;
+
     # Proves your api/ reaches the database over TLS: Ssl_cipher non-empty
     # on a connection Laravel made itself. Read-only. After any change to
     # Caddy on the database box, this is how you know the certificate
@@ -358,9 +362,11 @@ case "${1:-help}" in
         step python3 scripts/guard-shared-db.test.py
         step python3 scripts/guard-docs-location.test.py
         step python3 scripts/deploy.test.py
+        step python3 scripts/deploy-demo.test.py
         step ./scripts/check-one-rule.sh
         step python3 scripts/check-tokens.test.py
         step python3 scripts/token-for.test.py
+        step python3 scripts/demo-personas.test.py
         step python3 scripts/check-docs.test.py
         step python3 scripts/check-docs.py
         say "Backend"
@@ -425,6 +431,7 @@ ${BLUE}Alumable Reflection Diary${RESET}
 
   ${GREEN}./run setup${RESET}    first-time setup. Writes env files, installs dependencies
   ${GREEN}./run check-host${RESET} [user@vps]  read the deploy host. Writes nothing
+  ${GREEN}./run deploy-demo-test${RESET}  the live demo's deploy and gate rules
   ${GREEN}./run db-tls${RESET}   prove your database session is encrypted
   ${GREEN}./run jira${RESET}     check your Jira API access, and how to get it
 

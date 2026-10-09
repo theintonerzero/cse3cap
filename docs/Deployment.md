@@ -1,5 +1,133 @@
 # Deployment
 
+How the live demo at `https://diary.darkovski.dev` gets onto the VPS, stays current, comes
+back off, and is reset. CAP-54, decision record [ADR #62](adr/architecture-decision-records.md),
+design in [`superpowers/specs/2026-10-09-ai-sidecar-and-live-demo-design.md`](superpowers/specs/2026-10-09-ai-sidecar-and-live-demo-design.md).
+The VPS is reached with `ssh accord`. It is the same machine as `rddb.darkovski.dev`, the
+team's shared MySQL, so every step that writes on it is said in the team channel first.
+
+## The live demo (CAP-54, ADR #62)
+
+### What is on the box
+
+The box already runs one Docker Compose project in `/home/ubuntu/server`: Caddy
+(`server-caddy-1`), MySQL 9.7.2 (`mysql`) and two unrelated services, on a network called
+`web` (`server_web` to Docker). The demo is a second compose project, `diary`, joined to that
+network. Bringing it up or down never restarts MySQL or Caddy.
+
+```
+/home/ubuntu/diary/
+  src/                        checkout of the public repository, at the deployed commit
+  bin/deploy-demo.sh          the copy the timer runs (a deploy refreshes it)
+  shared/api.env              Laravel's settings, mode 0600. Secret: APP_KEY, DB_PASSWORD
+  shared/deploy.env           ntfy topic and publish token for deploy notices, mode 0600. Secret
+  failed                      a commit that failed, which the timer will not retry
+  shared/demo/personas.json   the picker's people, mode 0640, written by every reset
+  deployed, previous          the running commit and the one before
+  freeze                      while this exists, the timer deploys nothing
+/home/ubuntu/server/
+  diary-site.caddy            the public site block, a copy of deploy/demo/site.caddy
+  diary-gate.caddy            the password hash and cookie secret, mode 0640, never in git
+```
+
+| Container | Image | Does |
+| --- | --- | --- |
+| `diary-api` | `diary-api:<sha>`, PHP 8.5-FPM | Laravel. Settings from `shared/api.env`, uploads in the `diary_storage` volume |
+| `diary-web` | `diary-web:<sha>`, Caddy | The built bundle, `/demo/personas.json`, and `/api` and `/up` passed to `diary-api` |
+
+The database is `reflection_diary_demo`, user `diary_demo_app`, granted on nothing else. It
+is reached as `rddb.darkovski.dev`, because the certificate is issued for that name, and
+inside `diary-api` that name is a link to the `mysql` container on `server_web`. Not the
+Docker host gateway: the box's `iptables` INPUT chain accepts only 22, 80 and 443 and rejects
+the rest, so from `server_web` the published 3306 is "No route to host". Visitors never touch
+the team's `reflection_diary`.
+
+### The gate
+
+`server-caddy-1` serves `diary.darkovski.dev` from `diary-site.caddy`. Every path needs the
+`diary_gate` cookie. Without it a page redirects to `/gate`, and `/api` answers 401 in the
+diary's error envelope. `/gate` is the only path with a password (user `demo`); the right one
+sets the cookie for 7 days and redirects to `/`. Behind the gate, the persona picker reads
+its people from `/demo/personas.json` at runtime, so no token is in the build.
+
+To change the password, or sign everyone out by changing the cookie secret, run
+`scripts/demo-gate.sh` on the box and then the Caddy procedure below.
+
+### Changing Caddy
+
+The same Caddy issues the certificate MySQL serves (ADR #21). A broken configuration is an
+outage for all five people, so this is done by a person, after a word in the team channel:
+
+```bash
+cd /home/ubuntu/server
+cp -a Caddyfile "Caddyfile.bak.$(date -u +%Y%m%d-%H%M%S)"
+# first time only:
+install -m 644 /home/ubuntu/diary/src/deploy/demo/site.caddy diary-site.caddy
+printf '\nimport /srv/server/diary-site.caddy\n' >> Caddyfile
+docker exec server-caddy-1 caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+```
+
+Only on `Valid configuration`: `docker exec server-caddy-1 caddy reload --config
+/etc/caddy/Caddyfile --adapter caddyfile`. Then check the database certificate is untouched:
+`openssl s_client -connect rddb.darkovski.dev:3306 -starttls mysql </dev/null 2>/dev/null |
+openssl x509 -noout -subject -enddate`. If validate fails, put the backup back and reload
+nothing. No deploy script ever runs any of this.
+
+### Deploys
+
+`diary-deploy.timer` runs `bin/deploy-demo.sh --if-changed dev` every 5 minutes. When `dev`
+has moved it fetches the commit, builds both images, runs `php artisan migrate` against
+`reflection_diary_demo` (it refuses any database whose name does not end in `_demo`), starts
+them and checks `/up`. The result goes to ntfy. A failed build or migration changes nothing
+that is running.
+
+A commit that fails (build, migration or health check) is written to `failed`, and the timer
+does not retry it: retrying would take the demo down for a minute and re-run its migration
+every 5 minutes. The timer waits for the next commit on `dev`, or a person deploys it by hand.
+
+For a presentation, `touch /home/ubuntu/diary/freeze` and remove it afterwards. To pin a
+commit by hand: `/home/ubuntu/diary/bin/deploy-demo.sh <sha|tag|branch>`. **A deploy by hand
+creates `freeze` itself**, so the timer does not put `dev` back 5 minutes later; `rm
+/home/ubuntu/diary/freeze` to follow `dev` again. If a deploy or reset is already running, a
+deploy by hand says so and changes nothing.
+
+### Rolling back
+
+Automatic: a deploy whose `/up` fails puts the previous images back and says so on ntfy. By
+hand: `/home/ubuntu/diary/bin/deploy-demo.sh $(cat /home/ubuntu/diary/previous)`, which freezes
+the timer like any deploy by hand. A rollback restores code, not schema. If the bad commit migrated the demo database, follow it with a
+reset.
+
+### Resetting the demo
+
+`/home/ubuntu/diary/src/scripts/demo-reset.sh` reseeds `reflection_diary_demo` from scratch,
+issues tokens to the demo people the seeder skips (Noor, Priya, Tom), and rewrites
+`personas.json`. Everyone signed in is signed out and must reload. It refuses any database
+whose name does not end in `_demo`.
+
+### Checking it from outside
+
+`scripts/smoke-demo.sh` from a laptop. It never signs in: it checks the redirect to `/gate`,
+the 401 on the API, that `/gate` asks for the password and sets no cookie without it, and
+HSTS.
+
+### When it goes wrong
+
+| Symptom | Look at |
+| --- | --- |
+| The demo is down | `docker compose -p diary ps`, `docker logs diary-diary-api-1`, then `journalctl -u diary-deploy -n 50` |
+| It stopped following `dev` | `systemctl list-timers diary-deploy.timer`, the `freeze` file, and the last ntfy notice |
+| `Access denied` from the database | TLS before the password, as on a laptop: `MYSQL_ATTR_SSL_CA=../db/letsencrypt-roots.pem` in `shared/api.env` |
+| The picker says the demo may have been reset | It was. Reload the page |
+
+## Superseded: the host layout (CAP-26, ADR #45)
+
+ADR #62 replaced what follows. It describes a host install (Caddy at `/etc/caddy`, PHP-FPM
+and Node on the host, a `diary` user) that the box does not have: Caddy and MySQL run in
+Docker there. It is kept, with its files (`deploy/caddy`, `deploy/php-fpm`,
+`scripts/deploy.sh`, `scripts/rollback.sh`), until CAP-26's owner and the team decide what
+happens to them.
+
 How the demo gets onto the VPS, how it comes back off, and how to change the one file on
 that box that can take out everyone's database. CAP-26. Design:
 [`superpowers/specs/2026-09-06-demo-deployment-design.md`](superpowers/specs/2026-09-06-demo-deployment-design.md).
@@ -10,7 +138,7 @@ box (spec §9.4). Everything here is written to be run by whoever does. Until th
 deploy has happened and been rolled back once, treat this document as a procedure that has
 been reviewed, not one that has been proved.
 
-## What is on the box
+### What is on the box
 
 ```
 /var/www/diary/
@@ -34,7 +162,7 @@ start with the UTC time of the deploy and end with the commit.
 | `deploy/php-fpm/diary.pool.conf` | `/etc/php/8.5/fpm/pool.d/diary.conf` |
 | `scripts/deploy.sh`, `scripts/rollback.sh` | nothing. Each release carries its own copy |
 
-## The one real risk: Caddy also serves the database certificate
+### The one real risk: Caddy also serves the database certificate
 
 ADR #21: the certificate MySQL presents on `rddb.darkovski.dev`, the one every teammate's
 `MYSQL_ATTR_SSL_CA` validates against, is issued by the **same Caddy** that will serve the
@@ -62,7 +190,7 @@ procedure, run by a person:
 
 Undoing it is the same six steps with the backup as the source.
 
-## First-time setup
+### First-time setup
 
 Done once, by someone with sudo on the box, **in this order, all six steps before the first
 deploy.** A deploy checks the live site through Caddy and the pool, and the first one has no
@@ -74,7 +202,7 @@ earlier release to fall back to. Read the box first, which writes nothing:
 
 Anything it reports as `block` stops here. Anything reported as `decide` goes to the team.
 
-### 1. The user
+#### 1. The user
 
 The demo runs as its own user, `diary`, and deploys log in as it. Put the deployer's public
 key in its `authorized_keys`.
@@ -92,7 +220,7 @@ It may reload PHP-FPM and nothing else. `sudo visudo -f /etc/sudoers.d/diary`:
 diary ALL=(root) NOPASSWD: /usr/bin/systemctl reload php8.5-fpm
 ```
 
-### 2. Toolchains
+#### 2. Toolchains
 
 PHP 8.5 with FPM and the extensions CI uses (`pdo_mysql`, `mbstring`, `xml`, `intl`, `zip`,
 `sodium`), Composer, and Node 20.19 or newer with npm (the build is `tsc -b && vite build`).
@@ -101,7 +229,7 @@ accepts `^8.3`, so if 8.5 fights the existing Docker or Caddy installation, use 
 8.3+ the box has, change `8.5` everywhere in this document and in `deploy.conf`, and write
 the difference here.
 
-### 3. The directories and the secret
+#### 3. The directories and the secret
 
 ```bash
 sudo install -d -m 755 -o diary -g diary /var/www/diary /var/www/diary/releases /var/www/diary/shared
@@ -146,7 +274,7 @@ DIARY_URL="https://diary.darkovski.dev"
 PHP_FPM_RELOAD="sudo -n systemctl reload php8.5-fpm"
 ```
 
-### 4. The PHP-FPM pool
+#### 4. The PHP-FPM pool
 
 From your checkout, since the box has none:
 
@@ -163,13 +291,13 @@ sudo systemctl reload php8.5-fpm
 ls -l /run/php/diary-fpm.sock     # owner diary, group caddy, srw-rw----
 ```
 
-### 5. DNS
+#### 5. DNS
 
 `diary.darkovski.dev` must resolve to the box. It did on 2026-09-30 (`207.211.146.230`, the
 same address as `rddb`), which answers spec §9.1, but confirm with Jesse that the record is
 meant to stay.
 
-### 6. Caddy
+#### 6. Caddy
 
 Run [the Caddy procedure](#the-one-real-risk-caddy-also-serves-the-database-certificate)
 once, and in step 3 also do this in `/etc/caddy/Caddyfile`:
@@ -181,7 +309,7 @@ once, and in step 3 also do this in `/etc/caddy/Caddyfile`:
 The first deploy has to have run before the site answers. Until then Caddy serves a 404 for
 `diary.darkovski.dev`, which is harmless.
 
-## Deploying
+### Deploying
 
 Deploys are of tags, and the tag has to be on origin. Tag a commit that is on `main`:
 
@@ -221,7 +349,7 @@ What it does, and where it stops. Nothing public changes before step 7.
 A failure before step 7 deletes the half-built release and leaves the live site alone. One
 deploy or rollback runs at a time: a second one is refused while the first holds the lock.
 
-## Rolling back
+### Rolling back
 
 ```bash
 scripts/rollback.sh diary@rddb.darkovski.dev                        # to the release before current
@@ -234,7 +362,7 @@ not touch the database: if the release you roll away from needed a migration, th
 stays migrated, and the older code has to cope with it. On this project, where migrations
 are rare and additive, it will. Check before relying on it.
 
-## Proving it: the first deploy
+### Proving it: the first deploy
 
 CAP-26 is done when each of these has been seen, not before. Paste the output into the
 ticket.
@@ -257,7 +385,7 @@ ticket.
       is empty (the test file's password is a fixture), and on the box
       `ls -l /var/www/diary/current/api/bootstrap/cache/config.php` shows `-rw-------`.
 
-## When it goes wrong
+### When it goes wrong
 
 | Symptom | Likely cause |
 | --- | --- |
@@ -268,7 +396,7 @@ ticket.
 | `./run db-tls` fails after a Caddy change | The Caddy change broke the database certificate. Restore the backup, validate, reload, now |
 | The deploy stops on pending migrations | Working as intended. Announce it, run the migration, deploy again |
 
-## What this does not do
+### What this does not do
 
 No monitoring, alerting or log shipping. Laravel logs to `shared/storage/logs`, Caddy to
 `/var/log/caddy/diary.log`. No backups beyond whatever the box already does for MySQL.

@@ -316,7 +316,13 @@ function buildUrl(path: string, options: LooseOptions): string {
     return encodeURIComponent(String(value));
   });
 
-  const url = new URL(baseUrl() + filled);
+  // The page's own origin is the base for a relative VITE_API_BASE_URL such as
+  // /api/v1, which one-origin hosting uses (web/.env.production, ADR #45 and
+  // #62). Without it `new URL` throws on every call before fetch. An absolute
+  // base, as in development, ignores the second argument, and outside a
+  // browser (scripts/verify-client.sh runs this under Node) there is no
+  // location, so the argument is undefined and nothing changes.
+  const url = new URL(baseUrl() + filled, globalThis.location?.origin);
 
   for (const [key, value] of Object.entries(options.query ?? {})) {
     if (value === undefined || value === null) continue;

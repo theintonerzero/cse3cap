@@ -40,6 +40,13 @@ interface ImportMetaEnv {
    * seeded-token paste.
    */
   readonly VITE_DEMO_TOKENS?: string;
+
+  /**
+   * The live demo's personas file, e.g. /demo/personas.json (CAP-54, ADR #62).
+   * A path, not a secret: set, the picker loads its people from it at runtime.
+   * Set only by deploy/demo/web.Dockerfile and the demo-live e2e server.
+   */
+  readonly VITE_DEMO_PERSONAS_URL?: string;
 }
 
 interface ImportMeta {

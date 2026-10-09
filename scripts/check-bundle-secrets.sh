@@ -57,7 +57,7 @@ say "Building for production with a token in the environment"
 printf 'VITE_API_BASE_URL=/api/v1\nVITE_API_TOKEN=%s\n' "$CANARY" > "$LOCAL_ENV"
 # As a presenter's machine is set up for the demo (docs/Demo-Script.md): the
 # shell switched on and a persona with a token.
-printf 'VITE_DEMO_SHELL=1\nVITE_DEMO_TOKENS=[{"id":"canary","name":"Canary","role_hint":"Student","slot":"student","token":"%s"}]\n' \
+printf 'VITE_DEMO_SHELL=1\nVITE_DEMO_PERSONAS_URL=/demo/personas.json\nVITE_DEMO_TOKENS=[{"id":"canary","name":"Canary","role_hint":"Student","slot":"student","token":"%s"}]\n' \
     "$DEMO_CANARY" >> "$LOCAL_ENV"
 
 build_log="$(cd "$WEB" && npx vite build --outDir "$OUT" --emptyOutDir --logLevel error 2>&1)"
@@ -120,5 +120,17 @@ if ! grep -rq "api/v1" "$OUT" 2>/dev/null; then
 fi
 
 printf '  %sok%s     the environment file was read, so the absence above is real\n' "$green" "$off"
+
+# The live demo's build (CAP-54) turns the picker on with a personas URL and
+# no token. The canary build sets that URL, so its path must be in the bundle:
+# otherwise "no demo persona token" above was proved for a build without the
+# live picker in it, which is not the build the demo serves.
+if ! grep -rq "/demo/personas.json" "$OUT" 2>/dev/null; then
+    printf '  %sFAIL%s   VITE_DEMO_PERSONAS_URL is not in the bundle, so the live picker\n' "$red" "$off"
+    printf '         was not built and the persona check above proved nothing for it.\n'
+    exit 1
+fi
+
+printf '  %sok%s     the live picker was built in, and still carries no token\n' "$green" "$off"
 printf '\n%sPassed.%s A production build cannot carry VITE_API_TOKEN or a demo persona token.\n' "$green" "$off"
 exit 0

@@ -10,6 +10,64 @@ fixes what it finds leaves no record that the class of problem existed.
 
 ---
 
+## 2026-10-09 · CAP-54, the live demo
+
+**Reviewer:** Claude Code, at Jesse's request, on its own build. A self-review: the whole
+branch also goes to a fresh reviewer before merge. · **Ticket:** CAP-54 (COA4-124) ·
+**Branch:** `feat/CAP-54-live-demo`
+
+### Scope
+
+What the live demo at `diary.darkovski.dev` exposes that a laptop demo does not: the
+password gate in `server-caddy-1` (`deploy/demo/site.caddy`, `scripts/demo-gate.sh`), the
+persona file it protects (`/demo/personas.json`), the build that turns the picker on in
+production (`VITE_DEMO_PERSONAS_URL`), and the demo database and its user. Nothing under
+`api/` or `docs/openapi.yaml` changed. ADR #62.
+
+### Method
+
+The gate was run in a real `caddy:2` container with a generated gate file and probed over
+HTTP: no cookie, a wrong cookie, `/api` without the cookie, `/gate` with no, a wrong and the
+right password. The live build went through `./run bundle-secrets` with the personas URL set
+beside the canary persona, and the built images were searched for token shapes. The deploy
+and reset scripts ran against stubs with the shared database's name in their settings.
+
+### Findings
+
+#### F16 · The gate issued its cookie without the password: High, fixed
+
+The first `/gate` handler put `basic_auth`, the `Set-Cookie` header and the redirect side by
+side inside `handle /gate`. Caddy sorts directives inside a `handle` into its own order,
+which runs `header` and `redir` before `basic_auth`. A request with no credentials got a 303
+and the gate cookie, so the password protected nothing. **Never shipped.** It was found
+while writing the plan, by running the config rather than reading it, before any of it
+reached the box.
+
+**Fix.** The handler's body sits in a `route` block, which keeps the order as written.
+`scripts/deploy-demo.test.py` checks that `/gate` with no password and with a wrong one is a
+401 with no `Set-Cookie`. Those two checks fail when the `route` is taken out and pass with it.
+`scripts/smoke-demo.sh` repeats the no-password check against the live site.
+
+### What stays exposed, on purpose
+
+- Anyone given the demo password can sign in as any persona and write to
+  `reflection_diary_demo`. That is the demo. A reset undoes it, and the shared database is
+  out of reach: the demo user has grants on its own database only, and the deploy and reset
+  refuse any database whose name does not end in `_demo`.
+- The persona file holds real, 60-day, full-ability tokens for the demo database. It is
+  served only behind the gate, never cached (`no-store`), and rewritten by every reset,
+  which revokes the previous tokens. No token is in the bundle (F15 stays closed): the
+  build carries only the file's path.
+- The cookie is one shared secret, not a session per person. Changing it with
+  `demo-gate.sh` signs everyone out.
+
+### Sign-off
+
+F16 fixed and guarded in CI by `scripts/deploy-demo.test.py` and live by
+`scripts/smoke-demo.sh`. No other finding.
+
+---
+
 ## 2026-10-07 · CAP-51, the Alumable demo shell
 
 **Reviewer:** Tony To, via Claude Code · **Ticket:** CAP-51 · **Commit reviewed:** `d3adb06`

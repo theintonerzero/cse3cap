@@ -89,6 +89,23 @@ sign-in asks you to paste a token instead.
 First time on the laptop, run `./run setup` before this: the demo needs `api/.env` and the
 dependencies it installs. Then open `http://localhost:5173`; Ctrl-C stops both servers.
 
+## The live demo
+
+`https://diary.darkovski.dev`, behind a shared demo password (user `demo`; ask Jesse). Behind
+it is the same one-click picker as on a laptop, on its own database, `reflection_diary_demo`,
+so nothing done there reaches the team's `reflection_diary`. It follows `dev` by itself
+within about 5 minutes of a merge. How it is built and changed: [`Deployment.md`](Deployment.md).
+All of these run on the box, reached with `ssh accord`.
+
+| To | Run |
+| --- | --- |
+| Hold it still for a presentation | `touch /home/ubuntu/diary/freeze`, and `rm` it afterwards |
+| Start the data again | `/home/ubuntu/diary/src/scripts/demo-reset.sh`. Everyone signed in reloads |
+| Go back to the commit before | `/home/ubuntu/diary/bin/deploy-demo.sh $(cat /home/ubuntu/diary/previous)`. This freezes the timer; `rm /home/ubuntu/diary/freeze` to follow `dev` again |
+| See why it is down | `docker compose -p diary ps`, then `journalctl -u diary-deploy -n 50` |
+| Change the password or sign everyone out | `/home/ubuntu/diary/src/scripts/demo-gate.sh`, then "Changing Caddy" in Deployment.md |
+| Check it from outside | `scripts/smoke-demo.sh` from a laptop |
+
 ## Stop it
 
 Ctrl-C in the terminal running `./run dev`. It stops both servers; if a port is still held

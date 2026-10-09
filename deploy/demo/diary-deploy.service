@@ -1,0 +1,11 @@
+# The live demo's auto-deploy (CAP-54, ADR #62). Installed to /etc/systemd/system.
+[Unit]
+Description=Deploy the Reflection Diary demo if dev has moved
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=docker
+ExecStart=/home/ubuntu/diary/bin/deploy-demo.sh --if-changed dev

@@ -93,6 +93,11 @@ jobs:
       - name: Check the demo preflight
         run: python3 scripts/demo-preflight.test.py
 
+      # The live demo's personas.json is built from db:seed output with the
+      # same people table as the preflight (CAP-54).
+      - name: Check the live demo's personas from seed output
+        run: python3 scripts/demo-personas.test.py
+
       # The docs still describe the repository: relative links resolve,
       # ./run commands exist, docs/ is in the README table, the ADR index
       # matches the records, and the dependency register matches the
@@ -109,6 +114,12 @@ jobs:
       # deploy proves.
       - name: Check the deploy scripts
         run: python3 scripts/deploy.test.py
+
+      # The live demo (CAP-54): deploy-demo.sh and demo-reset.sh against
+      # stubs, and the gate's Caddy config in a real caddy:2 container. The
+      # gate checks are what keep /gate from issuing its cookie unasked.
+      - name: Check the live demo's deploy and gate
+        run: python3 scripts/deploy-demo.test.py
 
       # Nobody on the team runs Windows day to day, so the PowerShell
       # installer is the one file that can rot unnoticed until a new
