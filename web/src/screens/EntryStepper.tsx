@@ -56,6 +56,7 @@ import {
 // once, with its level, in the POST. Same look, no new styles.
 import button_styles from '../components/Button/Button.module.css';
 import text_area_styles from '../components/TextArea/TextArea.module.css';
+import { CoachPanel } from '../ai/CoachPanel.tsx';
 import { useAiStatus } from '../ai/useAiStatus.ts';
 import { useSession } from '../session/useSession.ts';
 import type { SessionUser } from '../session/useSession.ts';
@@ -127,7 +128,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
   const me_id = me?.id ?? null;
   // ADR #64: which AI features this deployment serves, asked once per session.
   // Null (off, unreachable, or this build has no sidecar) renders no AI element.
-  useAiStatus();
+  const ai_features = useAiStatus();
   const [load, setLoad] = useState<Load>({ status: 'loading' });
   const [reload_key, setReloadKey] = useState(0);
   const [step, setStep] = useState(0);
@@ -578,6 +579,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
         mode={mode}
         owner_name={reflection.owner.display_name}
         viewer_id={me_id}
+        coach_reflection_id={!read_only && ai_features?.has('coach') ? reflection.id : null}
       >
         {mode === 'assessor' && me && (
           <CounterScorePanel
@@ -707,6 +709,7 @@ function EntryCard({
   mode,
   owner_name,
   viewer_id = null,
+  coach_reflection_id = null,
   children,
 }: {
   entry: ReflectionEntry;
@@ -718,6 +721,8 @@ function EntryCard({
   owner_name: string;
   /** Who is looking, so assessor mode can leave their own score to the panel. */
   viewer_id?: string | null;
+  /** ADR #64: the reflection to coach on, when this card may show the coach. */
+  coach_reflection_id?: string | null;
   /** The assessor's own score, last in the card so it reads after the evidence. */
   children?: ReactNode;
 }) {
@@ -873,6 +878,13 @@ function EntryCard({
           (CAP-11): the score is the first choice either of them makes. */}
       {self_score_row}
       {narrative}
+      {coach_reflection_id && (
+        <CoachPanel
+          reflection_id={coach_reflection_id}
+          entry_id={entry.id}
+          narrative={entry.narrative ?? ''}
+        />
+      )}
       {counter_scores}
 
       <EvidenceList

@@ -27,7 +27,7 @@
  * The client reflects business rules, it does not hold them. A disabled button
  * is a convenience; the 409 is the rule. The rule map is in `CLAUDE.md`.
  */
-import type { paths as aiPaths } from './ai-schema.ts';
+import type { components as aiComponents, paths as aiPaths } from './ai-schema.ts';
 import type { components, paths } from './schema.ts';
 
 // --------------------------------------------------------------------------
@@ -38,7 +38,10 @@ import type { components, paths } from './schema.ts';
  * Every code the product can return, straight from the contract's enumeration.
  * Switch on this; never on `message`, which is prose meant for a person.
  */
-export type ApiErrorCode = components['schemas']['Error']['error']['code'];
+export type ApiErrorCode =
+  | components['schemas']['Error']['error']['code']
+  // ADR #64: the AI sidecar's codes, from its own contract. Same envelope.
+  | aiComponents['schemas']['Error']['error']['code'];
 
 /**
  * The envelope's `details` bag. Deliberately untyped in the contract, because

@@ -37,7 +37,7 @@ export const JANE: Me = {
 
 const NAMES = ['Communication', 'Contribution'];
 
-const RUBRIC: FrameworkDetail = {
+export const RUBRIC_FOR_TESTS: FrameworkDetail = {
   id: FRAMEWORK,
   fw_key: 'latrobe6',
   version: 'v1',
@@ -65,7 +65,7 @@ const RUBRIC: FrameworkDetail = {
   })),
 };
 
-const GIG_DETAIL: GigDetail = {
+export const GIG_FOR_TESTS: GigDetail = {
   id: GIG,
   title: 'Develop AI use cases',
   org_name: 'Alumable',
@@ -73,12 +73,20 @@ const GIG_DETAIL: GigDetail = {
   ends_on: '2026-11-01',
   my_role: 'student',
   sprints: [{ id: SPRINT, ordinal: 2, opens_on: '2026-08-15', due_on: '2026-08-28' }],
-  framework: { id: FRAMEWORK, fw_key: 'latrobe6', name: RUBRIC.name, version: 'v1' },
+  framework: {
+    id: FRAMEWORK,
+    fw_key: 'latrobe6',
+    name: RUBRIC_FOR_TESTS.name,
+    version: 'v1',
+  },
   reflection_summary: { draft: 1, submitted: 1, assessed: 0 },
   participants: [{ id: JANE.id, display_name: JANE.display_name, role: 'student' }],
 };
 
-function reflection(rid: string, status: ReflectionDetail['status']): ReflectionDetail {
+export function reflection_for_tests(
+  rid: string,
+  status: ReflectionDetail['status'],
+): ReflectionDetail {
   return {
     id: rid,
     status,
@@ -109,10 +117,13 @@ export const test = base.extend<{ api: FakeApi }>({
   api: [
     async ({ page }, provide) => {
       const api = new FakeApi(
-        [RUBRIC],
+        [RUBRIC_FOR_TESTS],
         JANE,
-        [GIG_DETAIL],
-        [reflection(DRAFT, 'draft'), reflection(SUBMITTED, 'submitted')],
+        [GIG_FOR_TESTS],
+        [
+          reflection_for_tests(DRAFT, 'draft'),
+          reflection_for_tests(SUBMITTED, 'submitted'),
+        ],
       );
       await api.install(page);
       await provide(api);
