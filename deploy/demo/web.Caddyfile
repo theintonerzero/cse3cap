@@ -26,6 +26,15 @@
 		file_server
 	}
 
+	# The presenter's phone frame (CAP-55). The trailing slash matters: the page
+	# loads phone.css and phone.js by relative path.
+	redir /phone /phone/ 308
+	handle_path /phone/* {
+		root * /srv/phone
+		header Cache-Control "no-cache"
+		file_server
+	}
+
 	handle {
 		root * /srv/web
 		@assets path /assets/*

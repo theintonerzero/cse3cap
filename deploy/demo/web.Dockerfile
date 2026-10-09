@@ -15,5 +15,7 @@ RUN rm -f .env .env.local .env.development.local .env.production.local && npm ru
 FROM caddy:2
 COPY deploy/demo/web.Caddyfile /etc/caddy/Caddyfile
 COPY --from=build /app/web/dist /srv/web
+# The presenter's phone frame (CAP-55). Here only, never in the product bundle.
+COPY deploy/demo/phone /srv/phone
 # php_fastcgi checks the front controller exists on this side before passing on.
 COPY api/public /app/api/public
