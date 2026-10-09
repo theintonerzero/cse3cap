@@ -135,6 +135,10 @@ const REFLECTIONS = [
   reflection(id('f001'), GIG_A, 1, 'assessed'),
   reflection(id('f002'), GIG_A, 2, 'submitted'),
   reflection(id('f003'), GIG_B, 1, 'assessed'),
+  // On the gig with no rubric: Ash's, but that gig has no section, so the
+  // summary must not count it (CAP-62). Unreachable through the API today,
+  // which refuses a reflection on a gig with no rubric; held by construction.
+  reflection(id('f005'), GIG_NO_RUBRIC, 1, 'draft'),
   // Ash only reviews this gig: someone else's reflection, never in Ash's record.
   reflection(id('f004'), GIG_REVIEWED, 1, 'submitted'),
 ];
