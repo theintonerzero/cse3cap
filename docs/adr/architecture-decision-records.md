@@ -19,7 +19,7 @@ Index
 #7  Retrieve then score for competency tagging ..... Superseded by #10
 #8  Server side inference, not on device ........... Superseded by #10
 #9  No fine tuning ................................. Superseded by #10
-#10 Remove AI scope, move to MySQL ................. Accepted, versions per #18
+#10 Remove AI scope, move to MySQL ................. Accepted, versions per #18, superseded in part by #64
 #11 MySQL specific schema workarounds .............. Accepted, extended by #19
 #12 React, Vite and TypeScript for the frontend .... Accepted, versions per #18
 #13 Contract first with OpenAPI and a mock server .. Accepted
@@ -73,6 +73,7 @@ Index
 #61 The demo shell is a sign-in only ............ Proposed
 #62 The live demo: containers, a gate, its own db .. Proposed
 #63 The learning record adds no endpoint ........ Proposed
+#64 An AI sidecar that asks, never writes ....... Proposed
 
 ===============================================================
 
@@ -381,7 +382,7 @@ baseline, so the LLM's advantage can be quantified rather than assumed.
 ===============================================================
 
 ADR #10: Remove AI from scope, move to MySQL
-Status: Accepted. Version pin revised by #18
+Status: Accepted. Version pin revised by #18. Superseded in part by #64
 Date: 2026-08-01
 Supersedes: #1, #2, #4, #7, #8, #9
 
@@ -3662,3 +3663,132 @@ regenerated types before 12 October.
 Reading the JSON export. It already carries the whole record, but it is an asynchronous job
 meant to be downloaded as a file, and the browser would have to choose among scores itself,
 which duplicates the rule.
+
+===============================================================
+
+ADR #64: An AI sidecar asks students questions and finds related reflections, and never writes
+
+Status: Proposed
+Date: 2026-10-09
+Supersedes: #10 (in part)
+
+Context:
+ADR #10 cut every AI feature at the August scope review so the team could build the must
+haves. Those are built. In late September the client's emphasis moved towards what AI could
+add to reflection, and the team agreed to add one AI feature as an isolated sidecar (HO-9).
+HO-9 set three conditions: the sidecar reads through the API, owns its own storage, and has
+no write path to scores or reflections, and with it switched off the diary behaves exactly as
+it does today. It also set a kill date of 7 October. On 2026-10-09 Jesse chose to build past
+that date and to build four features rather than one. The design is
+docs/superpowers/specs/2026-10-09-ai-sidecar-and-live-demo-design.md.
+
+Four things constrained the shape. The product's principle is that a machine can scaffold
+reflection but never author it, and a self-score must not be anchored by anything the student
+did not choose. Authorisation lives in Laravel's policies and RoleResolver and nowhere else,
+so a second service must not grow its own idea of who may see what. The Claude API has no
+embeddings model, so vectors have to come from somewhere else. And MySQL 9.7.2 Community
+stores a VECTOR column but cannot compare two. Checked on the shared server on 2026-10-09,
+STRING_TO_VECTOR and VECTOR_DIM work while DISTANCE and VECTOR_DISTANCE resolve as unknown
+routines, because Oracle ships them, and vector indexes, in HeatWave only.
+
+PR #121 (L1quidDroid, open) planned the same features inside Laravel with no vector store.
+
+Decision:
+A Python (FastAPI) service in a new top-level ai/ folder, with its own contract,
+docs/ai-openapi.yaml, served at /ai/v1 on the same origin as the diary. The browser calls it
+through web/src/api/client.ts like any other endpoint. It offers four features. A reflection
+coach asks a student two or three questions about a draft narrative. Similar past reflections
+lists the student's own earlier entries that read alike. A calibration coach asks questions
+where an assessed self-score and counter-score differ. Cohort search and recurring themes let
+an assessor or supervisor search submitted reflections by meaning.
+
+It writes nothing to the product. It reads Laravel's existing REST API with the caller's own
+bearer token, GET only, and forwards Laravel's 401, 403 and 404 unchanged. It never sees or
+infers a role. Laravel does not change. Every request resolves the caller through /auth/me
+before anything else, so a request without a valid token never reaches the model or the
+database.
+
+It owns its storage in a separate database, diary_ai, with its own MySQL user granted on
+nothing else. It holds 384-dimension vectors from bge-small, an open model run in the sidecar
+on the box's CPU, plus usage, rate-limit and theme-cache rows. No narrative text, names or
+emails. MySQL stores the vectors and the sidecar ranks them in Python. Every ranking is
+limited to the entry ids Laravel just returned for this caller's token, which is the line
+between one person's reflections and another's.
+
+The coach never authors and never anchors. It returns questions only, with no way to put
+words into the narrative. It is not told the selected self-score, and a validator drops any
+reply that mentions a level, a score or a number on the rubric's scale. The calibration coach
+only runs after assessment, when nothing can change the self-score.
+
+The model is claude-haiku-5-5 at medium effort, with structured output and no tools.
+Narratives go to it as delimited data after an instruction that they are data. A US$5 per
+UTC day cap is enforced in the sidecar before each call, with a spend limit on the key's
+workspace as the backstop, and per-token rate limits apply.
+
+AI_ENABLED is off by default. Off, every /ai/v1 route answers 404 AI_DISABLED, the frontend
+renders no AI element, and the diary is the product v1.0.0 shipped.
+
+Only seeded fiction reaches the model. The demo database holds no real student. Sending a
+real student's reflection to an LLM provider would need the client's sign-off and the
+student's consent first, and that is not in this scope. Names, emails and ids are never
+sent.
+
+ai/tests/ becomes a third place for tests, after api/tests/ and scripts/, and CLAUDE.md's
+out-of-scope list and test locations change with this record.
+
+What #10 keeps. MySQL as the datastore. No AI tables in the product schema. Nothing AI-made
+ever touches a score or a reflection. What this replaces in #10: "every AI feature" removed,
+for reflection prompts, semantic search and theme clustering, which return in a sidecar
+behind a switch. The competency tagger stays cut.
+
+Consequences:
+Positive:
+Four features the client can see, built without changing a line of Laravel, so every rule and
+policy keeps exactly one implementation. Token passthrough means the sidecar can only ever
+show a person what Laravel would show them. The switch makes the whole thing removable, and
+v1.0.0 is unaffected whether it ships or not. A day's use costs at most US$5.
+
+Negative:
+A second language and a second service for a team that writes PHP and TypeScript. The client
+set the backend stack and Python is outside it, so the sidecar has to be explained in the
+report as an addition the stack does not depend on, not a replacement.
+
+A second contract, docs/ai-openapi.yaml, beside docs/openapi.yaml, generated into its own
+frontend types. Two contracts can drift the way one can.
+
+The sidecar handles bearer tokens in flight. It never stores them, and rate limits key on a
+SHA-256 of the token, but a compromised sidecar could read tokens as they pass.
+
+The embedding model and its runtime cost memory and CPU on a small box that also runs the
+team's database. The first request after a start waits for the model to load.
+
+Embeddings are derived from narratives. They are not the text, but they are personal data
+in the same sense, and deleting a person has to reach diary_ai too.
+docs/Retention-and-Erasure.md records it, and the demo reset empties every table.
+
+Model output is not deterministic. Tests mock Claude, and the quality of real replies is
+checked by a person reading a fixed set of evals, not by CI.
+
+Brute-force ranking in Python is fine at demo scale and would not be at a university's.
+
+Building past HO-9's kill date takes time from the week the Assessment 3 report is due.
+Whatever has merged by 12 October is documented as built, and the rest as in progress.
+
+Alternatives:
+Build it inside Laravel, as PR #121 proposes. No new language, one contract, and Laravel's
+policies apply without a token round trip. It lost because HO-9 asks for a sidecar that owns
+its storage and switches off without touching the product, and the related and search
+features need vectors that Laravel would have to keep in the product schema #10 cleared of
+AI tables.
+
+A Laravel front door that signs requests to the sidecar with an HMAC. The browser talks only
+to Laravel. It lost because it needs Laravel changes and a shared secret to arrive at the same
+authorisation that forwarding the caller's own token gives without either.
+
+Hosted embeddings from Voyage. Better vectors and no model on the box. It lost because it is
+another provider receiving narratives and another key to hold, for a demo where a small open
+model is good enough.
+
+A separate vector database, pgvector or Qdrant. Real nearest-neighbour search and distance in
+the database. It lost because it is another stateful service on a small box for a few hundred
+vectors that a brute-force ranking orders in milliseconds, and MySQL is already there.

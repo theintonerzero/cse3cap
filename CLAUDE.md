@@ -17,6 +17,10 @@ University capstone project (La Trobe CSE3CAP, Semester 2 2026), five people, re
 MySQL 9.7 LTS on a shared VPS · PHP 8.5 / Laravel 13 · React 19 + Vite + TypeScript ·
 recharts · Sanctum tokens · REST with an OpenAPI 3 contract.
 
+The AI sidecar (ADR #64) is an addition beside that stack, not part of it: Python FastAPI in
+`ai/`, its own contract `docs/ai-openapi.yaml`, its own database `diary_ai`, off unless
+`AI_ENABLED` is set. Laravel does not depend on it and never changes for it.
+
 The client set the backend stack. Do not propose replacing it.
 
 ## Sources of truth
@@ -135,8 +139,8 @@ db:seed` in `api/` gives four students at different stages, and `/add-screen` sa
 to use for which state. A screen built with nothing behind it gets the empty state right and
 the loaded one wrong.
 
-**Tests and checks live in the repository, in one of two places.** Backend unit and feature
-tests in `api/tests/`, run by `./run test`. Anything needing a running server, or checking
+**Tests and checks live in the repository, in one of three places.** Backend unit and feature
+tests in `api/tests/`, run by `./run test`. The AI sidecar's tests in `ai/tests/` (ADR #64). Anything needing a running server, or checking
 something a unit test cannot reach, is a script in `scripts/` wired into `./run`:
 `scripts/smoke.sh` walks the product over HTTP, `scripts/verify-client.sh` checks the typed
 API client. Never leave a check in a scratchpad, a home directory or a chat message. A
@@ -239,8 +243,10 @@ than being wrong, every time.
 
 Do not build these. They were considered and cut.
 
-- AI features of any kind. No suggestion tables, no embeddings. Older documents may
-  reference them; those references are stale.
+- AI anywhere but the sidecar (ADR #64). No AI table in the product schema, nothing
+  AI-made written to a score or a reflection, and no AI that drafts a narrative, suggests
+  a score or writes a reviewer's comment. The competency tagger stays cut. Older
+  documents describing AI inside the product are stale.
 - Framework creation from scratch, or adding/removing competencies. Copy from a seeded
   base, rename and reword only.
 - Re-scoring. An assessor cannot revise a submitted score; a repeat is a 409.
