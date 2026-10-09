@@ -68,6 +68,41 @@ paths:
           $ref: "#/components/responses/Error"
         "503":
           $ref: "#/components/responses/Error"
+  /reflections/{reflection_id}/entries/{entry_id}/calibration:
+    post:
+      operationId: askCalibration
+      summary: Questions about why the student and their reviewer scored this differently.
+      description: >
+        One to three open questions about the gap between the student's
+        self-score and the latest counter-score on this competency. Only the
+        student who owns the reflection, only once it is assessed, so it cannot
+        influence a self-score. Answers 400 VALIDATION_FAILED with
+        details.reason no_difference when the two scores name the same level
+        or there is no counter-score. Never says who is right and never names a
+        level: questions that mention a level, a score or a number on the scale
+        are dropped.
+      parameters:
+        - $ref: "#/components/parameters/ReflectionId"
+        - $ref: "#/components/parameters/EntryId"
+      responses:
+        "200":
+          description: The questions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoachQuestions"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+        "503":
+          $ref: "#/components/responses/Error"
   /reflections/{reflection_id}/entries/{entry_id}/related:
     get:
       operationId: getRelated

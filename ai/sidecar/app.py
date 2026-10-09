@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 import httpx
 from fastapi import APIRouter, Depends, FastAPI, Request
 
-from . import errors, routes_coach, routes_related
+from . import errors, routes_calibration, routes_coach, routes_related
 from .caller import Caller, caller
 from .config import Settings
 
@@ -59,5 +59,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     router = features_router()
     routes_coach.register(router)
     routes_related.register(router)
+    routes_calibration.register(router)
     app.include_router(router)
     return app
