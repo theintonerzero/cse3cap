@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 import httpx
 from fastapi import APIRouter, Depends, FastAPI, Request
 
-from . import errors
+from . import errors, routes_coach
 from .caller import Caller, caller
 from .config import Settings
 
@@ -57,6 +57,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return {"features": settings.ai_features}
 
     router = features_router()
-    # Step 4's feature modules register their routes on `router` here.
+    routes_coach.register(router)
     app.include_router(router)
     return app
