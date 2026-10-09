@@ -27,12 +27,15 @@ async def test_settling_releases_the_reservation_and_records_the_actual(db):
         assert await cur.fetchall() == (("coach", 1200, 300, Decimal("0.000270")),)
 
 
-async def test_two_reservations_cannot_both_take_the_last_of_the_cap(db):
+async def test_contending_reservations_never_take_more_than_the_cap(db):
     ledger = SpendLedger(db, Decimal("0.010"))
-    # The day's row exists after the day's first call; the race is between two
-    # calls after that. On a fresh day the row's insert serialises them anyway.
+    # The day's row exists after its first call, and the pool has a warm
+    # connection per contender, so the reservations really do overlap.
     await ledger.settle(await ledger.reserve(Decimal("0.001")), "coach", "m", 0, 0, Decimal("0"))
-    results = await asyncio.gather(
-        ledger.reserve(Decimal("0.006")), ledger.reserve(Decimal("0.006")), return_exceptions=True
-    )
-    assert sum(isinstance(r, AiError) for r in results) == 1
+    warm = [await db.acquire() for _ in range(5)]
+    for conn in warm:
+        db.release(conn)
+    results = await asyncio.gather(*(ledger.reserve(Decimal("0.003")) for _ in range(10)), return_exceptions=True)
+    granted = [r for r in results if not isinstance(r, BaseException)]
+    refused = [r for r in results if isinstance(r, AiError) and r.details == {"reason": "daily_cap"}]
+    assert (len(granted), len(refused)) == (3, 7)

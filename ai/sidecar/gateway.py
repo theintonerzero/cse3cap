@@ -1,9 +1,12 @@
 import json
+import logging
 from decimal import Decimal
 
 import anthropic
 
 from .errors import unavailable
+
+log = logging.getLogger("sidecar.gateway")
 
 # claude-haiku-5-5, prompts up to 100K tokens (ADR #64). Thinking is billed as
 # output, so the worst case of a call is its counted input plus max_tokens out.
@@ -53,8 +56,10 @@ class ClaudeGateway:
                 model=self._model, system=system, messages=messages, output_config=output_config
             )
         except anthropic.APITimeoutError:
+            log.warning("Claude timed out (%s)", feature)
             raise unavailable("timeout")
         except (anthropic.APIStatusError, anthropic.APIConnectionError):
+            log.warning("Claude call failed (%s)", feature, exc_info=True)
             raise unavailable("upstream")
 
         reservation = await self._ledger.reserve(counted.input_tokens * PRICE_IN + max_tokens * PRICE_OUT)
@@ -65,8 +70,10 @@ class ClaudeGateway:
             )
             used_in, used_out = response.usage.input_tokens, response.usage.output_tokens
         except anthropic.APITimeoutError:
+            log.warning("Claude timed out (%s)", feature)
             raise unavailable("timeout")
         except (anthropic.APIStatusError, anthropic.APIConnectionError):
+            log.warning("Claude call failed (%s)", feature, exc_info=True)
             raise unavailable("upstream")
         finally:
             await self._ledger.settle(

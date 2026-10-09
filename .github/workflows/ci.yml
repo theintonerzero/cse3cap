@@ -309,7 +309,7 @@ jobs:
         image: mysql:9.7
         env:
           MYSQL_ROOT_PASSWORD: test
-          MYSQL_DATABASE: diary_ai
+          MYSQL_DATABASE: diary_ai_test
         ports: ["3306:3306"]
         options: >-
           --health-cmd="mysqladmin ping -h 127.0.0.1 -ptest"
@@ -329,7 +329,7 @@ jobs:
       # out here, as it is locally by default.
       - name: Tests
         env:
-          AI_TEST_DATABASE_URL: mysql://root:test@127.0.0.1:3306/diary_ai
+          AI_TEST_DATABASE_URL: mysql://root:test@127.0.0.1:3306/diary_ai_test
         run: uv run pytest -v
 
   frontend:

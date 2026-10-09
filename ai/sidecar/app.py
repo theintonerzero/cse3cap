@@ -24,7 +24,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     def enabled() -> None:
         if not settings.ai_enabled:
-            raise errors.DISABLED
+            raise errors.disabled()
 
     @app.get("/ai/v1/status", dependencies=[Depends(enabled)])
     async def status(_: Caller = Depends(caller)) -> dict:

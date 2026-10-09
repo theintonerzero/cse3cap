@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from urllib.parse import urlparse
 
 import pytest
 
@@ -7,14 +8,24 @@ SCHEMA = Path(__file__).parents[1] / "db" / "01-schema.sql"
 TABLES = ("entry_vectors", "usage_log", "spend_days", "theme_cache", "rate_limits")
 
 
+def refuse_unsafe(url: str) -> None:
+    """These tests drop and recreate tables, so they run only against a database
+    named for tests (as the product's are, reflection_diary_test_*). A hostname
+    check alone would pass an IP address or an ssh tunnel to the shared server."""
+    name = urlparse(url).path.lstrip("/")
+    if not name.endswith("_test"):
+        pytest.fail(f"AI_TEST_DATABASE_URL names database {name!r}: use one whose name ends in _test (ai/README.md).")
+    if "rddb.darkovski.dev" in url:
+        pytest.fail("AI_TEST_DATABASE_URL names the shared server. These tests drop tables.")
+
+
 @pytest.fixture
 async def db():
-    """A pool on a throwaway diary_ai, rebuilt from ai/db/01-schema.sql for each test."""
+    """A pool on a throwaway diary_ai_test, rebuilt from ai/db/01-schema.sql for each test."""
     url = os.environ.get("AI_TEST_DATABASE_URL")
     if not url:
         pytest.skip("AI_TEST_DATABASE_URL is unset: point it at a throwaway MySQL, never the shared one (ai/README.md)")
-    if "rddb.darkovski.dev" in url:
-        pytest.fail("AI_TEST_DATABASE_URL names the shared server. These tests drop tables.")
+    refuse_unsafe(url)
     from sidecar.db import connect
 
     pool = await connect(url)

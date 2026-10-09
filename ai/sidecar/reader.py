@@ -1,3 +1,4 @@
+import logging
 from typing import Any
 
 import httpx
@@ -5,6 +6,7 @@ import httpx
 from .errors import AiError, unavailable
 
 PASSED_THROUGH = {401, 403, 404}
+log = logging.getLogger("sidecar.reader")
 
 
 class DiaryReader:
@@ -23,6 +25,7 @@ class DiaryReader:
         try:
             response = await self._client.get(f"{self._base}{path}", headers=self._headers, params=params)
         except httpx.HTTPError:
+            log.warning("diary API unreachable: GET %s", path, exc_info=True)
             raise unavailable("upstream")
         if response.status_code in PASSED_THROUGH:
             try:
@@ -32,6 +35,7 @@ class DiaryReader:
                 raise unavailable("upstream")
             raise AiError(code, response.status_code, message, details)
         if response.status_code != 200:
+            log.warning("diary API answered %s to GET %s", response.status_code, path)
             raise unavailable("upstream")
         try:
             return response.json()
