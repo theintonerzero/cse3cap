@@ -30,6 +30,8 @@ export interface LevelScaleProps {
    * chose (save now) or the arrow keys did (save when they stop).
    */
   on_change?: (level_id: string, how: 'pointer' | 'key') => void;
+  /** Called when focus leaves the scale, so a waiting choice can be sent. */
+  on_leave?: () => void;
   /** Briefly unchangeable, while a choice is sent. */
   disabled?: boolean;
   /** Several people's scores on one read-only track, each with their words. */
@@ -51,6 +53,7 @@ export function LevelScale({
   value = null,
   tone = 'primary',
   on_change,
+  on_leave,
   disabled = false,
   marks,
   marker = null,
@@ -123,6 +126,9 @@ export function LevelScale({
       aria-labelledby={label_id}
       aria-readonly={interactive ? undefined : true}
       onKeyDown={on_key}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) on_leave?.();
+      }}
     >
       {levels.map((level, index) => {
         const checked = level.id === value;

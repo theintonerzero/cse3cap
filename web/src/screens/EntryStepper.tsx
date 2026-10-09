@@ -598,6 +598,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
         mode={mode}
         owner_name={reflection.owner.display_name}
         viewer_id={me_id}
+        viewer_is_owner={is_owner}
         coach_reflection_id={!read_only && ai_features?.has('coach') ? reflection.id : null}
         related_reflection_id={
           !read_only && ai_features?.has('related') ? reflection.id : null
@@ -741,6 +742,7 @@ function EntryCard({
   owner_name,
   viewer_id = null,
   coach_reflection_id = null,
+  viewer_is_owner = true,
   related_reflection_id = null,
   calibration_reflection_id = null,
   children,
@@ -754,6 +756,8 @@ function EntryCard({
   owner_name: string;
   /** Who is looking, so assessor mode can leave their own score to the panel. */
   viewer_id?: string | null;
+  /** Whether the person reading is the student whose card this is. */
+  viewer_is_owner?: boolean;
   /** ADR #64: the reflection to coach on, when this card may show the coach. */
   coach_reflection_id?: string | null;
   /** ADR #64: the reflection to find earlier, similar entries for, when shown. */
@@ -800,7 +804,10 @@ function EntryCard({
   // save once they stop, so stepping from 1 to 4 sends one save, not three.
   const [pending_level, setPendingLevel] = useState<string | null>(null);
   const settle = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  useEffect(() => () => clearTimeout(settle.current), []);
+  // A keyboard choice not yet sent. Leaving the scale or the card sends it
+  // now rather than dropping it: a student who arrows to a level and presses
+  // Next or Submit at once still has that level saved.
+  const waiting = useRef<string | null>(null);
   const save_level = useCallback(
     async (level_id: string) => {
       setScoreError(null);
@@ -821,14 +828,31 @@ function EntryCard({
     [entry, on_change],
   );
 
+  const flush = useCallback(() => {
+    clearTimeout(settle.current);
+    const level_id = waiting.current;
+    waiting.current = null;
+    if (level_id) void save_level(level_id);
+  }, [save_level]);
+  const flush_latest = useRef(flush);
+  useEffect(() => {
+    flush_latest.current = flush;
+  }, [flush]);
+  useEffect(() => () => flush_latest.current(), []);
+
   const choose_level = useCallback(
     (level_id: string, how: 'pointer' | 'key') => {
       clearTimeout(settle.current);
       setPendingLevel(level_id);
-      if (how === 'pointer') void save_level(level_id);
-      else settle.current = setTimeout(() => void save_level(level_id), KEY_SETTLE_MS);
+      if (how === 'pointer') {
+        waiting.current = null;
+        void save_level(level_id);
+      } else {
+        waiting.current = level_id;
+        settle.current = setTimeout(flush, KEY_SETTLE_MS);
+      }
     },
-    [save_level],
+    [save_level, flush],
   );
 
   const narrative = (
@@ -865,11 +889,21 @@ function EntryCard({
     <div className={styles.levels}>
       {shared ? (
         <LevelScale
-          label={list_of(['Your score', ...counters.map((score) => `${name_of(score)}'s`)])}
+          label={list_of([
+            viewer_is_owner ? 'Your score' : `${owner_name}'s score`,
+            ...counters.map((score) => `${name_of(score)}'s`),
+          ])}
           levels={levels}
           marks={[
             ...(self_score
-              ? [{ level_id: self_score.level_id, who: 'You', tone: 'primary' as const }]
+              ? [
+                  {
+                    level_id: self_score.level_id,
+                    // Someone else reading the student's card is not "you".
+                    who: viewer_is_owner ? 'You' : owner_name,
+                    tone: 'primary' as const,
+                  },
+                ]
               : []),
             ...counters.map((score) => ({
               level_id: score.level_id,
@@ -884,6 +918,7 @@ function EntryCard({
           levels={levels}
           value={pending_level ?? self_score?.level_id ?? null}
           on_change={read_only ? undefined : choose_level}
+          on_leave={flush}
         />
       )}
       {score_error && (

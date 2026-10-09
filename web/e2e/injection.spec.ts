@@ -34,10 +34,12 @@ test('student stepper: every typed field is text, and a javascript: link is not 
   await expect(page.getByLabel('Your reflection')).toHaveValue(PAYLOAD);
   // Both scores share one scale (CAP-66): who chose which level, and every
   // level's words once "All levels" is open, are still text.
-  const shared = page.getByRole('group', { name: `Your score and ${PAYLOAD}'s` });
-  await expect(shared.getByRole('listitem').filter({ hasText: 'You · 2' })).toContainText(
-    PAYLOAD,
-  );
+  // Read by a reviewer, so the student is named (CAP-66), and their name is
+  // PAYLOAD too: on the scale's label and its words lines, still text.
+  const shared = page.getByRole('group', { name: `${PAYLOAD}'s score and ${PAYLOAD}'s` });
+  await expect(
+    shared.getByRole('listitem').filter({ hasText: `${PAYLOAD} · 2` }),
+  ).toBeVisible();
   await expect(
     shared.getByRole('listitem').filter({ hasText: `${PAYLOAD} · 1` }),
   ).toBeVisible();

@@ -360,3 +360,57 @@ scored('a given score shows on a scale that can no longer change', async ({ page
     'true',
   );
 });
+
+test('an arrow-key choice is saved even when Next comes before it settles', async ({
+  page,
+  api,
+}) => {
+  await page.goto(`/reflections/${DRAFT}`);
+  await self_score(page)
+    .getByRole('radio', { name: /^2 of 4/ })
+    .click();
+  await expect.poll(() => saves(api).length).toBe(1);
+  await page.keyboard.press('ArrowRight');
+  // At once, well inside the half-second the arrows wait for.
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await expect(page.getByText('Competency 2 of 2')).toBeVisible();
+  await expect.poll(() => saves(api).length).toBe(2);
+  expect(saves(api)[1].body).toEqual({
+    level_id: RUBRIC_FOR_TESTS.competencies[0].levels[2].id,
+  });
+});
+
+// Dr Lee, a reviewer on the gig, opens Jane's assessed reflection by its URL.
+const as_lee = base.extend<{ api: FakeApi }>({
+  api: [
+    async ({ page }, provide) => {
+      const lee = {
+        id: assessed_for_tests().entries[0].scores[1].scorer!.id,
+        display_name: 'Dr Lee',
+        participations: JANE.participations.map((p) => ({
+          ...p,
+          role: 'supervisor' as const,
+        })),
+      };
+      const api = new FakeApi(
+        [RUBRIC_FOR_TESTS],
+        lee,
+        [GIG_FOR_TESTS],
+        [assessed_for_tests()],
+      );
+      await api.install(page);
+      await provide(api);
+      expect(api.unexpected, 'requests the fake does not serve').toEqual([]);
+    },
+    { auto: true },
+  ],
+});
+
+as_lee("someone else's view names the student, never 'You'", async ({ page }) => {
+  await page.goto(`/reflections/${ASSESSED}`);
+  const shared = page.getByRole('group', { name: "Jane N's score and Dr Lee's" });
+  await expect(
+    shared.getByRole('listitem').filter({ hasText: 'Jane N · 2' }),
+  ).toBeVisible();
+  await expect(shared.getByRole('listitem').filter({ hasText: 'You ·' })).toHaveCount(0);
+});
