@@ -159,6 +159,10 @@ case "${1:-help}" in
 
     test)  need_api; in_dir api php artisan test ;;
 
+    # The AI sidecar's tests (ADR #64). Store tests need AI_TEST_DATABASE_URL,
+    # a throwaway MySQL, never the shared one; without it they skip.
+    ai-test) in_dir ai uv run pytest ;;
+
     # The frontend client against real servers, plus the compile-time
     # checks the generated types exist for. Starts prism itself; needs
     # ./run api for the rest.
