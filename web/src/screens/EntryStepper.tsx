@@ -37,7 +37,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, FormEvent, ReactNode, SetStateAction } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useNavigate, useParams, useSearchParams } from 'react-router';
 
 import { api, ApiError } from '../api/client.ts';
 import {
@@ -56,6 +56,8 @@ import {
 // once, with its level, in the POST. Same look, no new styles.
 import button_styles from '../components/Button/Button.module.css';
 import text_area_styles from '../components/TextArea/TextArea.module.css';
+import { calibration_reviewer } from '../ai/calibration.ts';
+import { CalibrationPanel } from '../ai/CalibrationPanel.tsx';
 import { CoachPanel } from '../ai/CoachPanel.tsx';
 import { RelatedDisclosure } from '../ai/RelatedDisclosure.tsx';
 import { useAiStatus } from '../ai/useAiStatus.ts';
@@ -133,6 +135,8 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
   const [load, setLoad] = useState<Load>({ status: 'loading' });
   const [reload_key, setReloadKey] = useState(0);
   const [step, setStep] = useState(0);
+  const [search_params] = useSearchParams();
+  const wanted_entry = search_params.get('entry');
 
   // Back and Next move to another competency, and two
   // competencies' chips can look nearly the same. So a move goes to the
@@ -208,7 +212,10 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
             // An assessor lands on the first entry they still owe a score,
             // so a part-scored reflection does not reopen on finished work.
             if (mode === 'assessor' && me_id) {
-              setStep(first_unscored_index(reflection.entries, me_id));
+              // A search result names the competency it matched (ADR #64);
+              // otherwise the first one still owed.
+              const named = reflection.entries.findIndex((e) => e.id === wanted_entry);
+              setStep(named >= 0 ? named : first_unscored_index(reflection.entries, me_id));
               // Unfinished work kept on this device comes back with the
               // reflection (round 3, ADR #57). What's on screen wins.
               const kept = kept_as_drafts(
@@ -231,7 +238,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
       });
 
     return () => controller.abort();
-  }, [reflection_id, reload_key, mode, me_id]);
+  }, [reflection_id, reload_key, mode, me_id, wanted_entry]);
 
   const retry = useCallback(() => {
     setLoad({ status: 'loading' });
@@ -584,6 +591,14 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
         related_reflection_id={
           !read_only && ai_features?.has('related') ? reflection.id : null
         }
+        calibration_reflection_id={
+          mode !== 'assessor' &&
+          is_owner &&
+          reflection.status === 'assessed' &&
+          ai_features?.has('calibration')
+            ? reflection.id
+            : null
+        }
       >
         {mode === 'assessor' && me && (
           <CounterScorePanel
@@ -715,6 +730,7 @@ function EntryCard({
   viewer_id = null,
   coach_reflection_id = null,
   related_reflection_id = null,
+  calibration_reflection_id = null,
   children,
 }: {
   entry: ReflectionEntry;
@@ -730,6 +746,8 @@ function EntryCard({
   coach_reflection_id?: string | null;
   /** ADR #64: the reflection to find earlier, similar entries for, when shown. */
   related_reflection_id?: string | null;
+  /** ADR #64: the assessed reflection to ask calibration questions about, when shown. */
+  calibration_reflection_id?: string | null;
   /** The assessor's own score, last in the card so it reads after the evidence. */
   children?: ReactNode;
 }) {
@@ -740,6 +758,7 @@ function EntryCard({
   // it to match the screen, and similar reflections are looked up again when
   // it changes, not on every keystroke.
   const [saved_narrative, setSavedNarrative] = useState(entry.narrative ?? '');
+  const calibration_with = calibration_reflection_id ? calibration_reviewer(entry) : null;
   const levels = levels_for(framework, entry.competency_id);
   const self_score = self_score_of(entry);
 
@@ -906,6 +925,13 @@ function EntryCard({
         />
       )}
       {counter_scores}
+      {calibration_reflection_id && calibration_with && (
+        <CalibrationPanel
+          reflection_id={calibration_reflection_id}
+          entry_id={entry.id}
+          reviewer_name={calibration_with}
+        />
+      )}
 
       <EvidenceList
         entry={entry}

@@ -68,6 +68,41 @@ paths:
           $ref: "#/components/responses/Error"
         "503":
           $ref: "#/components/responses/Error"
+  /reflections/{reflection_id}/entries/{entry_id}/calibration:
+    post:
+      operationId: askCalibration
+      summary: Questions about why the student and their reviewer scored this differently.
+      description: >
+        One to three open questions about the gap between the student's
+        self-score and the latest counter-score on this competency. Only the
+        student who owns the reflection, only once it is assessed, so it cannot
+        influence a self-score. Answers 400 VALIDATION_FAILED with
+        details.reason no_difference when the two scores name the same level
+        or there is no counter-score. Never says who is right and never names a
+        level: questions that mention a level, a score or a number on the scale
+        are dropped.
+      parameters:
+        - $ref: "#/components/parameters/ReflectionId"
+        - $ref: "#/components/parameters/EntryId"
+      responses:
+        "200":
+          description: The questions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoachQuestions"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+        "503":
+          $ref: "#/components/responses/Error"
   /reflections/{reflection_id}/entries/{entry_id}/related:
     get:
       operationId: getRelated
@@ -97,12 +132,85 @@ paths:
           $ref: "#/components/responses/Error"
         "503":
           $ref: "#/components/responses/Error"
+  /search:
+    get:
+      operationId: searchReflections
+      summary: Submitted and assessed reflections on the caller's reviewed gigs, by meaning.
+      description: >
+        For assessors and supervisors. Ranks the entries of submitted and
+        assessed reflections on gigs where the diary lists the caller as an
+        assessor or supervisor and not also as a student. Never drafts and
+        never the caller's own. Up to ten results, best first, with no
+        similarity score. No Claude call. A blank query is 400
+        VALIDATION_FAILED with details.reason empty_query; over 200
+        characters, too_long. A caller who reviews no gig is 403.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            maxLength: 200
+      responses:
+        "200":
+          description: The matching entries.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResults"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+        "503":
+          $ref: "#/components/responses/Error"
+
+  /gigs/{gig_id}/themes:
+    get:
+      operationId: getThemes
+      summary: Three to five recurring themes across a gig's reflections.
+      description: >
+        For the gig's assessors and supervisors, by the diary's /auth/me, and
+        not for anyone who is also a student on it. Read from the submitted
+        and assessed reflections' narratives, never drafts and never names.
+        Claude is asked once per gig per UTC day; every other request that
+        day is served from the cache. Fewer than five narratives is an empty
+        list, with no Claude call.
+      parameters:
+        - $ref: "#/components/parameters/GigId"
+      responses:
+        "200":
+          description: The themes, possibly none.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Themes"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+        "503":
+          $ref: "#/components/responses/Error"
+
 components:
   securitySchemes:
     bearer:
       type: http
       scheme: bearer
   parameters:
+    GigId:
+      name: gig_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     ReflectionId:
       name: reflection_id
       in: path
@@ -160,6 +268,43 @@ components:
               excerpt:
                 type: string
                 description: The narrative's first line, cut at a word.
+    SearchResults:
+      type: object
+      required: [results]
+      properties:
+        results:
+          type: array
+          maxItems: 10
+          items:
+            type: object
+            required: [reflection_id, entry_id, student_name, gig_title, sprint_ordinal, competency_name, excerpt]
+            properties:
+              reflection_id:
+                type: string
+                format: uuid
+              entry_id:
+                type: string
+                format: uuid
+              student_name:
+                type: string
+              gig_title:
+                type: string
+              sprint_ordinal:
+                type: [integer, "null"]
+              competency_name:
+                type: string
+              excerpt:
+                type: string
+                description: The narrative's first line, cut at a word.
+    Themes:
+      type: object
+      required: [themes]
+      properties:
+        themes:
+          type: array
+          maxItems: 5
+          items:
+            type: string
     Status:
       type: object
       required: [features]

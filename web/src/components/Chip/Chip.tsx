@@ -16,7 +16,7 @@ export interface ChipProps {
 
 export function Chip({
   children,
-  selected = false,
+  selected,
   disabled = false,
   on_click,
   tone = 'primary',
@@ -28,6 +28,8 @@ export function Chip({
     <button
       type="button"
       className={class_name}
+      // A toggle only when the caller says whether it is on. A chip with no
+      // `selected` (a theme that runs a search) is a plain button.
       aria-pressed={selected}
       disabled={disabled}
       onClick={on_click}

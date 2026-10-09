@@ -139,7 +139,12 @@ body {
   width: var(--screen-width);
   height: calc(var(--screen-height) - var(--status-height) - var(--gesture-height));
   border: 0;
-  background: #ffffff;
+  /* Transparent, never a colour. GPU Chrome draws the app as its own layer
+     over this element and, at the device's fractional --scale, antialiases
+     that layer's edges against whatever the element paints: white showed
+     through as grey hairlines down both sides and across the status and
+     gesture bars. The app paints its own page; Firefox never showed it. */
+  background: transparent;
 }
 
 /* Android's gesture navigation: a thin pill, in the app's bottom colour. */
