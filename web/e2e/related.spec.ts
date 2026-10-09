@@ -21,6 +21,7 @@ const TWO = {
       sprint_ordinal: 1,
       competency_name: 'Communication',
       excerpt: 'In sprint one I raised a blocker about the test database in standup…',
+      gig_title: null,
     },
     {
       reflection_id: EARLIER,
@@ -28,6 +29,7 @@ const TWO = {
       sprint_ordinal: 1,
       competency_name: 'Contribution',
       excerpt: 'I took the migration script over when it stalled.',
+      gig_title: null,
     },
   ],
 };
@@ -104,6 +106,19 @@ test.describe('similar past reflections on the owner’s draft', () => {
     await page.getByRole('button', { name: 'From your earlier sprints (1)' }).click();
     await expect(page.getByRole('button', { name: /^Communication/ })).toBeVisible();
     await expect(page.getByText(/null/)).toHaveCount(0);
+  });
+
+  test('a row from another gig names that gig', async ({ page, api }) => {
+    api.ai_reply(RELATED, {
+      entries: [{ ...TWO.entries[0], gig_title: 'Data migration audit' }],
+    });
+    await page.goto(`/reflections/${DRAFT}`);
+    await page.getByRole('button', { name: 'From your earlier sprints (1)' }).click();
+    await expect(
+      page.getByRole('button', {
+        name: /^Data migration audit · Sprint 1 · Communication/,
+      }),
+    ).toBeVisible();
   });
 
   test('nothing earlier: no disclosure at all', async ({ page, api }) => {

@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends
 from .caller import Caller, caller
 from .deps import Deps, get_deps
 from .ranking import rank
+from .reviewer import details
 from .routes_coach import Id, find_entry, own_reflection
 from .vectors import ensure_vectors
 
@@ -41,12 +42,15 @@ def register(router: APIRouter) -> None:
 
         others: dict[str, str] = {}
         about: dict[str, dict] = {}
-        for row in await who.reader.reflections():
-            if row["id"] == reflection_id or not written_before(row, this):
-                continue
-            reflection = await who.reader.reflection(row["id"])
+        rows = {row["id"]: row for row in await who.reader.reflections()
+                if row["id"] != reflection_id and written_before(row, this)}
+        titles = {p["gig_id"]: p.get("gig_title") for p in who.me.get("participations", [])}
+        # Concurrently, and skipping one that went away since the list was read.
+        for reflection in await details(who.reader, list(rows)):
             if reflection.get("owner", {}).get("id") != who.me.get("id"):
                 continue
+            row = rows[reflection["id"]]
+            gig = row.get("gig_id")
             for entry in reflection.get("entries", []):
                 text = (entry.get("narrative") or "").strip()
                 if text:
@@ -58,6 +62,8 @@ def register(router: APIRouter) -> None:
                         "sprint_ordinal": row.get("sprint_ordinal"),
                         "competency_name": entry.get("competency_name"),
                         "excerpt": excerpt(text),
+                        # Named only when it isn't this reflection's gig.
+                        "gig_title": titles.get(gig) if gig and gig != this.get("gig_id") else None,
                     }
         if not others:
             return {"entries": []}

@@ -141,6 +141,8 @@ export interface components {
                 competency_name: string;
                 /** @description The narrative's first line, cut at a word. */
                 excerpt: string;
+                /** @description The entry's gig, named only when it is not this reflection's. */
+                gig_title: string | null;
             }[];
         };
         SearchResults: {
@@ -297,6 +299,7 @@ export interface operations {
                     "application/json": components["schemas"]["RelatedEntries"];
                 };
             };
+            400: components["responses"]["Error"];
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
@@ -351,6 +354,7 @@ export interface operations {
                     "application/json": components["schemas"]["Themes"];
                 };
             };
+            400: components["responses"]["Error"];
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             429: components["responses"]["Error"];

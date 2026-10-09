@@ -28,26 +28,35 @@ class Limiter:
 
 # Laravel's shapes: the detail has no sprint_ordinal (ReflectionDetailResource);
 # only the list row does, because only index() loads the sprint.
-def reflection(rid, owner, entries, status="assessed", created="2026-08-01T10:00:00.000000Z"):
-    return {"id": rid, "status": status, "framework_id": "f1", "created_at": created,
+def reflection(rid, owner, entries, status="assessed", created="2026-08-01T10:00:00.000000Z", gig="ga"):
+    return {"id": rid, "status": status, "framework_id": "f1", "created_at": created, "gig_id": gig,
             "owner": {"id": owner, "display_name": "Jane N"},
             "entries": [{"id": eid, "competency_name": name, "narrative": text} for eid, name, text in entries]}
 
 
-def row(rid, ordinal, created):
-    return {"id": rid, "sprint_ordinal": ordinal, "created_at": created}
+def row(rid, ordinal, created, gig="ga"):
+    return {"id": rid, "sprint_ordinal": ordinal, "created_at": created, "gig_id": gig}
 
 
 THIS_CREATED = "2026-08-16T10:00:00.000000Z"
 EARLIER_CREATED = "2026-08-01T10:00:00.000000Z"
 
 
-def laravel(server: HTTPServer, me="u1", earlier=True, later=False):
-    server.expect_request("/api/v1/auth/me").respond_with_json({"id": me, "display_name": "X", "participations": []})
+GIGS = [{"gig_id": "ga", "gig_title": "Develop AI use cases", "role": "student"},
+        {"gig_id": "gb", "gig_title": "Data migration audit", "role": "student"}]
+
+
+def laravel(server: HTTPServer, me="u1", earlier=True, later=False, earlier_gig="ga", gone=False):
+    server.expect_request("/api/v1/auth/me").respond_with_json({"id": me, "display_name": "X", "participations": GIGS})
     this = reflection(R1, "u1", [(E1, "Communication", "I raised the blocker with my team at standup."),
                                    ("e2", "Agile", "We ran the retro.")], status="draft", created=THIS_CREATED)
     server.expect_request(f"/api/v1/reflections/{R1}").respond_with_json(this)
-    rows = [row(R1, 2, THIS_CREATED)] + ([row("r0", 1, EARLIER_CREATED)] if earlier else [])
+    rows = [row(R1, 2, THIS_CREATED)] + ([row("r0", 1, EARLIER_CREATED, earlier_gig)] if earlier else [])
+    if gone:
+        # Listed, then gone (or turned private) before its detail was read.
+        rows.append(row("r7", 1, EARLIER_CREATED))
+        server.expect_request("/api/v1/reflections/r7").respond_with_json(
+            {"error": {"code": "NOT_FOUND", "message": "Not found.", "details": {}}}, status=404)
     if later:
         # Written after this one (sprint 3, or another gig's later sprint): not "earlier".
         rows.append(row("r9", 3, "2026-08-30T10:00:00.000000Z"))
@@ -59,7 +68,7 @@ def laravel(server: HTTPServer, me="u1", earlier=True, later=False):
         ("e10", "Communication", "I told the team about the blocker in standup."),
         ("e11", "Testing", "The import failed on a BOM so I added a test."),
         ("e12", "Leadership", ""),
-    ]))
+    ], gig=earlier_gig))
 
 
 def call(server: HTTPServer):
@@ -78,7 +87,7 @@ def test_related_ranks_the_owners_other_reflections_only(httpserver: HTTPServer)
     assert [e["entry_id"] for e in entries][0] == "e10"
     assert {e["reflection_id"] for e in entries} == {"r0"} and len(entries) <= 3
     assert entries[0] == {"reflection_id": "r0", "entry_id": "e10", "sprint_ordinal": 1, "competency_name": "Communication",
-                          "excerpt": "I told the team about the blocker in standup."}
+                          "excerpt": "I told the team about the blocker in standup.", "gig_title": None}
 
 
 def test_related_skips_this_reflection_and_empty_narratives(httpserver: HTTPServer):
@@ -122,3 +131,15 @@ def test_a_reflection_written_later_is_not_listed(httpserver: HTTPServer):
     entries = call(httpserver)[0].json()["entries"]
     assert "r9" not in {e["reflection_id"] for e in entries}
     assert entries[0]["entry_id"] == "e10"
+
+
+def test_a_row_from_another_gig_names_that_gig(httpserver: HTTPServer):
+    laravel(httpserver, earlier_gig="gb")
+    entries = call(httpserver)[0].json()["entries"]
+    assert entries[0]["gig_title"] == "Data migration audit"
+
+
+def test_a_reflection_that_went_away_is_skipped_not_fatal(httpserver: HTTPServer):
+    laravel(httpserver, gone=True)
+    response, _ = call(httpserver)
+    assert response.status_code == 200 and response.json()["entries"][0]["entry_id"] == "e10"

@@ -17,10 +17,15 @@ export interface RelatedDisclosureProps {
   saved_narrative: string;
 }
 
+// The gig is named only when it isn't this reflection's (the sidecar decides).
 const heading = (row: Related) =>
-  row.sprint_ordinal === null
-    ? row.competency_name
-    : `Sprint ${row.sprint_ordinal} · ${row.competency_name}`;
+  [
+    row.gig_title,
+    row.sprint_ordinal === null ? null : `Sprint ${row.sprint_ordinal}`,
+    row.competency_name,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
 /**
  * Similar past reflections (ADR #64): the student's own earlier entries that
