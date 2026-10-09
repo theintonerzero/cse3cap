@@ -56,6 +56,7 @@ import {
 // once, with its level, in the POST. Same look, no new styles.
 import button_styles from '../components/Button/Button.module.css';
 import text_area_styles from '../components/TextArea/TextArea.module.css';
+import { useAiStatus } from '../ai/useAiStatus.ts';
 import { useSession } from '../session/useSession.ts';
 import type { SessionUser } from '../session/useSession.ts';
 import {
@@ -124,6 +125,9 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
   const navigate = useNavigate();
   const { me } = useSession();
   const me_id = me?.id ?? null;
+  // ADR #64: which AI features this deployment serves, asked once per session.
+  // Null (off, unreachable, or this build has no sidecar) renders no AI element.
+  useAiStatus();
   const [load, setLoad] = useState<Load>({ status: 'loading' });
   const [reload_key, setReloadKey] = useState(0);
   const [step, setStep] = useState(0);

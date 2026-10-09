@@ -17,6 +17,11 @@ interface ImportMetaEnv {
    * client refuses to make a request without it and says so.
    */
   readonly VITE_API_BASE_URL?: string;
+  /**
+   * The AI sidecar's base (ADR #64), e.g. /ai/v1 behind the same origin. Unset,
+   * the app asks for no AI feature and shows none.
+   */
+  readonly VITE_AI_BASE_URL?: string;
 
   /**
    * A seeded bearer token, for working against the real API before the app

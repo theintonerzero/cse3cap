@@ -19,6 +19,7 @@
  */
 import type { Page, Route } from '@playwright/test';
 
+import type { components as aiComponents } from '../src/api/ai-schema.ts';
 import type { components, paths } from '../src/api/schema.ts';
 
 export type FrameworkDetail = components['schemas']['FrameworkDetail'];
@@ -44,6 +45,19 @@ export interface Call {
   body: unknown;
 }
 
+type AiErrorCode = aiComponents['schemas']['Error']['error']['code'];
+
+/** A refusal from the AI sidecar, injected per route like Fault (ADR #42). */
+export type AiFault =
+  | {
+      kind: 'error';
+      status: number;
+      code: AiErrorCode;
+      message: string;
+      details?: Record<string, unknown>;
+    }
+  | { kind: 'network' };
+
 export type Fault =
   | { kind: 'error'; status: number; code: ErrorCode; message: string }
   /** The request never arrives: the client's ApiError with status 0. */
@@ -67,6 +81,15 @@ export class FakeApi {
   /** Exports asked for in this test, by id (CAP-56). */
   private readonly exports = new Map<string, Export>();
   private minted = 0;
+
+  // The AI sidecar (ADR #64). Off by default, as a deployment without it is:
+  // /ai/v1/status answers 404 AI_DISABLED and no AI element renders.
+  /** Every /ai/v1 request, in order. Kept apart so the product's guards are unchanged. */
+  readonly ai_calls: Call[] = [];
+  private ai_features: string[] | null = null;
+  private readonly ai_replies = new Map<string, unknown>();
+  private readonly ai_faults = new Map<string, AiFault[]>();
+  private readonly ai_holds = new Map<string, Promise<void>>();
 
   constructor(
     frameworks: FrameworkDetail[],
@@ -96,6 +119,34 @@ export class FakeApi {
     this.holds.set(route, new Promise<void>((resolve) => (release = resolve)));
     return () => {
       this.holds.delete(route);
+      release();
+    };
+  }
+
+  /** Switches the sidecar on with these features (null: off). */
+  ai_status(features: string[] | null): void {
+    this.ai_features = features;
+  }
+
+  /** The body a sidecar route answers with, e.g. 'POST /reflections/:id/entries/:id/coach'. */
+  ai_reply(route: string, body: unknown): void {
+    this.ai_replies.set(route, body);
+  }
+
+  /** The next `times` requests to a sidecar route fail with `fault`. */
+  ai_fail(route: string, fault: AiFault, times = 1): void {
+    this.ai_faults.set(route, [
+      ...(this.ai_faults.get(route) ?? []),
+      ...Array(times).fill(fault),
+    ]);
+  }
+
+  /** Holds every response on a sidecar route until the returned function is called. */
+  ai_hold(route: string): () => void {
+    let release = () => {};
+    this.ai_holds.set(route, new Promise<void>((resolve) => (release = resolve)));
+    return () => {
+      this.ai_holds.delete(route);
       release();
     };
   }
@@ -144,6 +195,47 @@ export class FakeApi {
       sessionStorage.setItem('reflection-diary-active-slot', 'supervisor');
     });
     await page.route('**/api/v1/**', (route) => this.handle(route));
+    await page.route('**/ai/v1/**', (route) => this.handle_ai(route));
+  }
+
+  private async handle_ai(route: Route): Promise<void> {
+    const request = route.request();
+    const path = new URL(request.url()).pathname.replace(/^\/ai\/v1/, '');
+    const method = request.method();
+    const key = `${method} ${path.replace(UUID, ':id')}`;
+    this.ai_calls.push({ method, path, route: key, body: null });
+
+    const held = this.ai_holds.get(key);
+    if (held) await held;
+
+    const fault = this.ai_faults.get(key)?.shift();
+    if (fault?.kind === 'network') return route.abort('failed');
+    if (fault) {
+      return reply(route, fault.status, {
+        error: { code: fault.code, message: fault.message, details: fault.details ?? {} },
+      });
+    }
+
+    if (this.ai_features === null) {
+      return reply(route, 404, {
+        error: {
+          code: 'AI_DISABLED',
+          message: 'AI features are switched off.',
+          details: {},
+        },
+      });
+    }
+    if (key === 'GET /status') return reply(route, 200, { features: this.ai_features });
+    if (this.ai_replies.has(key)) return reply(route, 200, this.ai_replies.get(key));
+
+    this.unexpected.push(`AI ${key}`);
+    return reply(route, 404, {
+      error: {
+        code: 'NOT_FOUND',
+        message: 'The fake serves no such AI route.',
+        details: {},
+      },
+    });
   }
 
   private async handle(route: Route): Promise<void> {

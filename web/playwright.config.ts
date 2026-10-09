@@ -116,6 +116,8 @@ export default defineConfig({
       reuseExistingServer: false,
       env: {
         VITE_API_BASE_URL: `${ORIGIN}/api/v1`,
+        // ADR #64. The fake answers /ai/v1, off unless a spec switches it on.
+        VITE_AI_BASE_URL: `${ORIGIN}/ai/v1`,
         VITE_API_TOKEN: '',
         // Blanked like the token: a developer's web/.env.local or .env.development.local set up for the
         // demo (docs/Demo-Script.md) must not turn the product suite into it.
