@@ -13,11 +13,14 @@ type Earlier =
 export interface RelatedDisclosureProps {
   reflection_id: string;
   entry_id: string;
-  /** Changes each time the narrative is saved, so the list follows what was written. */
-  saved: number;
+  /** The narrative as last saved: the list follows what was written, not each keystroke. */
+  saved_narrative: string;
 }
 
-const heading = (row: Related) => `Sprint ${row.sprint_ordinal} · ${row.competency_name}`;
+const heading = (row: Related) =>
+  row.sprint_ordinal === null
+    ? row.competency_name
+    : `Sprint ${row.sprint_ordinal} · ${row.competency_name}`;
 
 /**
  * Similar past reflections (ADR #64): the student's own earlier entries that
@@ -29,7 +32,7 @@ const heading = (row: Related) => `Sprint ${row.sprint_ordinal} · ${row.compete
 export function RelatedDisclosure({
   reflection_id,
   entry_id,
-  saved,
+  saved_narrative,
 }: RelatedDisclosureProps) {
   const [rows, setRows] = useState<Related[] | null>(null);
   const [first_done, setFirstDone] = useState(false);
@@ -51,7 +54,7 @@ export function RelatedDisclosure({
         if (!controller.signal.aborted) setFirstDone(true);
       });
     return () => controller.abort();
-  }, [reflection_id, entry_id, saved]);
+  }, [reflection_id, entry_id, saved_narrative]);
 
   useEffect(() => {
     if (!shown) return;

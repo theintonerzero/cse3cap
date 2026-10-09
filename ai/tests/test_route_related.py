@@ -23,18 +23,34 @@ class Limiter:
         self.calls.append(bucket)
 
 
-def reflection(rid, owner, entries, status="assessed", ordinal=1):
-    return {"id": rid, "status": status, "sprint_ordinal": ordinal, "framework_id": "f1",
+# Laravel's shapes: the detail has no sprint_ordinal (ReflectionDetailResource);
+# only the list row does, because only index() loads the sprint.
+def reflection(rid, owner, entries, status="assessed", created="2026-08-01T10:00:00.000000Z"):
+    return {"id": rid, "status": status, "framework_id": "f1", "created_at": created,
             "owner": {"id": owner, "display_name": "Jane N"},
             "entries": [{"id": eid, "competency_name": name, "narrative": text} for eid, name, text in entries]}
 
 
-def laravel(server: HTTPServer, me="u1", earlier=True):
+def row(rid, ordinal, created):
+    return {"id": rid, "sprint_ordinal": ordinal, "created_at": created}
+
+
+THIS_CREATED = "2026-08-16T10:00:00.000000Z"
+EARLIER_CREATED = "2026-08-01T10:00:00.000000Z"
+
+
+def laravel(server: HTTPServer, me="u1", earlier=True, later=False):
     server.expect_request("/api/v1/auth/me").respond_with_json({"id": me, "display_name": "X", "participations": []})
     this = reflection("r1", "u1", [("e1", "Communication", "I raised the blocker with my team at standup."),
-                                   ("e2", "Agile", "We ran the retro.")], status="draft", ordinal=2)
+                                   ("e2", "Agile", "We ran the retro.")], status="draft", created=THIS_CREATED)
     server.expect_request("/api/v1/reflections/r1").respond_with_json(this)
-    rows = [{"id": "r1"}] + ([{"id": "r0"}] if earlier else [])
+    rows = [row("r1", 2, THIS_CREATED)] + ([row("r0", 1, EARLIER_CREATED)] if earlier else [])
+    if later:
+        # Written after this one (sprint 3, or another gig's later sprint): not "earlier".
+        rows.append(row("r9", 3, "2026-08-30T10:00:00.000000Z"))
+        server.expect_request("/api/v1/reflections/r9").respond_with_json(reflection("r9", "u1", [
+            ("e90", "Communication", "I raised the blocker with my team at standup again."),
+        ], created="2026-08-30T10:00:00.000000Z"))
     server.expect_request("/api/v1/reflections").respond_with_json(rows)
     server.expect_request("/api/v1/reflections/r0").respond_with_json(reflection("r0", "u1", [
         ("e10", "Communication", "I told the team about the blocker in standup."),
@@ -88,9 +104,18 @@ def test_a_student_who_also_assesses_never_sees_another_students_entry(httpserve
     # Laravel lists everything on the gigs the caller reviews as well as their own.
     httpserver.expect_request("/api/v1/auth/me").respond_with_json({"id": "u1", "display_name": "X", "participations": []})
     httpserver.expect_request("/api/v1/reflections/r1").respond_with_json(
-        reflection("r1", "u1", [("e1", "Communication", "I raised the blocker with my team at standup.")], status="draft", ordinal=2))
-    httpserver.expect_request("/api/v1/reflections").respond_with_json([{"id": "r1"}, {"id": "r9"}])
+        reflection("r1", "u1", [("e1", "Communication", "I raised the blocker with my team at standup.")], status="draft", created=THIS_CREATED))
+    # r9 is earlier, so only the owner check can keep it out.
+    httpserver.expect_request("/api/v1/reflections").respond_with_json(
+        [row("r1", 2, THIS_CREATED), row("r9", 1, EARLIER_CREATED)])
     httpserver.expect_request("/api/v1/reflections/r9").respond_with_json(
         reflection("r9", "someone-else", [("e90", "Communication", "I raised the blocker with my team at standup.")]))
     response, _ = call(httpserver)
     assert response.json() == {"entries": []}
+
+
+def test_a_reflection_written_later_is_not_listed(httpserver: HTTPServer):
+    laravel(httpserver, later=True)
+    entries = call(httpserver)[0].json()["entries"]
+    assert "r9" not in {e["reflection_id"] for e in entries}
+    assert entries[0]["entry_id"] == "e10"

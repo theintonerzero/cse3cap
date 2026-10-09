@@ -17,6 +17,19 @@ export interface CoachPanelProps {
   reflection_id: string;
   entry_id: string;
   narrative: string;
+  /** The narrative as Laravel last saved it, which is what the sidecar reads. */
+  saved_narrative: string;
+}
+
+function refusal(error: unknown): string {
+  if (!(error instanceof ApiError)) return 'Questions aren’t available right now';
+  if (error.code === 'AI_RATE_LIMITED')
+    return 'You’ve asked a lot just now. Try again in a minute.';
+  const reason = (error.details as { reason?: unknown } | null)?.reason;
+  if (error.code === 'VALIDATION_FAILED' && reason === 'too_short') {
+    return 'Write a few sentences first.';
+  }
+  return 'Questions aren’t available right now';
 }
 
 /**
@@ -25,12 +38,19 @@ export interface CoachPanelProps {
  * narrative. Mounted per competency, so a reply that arrives after the
  * student has moved on is dropped with the panel it was asked from.
  */
-export function CoachPanel({ reflection_id, entry_id, narrative }: CoachPanelProps) {
+export function CoachPanel({
+  reflection_id,
+  entry_id,
+  narrative,
+  saved_narrative,
+}: CoachPanelProps) {
   const [state, setState] = useState<State>({ kind: 'idle' });
   const inflight = useRef<AbortController | null>(null);
   const hint_id = useId();
   const title_id = useId();
   const too_short = narrative.trim().split(/\s+/).filter(Boolean).length < MIN_WORDS;
+  // Asking before the save lands would ask about the old text.
+  const unsaved = narrative !== saved_narrative;
 
   useEffect(() => () => inflight.current?.abort(), []);
 
@@ -49,13 +69,7 @@ export function CoachPanel({ reflection_id, entry_id, narrative }: CoachPanelPro
       })
       .catch((error: unknown) => {
         if (controller.signal.aborted) return;
-        const busy = error instanceof ApiError && error.code === 'AI_RATE_LIMITED';
-        setState({
-          kind: 'error',
-          message: busy
-            ? 'You’ve asked a lot just now. Try again in a minute.'
-            : 'Questions aren’t available right now',
-        });
+        setState({ kind: 'error', message: refusal(error) });
       });
   }
 
@@ -106,7 +120,7 @@ export function CoachPanel({ reflection_id, entry_id, narrative }: CoachPanelPro
         variant="secondary"
         size="sm"
         full_width={false}
-        disabled={too_short}
+        disabled={too_short || unsaved}
         described_by={too_short ? hint_id : undefined}
         on_click={ask}
       >

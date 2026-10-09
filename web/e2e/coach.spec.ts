@@ -71,6 +71,47 @@ test.describe('the coach on the owner’s draft', () => {
     await expect(page.getByText('Write a few sentences first')).toBeVisible();
   });
 
+  test('waits for the words on screen to be saved before it can ask', async ({
+    page,
+    api,
+  }) => {
+    // The sidecar reads the narrative from Laravel, so asking before the save
+    // lands would ask about the old text (review finding 2).
+    await page.goto(`/reflections/${DRAFT}`);
+    await page.getByRole('button', { name: 'Next', exact: true }).click();
+    const ask = page.getByRole('button', { name: 'Ask me questions' });
+    await expect(ask).toBeDisabled();
+    const release = api.hold('PATCH /entries/:id');
+    await page
+      .getByRole('textbox', { name: 'Your reflection' })
+      .pressSequentially(
+        ' Then I paired with Sam on the import, wrote the test that caught the BOM, and showed the team at standup.',
+      );
+    await expect(page.getByText('Saving', { exact: false })).toBeVisible();
+    await expect(ask).toBeDisabled();
+    release();
+    await expect(ask).toBeEnabled();
+  });
+
+  test('a too-short refusal says what to do, not that questions are unavailable', async ({
+    page,
+    api,
+  }) => {
+    api.ai_fail(COACH, {
+      kind: 'error',
+      status: 400,
+      code: 'VALIDATION_FAILED',
+      message: 'Write a few sentences first.',
+      details: { reason: 'too_short' },
+    });
+    await page.goto(`/reflections/${DRAFT}`);
+    await page.getByRole('button', { name: 'Ask me questions' }).click();
+    await expect(
+      page.getByRole('status').filter({ hasText: 'Write a few sentences first' }),
+    ).toBeVisible();
+    await expect(page.getByText('Questions aren’t available right now')).toHaveCount(0);
+  });
+
   test('error: says so, and the rest of the card is untouched', async ({ page, api }) => {
     api.ai_fail(COACH, {
       kind: 'error',

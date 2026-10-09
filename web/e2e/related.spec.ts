@@ -98,6 +98,14 @@ test.describe('similar past reflections on the owner’s draft', () => {
     expect(lookups()).toBe(before + 1);
   });
 
+  test('a row with no sprint number names just its competency', async ({ page, api }) => {
+    api.ai_reply(RELATED, { entries: [{ ...TWO.entries[0], sprint_ordinal: null }] });
+    await page.goto(`/reflections/${DRAFT}`);
+    await page.getByRole('button', { name: 'From your earlier sprints (1)' }).click();
+    await expect(page.getByRole('button', { name: /^Communication/ })).toBeVisible();
+    await expect(page.getByText(/null/)).toHaveCount(0);
+  });
+
   test('nothing earlier: no disclosure at all', async ({ page, api }) => {
     api.ai_reply(RELATED, { entries: [] });
     await page.goto(`/reflections/${DRAFT}`);

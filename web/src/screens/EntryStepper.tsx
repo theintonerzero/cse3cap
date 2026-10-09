@@ -736,9 +736,10 @@ function EntryCard({
   const self_label = mode === 'assessor' ? `${owner_name}'s self-score` : 'Self-score';
   const [narrative_error, setNarrativeError] = useState<string | null>(null);
   const [score_error, setScoreError] = useState<string | null>(null);
-  // Counts saves, not keystrokes: similar reflections are looked up again
-  // when the narrative settles.
-  const [saves, setSaves] = useState(0);
+  // What Laravel holds, which is what the sidecar reads: the coach waits for
+  // it to match the screen, and similar reflections are looked up again when
+  // it changes, not on every keystroke.
+  const [saved_narrative, setSavedNarrative] = useState(entry.narrative ?? '');
   const levels = levels_for(framework, entry.competency_id);
   const self_score = self_score_of(entry);
 
@@ -754,7 +755,7 @@ function EntryCard({
           path: { entry_id: entry.id },
           body: { narrative: value },
         });
-        setSaves((n) => n + 1);
+        setSavedNarrative(value);
       } catch (error) {
         const api_error = as_api_error(error, 'Could not save that.');
         setNarrativeError(api_error.message);
@@ -894,13 +895,14 @@ function EntryCard({
           reflection_id={coach_reflection_id}
           entry_id={entry.id}
           narrative={entry.narrative ?? ''}
+          saved_narrative={saved_narrative}
         />
       )}
       {related_reflection_id && (
         <RelatedDisclosure
           reflection_id={related_reflection_id}
           entry_id={entry.id}
-          saved={saves}
+          saved_narrative={saved_narrative}
         />
       )}
       {counter_scores}

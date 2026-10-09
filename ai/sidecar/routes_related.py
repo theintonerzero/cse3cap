@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends
 
 from .caller import Caller, caller
@@ -18,6 +20,14 @@ def excerpt(text: str) -> str:
     return line[:EXCERPT].rsplit(" ", 1)[0] + "…"
 
 
+def written_before(row: dict, this: dict) -> bool:
+    """Earlier means written first. Across gigs sprint numbers don't compare, dates do."""
+    try:
+        return datetime.fromisoformat(row["created_at"]) < datetime.fromisoformat(this["created_at"])
+    except (KeyError, TypeError, ValueError):
+        return False  # no date to compare: not shown as earlier
+
+
 def register(router: APIRouter) -> None:
     @router.get("/reflections/{reflection_id}/entries/{entry_id}/related")
     async def related(reflection_id: str, entry_id: str, who: Caller = Depends(caller), deps: Deps = Depends(get_deps)) -> dict:
@@ -32,7 +42,7 @@ def register(router: APIRouter) -> None:
         others: dict[str, str] = {}
         about: dict[str, dict] = {}
         for row in await who.reader.reflections():
-            if row["id"] == reflection_id:
+            if row["id"] == reflection_id or not written_before(row, this):
                 continue
             reflection = await who.reader.reflection(row["id"])
             if reflection.get("owner", {}).get("id") != who.me.get("id"):
@@ -44,7 +54,8 @@ def register(router: APIRouter) -> None:
                     about[entry["id"]] = {
                         "reflection_id": reflection["id"],
                         "entry_id": entry["id"],
-                        "sprint_ordinal": reflection.get("sprint_ordinal"),
+                        # From the list row: Laravel's detail doesn't carry it.
+                        "sprint_ordinal": row.get("sprint_ordinal"),
                         "competency_name": entry.get("competency_name"),
                         "excerpt": excerpt(text),
                     }
