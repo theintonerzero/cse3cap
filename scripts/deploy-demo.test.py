@@ -408,6 +408,9 @@ check("the smoke check asks /ai/v1/status without the cookie and wants the gate'
 print("deploy/demo/site.caddy with a generated gate")
 # ---------------------------------------------------------------------------
 GATE_SCRIPT = ROOT / "scripts" / "demo-gate.sh"
+# Docker's official caddy:2, from AWS's public mirror of it: CI runners hit
+# Docker Hub's anonymous pull limit (toomanyrequests, 2026-10-10).
+CADDY = "public.ecr.aws/docker/library/caddy:2"
 docker_ok = shutil.which("docker") is not None and run("docker", "info").returncode == 0
 if not GATE_SCRIPT.exists() or not (DEMO / "site.caddy").exists():
     check("scripts/demo-gate.sh and deploy/demo/site.caddy exist", False)
@@ -421,8 +424,11 @@ else:
 
     with tempfile.TemporaryDirectory() as tmp:
         srv = pathlib.Path(tmp)
-        bcrypt = run("docker", "run", "--rm", "caddy:2", "caddy", "hash-password",
-                     "--plaintext", "test-password-123").stdout.strip()
+        hashed = run("docker", "run", "--rm", CADDY, "caddy", "hash-password",
+                     "--plaintext", "test-password-123")
+        bcrypt = hashed.stdout.strip()
+        check("caddy hashes a test password", hashed.returncode == 0 and bcrypt.startswith("$2"),
+              hashed.stdout + hashed.stderr)
         r = run(GATE_SCRIPT, "--out", srv / "diary-gate.caddy", "--hash", bcrypt, "--secret", "f" * 64)
         check("demo-gate.sh writes the gate file", r.returncode == 0 and (srv / "diary-gate.caddy").exists(),
               r.stdout + r.stderr)
@@ -452,14 +458,15 @@ else:
         # share temporary directories with their VM, so a mount arrives empty.
         name = "diary-gate-test"
         run("docker", "rm", "-f", name)
-        run("docker", "create", "--name", name, "-p", "18080:8080", "caddy:2",
+        run("docker", "create", "--name", name, "-p", "18080:8080", CADDY,
             "caddy", "run", "--config", "/srv/server/Caddyfile", "--adapter", "caddyfile")
         run("docker", "cp", f"{srv}/.", f"{name}:/srv/server")
         run("docker", "start", name)
         time.sleep(2)
         r = run("docker", "exec", name, "caddy", "validate", "--config", "/srv/server/Caddyfile",
                 "--adapter", "caddyfile")
-        check("caddy validates the site with its gate", r.returncode == 0, r.stdout + r.stderr)
+        check("caddy validates the site with its gate", r.returncode == 0,
+              r.stdout + r.stderr + run("docker", "logs", name).stdout + run("docker", "logs", name).stderr)
 
         class NoRedirect(urllib.request.HTTPRedirectHandler):
             def redirect_request(self, *args, **kwargs):

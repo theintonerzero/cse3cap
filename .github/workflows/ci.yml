@@ -153,7 +153,10 @@ jobs:
     # window functions behave the same.
     services:
       mysql:
-        image: mysql:9.7
+        # Docker's official image, from AWS's public mirror of it: GitHub's
+        # shared runners hit Docker Hub's anonymous pull limit (toomanyrequests,
+        # 2026-10-10), and the mirror does not throttle them.
+        image: public.ecr.aws/docker/library/mysql:9.7
         env:
           MYSQL_ROOT_PASSWORD: ci
           MYSQL_DATABASE: reflection_diary_test_ci
@@ -306,7 +309,10 @@ jobs:
     # shared server: they drop and recreate every table.
     services:
       mysql:
-        image: mysql:9.7
+        # Docker's official image, from AWS's public mirror of it: GitHub's
+        # shared runners hit Docker Hub's anonymous pull limit (toomanyrequests,
+        # 2026-10-10), and the mirror does not throttle them.
+        image: public.ecr.aws/docker/library/mysql:9.7
         env:
           MYSQL_ROOT_PASSWORD: test
           MYSQL_DATABASE: diary_ai_test

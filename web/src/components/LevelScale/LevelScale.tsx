@@ -167,7 +167,9 @@ export function LevelScale({
   );
 
   const words = marks ? (
-    <ul className={styles.who}>
+    // Names and numbers only (CAP-68): what a level means is one tap away,
+    // under All levels, where it is said once rather than per person.
+    <ul className={styles.who} aria-label="Who chose which level">
       {marks.map((mark) => {
         const level = at(mark.level_id);
         return (
@@ -179,7 +181,6 @@ export function LevelScale({
             <span className={styles.who_name}>
               {mark.who} · {level?.level_value ?? '–'}
             </span>
-            <span>{level?.descriptor ?? ''}</span>
           </li>
         );
       })}
