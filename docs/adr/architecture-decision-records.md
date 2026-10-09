@@ -54,7 +54,7 @@ Index
 #42 Browser checks with Playwright, fake API ..... Accepted
 #43 AA palette lives in tokens.css ............ Accepted
 #44 Agents set ticket fields, not wording ...... Accepted
-#45 The demo deploys by hand, one origin ......... Accepted
+#45 The demo deploys by hand, one origin ......... Superseded in part by #62
 #46 Seeded tokens expire, carry a prefix, keep * .. Accepted
 #47 One role per person per gig, student first .. Accepted
 #48 Choosing a rubric is the supervisor's ......... Accepted
@@ -71,6 +71,7 @@ Index
 #59 A copy can be deleted until it is assigned .. Proposed
 #60 Alumable demo shell, demo-only .............. Superseded by #61
 #61 The demo shell is a sign-in only ............ Proposed
+#62 The live demo: containers, a gate, its own db .. Proposed
 
 ===============================================================
 
@@ -2418,7 +2419,7 @@ acceptance criteria within reach of the agent being judged against them.
 
 ADR #45: The demo deploys by hand, one origin, no containers
 
-Status: Accepted
+Status: Superseded in part by #62
 Date: 2026-09-30
 
 Context:
@@ -3517,3 +3518,101 @@ navigation, and the screen still only duplicated the diary home.
 Turn the flag off and present the plain token gate. No code at all, and still the fallback
 on the day ("Presenting without it"). But pasting tokens in front of the client is the one
 thing the shell genuinely improved, and the picker costs little to keep.
+
+
+ADR #62: The live demo runs as containers behind a gate, on its own database
+
+Status: Proposed
+Date: 2026-10-09
+Supersedes: #45 (in part)
+
+Context:
+ADR #45 built a deploy for a box nobody could get a shell on. Its design assumed what a
+plain Ubuntu host would have: Caddy installed at /etc/caddy, PHP-FPM and Node on the host,
+and a `diary` user to own the releases. On 2026-10-09 Jesse, who owns darkovski.dev, read
+the box over ssh (`ssh accord`, the same machine as rddb.darkovski.dev). None of that is
+there. Caddy, MySQL 9.7.2, ntfy and another service run as one Docker Compose project in
+/home/ubuntu/server, on a network called `web`. The Caddyfile is
+/home/ubuntu/server/Caddyfile. There is no PHP, no Node and no `diary` user on the host. So
+#45's procedure cannot run as written, and installing a PHP and Node toolchain next to a
+containerised Caddy would mean two ways of running services on one small box.
+
+The same day the team wanted the demo live for the client, with the one-click persona
+picker from ADR #61 rather than pasted tokens, and with the AI sidecar planned for HO-9 to
+follow. Three things #45 accepted as costs got more expensive with a live demo in front of
+other people. Visitors write to the shared reflection_diary database. A visitor's submit is
+irreversible and re-scoring is a 409, so one rehearsal changes the seeded rows every
+teammate develops against. The picker is dev-server only (F15), because compiled into a
+build it put full-ability tokens in public JavaScript. And a deploy by hand means the demo
+falls behind dev unless somebody remembers.
+
+Decision:
+The demo runs as two containers in their own compose project, `diary`, joined to the
+existing `server_web` network. diary-api is Laravel on PHP 8.5-FPM. diary-web is a Caddy
+serving the built bundle and passing /api and /up to PHP-FPM. Both are built on the box from
+one commit of the public repository. The compose project defines no MySQL or Caddy of its
+own, so bringing it up or down never touches the services the team depends on.
+
+The public site is one block imported by the existing Caddyfile. Every path, /api included,
+needs a cookie issued by /gate, which is the only path behind basic auth. Without the
+cookie, a page redirects to /gate and the API answers 401 in the diary's error envelope.
+The cookie secret and the password hash live only in a file on the box that is never
+committed.
+
+The demo has its own database, reflection_diary_demo, with its own MySQL user granted on
+nothing else. scripts/demo-reset.sh reseeds it from scratch, and both it and the deploy
+refuse any database whose name does not end in _demo.
+
+The picker reads its people at runtime from /demo/personas.json, a file the reset writes on
+the box and the gate protects. The build carries the personas URL and no token, and
+./run bundle-secrets proves that with the live flag set.
+
+The box deploys itself. A systemd timer runs scripts/deploy-demo.sh every 5 minutes. When
+dev has moved it builds the new commit, migrates the demo database, starts it, checks /up,
+and on failure puts the previous images back. It reports to ntfy and stops while a freeze
+file exists. The box only reads the public repository.
+
+What #45 keeps. GitHub holds no credentials for the box. Frontend and API share one origin.
+A deploy never edits Caddy, whose one-time change stays a procedure a person runs, because
+the same Caddy issues the database certificate (ADR #21). The database is reached by the
+name its certificate carries. What this replaces in #45: no containers, host paths and the
+`diary` user, deploys by hand only, and the shared database.
+
+Consequences:
+Positive:
+The deploy matches how the box already runs things, so there is one way to start, stop and
+inspect a service on it. Visitors can't touch the data the team develops against, and a bad
+demo session is undone by one reset. The picker is live without reopening F15. The demo
+follows dev on its own, so what the client sees is what merged.
+
+Negative:
+Anyone with the demo password can sign in as any persona and write to the demo database.
+That is the point of a demo, and a reset undoes it, but the password is the only thing in
+the way and it is shared by everyone it is given to.
+
+Auto-deploy means a merge to dev can change the demo minutes before someone presents it.
+The freeze file is the answer and it only works if somebody remembers it.
+
+A rollback restores code, not schema. If a commit migrates the demo database and then fails
+its health check, the old code runs against the new schema until someone runs a reset.
+
+The first ARM build on the box takes several minutes and competes with MySQL for the CPU,
+as #45 said of its own build.
+
+#45's files (deploy/caddy, deploy/php-fpm, scripts/deploy.sh, scripts/rollback.sh) now
+describe a layout that is not used. They are CAP-26's, and whether they go is for its owner
+and the team.
+
+Alternatives:
+Install the host toolchain as #45 wrote it. It is reviewed and tested, and it avoids a second
+container story. It lost because the box has none of what it assumes, and adding PHP, Node
+and a host Caddy beside the containerised one would leave two ways to run services on one
+VPS that also serves the team's database.
+
+Deploy from GitHub Actions over ssh on each merge. It is the familiar shape and needs nothing
+on the box but an authorised key. It lost because that key would sit in GitHub with access to
+the machine that runs everyone's database, which is the property #45 was right to protect.
+
+Keep the shared database and reseed it when the demo drifts. No new database or user. It
+lost because a reseed of the shared database resets everyone's local fixtures, and CLAUDE.md
+says nobody edits the seeds.
