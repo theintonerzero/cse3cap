@@ -57,7 +57,7 @@ test.describe('on the student’s assessed reflection', () => {
   test('Hide puts the button back', async ({ page }) => {
     await page.goto(`/reflections/${ASSESSED}`);
     await page.getByRole('button', { name: ASK }).click();
-    await page.getByRole('button', { name: 'Hide' }).click();
+    await page.getByRole('button', { name: 'Hide', exact: true }).click();
     await expect(page.getByRole('button', { name: ASK })).toBeVisible();
   });
 

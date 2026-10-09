@@ -45,6 +45,7 @@ import {
   BottomSheet,
   Button,
   Chip,
+  LevelScale,
   ErrorNotice,
   ProgressBar,
   Skeleton,
@@ -106,6 +107,9 @@ import styles from './EntryStepper.module.css';
  *          read-only; the level picker is the scorer's own.
  */
 type StepperMode = 'student' | 'assessor';
+
+/** How long the arrow keys must rest on a level before it is saved (CAP-66). */
+const KEY_SETTLE_MS = 500;
 
 type Load =
   | { status: 'loading' }
@@ -784,7 +788,12 @@ function EntryCard({
     [entry.id],
   );
 
-  const choose_level = useCallback(
+  // CAP-66: the scale shows a choice at once. A tap saves at once; arrow keys
+  // save once they stop, so stepping from 1 to 4 sends one save, not three.
+  const [pending_level, setPendingLevel] = useState<string | null>(null);
+  const settle = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(settle.current), []);
+  const save_level = useCallback(
     async (level_id: string) => {
       setScoreError(null);
       try {
@@ -796,9 +805,22 @@ function EntryCard({
         on_change({ ...entry, scores: [...others, score] });
       } catch (error) {
         setScoreError(as_api_error(error, 'Could not save that score.').message);
+      } finally {
+        // The scale shows what was saved from here on, or what was there before.
+        setPendingLevel((pending) => (pending === level_id ? null : pending));
       }
     },
     [entry, on_change],
+  );
+
+  const choose_level = useCallback(
+    (level_id: string, how: 'pointer' | 'key') => {
+      clearTimeout(settle.current);
+      setPendingLevel(level_id);
+      if (how === 'pointer') void save_level(level_id);
+      else settle.current = setTimeout(() => void save_level(level_id), KEY_SETTLE_MS);
+    },
+    [save_level],
   );
 
   const narrative = (
@@ -821,19 +843,12 @@ function EntryCard({
 
   const self_score_row = (
     <div className={styles.levels}>
-      <p className={styles.field_label}>{self_label}</p>
-      <div className={styles.level_row} role="group" aria-label={self_label}>
-        {levels.map((level) => (
-          <Chip
-            key={level.id}
-            selected={self_score?.level_id === level.id}
-            disabled={read_only}
-            on_click={() => choose_level(level.id)}
-          >
-            {level.level_value} &middot; {level.descriptor}
-          </Chip>
-        ))}
-      </div>
+      <LevelScale
+        label={self_label}
+        levels={levels}
+        value={pending_level ?? self_score?.level_id ?? null}
+        on_change={read_only ? undefined : choose_level}
+      />
       {score_error && (
         <p className={styles.field_error} role="alert">
           {score_error}

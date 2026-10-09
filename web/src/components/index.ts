@@ -30,3 +30,9 @@ export { FloatingAction } from './FloatingAction/FloatingAction.tsx';
 export type { FloatingActionProps } from './FloatingAction/FloatingAction.tsx';
 export { Menu } from './Menu/Menu.tsx';
 export type { MenuProps, MenuItem } from './Menu/Menu.tsx';
+export { LevelScale } from './LevelScale/LevelScale.tsx';
+export type {
+  LevelScaleProps,
+  LevelScaleLevel,
+  LevelScaleMark,
+} from './LevelScale/LevelScale.tsx';

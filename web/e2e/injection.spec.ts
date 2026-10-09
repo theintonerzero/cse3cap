@@ -35,8 +35,8 @@ test('student stepper: every typed field is text, and a javascript: link is not 
   for (const value of [1, 2]) {
     await expect(
       page
-        .getByRole('group', { name: 'Self-score' })
-        .getByRole('button', { name: `${value} · ${PAYLOAD}` }),
+        .getByRole('radiogroup', { name: 'Self-score' })
+        .getByRole('radio', { name: `${value} of 2, ${PAYLOAD}` }),
     ).toBeVisible();
   }
   // The counter-score reads as the assessor sees it (CAP-38): the scorer's
@@ -64,7 +64,9 @@ test("assessor stepper: the student's name and work are text", async ({ page }) 
   // puts it in the status line and in two field labels.
   await expect(page.getByText(`${PAYLOAD} · you have scored 0 of 1`)).toBeVisible();
   await expect(page.getByLabel(`${PAYLOAD} wrote`)).toHaveValue(PAYLOAD);
-  await expect(page.getByRole('group', { name: `${PAYLOAD}'s self-score` })).toBeVisible();
+  await expect(
+    page.getByRole('radiogroup', { name: `${PAYLOAD}'s self-score` }),
+  ).toBeVisible();
   await expect(page.locator('a[href^="javascript:"]')).toHaveCount(0);
   await assertInert(page);
 });

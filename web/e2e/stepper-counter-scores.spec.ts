@@ -206,7 +206,7 @@ test('the card reads self-score, reflection, then the counter-score and its comm
   // Patrick, round 2b: each person's score, then the words behind it.
   await page.goto(`/reflections/${ASSESSED}`);
   const order = [
-    page.getByRole('group', { name: 'Self-score' }),
+    page.getByRole('radiogroup', { name: 'Self-score' }),
     page.getByRole('textbox', { name: 'Your reflection' }),
     page.getByRole('group', { name: `${SAM.display_name}'s score` }),
     page.getByRole('textbox', { name: `${SAM.display_name}'s comment` }),
