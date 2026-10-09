@@ -43,6 +43,12 @@ class PdfRenderer
         $options->set('isJavascriptEnabled', false);
         $options->set('isHtml5ParserEnabled', true);
         $options->set('defaultFont', 'DejaVu Sans');
+        // The diary's typeface, Inter, read from resources/fonts (CAP-65).
+        // chroot is the only directory dompdf may read a local file from, and
+        // this is the only one the templates name. Subsetting embeds just the
+        // glyphs the record uses, not three whole fonts.
+        $options->setChroot([resource_path('fonts')]);
+        $options->set('isFontSubsettingEnabled', true);
 
         // dompdf caches parsed font metrics next to the fonts, which is
         // inside vendor/ by default. A deploy that ships vendor/ read-only
