@@ -26,6 +26,21 @@ printf '==> reseeding %s\n' "$db"
 compose run --rm diary-api php artisan migrate:fresh --drop-views --seed --force --no-interaction --no-ansi \
     > "$work/seed.txt"
 
+# DemoSeeder issues tokens to Jane, Sam and Dr Lee only. Demo-Script's main
+# student is Noor A (Jane's sprints are full), with Priya R and Tom H as
+# stand-ins, so the rest of the demo people get one the way the Runbook issues
+# Noor's: named demo, expiring with the seeded three (ADR #46).
+printf '==> issuing tokens for the rest of the demo people\n'
+# shellcheck disable=SC2016 # PHP, not shell: the $ signs are PHP's
+compose run --rm -T diary-api php artisan tinker --execute '
+    require "/app/scripts/lib/demo-people.php";
+    foreach (DEMO_PEOPLE as [$id, $name]) {
+        $user = App\Models\User::where("display_name", $name)->first();
+        if ($user === null || $user->tokens()->exists()) { continue; }
+        $token = $user->createToken("demo", ["*"], now()->addDays(Database\Seeders\DemoSeeder::TOKEN_LIFETIME_DAYS));
+        echo $name, " ", $token->plainTextToken, PHP_EOL;
+    }' >> "$work/seed.txt"
+
 # Built aside and installed whole: a failure keeps the previous file, so the
 # picker never shows an empty list. The seed output holds every new token.
 printf '==> writing personas.json\n'

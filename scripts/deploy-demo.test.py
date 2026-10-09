@@ -80,13 +80,24 @@ case "$*" in
 esac
 exit 0
 """
+# migrate:fresh prints what DemoSeeder prints (three tokens, no Noor); tinker
+# prints the extra people's tokens; demo-personas.php is the REAL script, run on
+# the seed file the reset actually wrote, found through the -v mount.
 STUB_DOCKER = """#!/bin/sh
 echo "docker $*" >> "$CALLS"
 case "$*" in
   *" build"*) [ "${FAIL_BUILD:-}" = 1 ] && exit 1 ;;
+  *"migrate:fresh"*)
+    echo "Jane N   1|aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    echo "Sam O    2|bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    echo "Dr Lee   3|cccccccccccccccccccccccccccccccccccccccc" ;;
+  *"tinker"*) echo "Noor A 4|dddddddddddddddddddddddddddddddddddddddd" ;;
   *"artisan migrate"*) [ "${FAIL_MIGRATE:-}" = 1 ] && exit 1 ;;
   *"wget"*|*"/health"*) [ "${FAIL_HEALTH:-}" = 1 ] && exit 1 ;;
-  *"demo-personas.php"*) [ "${FAIL_PERSONAS:-}" = 1 ] && exit 1; echo '[{"id":"jane","name":"Jane N","role_hint":"Student","slot":"student","token":"1|x"}]' ;;
+  *"demo-personas.php"*)
+    [ "${FAIL_PERSONAS:-}" = 1 ] && exit 1
+    dir="$(printf '%s\\n' "$*" | sed -n 's/.*-v \\([^:]*\\):\\/seed.*/\\1/p')"
+    exec php "$REPO/scripts/demo-personas.php" "$dir/seed.txt" ;;
 esac
 exit 0
 """
@@ -121,7 +132,7 @@ def box(tmp, db="reflection_diary_demo", deployed=None, freeze=False):
         (bin_dir / name).write_text(body)
         (bin_dir / name).chmod(0o755)
     calls = pathlib.Path(tmp) / "calls.log"
-    return home, {"DIARY_HOME": str(home), "CALLS": str(calls),
+    return home, {"DIARY_HOME": str(home), "CALLS": str(calls), "REPO": str(ROOT),
                   "DIARY_HEALTH_TRIES": "2", "DIARY_HEALTH_WAIT": "0",
                   "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}"}, calls
 
@@ -220,6 +231,16 @@ else:
               "\n".join(log) + r.stderr)
         check("it writes personas.json from the seed output",
               personas.exists() and '"jane"' in personas.read_text(), r.stderr)
+        # Demo-Script's main student. DemoSeeder issues no token for her.
+        check("Noor, who the seeder gives no token, is in the picker too",
+              personas.exists() and '"noor"' in personas.read_text(),
+              (personas.read_text() if personas.exists() else "") + r.stderr)
+        # The tinker code spans lines, so read the whole call, not one log line.
+        whole = read(calls)
+        tinker = whole[whole.find("tinker"):] if "tinker" in whole else ""
+        check("the extra tokens expire with the seeded ones",
+              "createToken" in tinker and "TOKEN_LIFETIME_DAYS" in tinker and "tokens()->exists()" in tinker,
+              tinker)
         check("personas.json is not world-readable",
               personas.exists() and (personas.stat().st_mode & 0o777) == 0o640)
 
