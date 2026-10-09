@@ -8,7 +8,7 @@
  * Data loaders are deliberately NOT used (ADR #27) -- fetching lives in the
  * typed API client and each screen owns its own.
  *
- * Two of the ten screens are not here. The history sheet (CAP-14) and the
+ * Two of the eleven screens are not here. The history sheet (CAP-14) and the
  * export sheet (CAP-18) are described in 4.3 as sheets, and BottomSheet
  * exists for exactly that: they open over the diary rather than navigating
  * away from it. If either decides it wants a linkable URL, it is one line in
