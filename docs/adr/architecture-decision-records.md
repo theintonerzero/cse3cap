@@ -69,7 +69,8 @@ Index
 #57 Counter-scores go in together ................ Proposed
 #58 The picker names the radar's scope .......... Proposed
 #59 A copy can be deleted until it is assigned .. Proposed
-#60 Alumable demo shell, demo-only .............. Proposed
+#60 Alumable demo shell, demo-only .............. Superseded by #61
+#61 The demo shell is a sign-in only ............ Proposed
 
 ===============================================================
 
@@ -3391,7 +3392,7 @@ another copy.
 ===============================================================
 
 ADR #60: Alumable demo shell, demo-only and flag-gated
-Status: Proposed
+Status: Superseded by #61
 Date: 2026-10-07
 
 Context:
@@ -3447,3 +3448,72 @@ of it irrelevant to the diary story.
 Reskin the diary in place with no new screens. Smallest effort, but it loses the "inside
 Alumable" framing that is the whole point of the demo, and blurs the product's own styling
 with the host's.
+
+===============================================================
+
+ADR #61: The demo shell is a sign-in only
+Status: Proposed
+Date: 2026-10-08
+Supersedes: #60
+
+Context:
+ADR #60 added a flag-gated Alumable surround for the client demo: an Alumable-branded
+sign-in with one-click named profiles, a "My Gigs" home built from GET /gigs, and an
+Alumable header and bottom bar, in an orange palette taken from the Alumable wordmark. It
+merged while still Proposed, before the person who owns the UI rounds had looked at it.
+
+Run on the seeded data on 8 October, it did not hold up. My Gigs showed the same gigs the
+diary home already shows, and hid the diary home's radar until a later patch added a card
+back to it. It broke the diary's own navigation. The same back-arrow went to different
+places depending on who was signed in. Reviewers were taken to a gig page the product never
+shows them. There were two differently named switch buttons, and My Gigs had no menu to
+change the theme. The orange palette is in none of the design documents (the CAP-1 tokens
+sampled from Figma, the CAP-38 update, the prototype) and turned the diary's own accent
+orange inside the shell. The bottom bar's disabled Chat and Profile suggested features
+that were never built. The UI update was built as "based on Alumable, but better", and a
+surround that copies Alumable clashes with it.
+
+The one part that earned its place is the picker. Choosing a named person in one click,
+instead of pasting a token in front of the client, is a real improvement for a demo.
+
+Decision:
+Behind the same VITE_DEMO_SHELL flag (still dev server only, see F15), the shell is a
+sign-in and nothing else. With nobody signed in, AppShell renders a one-click picker of
+named demo people in place of the token gate. It shows the Alumable logo, says plainly that
+these are demo profiles and not an Alumable sign-in, and falls back to the seeded-token
+paste when no personas are configured. It wears the diary's own look: the section tint
+fading into the page, as the diary home and review queue have, and the diary's tokens, so
+it follows the theme. Picking a person signs in in place, exactly as the product gate
+does, so the app lands where the product would. In the shell, Switch user signs out so the
+picker appears again, because the product's slot sheet cannot tell apart two people who
+share the Student slot. My Gigs, the header and bottom bar, the /welcome and /home routes,
+the demo back-arrows and the [data-brand] palette are removed. Past the picker the app is
+the product.
+
+This still does not reverse ADR #15. The picker stands in for Alumable's identity, as the
+seeded tokens do, and the product has no login of its own.
+
+Consequences:
+Positive:
+The demo shows the product as it ships, with one honest improvement at the door. Every
+screen navigates as the product does, so the presenter learns one app, not two, and the
+demo specs check the shell against the product's own routes rather than a parallel set.
+The flag now changes one component. The orange palette, two logo files and two screens
+leave a public repository.
+
+Negative:
+The demo no longer looks like it is inside Alumable. Where the diary sits in Alumable has
+to be shown another way, with the Figma host-app frames in the slides before the live demo
+(Demo-Script, "Presenting without it"). Picking a person never navigates on its own, so a
+first sign-in at a deep link stays there, which is the product's behaviour (ADR #27) but
+means a stale rehearsal URL opens where it was left. Work already merged for #60 is thrown
+away, and so are #118's dark palette and My Gigs card, which never merged.
+
+Alternatives:
+Keep My Gigs and fix its navigation. #118 tried this, with a card back to the diary home
+and back-arrows patched per role. Every fix added a special case to the diary's
+navigation, and the screen still only duplicated the diary home.
+
+Turn the flag off and present the plain token gate. No code at all, and still the fallback
+on the day ("Presenting without it"). But pasting tokens in front of the client is the one
+thing the shell genuinely improved, and the picker costs little to keep.

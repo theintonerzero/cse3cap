@@ -1,52 +1,52 @@
 /**
- * The Alumable demo sign-in (CAP-51, ADR #60).
+ * The demo sign-in (CAP-51, ADR #61).
  *
- * Demo-only, behind demoMode(). It dresses the diary's own token entry in the
- * Alumable brand: with personas supplied through VITE_DEMO_TOKENS it offers a
- * card per profile that signs in on one click and goes to the Alumable home;
- * with none it falls back to the existing seeded-token paste (TokenGate),
- * under the same Alumable header, so a fresh checkout still works.
+ * Demo-only, behind demoMode(). AppShell renders it in place of the token
+ * gate when nobody is signed in. With personas supplied through
+ * VITE_DEMO_TOKENS it offers a card per named person that signs in on one
+ * click; with none it falls back to the seeded-token paste (TokenGate) under
+ * the same heading. It says plainly that it is a demo: the people are seeded,
+ * not an Alumable account.
  *
- * It never decides a role and never checks a token itself. Signing in is the
- * session's job (sign_in_with), roles still resolve server-side from
- * gig_participants, and the slot a persona names is a label, exactly as
- * session/tokens.ts says.
+ * It never navigates. Signing in leaves the app where the product's own gate
+ * would: AppShell keeps the address for a first sign-in and sends a different
+ * person to "/" (its hand-over), and "/" routes by role. It never decides a
+ * role or checks a token either: that is the session's and the server's job.
+ *
+ * It wears the diary's own look (Patrick, 8 Oct): the section tint fading into
+ * the page, as the diary home and review queue have, and the diary's tokens,
+ * so it follows the theme like every other screen. Only the logo is Alumable's.
  */
-import { useNavigate } from 'react-router';
-
 import { TokenGate } from '../session/TokenGate.tsx';
 import { useSession } from '../session/useSession.ts';
-import { demoPersonas, type DemoPersona } from './demoMode.ts';
+import { demoPersonas } from './demoMode.ts';
 import logo from './assets/alumable-horizontal.png';
 import styles from './AlumableWelcome.module.css';
 
 export function AlumableWelcome() {
-  const { sign_in_with } = useSession();
-  const navigate = useNavigate();
+  const { sign_in_with, last_sign_in_rejected } = useSession();
   const personas = demoPersonas();
 
-  function choose(persona: DemoPersona) {
-    sign_in_with(persona.slot, persona.token);
-    navigate('/home');
-  }
-
   return (
-    <div data-brand="alumable" className={styles.screen}>
+    <div className={styles.screen}>
       <header className={styles.header}>
         <img src={logo} alt="Alumable logo" className={styles.logo} />
       </header>
 
       {personas.length > 0 ? (
         <main className={styles.panel}>
-          <h1 className={styles.heading}>Sign in with Alumable</h1>
-          <p className={styles.intro}>Pick a profile to continue to your gigs.</p>
+          <h1 className={styles.heading}>Reflection Diary demo</h1>
+          <p className={styles.intro}>
+            Pick a profile to continue. These are demo profiles on seeded data, not a real
+            Alumable sign-in.
+          </p>
           <ul className={styles.personas}>
             {personas.map((persona) => (
               <li key={persona.id}>
                 <button
                   type="button"
                   className={styles.persona}
-                  onClick={() => choose(persona)}
+                  onClick={() => sign_in_with(persona.slot, persona.token)}
                 >
                   <span className={styles.personaName}>{persona.name}</span>
                   <span className={styles.personaRole}>{persona.role_hint}</span>
@@ -54,11 +54,20 @@ export function AlumableWelcome() {
               </li>
             ))}
           </ul>
+          {/* A revoked token or a reseeded database on the day: say so, rather
+              than the click quietly returning here (the paste gate says the
+              same). The session sets this on a 401 from /auth/me. */}
+          {last_sign_in_rejected && (
+            <p className={styles.rejected} role="alert">
+              That profile could not sign in: its token was rejected. Check the tokens in
+              web/.env.development.local.
+            </p>
+          )}
         </main>
       ) : (
         <TokenGate
           mode="screen"
-          heading="Sign in with Alumable"
+          heading="Reflection Diary demo"
           intro="No profiles are set up on this computer. Paste a seeded token to continue."
         />
       )}

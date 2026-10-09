@@ -1,7 +1,11 @@
 .screen {
   min-height: 100vh;
-  background: var(--brand-surface);
-  color: var(--brand-ink);
+  /* The diary home's look (AppShell.module.css, ADR #52): the section tint
+     fading into the page over the first 20rem. */
+  background:
+    linear-gradient(to bottom, var(--section-tint-diary) 0, var(--color-bg) 20rem) no-repeat,
+    var(--color-bg);
+  color: var(--color-text);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -37,7 +41,7 @@
 
 .intro {
   margin: 0;
-  color: var(--brand-ink-muted);
+  color: var(--color-text-muted);
   font-size: var(--font-size-base);
 }
 
@@ -57,20 +61,21 @@
   align-items: flex-start;
   gap: var(--space-4);
   padding: var(--space-16);
-  border: var(--border-width-sm) solid var(--brand-border);
+  border: var(--border-width-sm) solid var(--color-border);
   border-radius: var(--radius-lg);
-  background: var(--brand-card);
-  color: var(--brand-ink);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+  color: var(--color-text);
   cursor: pointer;
   text-align: left;
 }
 
 .persona:hover {
-  border-color: var(--brand-primary);
+  border-color: var(--color-primary);
 }
 
 .persona:focus-visible {
-  outline: 0.125rem solid var(--brand-primary);
+  outline: 0.125rem solid var(--color-focus-ring);
   outline-offset: 0.125rem;
 }
 
@@ -81,5 +86,11 @@
 
 .personaRole {
   font-size: var(--font-size-sm);
-  color: var(--brand-ink-muted);
+  color: var(--color-text-muted);
+}
+
+.rejected {
+  margin: 0;
+  color: var(--color-danger);
+  font-size: var(--font-size-sm);
 }

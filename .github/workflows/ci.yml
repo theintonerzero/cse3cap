@@ -88,6 +88,11 @@ jobs:
       - name: Check the token reader and that every script uses it
         run: python3 scripts/token-for.test.py
 
+      # ./run demo's preflight (CAP-51): it refuses an unreachable database,
+      # writes the demo people from the tokens file, and never prints a token.
+      - name: Check the demo preflight
+        run: python3 scripts/demo-preflight.test.py
+
       # The docs still describe the repository: relative links resolve,
       # ./run commands exist, docs/ is in the README table, the ADR index
       # matches the records, and the dependency register matches the

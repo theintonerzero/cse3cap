@@ -4,6 +4,7 @@
 #
 #   ./run            what you can do
 #   ./run dev        both servers, one Ctrl-C stops both
+#   ./run demo       the client demo: checks the database and the demo people, then dev
 #   ./run check      everything CI runs
 #
 # api/ and web/ are separate applications with separate toolchains. This
@@ -129,6 +130,11 @@ dev() {
 # --------------------------------------------------------------------------
 case "${1:-help}" in
     dev)   dev ;;
+
+    # The client demo on this laptop (CAP-51): the shared database must
+    # answer (a hotspot if the wifi blocks 3306), and the demo sign-in's
+    # people come from the team's tokens file. Then both servers, as dev.
+    demo)  need_api; need_web_deps; php scripts/demo-preflight.php || exit 1; dev ;;
 
     api)   need_api; in_dir api php artisan serve --port=8000 ;;
     web)   need_web_deps; in_dir web npm run dev ;;
@@ -387,6 +393,7 @@ case "${1:-help}" in
 ${BLUE}Alumable Reflection Diary${RESET}
 
   ${GREEN}./run dev${RESET}      both servers. api on :8000, web on :5173. Ctrl-C stops both
+  ${GREEN}./run demo${RESET}     the client demo: database check, demo people from your tokens file, then dev
   ${GREEN}./run api${RESET}      backend only
   ${GREEN}./run web${RESET}      frontend only
   ${GREEN}./run mock${RESET}     mock the contract on :4010, so web needs no backend
