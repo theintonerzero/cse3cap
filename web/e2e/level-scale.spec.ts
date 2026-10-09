@@ -220,12 +220,10 @@ test.describe('reading scores that can no longer change', () => {
     await page.goto(`/reflections/${ASSESSED}`);
     const shared = page.getByRole('group', { name: "Your score and Dr Lee's" });
     await expect(shared).toBeVisible();
-    await expect(shared.getByRole('listitem').filter({ hasText: 'You · 2' })).toContainText(
-      'Communication at level 2.',
-    );
-    await expect(
-      shared.getByRole('listitem').filter({ hasText: 'Dr Lee · 3' }),
-    ).toContainText('Communication at level 3.');
+    // Names and numbers only (CAP-68): what a level means is under All levels.
+    const legend = shared.getByRole('list', { name: 'Who chose which level' });
+    await expect(legend.getByRole('listitem')).toHaveText(['You · 2', 'Dr Lee · 3']);
+    await expect(legend).not.toContainText('Communication at level');
     // Nothing on an assessed reflection can be chosen.
     await expect(page.getByRole('radio')).toHaveCount(0);
     await expect(page.getByRole('textbox', { name: "Dr Lee's comment" })).toHaveValue(
