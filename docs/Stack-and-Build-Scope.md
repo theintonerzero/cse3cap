@@ -9,7 +9,7 @@ to the API specification (v2) and the ERD.
 ## 1. What this is
 
 An MVP, not a prototype. Feature-complete, running on real data, designed to plug into
-Alumable's platform later. Ten screens across three roles, backed by a JSON API
+Alumable's platform later. Eleven screens across three roles, backed by a JSON API
 and a MySQL database that is already designed and reviewed.
 
 Scope in one line: a student writes reflections per sprint, scores themselves against a
