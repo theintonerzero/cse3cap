@@ -508,9 +508,17 @@ function ReflectionNudge({
       reflection.sprint_id ? [reflection.sprint_id] : [],
     ),
   );
+  // A gig with no rubric yet cannot take a reflection (POST /reflections
+  // answers FRAMEWORK_NOT_ASSIGNED), so its sprints are not offered or
+  // counted. A display decision: the server still decides (CAP-62).
+  const startable = (one: Gig) => one.framework !== null;
   const needing = gig
-    ? sprints_needing_reflection(gig.sprints, written, today)
-    : gigs.flatMap((one) => sprints_needing_reflection(one.sprints, written, today));
+    ? startable(gig)
+      ? sprints_needing_reflection(gig.sprints, written, today)
+      : []
+    : gigs
+        .filter(startable)
+        .flatMap((one) => sprints_needing_reflection(one.sprints, written, today));
 
   if (needing.length === 0) return null;
 

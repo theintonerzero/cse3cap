@@ -1,6 +1,6 @@
 ---
 name: frontend-screen
-description: Use to build or change a React screen or component in web/. Covers the ten screens, the shared component library, the typed API client and the radar. Mid-level work that follows patterns already established rather than deciding new ones.
+description: Use to build or change a React screen or component in web/. Covers the eleven screens, the shared component library, the typed API client and the radar. Mid-level work that follows patterns already established rather than deciding new ones.
 model: sonnet
 effort: high
 color: green

@@ -172,7 +172,7 @@ export function LearningRecord() {
     <section className={styles.page}>
       <h1 className={styles.heading}>Your learning record</h1>
 
-      <Summary sections={load.sections} record={load.record} />
+      <Summary sections={load.sections} />
 
       {load.sections.map((section) => (
         <RecordTable key={section.gig.id} section={section} />
@@ -200,14 +200,15 @@ function plural(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`;
 }
 
-/** "3 reflections · 2 gigs", "2 rubrics · since 3 August 2026". */
-function Summary({
-  sections,
-  record,
-}: {
-  sections: RecordSection[];
-  record: ReflectionSummary[];
-}) {
+/**
+ * "3 reflections · 2 gigs", "2 rubrics · since 3 August 2026". Counted from
+ * the sections, so the numbers describe what is on the page (CAP-62).
+ */
+function Summary({ sections }: { sections: RecordSection[] }) {
+  const reflections = sections.reduce(
+    (count, section) => count + section.reflections.length,
+    0,
+  );
   const rubrics = new Set(sections.map((section) => section.framework.id)).size;
   const starts = sections
     .map((section) => section.gig.starts_on)
@@ -217,7 +218,7 @@ function Summary({
   return (
     <div className={styles.summary}>
       <p className={styles.summary_title}>
-        {plural(record.length, 'reflection', 'reflections')} ·{' '}
+        {plural(reflections, 'reflection', 'reflections')} ·{' '}
         {plural(sections.length, 'gig', 'gigs')}
       </p>
       <p className={styles.summary_meta}>
@@ -258,7 +259,15 @@ function RecordTable({ section }: { section: RecordSection }) {
           </span>
         </div>
 
-        <div className={styles.scroller}>
+        {/* Focusable and named (CAP-62): Safari does not focus a scroll box
+            on its own, so without this a wide table cannot be scrolled from
+            the keyboard. */}
+        <div
+          className={styles.scroller}
+          tabIndex={0}
+          role="region"
+          aria-label={`${gig.title}, scores by sprint`}
+        >
           <table className={styles.table}>
             <caption className={styles.sr_only}>{gig.title}</caption>
             <thead>
@@ -267,7 +276,7 @@ function RecordTable({ section }: { section: RecordSection }) {
                   Competency
                 </th>
                 {sprints.map((sprint) => (
-                  <th key={sprint.id} scope="col">
+                  <th key={sprint.id} scope="col" aria-label={`Sprint ${sprint.ordinal}`}>
                     S{sprint.ordinal}
                   </th>
                 ))}

@@ -94,6 +94,11 @@
   overflow-x: auto;
 }
 
+.scroller:focus-visible {
+  outline: 0.125rem solid var(--color-focus-ring);
+  outline-offset: 0.0625rem;
+}
+
 .table {
   /* Scores line up down a column (CAP-63). */
   font-variant-numeric: tabular-nums;

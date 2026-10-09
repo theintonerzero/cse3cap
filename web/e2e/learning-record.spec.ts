@@ -135,6 +135,10 @@ const REFLECTIONS = [
   reflection(id('f001'), GIG_A, 1, 'assessed'),
   reflection(id('f002'), GIG_A, 2, 'submitted'),
   reflection(id('f003'), GIG_B, 1, 'assessed'),
+  // On the gig with no rubric: Ash's, but that gig has no section, so the
+  // summary must not count it (CAP-62). Unreachable through the API today,
+  // which refuses a reflection on a gig with no rubric; held by construction.
+  reflection(id('f005'), GIG_NO_RUBRIC, 1, 'draft'),
   // Ash only reviews this gig: someone else's reflection, never in Ash's record.
   reflection(id('f004'), GIG_REVIEWED, 1, 'submitted'),
 ];
@@ -323,6 +327,28 @@ test('notes read as notes, not as empty fields (CAP-63)', async ({ page }) => {
     expect(look.border, `${text}: no border`).toBe('0px');
     expect(look.fill, `${text}: a fill`).not.toBe('rgba(0, 0, 0, 0)');
   }
+});
+
+test('each table can be reached from the keyboard and names its sprints in full', async ({
+  page,
+}) => {
+  await page.goto('/record');
+
+  // Safari does not focus a scroll box on its own, so a wide table could
+  // not be scrolled without a mouse. The box is a named, focusable region.
+  const region = page.getByRole('region', {
+    name: 'Develop AI use cases, scores by sprint',
+  });
+  await expect(region).toHaveAttribute('tabindex', '0');
+  await region.focus();
+  await expect(region).toBeFocused();
+
+  // "S1" is read aloud as "S one"; the header's name is the word.
+  const headers = section(page, 'Develop AI use cases').getByRole('columnheader');
+  await expect(headers.nth(1)).toHaveAccessibleName('Sprint 1');
+  await expect(headers.nth(3)).toHaveAccessibleName('Sprint 3');
+  // The visible text stays short, as the frame draws it.
+  await expect(headers.nth(1)).toHaveText('S1');
 });
 
 test('each section opens the diary scoped to its gig', async ({ page }) => {
