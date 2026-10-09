@@ -68,6 +68,35 @@ paths:
           $ref: "#/components/responses/Error"
         "503":
           $ref: "#/components/responses/Error"
+  /reflections/{reflection_id}/entries/{entry_id}/related:
+    get:
+      operationId: getRelated
+      summary: The student's own earlier entries that read most like this one.
+      description: >
+        Up to three of the student's own entries from their other reflections,
+        best first, ranked by meaning within the reflections the diary returned
+        for their token. No Claude call. Only the student who owns the
+        reflection. An empty narrative, or nothing earlier, is an empty list.
+      parameters:
+        - $ref: "#/components/parameters/ReflectionId"
+        - $ref: "#/components/parameters/EntryId"
+      responses:
+        "200":
+          description: The related entries.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RelatedEntries"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+        "503":
+          $ref: "#/components/responses/Error"
 components:
   securitySchemes:
     bearer:
@@ -107,6 +136,30 @@ components:
           items:
             type: string
             maxLength: 199
+    RelatedEntries:
+      type: object
+      required: [entries]
+      properties:
+        entries:
+          type: array
+          maxItems: 3
+          items:
+            type: object
+            required: [reflection_id, entry_id, sprint_ordinal, competency_name, excerpt]
+            properties:
+              reflection_id:
+                type: string
+                format: uuid
+              entry_id:
+                type: string
+                format: uuid
+              sprint_ordinal:
+                type: [integer, "null"]
+              competency_name:
+                type: string
+              excerpt:
+                type: string
+                description: The narrative's first line, cut at a word.
     Status:
       type: object
       required: [features]
