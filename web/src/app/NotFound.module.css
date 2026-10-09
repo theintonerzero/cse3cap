@@ -34,8 +34,5 @@
 }
 
 .home {
-  display: inline-block;
-  margin-top: var(--space-16);
-  font-size: var(--font-size-sm);
-  color: var(--color-primary);
+  margin-top: var(--space-24);
 }

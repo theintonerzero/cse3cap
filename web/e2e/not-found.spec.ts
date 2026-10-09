@@ -58,10 +58,13 @@ for (const { width, height } of [
         return { x, y, width, height };
       };
       const section = document.querySelector('h1')!.closest('section')!;
+      // The way back is a button since CAP-57: what the eye sees at the
+      // bottom is its box, not the words inside its padding.
+      const button = section.querySelector('a')!.getBoundingClientRect();
       return [
         box(section.querySelector('h1')!),
         box(section.querySelector('p')!),
-        box(section.querySelector('a')!),
+        { x: button.x, y: button.y, width: button.width, height: button.height },
       ];
     });
     for (const box of [top, note, bottom]) {
