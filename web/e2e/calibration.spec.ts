@@ -30,7 +30,7 @@ test.describe('on the student’s assessed reflection', () => {
   }) => {
     await page.goto(`/reflections/${ASSESSED}`);
     await expect(
-      page.getByText('Dr Lee’s score').or(page.getByText("Dr Lee's score")),
+      page.getByRole('group', { name: "Your score and Dr Lee's" }),
     ).toBeVisible();
     await expect(page.getByRole('button', { name: ASK })).toBeVisible();
     expect(api.ai_calls.map((c) => c.route)).toEqual(['GET /status']);

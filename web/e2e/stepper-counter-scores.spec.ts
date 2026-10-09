@@ -158,24 +158,16 @@ const test = base.extend<{ api: FakeApi }>({
   ],
 });
 
-test('the assessor score reads as greyed chips with the level selected', async ({
+test("the assessor's score sits on one scale with the student's (CAP-66)", async ({
   page,
 }) => {
   await page.goto(`/reflections/${ASSESSED}`);
 
-  const row = page.getByRole('group', { name: "Sam O's score" });
-  await expect(row.getByRole('button')).toHaveCount(4);
-  for (const button of await row.getByRole('button').all()) {
-    await expect(button).toBeDisabled();
-  }
-  await expect(row.getByRole('button', { name: /^2 · / })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
-  await expect(row.getByRole('button', { name: /^3 · / })).toHaveAttribute(
-    'aria-pressed',
-    'false',
-  );
+  const shared = page.getByRole('group', { name: "Your score and Sam O's" });
+  await expect(shared.getByRole('listitem').filter({ hasText: 'Sam O · 2' })).toBeVisible();
+  await expect(shared.getByRole('listitem').filter({ hasText: 'You · 3' })).toBeVisible();
+  // Read-only: nothing on it can be chosen.
+  await expect(page.getByRole('radio')).toHaveCount(0);
 
   // Not the old one-line summary.
   await expect(page.getByText('Sam O: level 2')).toHaveCount(0);
@@ -200,15 +192,14 @@ test('evidence is still a link to its own URL, in a new tab', async ({ page }) =
   await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
 });
 
-test('the card reads self-score, reflection, then the counter-score and its comment', async ({
+test('the card reads both scores, then the reflection, then the comment', async ({
   page,
 }) => {
   // Patrick, round 2b: each person's score, then the words behind it.
   await page.goto(`/reflections/${ASSESSED}`);
   const order = [
-    page.getByRole('radiogroup', { name: 'Self-score' }),
+    page.getByRole('group', { name: `Your score and ${SAM.display_name}'s` }),
     page.getByRole('textbox', { name: 'Your reflection' }),
-    page.getByRole('group', { name: `${SAM.display_name}'s score` }),
     page.getByRole('textbox', { name: `${SAM.display_name}'s comment` }),
   ];
   const tops: number[] = [];

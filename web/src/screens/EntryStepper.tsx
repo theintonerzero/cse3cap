@@ -80,6 +80,7 @@ import {
   my_counter_score_of,
   scored_by_count,
   self_score_of,
+  type ReflectionScore,
 } from './entry-stepper-logic.ts';
 import {
   kept_as_drafts,
@@ -110,6 +111,13 @@ type StepperMode = 'student' | 'assessor';
 
 /** How long the arrow keys must rest on a level before it is saved (CAP-66). */
 const KEY_SETTLE_MS = 500;
+
+/** "A and B", "A, B and C": names a shared scale by who is on it. */
+function list_of(parts: string[]): string {
+  return parts.length < 2
+    ? (parts[0] ?? '')
+    : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+}
 
 type Load =
   | { status: 'loading' }
@@ -841,14 +849,43 @@ function EntryCard({
     </>
   );
 
+  // Everyone else's score on this entry, oldest first. In assessor mode the
+  // viewer's own is shown by the panel instead, so it is left out here.
+  const counters = read_only
+    ? counter_scores_of(entry)
+        .filter((score) => mode !== 'assessor' || score.scorer?.id !== viewer_id)
+        .sort((a, b) => a.scored_at.localeCompare(b.scored_at))
+    : [];
+  // CAP-66: on the student's own read-only card, their score and the
+  // reviewers' share one scale (ADR #65), where they used to be two lists.
+  const shared = mode !== 'assessor' && counters.length > 0;
+  const name_of = (score: ReflectionScore) => score.scorer?.display_name ?? 'Counter-score';
+
   const self_score_row = (
     <div className={styles.levels}>
-      <LevelScale
-        label={self_label}
-        levels={levels}
-        value={pending_level ?? self_score?.level_id ?? null}
-        on_change={read_only ? undefined : choose_level}
-      />
+      {shared ? (
+        <LevelScale
+          label={list_of(['Your score', ...counters.map((score) => `${name_of(score)}'s`)])}
+          levels={levels}
+          marks={[
+            ...(self_score
+              ? [{ level_id: self_score.level_id, who: 'You', tone: 'primary' as const }]
+              : []),
+            ...counters.map((score) => ({
+              level_id: score.level_id,
+              who: name_of(score),
+              tone: 'counter' as const,
+            })),
+          ]}
+        />
+      ) : (
+        <LevelScale
+          label={self_label}
+          levels={levels}
+          value={pending_level ?? self_score?.level_id ?? null}
+          on_change={read_only ? undefined : choose_level}
+        />
+      )}
       {score_error && (
         <p className={styles.field_error} role="alert">
           {score_error}
@@ -860,52 +897,50 @@ function EntryCard({
   // The counter-scores, each with its comment, read-only. Their own block
   // now, after the narrative, so each person's score sits beside their own
   // words (round 2b).
-  const counter_scores = (
+  const comment_of = (score: ReflectionScore) => {
+    if (!score.comment) return null;
+    const comment_id = `counter-comment-${score.id}`;
+    return (
+      <div key={comment_id} className={text_area_styles.field}>
+        <label className={text_area_styles.label} htmlFor={comment_id}>
+          {name_of(score)}'s comment
+        </label>
+        <textarea
+          id={comment_id}
+          className={text_area_styles.textarea}
+          value={score.comment}
+          disabled
+          readOnly
+        />
+      </div>
+    );
+  };
+
+  const counter_scores = shared ? (
+    // The scores are on the shared scale above; what follows the reflection
+    // is each reviewer's comment, the words behind their score.
+    counters.some((score) => score.comment) && (
+      <div className={styles.counter_block}>{counters.map(comment_of)}</div>
+    )
+  ) : (
     <>
-      {read_only &&
-        counter_scores_of(entry)
-          // In assessor mode the viewer's own score is shown by the panel
-          // as greyed chips, so it is not repeated here as a text line.
-          .filter((score) => mode !== 'assessor' || score.scorer?.id !== viewer_id)
-          .map((score) => {
-            // The way the assessor sees their own saved score (Patrick, PR
-            // #56): the chips greyed with the level selected, in the
-            // counter-score green, and the comment in its box, read-only.
-            // Never folded into one line of text (CAP-38).
-            const who = `${score.scorer?.display_name ?? 'Counter-score'}'s`;
-            const comment_id = `counter-comment-${score.id}`;
-            return (
-              <div key={score.id} className={styles.counter_block}>
-                <p className={styles.field_label}>{who} score</p>
-                <div className={styles.level_row} role="group" aria-label={`${who} score`}>
-                  {levels.map((level) => (
-                    <Chip
-                      key={level.id}
-                      tone="counter"
-                      selected={score.level_id === level.id}
-                      disabled
-                    >
-                      {level.level_value} &middot; {level.descriptor}
-                    </Chip>
-                  ))}
-                </div>
-                {score.comment && (
-                  <div className={text_area_styles.field}>
-                    <label className={text_area_styles.label} htmlFor={comment_id}>
-                      {who} comment
-                    </label>
-                    <textarea
-                      id={comment_id}
-                      className={text_area_styles.textarea}
-                      value={score.comment}
-                      disabled
-                      readOnly
-                    />
-                  </div>
-                )}
-              </div>
-            );
-          })}
+      {counters.map((score) => {
+        // The way the assessor sees another reviewer's saved score (Patrick,
+        // PR #56): the score on its own scale in the counter-score green, and
+        // the comment in its box, read-only (CAP-38, CAP-66).
+        const who = `${name_of(score)}'s`;
+        return (
+          <div key={score.id} className={styles.counter_block}>
+            <LevelScale
+              label={`${who} score`}
+              levels={levels}
+              tone="counter"
+              value={score.level_id}
+            />
+            {comment_of(score)}
+          </div>
+        );
+      })}
     </>
   );
 

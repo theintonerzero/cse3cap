@@ -181,7 +181,12 @@ export function LevelScale({
   );
 
   return (
-    <div className={styles.scale}>
+    <div
+      className={styles.scale}
+      // A shared scale has no radios; the group carries its name instead.
+      role={marks ? 'group' : undefined}
+      aria-labelledby={marks ? label_id : undefined}
+    >
       <p className={styles.label} id={label_id}>
         {label}
       </p>

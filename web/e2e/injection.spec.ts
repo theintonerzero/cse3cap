@@ -32,23 +32,22 @@ test('student stepper: every typed field is text, and a javascript: link is not 
   const card = page.getByRole('main');
   await expect(card.locator('p', { hasText: PAYLOAD }).first()).toHaveText(PAYLOAD);
   await expect(page.getByLabel('Your reflection')).toHaveValue(PAYLOAD);
-  for (const value of [1, 2]) {
-    await expect(
-      page
-        .getByRole('radiogroup', { name: 'Self-score' })
-        .getByRole('radio', { name: `${value} of 2, ${PAYLOAD}` }),
-    ).toBeVisible();
-  }
-  // The counter-score reads as the assessor sees it (CAP-38): the scorer's
-  // name labels a chip row and a read-only comment box, both still text.
-  const counter = page.getByRole('group', { name: `${PAYLOAD}'s score` });
-  for (const value of [1, 2]) {
-    await expect(
-      counter.getByRole('button', { name: `${value} · ${PAYLOAD}` }),
-    ).toBeVisible();
-  }
+  // Both scores share one scale (CAP-66): who chose which level, and every
+  // level's words once "All levels" is open, are still text.
+  const shared = page.getByRole('group', { name: `Your score and ${PAYLOAD}'s` });
+  await expect(shared.getByRole('listitem').filter({ hasText: 'You · 2' })).toContainText(
+    PAYLOAD,
+  );
+  await expect(
+    shared.getByRole('listitem').filter({ hasText: `${PAYLOAD} · 1` }),
+  ).toBeVisible();
+  await shared.getByRole('button', { name: 'All levels' }).click();
+  const level_words = shared.locator('ol > li');
+  await expect(level_words).toHaveCount(2);
+  for (const words of await level_words.all()) await expect(words).toContainText(PAYLOAD);
   await expect(page.getByLabel(`${PAYLOAD}'s comment`)).toHaveValue(PAYLOAD);
-  await expect(page.getByRole('listitem').filter({ hasText: PAYLOAD })).toHaveCount(2);
+  // Two scorers' lines, two levels' words, and the two evidence labels.
+  await expect(page.getByRole('listitem').filter({ hasText: PAYLOAD })).toHaveCount(6);
 
   // StoreEvidenceRequest refuses this scheme (F7), and the screen still
   // renders a stored one as plain text rather than trusting that.
