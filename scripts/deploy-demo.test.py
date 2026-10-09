@@ -68,6 +68,11 @@ api_df = read(DEMO / "api.Dockerfile")
 # api/, and MYSQL_ATTR_SSL_CA names db/letsencrypt-roots.pem the same way.
 check("the image carries db/ beside api/, schema included",
       re.search(r"^COPY db/ /app/db/\s*$", api_df, re.M) is not None, api_df)
+# COPY keeps the checkout's file modes. A checkout made under umask 077 (as the
+# box's first one was) left index.php 0600 root, and FPM's www-data answered
+# every request "File not found.". The image must not depend on the host's modes.
+check("the image makes /app readable to FPM whatever the checkout's modes",
+      re.search(r"chmod -R a\+rX /app\b", api_df) is not None, api_df)
 
 print("deploy/demo/web.Caddyfile")
 web = read(DEMO / "web.Caddyfile")

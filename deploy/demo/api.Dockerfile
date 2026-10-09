@@ -20,6 +20,10 @@ COPY db/ /app/db/
 COPY scripts/demo-personas.php /app/scripts/demo-personas.php
 COPY scripts/lib/token-for.php scripts/lib/demo-people.php /app/scripts/lib/
 
+# COPY keeps the checkout's modes, and a checkout made under a strict umask
+# leaves files FPM's www-data cannot read ("File not found." on every request).
+RUN chmod -R a+rX /app
+
 COPY deploy/demo/php-fpm-diary.conf /usr/local/etc/php-fpm.d/zz-diary.conf
 COPY deploy/demo/api-entrypoint.sh /usr/local/bin/diary-api-entrypoint
 RUN chmod 755 /usr/local/bin/diary-api-entrypoint
