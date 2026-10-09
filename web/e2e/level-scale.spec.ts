@@ -10,6 +10,7 @@ import {
   ASSESSED,
   DRAFT,
   LEE_COMMENT,
+  LONG_ENTRY,
   SUBMITTED,
   assessed_for_tests,
   GIG_FOR_TESTS,
@@ -264,3 +265,98 @@ two_reviewers(
     );
   },
 );
+
+// Sam assesses Jane's submitted sprint 2; she chose 2 on Communication.
+const SAM = {
+  id: 'sam-the-assessor',
+  display_name: 'Sam O',
+  participations: JANE.participations.map((p) => ({ ...p, role: 'assessor' as const })),
+};
+function submitted_with_self(given: boolean) {
+  const r = reflection_for_tests(SUBMITTED, 'submitted');
+  const first = r.entries[0];
+  const level = (n: number) => RUBRIC_FOR_TESTS.competencies[0].levels[n - 1];
+  first.scores = [
+    {
+      id: 'jane-self',
+      reflection_entry_id: first.id,
+      scorer_role: 'student',
+      scorer_class: 'self',
+      level_id: level(2).id,
+      level_value: 2,
+      comment: null,
+      scored_at: '2026-08-27T10:00:00.000000Z',
+      scorer: { id: JANE.id, display_name: JANE.display_name },
+    },
+    ...(given
+      ? [
+          {
+            id: 'sam-counter',
+            reflection_entry_id: first.id,
+            scorer_role: 'assessor' as const,
+            scorer_class: 'counter' as const,
+            level_id: level(3).id,
+            level_value: 3,
+            comment: 'Raised it unprompted.',
+            scored_at: '2026-09-01T10:00:00.000000Z',
+            scorer: { id: SAM.id, display_name: SAM.display_name },
+          },
+        ]
+      : []),
+  ];
+  return r;
+}
+const as_sam = (given: boolean) =>
+  base.extend<{ api: FakeApi }>({
+    api: [
+      async ({ page }, provide) => {
+        const api = new FakeApi(
+          [RUBRIC_FOR_TESTS],
+          SAM,
+          [GIG_FOR_TESTS],
+          [submitted_with_self(given)],
+        );
+        await api.install(page);
+        await provide(api);
+        expect(api.unexpected, 'requests the fake does not serve').toEqual([]);
+      },
+      { auto: true },
+    ],
+  });
+const scoring = as_sam(false);
+const scored = as_sam(true);
+const your_score = (page: Page) => page.getByRole('radiogroup', { name: 'Your score' });
+
+scoring(
+  "the assessor's own scale marks the student's level, and picking sends nothing",
+  async ({ page, api }) => {
+    await page.goto(`/review-queue/reflections/${SUBMITTED}`);
+    await expect(
+      your_score(page).getByRole('radio', { name: /^2 of 4, .*Jane N chose this level$/ }),
+    ).toBeVisible();
+    await expect(page.getByText('Jane N chose 2')).toBeVisible();
+    await your_score(page)
+      .getByRole('radio', { name: /^3 of 4/ })
+      .click();
+    await expect(your_score(page).getByRole('radio', { name: /^3 of 4/ })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    await expect(page.getByText('3 · Communication at level 3.')).toBeVisible();
+    // ADR #57: nothing is sent until "Submit scores".
+    expect(api.writes()).toEqual([]);
+  },
+);
+
+scored('a given score shows on a scale that can no longer change', async ({ page }) => {
+  // Sam has scored the first competency, so open it by name: the stepper
+  // would otherwise land on the first one he still owes.
+  await page.goto(`/review-queue/reflections/${SUBMITTED}?entry=${LONG_ENTRY}`);
+  const radios = your_score(page).getByRole('radio');
+  await expect(radios).toHaveCount(4);
+  for (const radio of await radios.all()) await expect(radio).toBeDisabled();
+  await expect(your_score(page).getByRole('radio', { name: /^3 of 4/ })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+});

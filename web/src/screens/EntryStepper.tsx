@@ -44,7 +44,6 @@ import {
   Badge,
   BottomSheet,
   Button,
-  Chip,
   LevelScale,
   ErrorNotice,
   ProgressBar,
@@ -622,6 +621,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
             draft={drafts[current.id] ?? EMPTY_DRAFT}
             saving={counter_saving}
             on_draft={(patch) => update_draft(current.id, patch)}
+            owner_name={reflection.owner.display_name}
           />
         )}
       </EntryCard>
@@ -1229,6 +1229,7 @@ function CounterScorePanel({
   draft,
   saving,
   on_draft,
+  owner_name,
 }: {
   entry: ReflectionEntry;
   framework: FrameworkDetail;
@@ -1240,6 +1241,8 @@ function CounterScorePanel({
   /** "Submit scores" is sending. */
   saving: boolean;
   on_draft: (patch: Partial<CounterDraft>) => void;
+  /** The student, whose own level is marked on the assessor's scale (CAP-66). */
+  owner_name: string;
 }) {
   const levels = levels_for(framework, entry.competency_id);
   const self_score = self_score_of(entry);
@@ -1266,19 +1269,12 @@ function CounterScorePanel({
           {/* Presented exactly as the student's self-score row above: the
               same chips, greyed, with the chosen level selected, and the
               comment kept in its box, read-only. */}
-          <p className={styles.field_label}>Your score</p>
-          <div className={styles.level_row} role="group" aria-label="Your score">
-            {levels.map((level) => (
-              <Chip
-                key={level.id}
-                tone="counter"
-                selected={mine.level_id === level.id}
-                disabled
-              >
-                {level.level_value} &middot; {level.descriptor}
-              </Chip>
-            ))}
-          </div>
+          <LevelScale
+            label="Your score"
+            levels={levels}
+            tone="counter"
+            value={mine.level_id}
+          />
           {mine.comment && (
             <div className={text_area_styles.field}>
               <label className={text_area_styles.label} htmlFor={comment_id}>
@@ -1309,20 +1305,19 @@ function CounterScorePanel({
           // No Save here (round 3, ADR #57): the pick and the comment stay
           // open until "Submit scores" sends every competency at once.
           <div className={styles.levels}>
-            <p className={styles.field_label}>Your score</p>
-            <div className={styles.level_row} role="group" aria-label="Your score">
-              {levels.map((level) => (
-                <Chip
-                  key={level.id}
-                  tone="counter"
-                  selected={draft.level_id === level.id}
-                  disabled={saving}
-                  on_click={() => on_draft({ level_id: level.id })}
-                >
-                  {level.level_value} &middot; {level.descriptor}
-                </Chip>
-              ))}
-            </div>
+            {/* Kept on this device until "Submit scores" (ADR #57), so a
+                keyboard choice needs no settling: nothing is sent. */}
+            <LevelScale
+              label="Your score"
+              levels={levels}
+              tone="counter"
+              value={draft.level_id}
+              on_change={(level_id) => on_draft({ level_id })}
+              disabled={saving}
+              marker={
+                self_score ? { level_id: self_score.level_id, who: owner_name } : null
+              }
+            />
 
             <div className={text_area_styles.field}>
               <label className={text_area_styles.label} htmlFor={comment_id}>
