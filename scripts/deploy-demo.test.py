@@ -469,8 +469,31 @@ iframe = re.search(r"<iframe\b[^>]*>", phone)
 tag = iframe.group(0) if iframe else ""
 check("it frames the app at the root", 'src="/"' in tag, tag)
 # The S24 Ultra is 1440 x 3120 at a device pixel ratio of 3.75.
-check("its viewport is the Galaxy S24 Ultra's, 384 x 832 CSS px",
-      'width="384"' in tag and 'height="832"' in tag, tag)
+phone_css = read(DEMO / "phone" / "phone.css")
+check("its screen is the Galaxy S24 Ultra's, 384 x 832 CSS px",
+      "--screen-width: 384px" in phone_css and "--screen-height: 832px" in phone_css, phone_css)
+# What a webview in the Alumable app gets on that screen: the status bar (28px)
+# and the gesture area (20px) take their share, as on the phone itself.
+check("the app's viewport is what a webview gets: 384 x 784",
+      'width="384"' in tag and 'height="784"' in tag, tag)
+check("a status bar sits above the app, with a live clock",
+      'class="status-bar"' in phone and 'class="clock"' in phone and "clock" in phone_js, phone)
+check("the gesture pill sits below the app", 'class="gesture-bar"' in phone, phone)
+check("system bars follow the app's own colours, as Android's do",
+      "elementFromPoint" in phone_js and "backgroundColor" in phone_js, phone_js)
+check("scrollbars are hidden inside the phone (phones overlay theirs)",
+      "scrollbar-width: none" in phone_js and "::-webkit-scrollbar" in phone_js, phone_js)
+check("the pointer over the phone is a finger dot, not an arrow",
+      re.search(r"cursor:\s*\$\{FINGER\}", phone_js) is not None
+      and re.search(r"FINGER\s*=\s*\n?\s*\"url\(", phone_js) is not None, phone_js)
+check("click-and-drag scrolls the page with momentum, like a swipe",
+      "pointerdown" in phone_js and "pointermove" in phone_js and "requestAnimationFrame" in phone_js, phone_js)
+check("a swipe never starts on a field the presenter is typing in",
+      re.search(r"input|textarea|select|contenteditable", phone_js) is not None, phone_js)
+check("the click that ends a swipe does not also press what is under it",
+      "click" in phone_js and "stopPropagation" in phone_js, phone_js)
+check("the app is changed from the frame page only, never in its own code",
+      not (ROOT / "web" / "src" / "demo" / "phone").exists() and "contentDocument" in phone_js, phone_js)
 check("the frame is named for screen readers", "title=" in tag, tag)
 check("it scales with its own script, which the CSP allows (no inline script)",
       '<script src="phone.js"' in phone and not re.search(r"<script>(?!\s*</script>)", phone)
