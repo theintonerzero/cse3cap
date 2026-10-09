@@ -1,0 +1,25 @@
+# The live demo's public site (CAP-54, ADR #62). Copied on the box to
+# /home/ubuntu/server/diary-site.caddy and imported by the server Caddyfile.
+# The gate's secret and password hash are in diary-gate.caddy, written by
+# scripts/demo-gate.sh and never committed.
+diary.darkovski.dev {
+	import baseline
+	import accesslog
+	header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
+
+	request_body /api/* {
+		max_size 101MiB
+	}
+
+	# route keeps these in the order written: the gate first, then the
+	# refusals, then the app. Nothing reaches diary-web without the cookie.
+	route {
+		import /srv/server/diary-gate.caddy
+
+		header @diary_nogate_api Content-Type "application/json"
+		respond @diary_nogate_api `{"error":{"code":"UNAUTHENTICATED","message":"The demo password is required.","details":{}}}` 401
+		redir @diary_nogate /gate 303
+
+		reverse_proxy diary-web:80
+	}
+}

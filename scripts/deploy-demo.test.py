@@ -244,6 +244,98 @@ else:
         check("a reset before any deploy is refused with a reason",
               r.returncode == 1 and "deploy first" in r.stderr, r.stdout + r.stderr)
 
+# ---------------------------------------------------------------------------
+print("deploy/demo/site.caddy with a generated gate")
+# ---------------------------------------------------------------------------
+GATE_SCRIPT = ROOT / "scripts" / "demo-gate.sh"
+docker_ok = shutil.which("docker") is not None and run("docker", "info").returncode == 0
+if not GATE_SCRIPT.exists() or not (DEMO / "site.caddy").exists():
+    check("scripts/demo-gate.sh and deploy/demo/site.caddy exist", False)
+elif not docker_ok:
+    print("  skip  docker is not available here; CI runs these")
+else:
+    import base64
+    import time
+    import urllib.error
+    import urllib.request
+
+    with tempfile.TemporaryDirectory() as tmp:
+        srv = pathlib.Path(tmp)
+        bcrypt = run("docker", "run", "--rm", "caddy:2", "caddy", "hash-password",
+                     "--plaintext", "test-password-123").stdout.strip()
+        r = run(GATE_SCRIPT, "--out", srv / "diary-gate.caddy", "--hash", bcrypt, "--secret", "f" * 64)
+        check("demo-gate.sh writes the gate file", r.returncode == 0 and (srv / "diary-gate.caddy").exists(),
+              r.stdout + r.stderr)
+        check("the gate file is not world-readable",
+              (srv / "diary-gate.caddy").exists() and ((srv / "diary-gate.caddy").stat().st_mode & 0o777) == 0o640)
+        (srv / "Caddyfile").write_text(
+            "{\n\tadmin off\n\tauto_https off\n}\n(baseline) {\n}\n(accesslog) {\n}\n"
+            "import /srv/server/diary-site.caddy\n")
+        # The site block names diary.darkovski.dev; for a local run serve it on :8080 instead.
+        site = (DEMO / "site.caddy").read_text().replace("diary.darkovski.dev {", "http://:8080 {", 1)
+        site = site.replace("reverse_proxy diary-web:80", 'respond "app" 200')
+        (srv / "diary-site.caddy").write_text(site)
+
+        # docker cp rather than a bind mount: Docker Desktop and colima do not
+        # share temporary directories with their VM, so a mount arrives empty.
+        name = "diary-gate-test"
+        run("docker", "rm", "-f", name)
+        run("docker", "create", "--name", name, "-p", "18080:8080", "caddy:2",
+            "caddy", "run", "--config", "/srv/server/Caddyfile", "--adapter", "caddyfile")
+        run("docker", "cp", f"{srv}/.", f"{name}:/srv/server")
+        run("docker", "start", name)
+        time.sleep(2)
+        r = run("docker", "exec", name, "caddy", "validate", "--config", "/srv/server/Caddyfile",
+                "--adapter", "caddyfile")
+        check("caddy validates the site with its gate", r.returncode == 0, r.stdout + r.stderr)
+
+        class NoRedirect(urllib.request.HTTPRedirectHandler):
+            def redirect_request(self, *args, **kwargs):
+                return None
+
+        def get(path, cookie=None, password=None):
+            req = urllib.request.Request(f"http://127.0.0.1:18080{path}")
+            if cookie:
+                req.add_header("Cookie", cookie)
+            if password:
+                req.add_header("Authorization", "Basic " + base64.b64encode(f"demo:{password}".encode()).decode())
+            try:
+                resp = urllib.request.build_opener(NoRedirect).open(req, timeout=5)
+                return resp.status, dict(resp.headers), resp.read().decode()
+            except urllib.error.HTTPError as e:
+                return e.code, dict(e.headers), e.read().decode()
+
+        try:
+            status, headers, _ = get("/")
+            check("a page without the cookie redirects to /gate",
+                  status == 303 and headers.get("Location") == "/gate", (status, headers))
+            status, headers, body = get("/api/v1/auth/me")
+            check("the API without the cookie is a 401 in the diary's envelope",
+                  status == 401 and '"UNAUTHENTICATED"' in body and "json" in headers.get("Content-Type", ""),
+                  (status, body))
+            status, _, body = get("/", cookie="diary_gate=" + "f" * 64)
+            check("with the cookie, the app is served", status == 200 and body == "app", (status, body))
+            status, _, _ = get("/", cookie="diary_gate=" + "0" * 64)
+            check("a wrong cookie is still sent to /gate", status == 303)
+            status, headers, _ = get("/gate")
+            check("/gate without the password is a 401 and sets no cookie",
+                  status == 401 and "Set-Cookie" not in headers, (status, headers))
+            status, headers, _ = get("/gate", password="wrong")
+            check("a wrong password sets no cookie", status == 401 and "Set-Cookie" not in headers, (status, headers))
+            status, headers, _ = get("/gate", password="test-password-123")
+            check("the right password sets the cookie and goes home",
+                  status == 303 and headers.get("Location") == "/"
+                  and headers.get("Set-Cookie", "").startswith("diary_gate=" + "f" * 64), (status, headers))
+        finally:
+            run("docker", "rm", "-f", name)
+
+print("deploy/demo timer")
+timer = read(DEMO / "diary-deploy.timer")
+service = read(DEMO / "diary-deploy.service")
+check("the timer fires every 5 minutes", "OnUnitActiveSec=5min" in timer)
+check("the service runs the installed copy, not the checkout it rewrites",
+      "/home/ubuntu/diary/bin/deploy-demo.sh --if-changed dev" in service and "/src/" not in service)
+
 print()
 if failures:
     print(f"{len(failures)} failed.")

@@ -115,6 +115,12 @@ jobs:
       - name: Check the deploy scripts
         run: python3 scripts/deploy.test.py
 
+      # The live demo (CAP-54): deploy-demo.sh and demo-reset.sh against
+      # stubs, and the gate's Caddy config in a real caddy:2 container. The
+      # gate checks are what keep /gate from issuing its cookie unasked.
+      - name: Check the live demo's deploy and gate
+        run: python3 scripts/deploy-demo.test.py
+
       # Nobody on the team runs Windows day to day, so the PowerShell
       # installer is the one file that can rot unnoticed until a new
       # teammate cannot start. pwsh ships on the GitHub runners.
