@@ -202,6 +202,48 @@ with tempfile.TemporaryDirectory() as tmp:
 check("the script never touches Caddy or the server project",
       SCRIPT.exists() and not re.search(r"server-caddy|/home/ubuntu/server|caddy reload|-p server", SCRIPT.read_text()))
 
+# ---------------------------------------------------------------------------
+print("scripts/demo-reset.sh")
+# ---------------------------------------------------------------------------
+RESET = ROOT / "scripts" / "demo-reset.sh"
+
+if not RESET.exists():
+    check("scripts/demo-reset.sh exists", False)
+else:
+    with tempfile.TemporaryDirectory() as tmp:
+        home, env, calls = box(tmp, deployed=OLD)
+        r = run(RESET, env=env)
+        log = lines(calls)
+        personas = home / "shared" / "demo" / "personas.json"
+        check("a reset reseeds the demo database from scratch",
+              r.returncode == 0 and any("migrate:fresh" in l and "--seed" in l and "--drop-views" in l for l in log),
+              "\n".join(log) + r.stderr)
+        check("it writes personas.json from the seed output",
+              personas.exists() and '"jane"' in personas.read_text(), r.stderr)
+        check("personas.json is not world-readable",
+              personas.exists() and (personas.stat().st_mode & 0o777) == 0o640)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        home, env, calls = box(tmp, db="reflection_diary", deployed=OLD)
+        r = run(RESET, env=env)
+        check("the shared database is refused before migrate:fresh",
+              r.returncode == 1 and "_demo" in r.stderr and not any("migrate" in l for l in lines(calls)),
+              r.stdout + r.stderr)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        home, env, calls = box(tmp, deployed=OLD)
+        personas = home / "shared" / "demo" / "personas.json"
+        personas.write_text('[{"id":"old"}]')
+        r = run(RESET, env={**env, "FAIL_PERSONAS": "1"})
+        check("a failed personas build keeps the old file rather than an empty one",
+              r.returncode == 1 and personas.read_text() == '[{"id":"old"}]', r.stdout + r.stderr)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        home, env, calls = box(tmp, deployed=None)
+        r = run(RESET, env=env)
+        check("a reset before any deploy is refused with a reason",
+              r.returncode == 1 and "deploy first" in r.stderr, r.stdout + r.stderr)
+
 print()
 if failures:
     print(f"{len(failures)} failed.")
