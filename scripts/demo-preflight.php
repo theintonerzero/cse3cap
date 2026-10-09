@@ -20,6 +20,7 @@
  */
 
 require __DIR__ . '/lib/token-for.php';
+require __DIR__ . '/lib/demo-people.php';
 
 $root = dirname(__DIR__);
 $opts = getopt('', ['api-env:', 'tokens:', 'web-env:']);
@@ -27,17 +28,6 @@ $api_env = $opts['api-env'] ?? "$root/api/.env";
 $web_env = $opts['web-env'] ?? "$root/web/.env.development.local";
 $home = getenv('HOME') ?: (getenv('USERPROFILE') ?: '');
 $tokens = $opts['tokens'] ?? (getenv('TOKENS') ?: "$home/reflection-diary-tokens.txt");
-
-// Who the demo can sign in as, in the order the demo script meets them.
-// Priya R and Tom H are the rehearsal stand-ins for Noor (Demo-Script).
-const PEOPLE = [
-    ['jane', 'Jane N', 'Student', 'student'],
-    ['noor', 'Noor A', 'Student', 'student'],
-    ['sam', 'Sam O', 'Assessor', 'assessor'],
-    ['lee', 'Dr Lee', 'Supervisor', 'supervisor'],
-    ['priya', 'Priya R', 'Student', 'student'],
-    ['tom', 'Tom H', 'Student', 'student'],
-];
 
 function say(string $m): void { fwrite(STDOUT, "==> $m\n"); }
 function ok(string $m): void { fwrite(STDOUT, "  ok $m\n"); }
@@ -103,7 +93,7 @@ ok("database $host:$port reachable");
 // 2. The demo sign-in's people.
 $lines = is_file($web_env) ? preg_split('/\R/', rtrim((string) file_get_contents($web_env))) : [];
 $found = [];
-foreach (PEOPLE as [$id, $name, $role_hint, $slot]) {
+foreach (DEMO_PEOPLE as [$id, $name, $role_hint, $slot]) {
     $token = token_for($name, is_file($tokens) ? $tokens : null);
     if ($token !== '') {
         $found[] = ['id' => $id, 'name' => $name, 'role_hint' => $role_hint, 'slot' => $slot, 'token' => $token];
