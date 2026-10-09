@@ -479,6 +479,14 @@ check("the app's viewport is what a webview gets: 384 x 784",
 check("a status bar sits above the app, with a live clock",
       'class="status-bar"' in phone and 'class="clock"' in phone and "clock" in phone_js, phone)
 check("the gesture pill sits below the app", 'class="gesture-bar"' in phone, phone)
+# GPU Chrome draws the app as its own layer over the iframe element, and at
+# the frame's fractional --scale it antialiases that layer's edges against
+# whatever the element paints. An opaque background showed through as grey
+# hairlines down both sides and across the status and gesture bars.
+iframe_rule = re.search(r"\.screen iframe\s*\{([^}]*)\}", phone_css)
+check("nothing opaque sits behind the app's edges (Chrome's hairlines)",
+      iframe_rule is not None and re.search(r"background:\s*transparent", iframe_rule.group(1)) is not None,
+      iframe_rule.group(1) if iframe_rule else phone_css)
 check("system bars follow the app's own colours, as Android's do",
       "elementFromPoint" in phone_js and "backgroundColor" in phone_js, phone_js)
 check("scrollbars are hidden inside the phone (phones overlay theirs)",
