@@ -81,8 +81,9 @@ export function QuestionsPanel({
           <Badge kind="ai" />
         </div>
         <ul className={styles.questions}>
-          {state.questions.map((question) => (
-            <li key={question}>{question}</li>
+          {/* By position: the same question can come back twice. */}
+          {state.questions.map((question, index) => (
+            <li key={index}>{question}</li>
           ))}
         </ul>
         <div className={styles.actions}>

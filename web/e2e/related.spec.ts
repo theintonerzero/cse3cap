@@ -121,6 +121,24 @@ test.describe('similar past reflections on the owner’s draft', () => {
     ).toBeVisible();
   });
 
+  test('a quick reply never flashes the loading line', async ({ page, api }) => {
+    api.ai_reply(RELATED, TWO);
+    // Watch the whole page from its first paint for the skeleton's label.
+    await page.addInitScript(() => {
+      new MutationObserver(() => {
+        if (document.body?.textContent?.includes('Looking for earlier reflections'))
+          (window as unknown as { saw: boolean }).saw = true;
+      }).observe(document, { childList: true, subtree: true, characterData: true });
+    });
+    await page.goto(`/reflections/${DRAFT}`);
+    await expect(
+      page.getByRole('button', { name: 'From your earlier sprints (2)' }),
+    ).toBeVisible();
+    expect(
+      await page.evaluate(() => (window as unknown as { saw?: boolean }).saw ?? false),
+    ).toBe(false);
+  });
+
   test('nothing earlier: no disclosure at all', async ({ page, api }) => {
     api.ai_reply(RELATED, { entries: [] });
     await page.goto(`/reflections/${DRAFT}`);

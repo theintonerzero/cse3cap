@@ -17,6 +17,9 @@ export interface RelatedDisclosureProps {
   saved_narrative: string;
 }
 
+/** How long the first lookup may take before its loading line shows. */
+const SKELETON_AFTER_MS = 300;
+
 // The gig is named only when it isn't this reflection's (the sidecar decides).
 const heading = (row: Related) =>
   [
@@ -41,6 +44,12 @@ export function RelatedDisclosure({
 }: RelatedDisclosureProps) {
   const [rows, setRows] = useState<Related[] | null>(null);
   const [first_done, setFirstDone] = useState(false);
+  // The loading line waits a moment, so a quick answer never flashes it.
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setSlow(true), SKELETON_AFTER_MS);
+    return () => clearTimeout(timer);
+  }, []);
   const [open, setOpen] = useState(false);
   const [shown, setShown] = useState<Related | null>(null);
   const [earlier, setEarlier] = useState<Earlier>({ kind: 'loading' });
@@ -88,6 +97,7 @@ export function RelatedDisclosure({
     setShown(row);
   }
 
+  if (!first_done && !slow) return null;
   if (!first_done) {
     return (
       <div className={styles.related}>
