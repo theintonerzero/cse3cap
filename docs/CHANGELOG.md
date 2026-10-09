@@ -53,6 +53,10 @@ Becomes **1.0.0**, planned for 12 October 2026: `dev` merged to `main` and tagge
 ## Sprint 5: 30 September to 13 October 2026
 
 ### Added
+- Your learning record at `/record`: a competency by sprint table of self and assessor scores
+  per gig, from the prototype's frame `86:936` (CAP-53, ADR #63).
+- The diary home names the sprints that need a reflection and starts the earliest, from the
+  prototype's hub frame `66:34` (CAP-53).
 - A supervisor can delete a framework copy they made, until a gig has it as its rubric:
   `DELETE /frameworks/{framework_id}`, 409 `FRAMEWORK_ASSIGNED` once assigned, and a
   confirmed delete on the edit framework screen (#111, CAP-50, ADR #59).

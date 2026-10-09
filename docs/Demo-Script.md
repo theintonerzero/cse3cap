@@ -59,11 +59,14 @@ The point to make: the record belongs to the student and survives the subject.
    (ADR #58), so say it out loud here.
 3. Switch the picker to her other gig, **Data migration audit**: SFIA 9, a seven-point scale
    and six different skills, drawn by the same chart.
-4. **Export record**, the floating button at the bottom right. Pick **PDF** or **JSON**, press
+4. **Your learning record ›**, under the list. Every gig Jane has written on, as a table of
+   competency against sprint, her score and her assessor's in each cell. Each gig keeps its
+   own scale. This is the record she keeps.
+5. **Export record**, the floating button at the bottom right. Pick **PDF** or **JSON**, press
    **Request a PDF export** (or JSON), then **Download** when it is ready: the whole record,
    every gig and every sprint, in one file. That is the guarantee the record is hers, not
    the platform's.
-5. **Gig details ›**, then **History**: every submission and assessment on that gig, dated.
+6. **Gig details ›**, then **History**: every submission and assessment on that gig, dated.
    Show it here on Jane: Noor's reflections are still drafts, and a draft has no history yet.
 
 ## 2. Writing a reflection (Noor, 4 minutes)
@@ -72,11 +75,12 @@ Open a second tab from the address bar (a duplicated tab copies Jane's sign-in) 
 `http://localhost:5173` and paste Noor's token into **Student**. She is
 Jane's classmate on the La Trobe gig, part-way through the course.
 
-1. Pick **Develop AI use cases** (the La Trobe gig) and press **Gig details ›**. The sprints are listed with their due dates. Sprint 1 holds
-   her draft. (Her **History** is empty, because drafts are not events. Section 1 showed it
-   on Jane.)
-2. Her next empty sprint offers **Start reflection** on its row. Press it: the draft is
-   created and opens in the stepper, which goes one competency at a time.
+1. Pick **Develop AI use cases** (the La Trobe gig). The card above the radar says which
+   sprint needs her reflection. Sprint 1 holds her draft. (Her **History**, under **Gig
+   details ›**, is empty, because drafts are not events. Section 1 showed it on Jane.)
+2. Press the card's start button (**Start reflection**, or **Start Sprint 2** when more than
+   one sprint is waiting): the draft is created and opens in the stepper, which goes one
+   competency at a time. The same button is on each empty sprint under **Gig details ›**.
 3. For the first competency: write two sentences of narrative, add evidence with **Add a
    link** (give it a label and any `https://` address, then **Add link**), and choose a
    self-score. Each level shows its descriptor, so the student is scoring against words

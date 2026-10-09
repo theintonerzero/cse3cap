@@ -72,6 +72,7 @@ Index
 #60 Alumable demo shell, demo-only .............. Superseded by #61
 #61 The demo shell is a sign-in only ............ Proposed
 #62 The live demo: containers, a gate, its own db .. Proposed
+#63 The learning record adds no endpoint ........ Proposed
 
 ===============================================================
 
@@ -3620,3 +3621,44 @@ the machine that runs everyone's database, which is the property #45 was right t
 Keep the shared database and reseed it when the demo drifts. No new database or user. It
 lost because a reseed of the shared database resets everyone's local fixtures, and CLAUDE.md
 says nobody edits the seeds.
+
+===============================================================
+
+ADR #63: The learning record reads the analytics endpoints and adds none
+Status: Proposed
+Date: 2026-10-09
+
+Context:
+The Figma prototype's "Your learning record" frame (86:936) draws a competency by sprint grid
+of self and assessor scores, one section per gig. The build left it out with no recorded
+reason (Design-Inventory.md). GET /me/progress already returns that grid for one gig, read
+from v_radar and so from v_entry_score, which holds the rule that the latest counter-score
+counts. GET /frameworks/{id} carries the rows and the scale. The Assessment 3 report counts
+what has merged by 12 October, and the live demo deploys dev (#62), so a contract change now
+would ripple through the API, the generated types and the deploy days before v1.0.0.
+
+Decision:
+/record is built from GET /gigs, GET /reflections, and per gig GET /me/progress and
+GET /frameworks/{id}. No endpoint is added and docs/openapi.yaml does not change. The screen
+never reads entries[].scores to decide a number.
+
+Consequences:
+Positive:
+No contract, schema or backend change, and nothing to migrate on the live demo. The rule about
+which score counts stays in one place. The grid agrees with the radar because both read
+v_radar.
+
+Negative:
+Two requests per gig on top of two for the page. Five for Jane, more for a student on many
+gigs. The framework read is only for the row list and the scale, which a purpose-built
+endpoint would return alongside the grid.
+
+Alternatives:
+A GET /me/record endpoint returning every gig's grid, rows and scale in one response. It is
+the better shape if the request count ever matters, and the obvious follow-up. It lost now
+because it needs a contract change, a controller reading the views, a feature test and
+regenerated types before 12 October.
+
+Reading the JSON export. It already carries the whole record, but it is an asynchronous job
+meant to be downloaded as a file, and the browser would have to choose among scores itself,
+which duplicates the rule.
