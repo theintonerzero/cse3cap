@@ -808,17 +808,23 @@ function EntryCard({
   // now rather than dropping it: a student who arrows to a level and presses
   // Next or Submit at once still has that level saved.
   const waiting = useRef<string | null>(null);
+  // Only the latest save's answer counts: two answered out of order must not
+  // leave the scale, or an error, showing the earlier one.
+  const save_seq = useRef(0);
   const save_level = useCallback(
     async (level_id: string) => {
+      const seq = ++save_seq.current;
       setScoreError(null);
       try {
         const score = await api.put('/entries/{entry_id}/scores/self', {
           path: { entry_id: entry.id },
           body: { level_id },
         });
+        if (seq !== save_seq.current) return;
         const others = entry.scores.filter((existing) => existing.scorer_class !== 'self');
         on_change({ ...entry, scores: [...others, score] });
       } catch (error) {
+        if (seq !== save_seq.current) return;
         setScoreError(as_api_error(error, 'Could not save that score.').message);
       } finally {
         // The scale shows what was saved from here on, or what was there before.

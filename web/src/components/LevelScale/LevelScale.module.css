@@ -23,6 +23,16 @@
   box-shadow: var(--shadow-control);
 }
 
+/* SFIA's seven on the narrowest phones fell under the tap floor. The row
+   reaches into the card's side padding there, which keeps every level at
+   the floor down to the smallest common Android width. Four levels never
+   need it. */
+@media (max-width: 24rem) {
+  .many {
+    margin-inline: calc(-1 * var(--space-12));
+  }
+}
+
 .level {
   position: relative;
   flex: 1 1 0;
@@ -205,4 +215,8 @@ button.level.counter:not(:disabled):hover {
 .list_n {
   font-weight: var(--font-weight-medium);
   font-variant-numeric: tabular-nums;
+}
+
+.list_who {
+  font-weight: var(--font-weight-medium);
 }

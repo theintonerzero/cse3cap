@@ -77,7 +77,11 @@ export function LevelScale({
 
   function on_key(event: KeyboardEvent<HTMLDivElement>) {
     if (!interactive || disabled) return;
-    const current = levels.findIndex((level) => level.id === value);
+    // From the level that has focus, which is the one the person last moved
+    // to, even when a failed save has put the chosen level back.
+    const focused = buttons.current.indexOf(document.activeElement as HTMLButtonElement);
+    const current =
+      focused >= 0 ? focused : levels.findIndex((level) => level.id === value);
     const step: Record<string, number> = {
       ArrowRight: 1,
       ArrowDown: 1,
@@ -110,9 +114,13 @@ export function LevelScale({
     return tones.has('counter') ? styles.counter : styles.primary;
   };
 
+  // More levels than a narrow card has room for at the tap floor: the row
+  // reaches into the card's side padding on a phone (see the CSS).
+  const track_class = total > 5 ? `${styles.track} ${styles.many}` : styles.track;
+
   const track = marks ? (
     // Read-only and shared: the words lines below carry who chose what.
-    <div className={styles.track} aria-hidden="true">
+    <div className={track_class} aria-hidden="true">
       {levels.map((level) => (
         <span key={level.id} className={`${styles.level} ${mark_class(level.id)}`}>
           {level.level_value}
@@ -121,7 +129,7 @@ export function LevelScale({
     </div>
   ) : (
     <div
-      className={styles.track}
+      className={track_class}
       role="radiogroup"
       aria-labelledby={label_id}
       aria-readonly={interactive ? undefined : true}
@@ -216,12 +224,24 @@ export function LevelScale({
         </button>
       </div>
       <ol className={styles.list} id={list_id} hidden={!open}>
-        {levels.map((level) => (
-          <li key={level.id} className={level.id === value ? styles.list_on : undefined}>
-            <span className={styles.list_n}>{level.level_value}</span>
-            <span>{level.descriptor}</span>
-          </li>
-        ))}
+        {levels.map((level) => {
+          // On a shared scale, whose level each one is.
+          const whose = (marks ?? [])
+            .filter((mark) => mark.level_id === level.id)
+            .map((mark) => mark.who);
+          const on = level.id === value || whose.length > 0;
+          return (
+            <li key={level.id} className={on ? styles.list_on : undefined}>
+              <span className={styles.list_n}>{level.level_value}</span>
+              <span>
+                {level.descriptor}
+                {whose.length > 0 && (
+                  <span className={styles.list_who}> · {whose.join(', ')}</span>
+                )}
+              </span>
+            </li>
+          );
+        })}
       </ol>
     </div>
   );

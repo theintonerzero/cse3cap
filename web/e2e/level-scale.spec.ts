@@ -156,6 +156,27 @@ const seven = base.extend<{ api: FakeApi }>({
   ],
 });
 
+for (const width of [360, 375]) {
+  seven.describe(`seven levels at ${width}px`, () => {
+    seven.use({ viewport: { width, height: 800 } });
+
+    seven('every level keeps the tap floor on a narrower phone', async ({ page }) => {
+      await page.goto(`/reflections/${DRAFT}`);
+      const radios = self_score(page).getByRole('radio');
+      await expect(radios).toHaveCount(7);
+      for (const box of await radios.evaluateAll((els) =>
+        els.map((el) => el.getBoundingClientRect().toJSON()),
+      )) {
+        expect(box.width).toBeGreaterThanOrEqual(44);
+      }
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      );
+      expect(overflow).toBe(0);
+    });
+  });
+}
+
 seven.describe('seven levels at 390px', () => {
   seven.use({ viewport: { width: 390, height: 844 } });
 
@@ -413,4 +434,91 @@ as_lee("someone else's view names the student, never 'You'", async ({ page }) =>
     shared.getByRole('listitem').filter({ hasText: 'Jane N · 2' }),
   ).toBeVisible();
   await expect(shared.getByRole('listitem').filter({ hasText: 'You ·' })).toHaveCount(0);
+});
+
+test('two saves answered out of order: the scale keeps the later choice', async ({
+  page,
+}) => {
+  // The first save is slow and the second quick, so their answers cross.
+  const levels = RUBRIC_FOR_TESTS.competencies[0].levels;
+  await page.route('**/api/v1/entries/*/scores/self', async (route) => {
+    const { level_id } = route.request().postDataJSON() as { level_id: string };
+    if (level_id === levels[1].id) await new Promise((r) => setTimeout(r, 700));
+    const level = levels.find((l) => l.id === level_id)!;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        id: `self-${level.level_value}`,
+        reflection_entry_id: 'x',
+        scorer_role: 'student',
+        scorer_class: 'self',
+        level_id,
+        level_value: level.level_value,
+        comment: null,
+        scored_at: '2026-10-05T00:00:00.000000Z',
+        scorer: { id: JANE.id, display_name: JANE.display_name },
+      }),
+    });
+  });
+  await page.goto(`/reflections/${DRAFT}`);
+  await self_score(page)
+    .getByRole('radio', { name: /^2 of 4/ })
+    .click();
+  await self_score(page)
+    .getByRole('radio', { name: /^3 of 4/ })
+    .click();
+  await page.waitForTimeout(1200);
+  await expect(self_score(page).getByRole('radio', { name: /^3 of 4/ })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+});
+
+test('after a failed arrow-key save, the next arrow moves from where focus is', async ({
+  page,
+  api,
+}) => {
+  await page.goto(`/reflections/${DRAFT}`);
+  await self_score(page)
+    .getByRole('radio', { name: /^2 of 4/ })
+    .click();
+  await expect.poll(() => saves(api).length).toBe(1);
+  api.fail(SAVE, { kind: 'error', status: 400, code: 'VALIDATION_FAILED', message: 'No.' });
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByRole('alert')).toContainText('No.');
+  await expect(self_score(page).getByRole('radio', { name: /^3 of 4/ })).toBeFocused();
+  await page.keyboard.press('ArrowRight');
+  await expect(self_score(page).getByRole('radio', { name: /^4 of 4/ })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+});
+
+test('the shared scale colours each person, and All levels marks whose level is whose', async ({
+  page,
+}) => {
+  await page.goto(`/reflections/${ASSESSED}`);
+  const shared = page.getByRole('group', { name: "Your score and Dr Lee's" });
+  const background = (n: number) =>
+    shared
+      .locator('[aria-hidden="true"] > *')
+      .nth(n - 1)
+      .evaluate((el) => getComputedStyle(el).backgroundColor);
+  const token = (name: string) =>
+    page.evaluate((n) => {
+      const probe = document.createElement('div');
+      probe.style.background = `var(${n})`;
+      document.body.append(probe);
+      const colour = getComputedStyle(probe).backgroundColor;
+      probe.remove();
+      return colour;
+    }, name);
+  expect(await background(2)).toBe(await token('--color-primary'));
+  expect(await background(3)).toBe(await token('--color-success'));
+  expect(await background(1)).not.toBe(await token('--color-primary'));
+  await shared.getByRole('button', { name: 'All levels' }).click();
+  await expect(shared.locator('ol > li').nth(1)).toContainText('You');
+  await expect(shared.locator('ol > li').nth(2)).toContainText('Dr Lee');
+  await expect(shared.locator('ol > li').nth(0)).not.toContainText('You');
 });
