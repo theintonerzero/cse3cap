@@ -394,15 +394,5 @@
 }
 
 .row_start {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-12);
   padding: 0 var(--space-16);
-}
-
-.row_error {
-  margin: 0;
-  font-size: var(--font-size-sm);
-  color: var(--color-danger);
 }
