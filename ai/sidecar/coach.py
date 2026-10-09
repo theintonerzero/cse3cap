@@ -56,13 +56,18 @@ def keep_questions(questions: list[str], scale_max: int, names: list[str] | tupl
     """Only real questions: ending in "?", under 200 characters, asked once, and
     saying nothing about a level, a score, a number on the scale (in digits or
     words) or a level by its name."""
-    on_scale = [str(n) for n in range(0, scale_max + 1)] + NUMBER_WORDS[: scale_max + 1]
-    numbers = re.compile(r"\b(" + "|".join(on_scale) + r")\b", re.IGNORECASE)
+    numbers = re.compile(r"\b(" + "|".join(str(n) for n in range(0, scale_max + 1)) + r")\b")
+    # A number word only where it reads as a point on the scale ("at four",
+    # "three or four"): "one thing" and "two moments" are ordinary questions.
+    words = "|".join(NUMBER_WORDS[: scale_max + 1])
+    spelled = re.compile(
+        rf"\b(?:at|to|level)\s+(?:{words})\b|\b(?:{words})\s+(?:or|out of|/)\s+(?:{words}|\d+)\b", re.IGNORECASE
+    )
     named = re.compile(r"\b(" + "|".join(re.escape(n) for n in names) + r")\b", re.IGNORECASE) if names else None
     kept, seen = [], set()
     for question in questions:
         q = question.strip()
-        if not (q.endswith("?") and len(q) < 200) or LEVEL_TALK.search(q) or numbers.search(q):
+        if not (q.endswith("?") and len(q) < 200) or LEVEL_TALK.search(q) or numbers.search(q) or spelled.search(q):
             continue
         if named and named.search(q):
             continue

@@ -116,7 +116,8 @@ async def test_timeout_is_ai_unavailable_timeout(httpserver: HTTPServer):
     assert e.value.details == {"reason": "timeout"}
     # Claude may have billed a call the sidecar stopped waiting for, so the cap
     # counts what was reserved for it, not nothing (core review M1).
-    assert ledger.settled[0][4] == ledger.reserved[0] > 0
+    # Two attempts (the SDK retries once), and either may have been billed.
+    assert ledger.settled[0][4] == 2 * ledger.reserved[0] > 0
 
 
 async def test_a_prompt_over_100k_tokens_is_refused_before_reserving():

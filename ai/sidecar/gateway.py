@@ -15,6 +15,8 @@ PRICE_OUT = Decimal("0.50") / 1_000_000
 # These prices hold for prompts up to 100K tokens; a longer one costs more, so
 # it is refused rather than reserved too low (core review M2).
 MAX_INPUT_TOKENS = 100_000
+# client_for's max_retries=1: a call that times out may be two billed attempts.
+ATTEMPTS = 2
 
 
 def client_for(api_key: str | None, base_url: str | None = None, timeout: float = 15.0) -> anthropic.AsyncAnthropic:
@@ -70,9 +72,10 @@ class ClaudeGateway:
         worst = counted.input_tokens * PRICE_IN + max_tokens * PRICE_OUT
         reservation = await self._ledger.reserve(worst)
         used_in = used_out = 0
-        # A timed-out or dropped call may still have been billed: until a reply
-        # says what it cost, it counts its worst case against the cap (M1).
-        cost = worst
+        # A timed-out or dropped call may still have been billed, twice with the
+        # SDK's retry: until a reply says what it cost, it counts the worst case
+        # of every attempt against the cap (M1, CAP-67 review).
+        cost = worst * ATTEMPTS
         try:
             response = await self._client.messages.create(
                 model=self._model, max_tokens=max_tokens, system=system, messages=messages, output_config=output_config

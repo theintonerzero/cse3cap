@@ -39,3 +39,13 @@ async def test_windows_older_than_a_day_are_pruned(db):
     async with db.acquire() as conn, conn.cursor() as cur:
         await cur.execute("SELECT COUNT(*) FROM rate_limits WHERE window_start < %s", (old + timedelta(days=1),))
         assert (await cur.fetchone())[0] == 0
+
+
+async def test_a_failed_prune_does_not_fail_the_request(db):
+    limiter = RateLimiter(db)
+
+    async def broken():
+        raise RuntimeError("the DELETE failed")
+
+    limiter._delete_old = broken
+    await limiter.check("someone", "search")  # still counted, not refused

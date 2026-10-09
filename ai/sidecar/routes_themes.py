@@ -24,10 +24,14 @@ def register(router: APIRouter) -> None:
 
         # One request per gig and day asks Claude; others wait here, then find
         # the day cached and answer from it.
-        async with deps.themes.lock(gig_id, day):
+        async with deps.themes.lock(gig_id, day) as acquired:
             held = await deps.themes.get(gig_id, day)
             if held is not None:
                 return {"themes": held}
+            # The holder we waited for was refused, or the wait ran out: don't
+            # call Claude again on top of it.
+            if not acquired or deps.themes.recently_failed(gig_id, day):
+                return {"themes": []}
             return await ask_for_themes(gig_id, day, who, deps)
 
 

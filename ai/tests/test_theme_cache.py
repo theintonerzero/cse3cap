@@ -40,3 +40,27 @@ def test_a_failure_is_remembered_for_a_while():
     assert not cache.recently_failed("g1", day)
     cache.failed("g1", day)
     assert cache.recently_failed("g1", day) and not cache.recently_failed("g2", day)
+
+
+async def test_five_holders_at_once_never_starve_the_pool(db):
+    # The pool holds five connections. A lock that kept one for its whole block
+    # left five holders each waiting for a sixth, and every AI feature hung
+    # (CAP-67 review, finding 1). Holders on five gigs read the cache inside it.
+    import asyncio
+
+    cache = ThemeCache(db)
+    day = date(2026, 10, 9)
+
+    async def hold(n):
+        async with cache.lock(f"g{n}", day):
+            return await cache.get(f"g{n}", day)
+
+    assert await asyncio.wait_for(asyncio.gather(*(hold(n) for n in range(6))), timeout=5) == [None] * 6
+
+
+def test_expired_failures_are_forgotten():
+    cache = ThemeCache(None)
+    day = date(2026, 10, 9)
+    cache._failed[("g1", day)] = -10_000.0  # long ago
+    assert not cache.recently_failed("g1", day)
+    assert ("g1", day) not in cache._failed

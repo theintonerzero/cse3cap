@@ -18,7 +18,7 @@
 
 ## Review Focus
 
-- A non-UUID id is refused with the envelope before any Laravel call.
+- A non-UUID id is refused with the envelope before the id reaches Laravel (the caller's `/auth/me` still runs first).
 - Two concurrent theme misses on one gig and day call Claude once, and neither request fails.
 - A timed-out Claude call still counts against the day's cap.
 - With AI off, any route, any method, answers 404 AI_DISABLED.
@@ -27,7 +27,7 @@
 
 Each item gets a failing test, then the fix:
 - **The owner check fails closed.** `own_reflection` requires a non-empty `me.id` equal to the owner's id.
-- **Path ids are UUIDs.** `reflection_id`, `entry_id` and `gig_id` are typed `uuid.UUID`, so a bad one is `400 VALIDATION_FAILED` before Laravel is called. This covers core M6 and 4a's "ids not UUIDs". Tests move to UUID fixtures.
+- **Path ids are UUIDs.** `reflection_id`, `entry_id` and `gig_id` are typed `uuid.UUID`, so a bad one is `400 VALIDATION_FAILED` before the id reaches Laravel. This covers core M6 and 4a's "ids not UUIDs". Tests move to UUID fixtures.
 - **AI off covers every route.** With AI off, an unmatched path or method is `404 AI_DISABLED` (M4).
 - **`/status` with no database** answers `{"features": []}`.
 - **The question filter** drops spelled-out numbers up to the scale's maximum, drops questions naming a level (the part of a descriptor before " — ", where one exists), and de-duplicates case-insensitively.
@@ -42,7 +42,7 @@ Each item gets a failing test, then the fix:
 
 ### Task 3: Themes
 
-- **One call per gig and day.** `ThemeCache.lock(gig_id, day)` uses MySQL `GET_LOCK`. The route checks the cache again once it holds the lock.
+- **One call per gig and day.** `ThemeCache.lock(gig_id, day)` is an in-process `asyncio.Lock` (the review found a `GET_LOCK` held on a pool connection could starve the pool). The route checks the cache again once it holds the lock.
 - **No retry storm.** A failed reply (`invalid_reply` or `refusal`) is remembered in memory for 10 minutes and answered `{"themes": []}` without calling Claude.
 - **Realistic `/auth/me`.** Tests use the shape Laravel returns: one row per gig, and `student` when they study there.
 - **Contract wording.** The contract says "up to five".

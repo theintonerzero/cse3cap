@@ -83,3 +83,10 @@ def test_a_repeated_question_is_kept_once():
 def test_level_names_come_from_named_descriptors_only():
     from sidecar.coach import level_names
     assert level_names(["Emerging — acts when prompted.", "Follow", "Apply"]) == ["Emerging"]
+
+
+def test_an_ordinary_number_word_is_kept():
+    # "one thing", "two moments": common coaching words, not a scale (review finding 2).
+    kept = keep_questions(["What is one thing you would change?", "Which two moments mattered most?",
+                           "Were you at four by the end?", "Is it closer to six or seven?"], 7)
+    assert kept == ["What is one thing you would change?", "Which two moments mattered most?"]

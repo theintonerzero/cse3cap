@@ -32,7 +32,7 @@ class Cache:
 
     @asynccontextmanager
     async def lock(self, gig_id, day):
-        yield
+        yield True
 
     def recently_failed(self, gig_id, day):
         return (gig_id, day) in self.failures
@@ -138,3 +138,18 @@ def test_a_student_row_from_auth_me_gets_no_themes(httpserver: HTTPServer):
         {"id": "lee", "display_name": "Dr Lee", "participations": [{"gig_id": G1, "gig_title": "SFIA", "role": "student"}]})
     response, _ = themes(httpserver, Gateway({"themes": []}), Cache())
     assert response.status_code == 403
+
+
+def test_a_waiter_respects_a_failure_its_holder_just_saw(httpserver: HTTPServer):
+    # Waiting on the lock while the holder's call is refused: don't ask again.
+    httpserver.expect_request("/api/v1/auth/me").respond_with_json(LEE)
+
+    class FailsWhileWaiting(Cache):
+        @asynccontextmanager
+        async def lock(self, gig_id, day):
+            self.failed(gig_id, day)  # the holder's refusal lands while we wait
+            yield True
+
+    gateway = Gateway({"themes": ["x", "y", "z"]})
+    response, _ = themes(httpserver, gateway, FailsWhileWaiting())
+    assert response.json() == {"themes": []} and gateway.calls == []

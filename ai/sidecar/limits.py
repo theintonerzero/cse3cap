@@ -1,7 +1,10 @@
+import logging
 import time
 from datetime import UTC, datetime, timedelta
 
 from .errors import AiError
+
+log = logging.getLogger("sidecar.limits")
 
 LIMITS = {
     "claude": [(20, timedelta(minutes=1)), (200, timedelta(days=1))],
@@ -22,6 +25,14 @@ class RateLimiter:
         if self._pruned_at is not None and time.monotonic() - self._pruned_at < 60:
             return
         self._pruned_at = time.monotonic()
+        try:
+            await self._delete_old()
+        except Exception:
+            # Housekeeping: a failed prune is retried in a minute, and never
+            # turns the request it rode on into a refusal.
+            log.warning("pruning rate_limits failed", exc_info=True)
+
+    async def _delete_old(self) -> None:
         before = (datetime.now(UTC) - timedelta(days=2)).replace(tzinfo=None)
         async with self._pool.acquire() as conn, conn.cursor() as cur:
             await cur.execute("DELETE FROM rate_limits WHERE window_start < %s", (before,))
