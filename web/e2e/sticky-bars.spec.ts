@@ -155,6 +155,21 @@ test('phone: the stepper bar never covers the focused field', async ({ page }) =
   }
 });
 
+test('phone: a textarea half under the bar shows whole once focused', async ({ page }) => {
+  // CAP-61: Chromium scrolls a focused textarea that is already partly on
+  // screen only as far as its caret, which leaves the rest of the box under
+  // the bar. Park the box with its first line just above the bar, then focus.
+  await page.setViewportSize({ width: 390, height: 600 });
+  await page.goto(`/reflections/${DRAFT}`);
+  await expect(page.getByText('Collaboration').first()).toBeVisible();
+  const submit = page.getByRole('button', { name: 'Submit' });
+  const narrative = page.getByRole('main').locator('textarea').first();
+  await narrative.evaluate((field) => {
+    window.scrollBy(0, field.getBoundingClientRect().top - 430);
+  });
+  expect(await overlap(narrative, submit)).toBeLessThanOrEqual(0);
+});
+
 dr_lee_test(
   'phone: the edit-framework save bar never covers the focused field',
   async ({ page }) => {
