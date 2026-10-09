@@ -373,9 +373,17 @@ else:
         check("the gate file is not world-readable",
               (srv / "diary-gate.caddy").exists() and ((srv / "diary-gate.caddy").stat().st_mode & 0o777) == 0o640)
         (srv / "Caddyfile").write_text(
-            # baseline sets the framing header the box's real one sets, so the
-            # site's same-origin override (CAP-55) is tested against it.
-            "{\n\tadmin off\n\tauto_https off\n}\n(baseline) {\n\theader X-Frame-Options \"DENY\"\n}\n(accesslog) {\n}\n"
+            # baseline is the box's real snippet, verbatim (read 2026-10-09).
+            # Its -Server delete makes Caddy defer the whole block, so DENY is
+            # applied last and beats any later X-Frame-Options; a one-line
+            # stub was not deferred and let a broken override pass (CAP-55).
+            "{\n\tadmin off\n\tauto_https off\n}\n"
+            "(baseline) {\n\theader {\n"
+            "\t\tStrict-Transport-Security \"max-age=31536000; includeSubDomains\"\n"
+            "\t\tX-Content-Type-Options \"nosniff\"\n\t\tX-Frame-Options \"DENY\"\n"
+            "\t\tReferrer-Policy \"strict-origin-when-cross-origin\"\n"
+            "\t\tPermissions-Policy \"camera=(), microphone=(), geolocation=()\"\n"
+            "\t\t-Server\n\t}\n}\n(accesslog) {\n}\n"
             "import /srv/server/diary-site.caddy\n")
         # The site block names diary.darkovski.dev; for a local run serve it on :8080 instead.
         site = (DEMO / "site.caddy").read_text().replace("diary.darkovski.dev {", "http://:8080 {", 1)
@@ -439,6 +447,14 @@ else:
                   headers.get("X-Frame-Options") == "SAMEORIGIN", headers)
             check("the site may be framed by itself only (CSP frame-ancestors)",
                   "frame-ancestors 'self'" in headers.get("Content-Security-Policy", ""), headers)
+            # The site copies baseline rather than importing it: nothing else
+            # baseline sets may go missing in the copy.
+            check("baseline's other headers are all still sent, and Server is not",
+                  headers.get("Strict-Transport-Security") == "max-age=31536000; includeSubDomains"
+                  and headers.get("X-Content-Type-Options") == "nosniff"
+                  and headers.get("Referrer-Policy") == "strict-origin-when-cross-origin"
+                  and headers.get("Permissions-Policy") == "camera=(), microphone=(), geolocation=()"
+                  and "Server" not in headers, headers)
         finally:
             run("docker", "rm", "-f", name)
 

@@ -3,11 +3,19 @@
 # The gate's secret and password hash are in diary-gate.caddy, written by
 # scripts/demo-gate.sh and never committed.
 diary.darkovski.dev {
-	import baseline
 	import accesslog
-	# Framing by this site only (CAP-55): /phone shows the app in an iframe.
-	# Replaces baseline's X-Frame-Options DENY; no other origin may frame it.
-	header X-Frame-Options "SAMEORIGIN"
+	# baseline's headers, copied rather than imported, with X-Frame-Options
+	# SAMEORIGIN instead of DENY so /phone can frame the app (CAP-55). baseline
+	# cannot be overridden: its -Server makes Caddy defer the block, so its DENY
+	# is applied last. Keep this in step with baseline in the server Caddyfile.
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
 	header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'self'; form-action 'self'"
 
 	request_body /api/* {
