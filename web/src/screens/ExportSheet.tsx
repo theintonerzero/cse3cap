@@ -193,20 +193,23 @@ export function ExportSheet({ reflections }: ExportSheetProps) {
     // Functional updates, keyed on the id: a fetch that resolves after the
     // user has moved on cannot clobber what replaced it.
     const still_this = (prev: Job) => prev.status === 'ready' && prev.job.id === ready_id;
-    api
-      .blob('/exports/{export_id}/download', { path: { export_id: ready_id } })
-      .then((file) => {
+    async function fetch_file(export_id: string) {
+      try {
+        const file = await api.blob('/exports/{export_id}/download', {
+          path: { export_id },
+        });
         if (cancelled) return;
         const url = URL.createObjectURL(file);
         setJob((prev) => (still_this(prev) ? { ...prev, url } : prev));
-      })
-      .catch((error: unknown) => {
+      } catch (error) {
         if (cancelled) return;
         const failure = as_api_error(error, 'The file could not be downloaded.');
         setJob((prev) =>
           still_this(prev) ? { status: 'failed', error: failure, message: '' } : prev,
         );
-      });
+      }
+    }
+    void fetch_file(ready_id);
     return () => {
       cancelled = true;
     };
