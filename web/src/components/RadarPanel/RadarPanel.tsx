@@ -26,6 +26,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
+import type { BaseTickContentProps } from 'recharts';
 
 import { ApiError } from '../../api/client.ts';
 import { ErrorNotice } from '../ErrorNotice/ErrorNotice.tsx';
@@ -65,6 +66,16 @@ export type RadarPanelProps =
 // exist once every entry already has a self score, so "counter present,
 // self entirely absent" is not reachable in practice -- the caption
 // logic still covers it defensively, not because it is expected.
+/** One number on the radar's scale: upright, clear of a data dot on the spoke
+ * and just below its ring's corner, so the top one clears the axis label. */
+function ScaleTick({ x, y, payload }: BaseTickContentProps) {
+  return (
+    <text x={x} y={y} dx={8} dy={12} fill="var(--color-text-muted)" fontSize={11}>
+      {payload.value}
+    </text>
+  );
+}
+
 function has_nothing_to_draw(axes: RadarAxis[]): boolean {
   if (axes.length === 0) return true;
   const self_has_data = axes.some((a) => a.self !== null);
@@ -112,9 +123,16 @@ function LoadedRadar({ scale, axes }: { scale: RadarScale; axes: RadarAxis[] }) 
             dataKey="label"
             tick={{ fill: 'var(--color-text)', fontSize: 12 }}
           />
+          {/* The scale runs up the first spoke, which is always at the top,
+              so each number sits on its own ring (CAP-63). Recharts' default
+              lays it between spokes, where a polygon's rings are not, and
+              turns the numbers on their side, where they read as marks on
+              the data. ScaleTick draws them upright, clear of the label. */}
           <PolarRadiusAxis
+            angle={90}
+            axisLine={false}
             domain={[scale.min, scale.max]}
-            tick={{ fill: 'var(--color-text-muted)', fontSize: 11 }}
+            tick={ScaleTick}
           />
           {self_has_data && (
             <Radar

@@ -176,6 +176,45 @@ test.describe('a student on two gigs', () => {
     await expect(page.getByText('Pick a gig to see its radar.')).toBeVisible();
   });
 
+  test("the radar's scale numbers stand upright (CAP-63)", async ({ page }) => {
+    await page.goto('/');
+    await page.getByLabel('Gig').selectOption({ label: 'Gig two' });
+    const ticks = page.locator('.recharts-polar-radius-axis-tick text');
+    await expect(ticks.first()).toBeVisible();
+    for (const tick of await ticks.all()) {
+      const turn = await tick.evaluate((t) => t.getAttribute('transform') ?? '');
+      expect(turn, 'no sideways rotation').not.toMatch(/rotate\((?!0[ ,)])/);
+    }
+    await page.locator('.recharts-wrapper').first().screenshot({
+      path: 'test-results/cap-63-radar.png',
+    });
+  });
+
+  test("the gig list opens in the product's look where the browser allows (CAP-63)", async ({
+    page,
+    browserName,
+  }) => {
+    test.skip(browserName !== 'chromium', 'customizable select is Chromium-only');
+    await page.goto('/');
+    const select = page.getByLabel('Gig');
+    expect(await select.evaluate((el) => getComputedStyle(el).appearance)).toBe(
+      'base-select',
+    );
+    await select.click();
+    const chosen = page.getByRole('option', { name: 'All gigs' });
+    await expect(chosen).toBeVisible();
+    const fill = await chosen.evaluate((o) => getComputedStyle(o).backgroundColor);
+    expect(fill, 'the chosen option is marked in the diary lavender').toBe(
+      'rgb(239, 235, 250)',
+    );
+    await page.screenshot({ path: 'test-results/cap-63-select.png' });
+    await page.keyboard.press('Escape');
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await select.click();
+    await page.screenshot({ path: 'test-results/cap-63-select-dark.png' });
+    await page.keyboard.press('Escape');
+  });
+
   test('a scoped gig still offers its sprints', async ({ page }) => {
     await page.goto(`/?gig_id=${GIG_TWO}`);
     await page
