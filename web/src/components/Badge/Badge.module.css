@@ -32,3 +32,10 @@
 .assessed {
   background: var(--color-success-bg);
 }
+
+/* ADR #64: AI output's badge. Neutral, never purple: purple is the person's
+   own choice in this app, and the AI's words are not that. */
+.ai {
+  background: var(--color-control);
+  box-shadow: var(--shadow-control);
+}

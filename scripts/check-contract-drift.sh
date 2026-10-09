@@ -8,7 +8,8 @@
 # docs/Frontend-and-Backend.md, "What breaks quietly", has the two rows this
 # closes (CAP-25):
 #
-# 1. The contract changed and web/src/api/schema.ts was not regenerated.
+# 1. A contract changed and its types were not regenerated: schema.ts from
+#    docs/openapi.yaml, ai-schema.ts from docs/ai-openapi.yaml.
 #    TypeScript still compiles, against an API that no longer exists. The
 #    types are regenerated into a temp file, with the openapi-typescript
 #    version gen:types pins, and compared with the committed file. The
@@ -27,6 +28,8 @@ cd "$ROOT"
 
 CONTRACT="docs/openapi.yaml"
 SCHEMA="web/src/api/schema.ts"
+AI_CONTRACT="docs/ai-openapi.yaml"
+AI_SCHEMA="web/src/api/ai-schema.ts"
 # The contract is bundled to JSON so the comparison needs no YAML parser.
 # Pinned, unlike CI's lint step, because a bundler that changes its output
 # shape would read as drift.
@@ -47,21 +50,31 @@ tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
 # --------------------------------------------------------------------------
-say "1. $SCHEMA is what $CONTRACT generates"
+say "1. The committed types are what the contracts generate"
 
 # One pin, in web/package.json's gen:types, rather than a second copy here.
+# Both contracts, Laravel's and the AI sidecar's (ADR #64): the same command
+# writes both files, so the same check reads both.
 generator="$(grep -o 'openapi-typescript@[0-9][0-9.]*' web/package.json | head -1)"
+types_match() {
+    local contract="$1" schema="$2" out
+    out="$tmp/$(basename "$schema")"
+    if ! npx -y "$generator" "$contract" -o "$out" >"$tmp/gen.log" 2>&1; then
+        bad "regenerate $schema ($generator)" "see below"
+        sed 's/^/    /' "$tmp/gen.log"
+    elif diff -q "$out" "$schema" >/dev/null; then
+        ok "$schema matches $contract" "$generator"
+    else
+        bad "$schema matches $contract" "stale"
+        diff -u "$schema" "$out" | head -40 | sed 's/^/    /'
+        printf '    %sRegenerate and commit: cd web && npm run gen:types%s\n' "$dim" "$off"
+    fi
+}
 if [ -z "$generator" ]; then
     bad "read the openapi-typescript pin from web/package.json" "gen:types changed shape?"
-elif ! npx -y "$generator" "$CONTRACT" -o "$tmp/schema.ts" >"$tmp/gen.log" 2>&1; then
-    bad "regenerate the types ($generator)" "see below"
-    sed 's/^/    /' "$tmp/gen.log"
-elif diff -q "$tmp/schema.ts" "$SCHEMA" >/dev/null; then
-    ok "committed types match the contract" "$generator"
 else
-    bad "committed types match the contract" "stale"
-    diff -u "$SCHEMA" "$tmp/schema.ts" | head -40 | sed 's/^/    /'
-    printf '    %sRegenerate and commit: cd web && npm run gen:types%s\n' "$dim" "$off"
+    types_match "$CONTRACT" "$SCHEMA"
+    types_match "$AI_CONTRACT" "$AI_SCHEMA"
 fi
 
 # --------------------------------------------------------------------------

@@ -29,4 +29,5 @@ def test_no_authorization_header_is_unauthenticated_without_calling_laravel(http
 def test_a_valid_token_reaches_status(httpserver: HTTPServer):
     httpserver.expect_request("/api/v1/auth/me").respond_with_json({"id": "u1", "display_name": "Jane N", "participations": []})
     with TestClient(app_for(httpserver)) as client:
-        assert client.get("/ai/v1/status", headers={"Authorization": "Bearer t"}).json() == {"features": []}
+        response = client.get("/ai/v1/status", headers={"Authorization": "Bearer t"})
+    assert response.status_code == 200 and set(response.json()) == {"features"}

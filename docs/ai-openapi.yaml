@@ -35,11 +35,88 @@ paths:
           $ref: "#/components/responses/Error"
         "503":
           $ref: "#/components/responses/Error"
+  /reflections/{reflection_id}/entries/{entry_id}/coach:
+    post:
+      operationId: askCoach
+      summary: Questions about a draft narrative, for the student writing it.
+      description: >
+        One to three open questions about this competency's narrative. Never
+        words for the narrative and never a level: the coach is not told the
+        self-score, and questions that mention a level, a score or a number on
+        the scale are dropped. Only the student who owns the reflection, only
+        on a draft, and only once the narrative has 15 words. The path goes
+        through the reflection because the diary has no GET /entries/{id}.
+      parameters:
+        - $ref: "#/components/parameters/ReflectionId"
+        - $ref: "#/components/parameters/EntryId"
+      responses:
+        "200":
+          description: The questions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoachQuestions"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+        "503":
+          $ref: "#/components/responses/Error"
+  /reflections/{reflection_id}/entries/{entry_id}/related:
+    get:
+      operationId: getRelated
+      summary: The student's own earlier entries that read most like this one.
+      description: >
+        Up to three of the student's own entries from their other reflections,
+        best first, ranked by meaning within the reflections the diary returned
+        for their token. No Claude call. Only the student who owns the
+        reflection. An empty narrative, or nothing earlier, is an empty list.
+      parameters:
+        - $ref: "#/components/parameters/ReflectionId"
+        - $ref: "#/components/parameters/EntryId"
+      responses:
+        "200":
+          description: The related entries.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RelatedEntries"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+        "503":
+          $ref: "#/components/responses/Error"
 components:
   securitySchemes:
     bearer:
       type: http
       scheme: bearer
+  parameters:
+    ReflectionId:
+      name: reflection_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    EntryId:
+      name: entry_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
   responses:
     Error:
       description: The diary's error envelope.
@@ -48,6 +125,41 @@ components:
           schema:
             $ref: "#/components/schemas/Error"
   schemas:
+    CoachQuestions:
+      type: object
+      required: [questions]
+      properties:
+        questions:
+          type: array
+          minItems: 1
+          maxItems: 3
+          items:
+            type: string
+            maxLength: 199
+    RelatedEntries:
+      type: object
+      required: [entries]
+      properties:
+        entries:
+          type: array
+          maxItems: 3
+          items:
+            type: object
+            required: [reflection_id, entry_id, sprint_ordinal, competency_name, excerpt]
+            properties:
+              reflection_id:
+                type: string
+                format: uuid
+              entry_id:
+                type: string
+                format: uuid
+              sprint_ordinal:
+                type: [integer, "null"]
+              competency_name:
+                type: string
+              excerpt:
+                type: string
+                description: The narrative's first line, cut at a word.
     Status:
       type: object
       required: [features]

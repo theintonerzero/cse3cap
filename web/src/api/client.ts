@@ -27,6 +27,7 @@
  * The client reflects business rules, it does not hold them. A disabled button
  * is a convenience; the 409 is the rule. The rule map is in `CLAUDE.md`.
  */
+import type { components as aiComponents, paths as aiPaths } from './ai-schema.ts';
 import type { components, paths } from './schema.ts';
 
 // --------------------------------------------------------------------------
@@ -37,7 +38,10 @@ import type { components, paths } from './schema.ts';
  * Every code the product can return, straight from the contract's enumeration.
  * Switch on this; never on `message`, which is prose meant for a person.
  */
-export type ApiErrorCode = components['schemas']['Error']['error']['code'];
+export type ApiErrorCode =
+  | components['schemas']['Error']['error']['code']
+  // ADR #64: the AI sidecar's codes, from its own contract. Same envelope.
+  | aiComponents['schemas']['Error']['error']['code'];
 
 /**
  * The envelope's `details` bag. Deliberately untyped in the contract, because
@@ -195,6 +199,23 @@ function baseUrl(): string {
   return configured.replace(/\/+$/, '');
 }
 
+/**
+ * The AI sidecar's base (ADR #64), or null when this build has none. Unlike the
+ * API's base it is optional: without it the app makes no AI request at all and
+ * shows no AI element, which is the product as v1.0.0 shipped it.
+ */
+export function aiBaseUrl(): string | null {
+  const configured = import.meta.env.VITE_AI_BASE_URL;
+  return configured ? configured.replace(/\/+$/, '') : null;
+}
+
+function requireAiBase(): string {
+  const base = aiBaseUrl();
+  if (!base)
+    throw new Error('VITE_AI_BASE_URL is not set, so there is no AI sidecar to call.');
+  return base;
+}
+
 // --------------------------------------------------------------------------
 // Reading the generated contract
 // --------------------------------------------------------------------------
@@ -207,16 +228,16 @@ function baseUrl(): string {
 type Method = 'get' | 'post' | 'put' | 'patch' | 'delete';
 
 /** The generated operation for a path and verb. */
-type Operation<P extends keyof paths, M extends Method> = paths[P][M & keyof paths[P]];
+type Operation<P extends keyof Ps, M extends Method, Ps = paths> = Ps[P][M & keyof Ps[P]];
 
 /**
  * Only the paths that serve this verb. Every generated path carries every verb,
  * with the unsupported ones typed `never`, so `api.post('/auth/me')` has to be
  * ruled out here rather than discovered as a 405.
  */
-type PathsWith<M extends Method> = {
-  [P in keyof paths]: Operation<P, M> extends { responses: unknown } ? P : never;
-}[keyof paths];
+type PathsWith<M extends Method, Ps = paths> = {
+  [P in keyof Ps]: Operation<P, M, Ps> extends { responses: unknown } ? P : never;
+}[keyof Ps];
 
 /** `never` for a slot the operation does not have; the generated type spells that `?: never`. */
 type Present<T> = [Exclude<T, undefined>] extends [never] ? never : Exclude<T, undefined>;
@@ -305,7 +326,11 @@ type LooseOptions = {
  * API can answer, so it throws a plain Error: it should reach a developer, not
  * an error state a user sees.
  */
-function buildUrl(path: string, options: LooseOptions): string {
+function buildUrl(
+  path: string,
+  options: LooseOptions,
+  base: () => string = baseUrl,
+): string {
   const filled = path.replace(/\{(\w+)\}/g, (_match, name: string) => {
     const value = options.path?.[name];
 
@@ -322,7 +347,7 @@ function buildUrl(path: string, options: LooseOptions): string {
   // base, as in development, ignores the second argument, and outside a
   // browser (scripts/verify-client.sh runs this under Node) there is no
   // location, so the argument is undefined and nothing changes.
-  const url = new URL(baseUrl() + filled, globalThis.location?.origin);
+  const url = new URL(base() + filled, globalThis.location?.origin);
 
   for (const [key, value] of Object.entries(options.query ?? {})) {
     if (value === undefined || value === null) continue;
@@ -345,8 +370,9 @@ async function send(
   method: Method,
   path: string,
   options: LooseOptions,
+  base: () => string = baseUrl,
 ): Promise<Response> {
-  const url = buildUrl(path, options);
+  const url = buildUrl(path, options, base);
 
   const headers = new Headers(options.headers);
   headers.set('Accept', 'application/json');
@@ -407,8 +433,13 @@ async function send(
 }
 
 /** The same, then the JSON body. Empty bodies, including every 204, give `undefined`. */
-async function json(method: Method, path: string, options: LooseOptions): Promise<unknown> {
-  const response = await send(method, path, options);
+async function json(
+  method: Method,
+  path: string,
+  options: LooseOptions,
+  base: () => string = baseUrl,
+): Promise<unknown> {
+  const response = await send(method, path, options, base);
   const text = await response.text();
 
   if (text === '') return undefined;
@@ -497,3 +528,42 @@ async function blob<P extends PathsWith<'get'>>(
  *   await api.blob('/exports/{export_id}/download', { path: { export_id } });
  */
 export const api = { get, post, put, patch, delete: del, blob };
+
+// --------------------------------------------------------------------------
+// The AI sidecar (ADR #64)
+// --------------------------------------------------------------------------
+
+/** The same request path, token and error envelope, typed from docs/ai-openapi.yaml. */
+function aiCall<M extends Method, P extends PathsWith<M, aiPaths>>(
+  method: M,
+  path: P,
+  options: RequestOptions<Operation<P, M, aiPaths>> | undefined,
+): Promise<ResultOf<Operation<P, M, aiPaths>>> {
+  return json(
+    method,
+    path as string,
+    (options ?? {}) as LooseOptions,
+    requireAiBase,
+  ) as Promise<ResultOf<Operation<P, M, aiPaths>>>;
+}
+
+/**
+ * The AI sidecar's client. Paths are docs/ai-openapi.yaml's, relative to /ai/v1:
+ *
+ *   await ai.get('/status');
+ *   await ai.post('/reflections/{reflection_id}/entries/{entry_id}/coach', { path: { reflection_id, entry_id } });
+ */
+export const ai = {
+  get<P extends PathsWith<'get', aiPaths>>(
+    path: P,
+    ...args: CallArgs<Operation<P, 'get', aiPaths>>
+  ) {
+    return aiCall('get', path, args[0]);
+  },
+  post<P extends PathsWith<'post', aiPaths>>(
+    path: P,
+    ...args: CallArgs<Operation<P, 'post', aiPaths>>
+  ) {
+    return aiCall('post', path, args[0]);
+  },
+};

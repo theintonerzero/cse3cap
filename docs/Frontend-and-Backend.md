@@ -44,8 +44,20 @@ CI runs it in the Contract job, and `./run check` runs it too (CAP-25).
 
 `docs/ai-openapi.yaml` describes `/ai/v1`, the AI sidecar in `ai/` (ADR #64). It works like
 this contract: the sidecar implements it, and `ai/tests/test_contract.py` fails when a route
-is on one side only. Redocly lints it in the Contract job. `web/` will generate its types
-from it the same way when the AI features reach the screens.
+is on one side only. Redocly lints it in the Contract job.
+
+`web/` reaches it the same way it reaches Laravel. `npm run gen:types` writes
+`web/src/api/ai-schema.ts` from it beside `schema.ts`, generated and never edited, and
+`./run contract-drift` checks both files. `client.ts` exports `ai` beside `api`, with the
+same error envelope and the same `ApiError`; `ApiErrorCode` is the union of both contracts'
+codes. Its base URL is `VITE_AI_BASE_URL`. Unset, which is the default, the app never calls
+the sidecar at all.
+
+A screen does not ask the sidecar what it serves. `web/src/ai/useAiStatus.ts` calls
+`GET /status` once per session, by whichever screen mounts first, and every later screen
+reads the same answer: a set of feature names, or `null` while unknown, off or unreachable.
+A feature renders only when its name is in the set, so a sidecar that is down, switched
+off or serving a subset leaves the rest of the product exactly as it is without AI.
 
 Laravel never reads it and never changes for it. The sidecar reads Laravel's API with the
 caller's own token, so `docs/openapi.yaml` stays the contract it depends on. With
