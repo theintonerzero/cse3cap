@@ -30,7 +30,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { api, ApiError } from '../api/client.ts';
 import type { paths } from '../api/schema.ts';
-import { Badge, Button, Chip, ErrorNotice } from '../components/index.ts';
+import { Badge, Button, Chip, ErrorNotice, LinkButton } from '../components/index.ts';
 import type { ReflectionSummary } from './diary-scope.ts';
 import {
   download_name,
@@ -46,7 +46,9 @@ type Format = Export['format'];
 type Job =
   | { status: 'idle'; requesting: boolean }
   | { status: 'building'; export_id: string; format: Format; polls: number }
-  | { status: 'ready'; job: Export; downloading: boolean }
+  // url: the file, fetched as soon as the export is ready, as a blob: URL
+  // the Download link points at; null while it is still being fetched.
+  | { status: 'ready'; job: Export; url: string | null }
   | { status: 'failed'; error: ApiError | null; message: string };
 
 export interface ExportSheetProps {
@@ -84,7 +86,7 @@ export function ExportSheet({ reflections }: ExportSheetProps) {
   const [job, setJob] = useState<Job>(IDLE);
   const request_button = useRef<HTMLButtonElement>(null);
   const building_block = useRef<HTMLDivElement>(null);
-  const download_button = useRef<HTMLButtonElement>(null);
+  const download_link = useRef<HTMLAnchorElement>(null);
   const again_button = useRef<HTMLButtonElement>(null);
 
   const empty = reflections.length === 0;
@@ -102,8 +104,8 @@ export function ExportSheet({ reflections }: ExportSheetProps) {
         ? request_button.current
         : job.status === 'building'
           ? building_block.current
-          : job.status === 'ready' && !job.downloading
-            ? download_button.current
+          : job.status === 'ready' && job.url
+            ? download_link.current
             : job.status === 'failed'
               ? again_button.current
               : null;
@@ -118,7 +120,7 @@ export function ExportSheet({ reflections }: ExportSheetProps) {
       // On a sync queue the job has already run and the 202 says so.
       setJob(
         created.status === 'complete'
-          ? { status: 'ready', job: created, downloading: false }
+          ? { status: 'ready', job: created, url: null }
           : created.status === 'failed'
             ? failed_job()
             : { status: 'building', export_id: created.id, format, polls: 0 },
@@ -146,7 +148,7 @@ export function ExportSheet({ reflections }: ExportSheetProps) {
         });
         if (cancelled) return;
         if (polled.status === 'complete') {
-          setJob({ status: 'ready', job: polled, downloading: false });
+          setJob({ status: 'ready', job: polled, url: null });
         } else if (polled.status === 'failed') {
           setJob(failed_job());
         } else if (should_give_up(attempt + 1)) {
@@ -179,40 +181,44 @@ export function ExportSheet({ reflections }: ExportSheetProps) {
     };
   }, [job]);
 
-  async function download() {
-    if (job.status !== 'ready') return;
-    const { id, format: file_format } = job.job;
-    // Functional updates, keyed on the id: the state is only touched if it
-    // is still this export's ready block, so a download that resolves
-    // after the user has moved on cannot clobber what replaced it.
-    const still_this = (prev: Job) => prev.status === 'ready' && prev.job.id === id;
-    setJob((prev) => (still_this(prev) ? { ...prev, downloading: true } : prev));
-    try {
-      const file = await api.blob('/exports/{export_id}/download', {
-        path: { export_id: id },
+  // CAP-56: the file is fetched as soon as the export is ready, and Download
+  // is a real link to it. The user's own click on that link starts the
+  // download, which every browser honours. A script-driven click after the
+  // fetch's await is not the user's any more, and Firefox 157 saved nothing
+  // from one inside the live demo's phone frame.
+  const ready_id = job.status === 'ready' && job.url === null ? job.job.id : null;
+  useEffect(() => {
+    if (ready_id === null) return;
+    let cancelled = false;
+    // Functional updates, keyed on the id: a fetch that resolves after the
+    // user has moved on cannot clobber what replaced it.
+    const still_this = (prev: Job) => prev.status === 'ready' && prev.job.id === ready_id;
+    api
+      .blob('/exports/{export_id}/download', { path: { export_id: ready_id } })
+      .then((file) => {
+        if (cancelled) return;
+        const url = URL.createObjectURL(file);
+        setJob((prev) => (still_this(prev) ? { ...prev, url } : prev));
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        const failure = as_api_error(error, 'The file could not be downloaded.');
+        setJob((prev) =>
+          still_this(prev) ? { status: 'failed', error: failure, message: '' } : prev,
+        );
       });
-      const url = URL.createObjectURL(file);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = download_name(id, file_format);
-      anchor.hidden = true;
-      // Attached for the click, and the URL kept for a minute after it:
-      // Firefox reads a blob download asynchronously, and a detached link or
-      // a URL revoked on the next task let the file vanish with no error
-      // (CAP-56; the live demo's Firefox 157 saved nothing). A minute is long
-      // past any read, and the blob is freed then rather than held forever.
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-      setJob((prev) => (still_this(prev) ? { ...prev, downloading: false } : prev));
-    } catch (error) {
-      const failure = as_api_error(error, 'The file could not be downloaded.');
-      setJob((prev) =>
-        still_this(prev) ? { status: 'failed', error: failure, message: '' } : prev,
-      );
-    }
-  }
+    return () => {
+      cancelled = true;
+    };
+  }, [ready_id]);
+
+  // The file's URL is freed when it is replaced or the sheet closes, not
+  // straight after a click: the browser reads it after the click returns.
+  const file_url = job.status === 'ready' ? job.url : null;
+  useEffect(() => {
+    if (file_url === null) return;
+    return () => URL.revokeObjectURL(file_url);
+  }, [file_url]);
 
   return (
     <div className={styles.sheet}>
@@ -277,16 +283,20 @@ export function ExportSheet({ reflections }: ExportSheetProps) {
         <div className={styles.ready}>
           <p className={styles.ready_title}>Your {job.job.format.toUpperCase()} is ready</p>
           <JobSummary job={job.job} />
-          <Button ref={download_button} on_click={download} disabled={job.downloading}>
-            {job.downloading ? 'Downloading' : 'Download'}
-          </Button>
+          {job.url ? (
+            <LinkButton
+              ref={download_link}
+              to={job.url}
+              download={download_name(job.job.id, job.job.format)}
+            >
+              Download
+            </LinkButton>
+          ) : (
+            <Button disabled>Preparing…</Button>
+          )}
           {/* A button that looked like a link (CAP-38): it acts, so it
               looks like what it is. */}
-          <Button
-            variant="secondary"
-            disabled={job.downloading}
-            on_click={() => setJob(IDLE)}
-          >
+          <Button variant="secondary" on_click={() => setJob(IDLE)}>
             Request another
           </Button>
         </div>
