@@ -50,8 +50,9 @@ is on one side only. Redocly lints it in the Contract job.
 `web/src/api/ai-schema.ts` from it beside `schema.ts`, generated and never edited, and
 `./run contract-drift` checks both files. `client.ts` exports `ai` beside `api`, with the
 same error envelope and the same `ApiError`; `ApiErrorCode` is the union of both contracts'
-codes. Its base URL is `VITE_AI_BASE_URL`. Unset, which is the default, the app never calls
-the sidecar at all.
+codes. Its base URL is `VITE_AI_BASE_URL`: `/ai/v1` in a production build, beside
+`/api/v1` on the same origin (`web/.env.production`, the demo's `web.Dockerfile`). Unset, as on
+a laptop unless you set it, the app never calls the sidecar at all.
 
 A screen does not ask the sidecar what it serves. `web/src/ai/useAiStatus.ts` calls
 `GET /status` once per session, by whichever screen mounts first, and every later screen

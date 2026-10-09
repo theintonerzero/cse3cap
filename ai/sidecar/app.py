@@ -29,7 +29,7 @@ async def _build_deps(settings: Settings):
     from .store import VectorStore
     from .themes import ThemeCache
 
-    pool = await connect(settings.database_url)
+    pool = await connect(settings.database_url, settings.database_ca)
     gateway = ClaudeGateway(client_for(settings.anthropic_api_key), SpendLedger(pool, settings.daily_cap_usd), settings.model)
     return pool, Deps(gateway=gateway, store=VectorStore(pool), embedder=FastEmbedder(), limiter=RateLimiter(pool), themes=ThemeCache(pool))
 

@@ -334,6 +334,21 @@ else:
         check("a reset before any deploy is refused with a reason",
               r.returncode == 1 and "deploy first" in r.stderr, r.stdout + r.stderr)
 
+    # CAP-69: the sidecar's diary_ai is emptied too, once it has a database.
+    with tempfile.TemporaryDirectory() as tmp:
+        home, env, calls = box(tmp, deployed=OLD)
+        (home / "shared" / "ai.env").write_text("AI_ENABLED=true\nDATABASE_URL=mysql://diary_ai:x@rddb.darkovski.dev/diary_ai\n")
+        r = run(RESET, env=env)
+        check("with diary_ai configured, a reset empties it through the sidecar",
+              r.returncode == 0 and any("diary-ai" in l and "sidecar.reset" in l for l in lines(calls)),
+              "\n".join(lines(calls)) + r.stderr)
+    with tempfile.TemporaryDirectory() as tmp:
+        home, env, calls = box(tmp, deployed=OLD)
+        r = run(RESET, env=env)
+        check("without it, a reset leaves the sidecar alone and says so",
+              r.returncode == 0 and not any("sidecar.reset" in l for l in lines(calls))
+              and "no database" in r.stdout, r.stdout + r.stderr)
+
     # Review, Important 4: a reset and a deploy never run at once.
     with tempfile.TemporaryDirectory() as tmp:
         home, env, calls = box(tmp, deployed=OLD)
@@ -349,6 +364,52 @@ else:
               r.stdout + r.stderr)
 
 # ---------------------------------------------------------------------------
+print("deploy/demo: the AI sidecar (CAP-69, ADR #64)")
+ai_df = read(DEMO / "ai.Dockerfile")
+ai_env = read(DEMO / "ai.env.example")
+check("ai.Dockerfile builds the sidecar from the lockfile, without dev tools",
+      "uv sync --frozen --no-dev" in ai_df, ai_df)
+model = re.search(r'MODEL = "([^"]+)"', read(ROOT / "ai" / "sidecar" / "embedder.py"))
+fetch_at = ai_df.find(model.group(1)) if model else -1
+check("the embedding model is baked into the image, not fetched on the first request",
+      "FASTEMBED_CACHE_PATH" in ai_df and fetch_at > 0, ai_df)
+check("it is fetched before the code is copied, so a code change doesn't fetch it again",
+      0 < fetch_at < ai_df.find("COPY --chown=sidecar ai/sidecar"), ai_df)
+check("it serves the app factory on 8000, not as root",
+      "sidecar.app:create_app" in ai_df and "--factory" in ai_df and "8000" in ai_df
+      and re.search(r"^USER\s+(?!root)\S+", ai_df, re.M) is not None, ai_df)
+ai_service = re.search(r"\n  diary-ai:\n((?:    .*\n|\s*\n)+)", compose)
+svc = ai_service.group(1) if ai_service else ""
+check("compose runs it as diary-ai, built from ai.Dockerfile at the deployed SHA",
+      "diary-ai:${DIARY_SHA" in svc and "dockerfile: deploy/demo/ai.Dockerfile" in svc, svc or compose)
+check("its env file is optional, so a deploy before the box is ready still starts it, with AI off",
+      re.search(r"env_file:\s*\n\s*- path: .*shared/ai\.env\s*\n\s*required: false", svc) is not None, svc)
+check("it reaches rddb by the name its certificate carries, like the API",
+      '"mysql:rddb.darkovski.dev"' in svc, svc)
+check("it is held to 2g", "mem_limit: 2g" in svc, svc)
+check("ai.env.example starts with AI off and holds no key and no database",
+      re.search(r"^AI_ENABLED=false$", ai_env, re.M) is not None
+      and re.search(r"^ANTHROPIC_API_KEY=$", ai_env, re.M) is not None
+      and re.search(r"^DATABASE_URL=$", ai_env, re.M) is not None, ai_env)
+check("ai.env.example verifies the database name over TLS with the repo's roots",
+      "DATABASE_CA=" in ai_env and "letsencrypt-roots.pem" in ai_env, ai_env)
+for f in ("ai.Dockerfile", "ai.env.example"):
+    check(f"deploy/demo/{f} holds no secret",
+          re.search(r"sk-ant-[A-Za-z0-9_-]{10,}", read(DEMO / f)) is None)
+
+site_caddy = read(DEMO / "site.caddy")
+ai_at, web_at = site_caddy.find("reverse_proxy /ai/* diary-ai:8000"), site_caddy.find("reverse_proxy diary-web:80")
+check("the site sends /ai/* to the sidecar, inside the gated route and before the app",
+      0 < site_caddy.find("import /srv/server/diary-gate.caddy") < ai_at < web_at, site_caddy)
+web_df = read(DEMO / "web.Dockerfile")
+check("the demo bundle is built pointing at /ai/v1",
+      re.search(r"VITE_AI_BASE_URL=/ai/v1", web_df) is not None
+      and re.search(r"^VITE_AI_BASE_URL=/ai/v1$", read(ROOT / "web" / ".env.production"), re.M) is not None, web_df)
+
+smoke = read(ROOT / "scripts" / "smoke-demo.sh")
+check("the smoke check asks /ai/v1/status without the cookie and wants the gate's 401",
+      "/ai/v1/status" in smoke and "401" in smoke, smoke)
+
 print("deploy/demo/site.caddy with a generated gate")
 # ---------------------------------------------------------------------------
 GATE_SCRIPT = ROOT / "scripts" / "demo-gate.sh"
@@ -394,6 +455,8 @@ else:
         # The site block names diary.darkovski.dev; for a local run serve it on :8080 instead.
         site = (DEMO / "site.caddy").read_text().replace("diary.darkovski.dev {", "http://:8080 {", 1)
         site = site.replace("reverse_proxy diary-web:80", 'respond "app" 200')
+        # The sidecar stands in as its own reply, so a test can tell the two apart.
+        site = site.replace("reverse_proxy /ai/* diary-ai:8000", 'respond /ai/* "ai" 200')
         (srv / "diary-site.caddy").write_text(site)
 
         # docker cp rather than a bind mount: Docker Desktop and colima do not
@@ -447,6 +510,14 @@ else:
             check("the right password sets the cookie and goes home",
                   status == 303 and headers.get("Location") == "/"
                   and headers.get("Set-Cookie", "").startswith("diary_gate=" + "f" * 64), (status, headers))
+            # CAP-69: /ai/* is behind the same gate, and with it reaches the sidecar.
+            status, headers, body = get("/ai/v1/status")
+            check("/ai/* without the cookie is the gate's 401 JSON, never the sidecar",
+                  status == 401 and headers.get("Content-Type") == "application/json" and "ai" != body,
+                  (status, headers, body))
+            status, headers, body = get("/ai/v1/status", cookie="diary_gate=" + "f" * 64)
+            check("with the cookie, /ai/* reaches the sidecar, not the app",
+                  status == 200 and body == "ai", (status, body))
             # CAP-55: /phone frames the app, so the site may frame itself, and
             # nothing else may frame it.
             status, headers, _ = get("/", cookie="diary_gate=" + "f" * 64)

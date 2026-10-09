@@ -10,6 +10,72 @@ fixes what it finds leaves no record that the class of problem existed.
 
 ---
 
+## 2026-10-10 · CAP-69, the AI sidecar on the live demo
+
+**Reviewer:** Claude Code, at Jesse's request, on its own build. A self-review: the whole
+branch also goes to a fresh reviewer before merge. · **Ticket:** CAP-69 (COA4-139), HO-9 ·
+**Branch:** `feat/CAP-69-ai-deploy`
+
+### Scope
+
+What running the AI sidecar (ADR #64) on `diary.darkovski.dev` adds:
+- the `diary-ai` container and its image (`deploy/demo/ai.Dockerfile`);
+- its settings on the box (`shared/ai.env`), which hold the Anthropic key and the `diary_ai` password;
+- the `/ai/*` route in `site.caddy`;
+- the bundle's `VITE_AI_BASE_URL`;
+- the reset of `diary_ai`;
+- the evals, which call real Claude from a laptop.
+
+The sidecar's code was reviewed in its own three branches (#134, #135, #136) and their
+follow-up (#138); this covers putting it on the box.
+
+### Method
+
+- **The gate.** Run in a real Caddy with a generated gate file. `/ai/v1/status` was probed
+  without the cookie and with it, against a stand-in for the sidecar
+  (`scripts/deploy-demo.test.py`).
+- **The image.** Built and run with no settings file, then probed: it answered
+  `404 AI_DISABLED` and ran as a non-root user.
+- **The bundle.** It went through `./run bundle-secrets` with the AI base set.
+- **Secrets.** The settings example and the image were searched for key shapes.
+- **The live site.** The smoke check was run against it.
+
+### Findings
+
+None. Three properties were checked rather than assumed:
+- `/ai/*` without the gate cookie is the gate's 401 JSON, live and in CI. The sidecar never
+  sees an ungated request.
+- With no settings file the sidecar starts switched off. So the auto-deploy shipping it
+  before the box is ready exposes nothing: no key, no database, no Claude call.
+- The image holds no secret and runs as user `sidecar`. The key reaches it only from
+  `shared/ai.env`, mode 0600, on the box.
+
+### What stays exposed, on purpose
+
+- **Bearer tokens pass through the sidecar.** It forwards each caller's token to the diary's
+  API, unchanged, to read what that person may read. It never stores one: rate limits key on
+  a SHA-256 of the token. A compromised sidecar could read tokens in flight; it is no more
+  trusted than the API's own front door, and it sits behind the same gate.
+- **Narratives, rubric text and reviewers' comments go to Anthropic.** That is the feature.
+  No names, emails or ids are sent, prompts treat all of it as data, and replies are filtered
+  to questions before anyone sees them. Under the API's terms the content is not used to
+  train models.
+- **Spend is capped, not prevented.**
+  - Every call reserves its worst case against US$5 a UTC day before it is made, and a
+    timed-out call counts that worst case.
+  - Rate limits are 20 a minute and 200 a day per token.
+  - A monthly limit on the key in the Anthropic Console is the second guard, set by a person.
+- **`diary_ai` holds vectors derived from narratives.** They are personal data in the same
+  sense (Retention-and-Erasure.md). Its user has grants on `diary_ai` only, and the demo
+  reset empties it.
+
+### Sign-off
+
+No findings. Guarded in CI by `scripts/deploy-demo.test.py` (gate, route, env file
+optional, no secret) and live by `scripts/smoke-demo.sh`.
+
+---
+
 ## 2026-10-09 · CAP-54, the live demo
 
 **Reviewer:** Claude Code, at Jesse's request, on its own build. A self-review: the whole

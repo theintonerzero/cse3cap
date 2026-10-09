@@ -31,6 +31,9 @@ diary.darkovski.dev {
 		respond @diary_nogate_api `{"error":{"code":"UNAUTHENTICATED","message":"The demo password is required.","details":{}}}` 401
 		redir @diary_nogate /gate 303
 
+		# The AI sidecar (CAP-69, ADR #64), behind the same gate. Its paths keep
+		# their /ai prefix: the sidecar serves /ai/v1/*.
+		reverse_proxy /ai/* diary-ai:8000
 		reverse_proxy diary-web:80
 	}
 }

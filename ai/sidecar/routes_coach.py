@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Path
 
 from .caller import Caller, caller
-from .coach import COACH_SCHEMA, coach_prompt, keep_questions, level_names, word_count
+from .coach import COACH_MAX_TOKENS, COACH_SCHEMA, coach_prompt, keep_questions, level_names, rubric_lines, word_count
 from .deps import Deps, get_deps
 from .errors import AiError, unavailable
 
@@ -46,10 +46,10 @@ def register(router: APIRouter) -> None:
         await deps.limiter.check(who.token_hash, "claude")
         framework = await who.reader.framework(reflection["framework_id"])
         competency = next((c for c in framework.get("competencies", []) if c.get("id") == entry.get("competency_id")), {})
-        descriptors = [f"{level['level_value']} · {level['descriptor']}" for level in competency.get("levels", [])]
+        descriptors = rubric_lines(competency.get("levels", []))
         system, data = coach_prompt(entry.get("competency_name") or competency.get("name", ""), descriptors, narrative)
 
-        reply = await deps.gateway.ask("coach", system, data, COACH_SCHEMA, max_tokens=2048)
+        reply = await deps.gateway.ask("coach", system, data, COACH_SCHEMA, max_tokens=COACH_MAX_TOKENS)
         names = level_names([level["descriptor"] for level in competency.get("levels", [])])
         kept = keep_questions(reply.get("questions", []), framework.get("scale", {}).get("max", 7), names)
         if not kept:

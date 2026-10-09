@@ -42,6 +42,16 @@ def coach_prompt(competency: str, descriptors: list[str], narrative: str) -> tup
     return SYSTEM, data
 
 
+# What a question costs Claude, thinking included; the routes and the evals share it.
+COACH_MAX_TOKENS = 2048
+
+
+def rubric_lines(levels: list[dict]) -> list[str]:
+    """The rubric as the coach is shown it, numbered: "1 · Emerging — …". One
+    place, so the evals test the prompt the route sends."""
+    return [f"{level['level_value']} · {level['descriptor']}" for level in levels]
+
+
 NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]
 
 

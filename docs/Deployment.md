@@ -21,6 +21,8 @@ network. Bringing it up or down never restarts MySQL or Caddy.
   bin/deploy-demo.sh          the copy the timer runs (a deploy refreshes it)
   shared/api.env              Laravel's settings, mode 0600. Secret: APP_KEY, DB_PASSWORD
   shared/deploy.env           ntfy topic and publish token for deploy notices, mode 0600. Secret
+  shared/ai.env               the AI sidecar's settings, mode 0600. Secret: ANTHROPIC_API_KEY,
+                              the diary_ai password. Optional: without it the sidecar runs off
   failed                      a commit that failed, which the timer will not retry
   shared/demo/personas.json   the picker's people, mode 0640, written by every reset
   deployed, previous          the running commit and the one before
@@ -34,19 +36,21 @@ network. Bringing it up or down never restarts MySQL or Caddy.
 | --- | --- | --- |
 | `diary-api` | `diary-api:<sha>`, PHP 8.5-FPM | Laravel. Settings from `shared/api.env`, uploads in the `diary_storage` volume |
 | `diary-web` | `diary-web:<sha>`, Caddy | The built bundle, `/demo/personas.json`, and `/api` and `/up` passed to `diary-api` |
+| `diary-ai` | `diary-ai:<sha>`, Python 3.12 | The AI sidecar (ADR #64), on 8000, the embedding model baked in. Settings from `shared/ai.env` if it exists; off without it. `mem_limit: 2g` |
 
 The database is `reflection_diary_demo`, user `diary_demo_app`, granted on nothing else. It
 is reached as `rddb.darkovski.dev`, because the certificate is issued for that name, and
 inside `diary-api` that name is a link to the `mysql` container on `server_web`. Not the
 Docker host gateway: the box's `iptables` INPUT chain accepts only 22, 80 and 443 and rejects
 the rest, so from `server_web` the published 3306 is "No route to host". Visitors never touch
-the team's `reflection_diary`.
+the team's `reflection_diary`. The sidecar's own database, `diary_ai` with user `diary_ai`, is
+reached the same way, over TLS against the same roots (`DATABASE_CA`).
 
 ### The gate
 
 `server-caddy-1` serves `diary.darkovski.dev` from `diary-site.caddy`. Every path needs the
-`diary_gate` cookie. Without it a page redirects to `/gate`, and `/api` answers 401 in the
-diary's error envelope. `/gate` is the only path with a password (user `demo`); the right one
+`diary_gate` cookie. Without it a page redirects to `/gate`, and `/api` and `/ai` answer 401
+in the diary's error envelope. `/gate` is the only path with a password (user `demo`); the right one
 sets the cookie for 7 days and redirects to `/`. Behind the gate, the persona picker reads
 its people from `/demo/personas.json` at runtime, so no token is in the build.
 
@@ -91,6 +95,58 @@ creates `freeze` itself**, so the timer does not put `dev` back 5 minutes later;
 /home/ubuntu/diary/freeze` to follow `dev` again. If a deploy or reset is already running, a
 deploy by hand says so and changes nothing.
 
+### The AI sidecar (CAP-69, ADR #64)
+
+`diary-ai` ships with every deploy, built from the same commit, and does nothing until it is
+switched on: with no `shared/ai.env`, or with `AI_ENABLED=false`, every `/ai/v1` route
+answers `404 AI_DISABLED` and the app shows no AI. The site sends `/ai/*` to it behind the
+gate (`site.caddy`). It reads the diary's API with each caller's own token and writes only to
+`diary_ai`: vectors, usage, the day's spend, cached themes and rate limits. No narrative text,
+names or emails.
+
+**Switching it on, once.** On the box, as a person:
+
+1. The database and its user, in the box's MySQL as root, with grants on `diary_ai` only:
+   ```sql
+   CREATE DATABASE diary_ai CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+   CREATE USER 'diary_ai'@'%' IDENTIFIED BY '<a new password>' REQUIRE SSL;
+   GRANT SELECT, INSERT, UPDATE, DELETE, DROP ON diary_ai.* TO 'diary_ai'@'%';
+   ```
+   then its tables, from the file inside the container (a password prompt needs a terminal,
+   so the file can't come in on stdin):
+   ```bash
+   docker cp /home/ubuntu/diary/src/ai/db/01-schema.sql mysql:/tmp/diary_ai.sql
+   docker exec -it mysql mysql -u root -p diary_ai -e "source /tmp/diary_ai.sql"
+   docker exec mysql rm /tmp/diary_ai.sql
+   ```
+   `DROP` is for the reset, which empties the tables with `TRUNCATE`.
+2. The settings: `install -m 600 /home/ubuntu/diary/src/deploy/demo/ai.env.example
+   /home/ubuntu/diary/shared/ai.env`, then fill in `DATABASE_URL`
+   (`mysql://diary_ai:<password>@rddb.darkovski.dev:3306/diary_ai`) and `ANTHROPIC_API_KEY`,
+   leaving `AI_ENABLED=false`. Set a monthly limit on the key in the Anthropic Console too,
+   a second guard behind the sidecar's US$5 a day.
+3. The route: copy `deploy/demo/site.caddy` again and follow "Changing Caddy" above. Then
+   `curl -s -b "diary_gate=<cookie>" https://diary.darkovski.dev/ai/v1/status` answers
+   `AI_DISABLED`, which proves the route reaches the sidecar.
+4. On: set `AI_ENABLED=true` in `shared/ai.env`, then start `diary-ai` again at the deployed
+   commit, which re-reads the file:
+   ```bash
+   cd /home/ubuntu/diary && DIARY_SHA=$(cat deployed) DIARY_HOME=$PWD \
+     docker compose -f src/deploy/demo/compose.yml up -d diary-ai
+   ```
+   The compose file is needed (`-p diary` alone can list and log, not start), and so is
+   `DIARY_SHA`. The first start after that loads the embedding model.
+5. Check: `scripts/smoke-demo.sh` from a laptop, then sign in as Jane and open a draft:
+   "Ask me questions" is on the competency card. Run `scripts/ai-eval.sh` with the key and
+   read its output against `ai/evals/README.md`.
+
+**Off again:** `AI_ENABLED=false`, then the same command as step 4. The app goes back to
+showing no AI on the next page load; nothing else changes. **Spend:** each call reserves its
+worst case against `DAILY_CAP_USD` before it is made; at the cap the features that ask Claude
+(the coach, the calibration coach and themes) answer `AI_UNAVAILABLE` until midnight UTC,
+while similar reflections and search, which never ask Claude, keep working. Today's total:
+`docker exec -it mysql mysql -u root -p -e "SELECT * FROM diary_ai.spend_days ORDER BY day DESC LIMIT 3"`.
+
 ### Rolling back
 
 Automatic: a deploy whose `/up` fails puts the previous images back and says so on ntfy. By
@@ -102,13 +158,14 @@ reset.
 
 `/home/ubuntu/diary/src/scripts/demo-reset.sh` reseeds `reflection_diary_demo` from scratch,
 issues tokens to the demo people the seeder skips (Noor, Priya, Tom), and rewrites
-`personas.json`. Everyone signed in is signed out and must reload. It refuses any database
+`personas.json`. Once `shared/ai.env` names a database, it empties `diary_ai` too: vectors and
+themes come from the narratives it just reseeded. Everyone signed in is signed out and must reload. It refuses any database
 whose name does not end in `_demo`.
 
 ### Checking it from outside
 
 `scripts/smoke-demo.sh` from a laptop. It never signs in: it checks the redirect to `/gate`,
-the 401 on the API, that `/gate` asks for the password and sets no cookie without it, and
+the 401 on the API and on `/ai`, that `/gate` asks for the password and sets no cookie without it, and
 HSTS.
 
 ### When it goes wrong
@@ -119,6 +176,8 @@ HSTS.
 | It stopped following `dev` | `systemctl list-timers diary-deploy.timer`, the `freeze` file, and the last ntfy notice |
 | `Access denied` from the database | TLS before the password, as on a laptop: `MYSQL_ATTR_SSL_CA=../db/letsencrypt-roots.pem` in `shared/api.env` |
 | The picker says the demo may have been reset | It was. Reload the page |
+| No AI anywhere, though it is on | `curl -s -b "diary_gate=<cookie>" https://diary.darkovski.dev/ai/v1/status`: HTML means the Caddy route is missing; `AI_DISABLED` means `AI_ENABLED` isn't `true` in `shared/ai.env`, or `diary-ai` wasn't started again as in step 4 |
+| AI says it isn't available | `docker logs diary-diary-ai-1`. A `daily_cap` reason is the US$5 cap; `upstream` with "Access denied" is TLS or the `diary_ai` password |
 
 ## Superseded: the host layout (CAP-26, ADR #45)
 

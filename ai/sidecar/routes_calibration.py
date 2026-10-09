@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 
 from .caller import Caller, caller
-from .coach import COACH_SCHEMA, calibration_prompt, keep_questions, latest_counter, level_names, self_score
+from .coach import COACH_MAX_TOKENS, COACH_SCHEMA, calibration_prompt, keep_questions, latest_counter, level_names, self_score
 from .deps import Deps, get_deps
 from .errors import AiError, unavailable
 from .routes_coach import Id, find_entry, own_reflection
@@ -30,7 +30,7 @@ def register(router: APIRouter) -> None:
             descriptor.get(mine["level_id"], ""), descriptor.get(theirs["level_id"], ""),
             theirs.get("comment"), entry.get("narrative") or "",
         )
-        reply = await deps.gateway.ask("calibration", system, data, COACH_SCHEMA, max_tokens=2048)
+        reply = await deps.gateway.ask("calibration", system, data, COACH_SCHEMA, max_tokens=COACH_MAX_TOKENS)
         names = level_names([level["descriptor"] for level in competency.get("levels", [])])
         kept = keep_questions(reply.get("questions", []), framework.get("scale", {}).get("max", 7), names)
         if not kept:

@@ -19,6 +19,9 @@ code() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
 expect "a page without the cookie redirects" 303 "$(code "$url/")"
 expect "it redirects to /gate" "$url/gate" "$(curl -s -o /dev/null -w '%{redirect_url}' "$url/")"
 expect "the API without the cookie is 401" 401 "$(code "$url/api/v1/auth/me")"
+expect "the AI sidecar without the cookie is 401" 401 "$(code "$url/ai/v1/status")"
+expect "and says so in the error envelope" "application/json" \
+    "$(curl -sI "$url/ai/v1/status" | tr -d '\r' | sed -n 's/^[Cc]ontent-[Tt]ype: //p')"
 expect "the persona file without the cookie is not served" 303 "$(code "$url/demo/personas.json")"
 expect "/gate asks for the password" 401 "$(code "$url/gate")"
 expect "/gate without the password sets no cookie" "" \
