@@ -1,0 +1,30 @@
+<!doctype html>
+<!--
+  The presenter's phone frame (CAP-55). The live demo's app runs in the iframe
+  at a Galaxy S24 Ultra's viewport, 384 x 832 CSS px (1440 x 3120 at 3.75), so
+  it lays itself out as on the phone. Demo image only, never the product bundle.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Reflection Diary · phone view</title>
+    <link rel="stylesheet" href="phone.css" />
+    <script src="phone.js" defer></script>
+  </head>
+  <body>
+    <main class="stage">
+      <div class="device">
+        <div class="screen">
+          <iframe
+            src="/"
+            width="384"
+            height="832"
+            title="Reflection Diary, as on a Galaxy S24 Ultra"
+          ></iframe>
+          <span class="camera" aria-hidden="true"></span>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

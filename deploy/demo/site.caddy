@@ -5,7 +5,10 @@
 diary.darkovski.dev {
 	import baseline
 	import accesslog
-	header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
+	# Framing by this site only (CAP-55): /phone shows the app in an iframe.
+	# Replaces baseline's X-Frame-Options DENY; no other origin may frame it.
+	header X-Frame-Options "SAMEORIGIN"
+	header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'self'; form-action 'self'"
 
 	request_body /api/* {
 		max_size 101MiB

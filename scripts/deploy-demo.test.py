@@ -373,7 +373,9 @@ else:
         check("the gate file is not world-readable",
               (srv / "diary-gate.caddy").exists() and ((srv / "diary-gate.caddy").stat().st_mode & 0o777) == 0o640)
         (srv / "Caddyfile").write_text(
-            "{\n\tadmin off\n\tauto_https off\n}\n(baseline) {\n}\n(accesslog) {\n}\n"
+            # baseline sets the framing header the box's real one sets, so the
+            # site's same-origin override (CAP-55) is tested against it.
+            "{\n\tadmin off\n\tauto_https off\n}\n(baseline) {\n\theader X-Frame-Options \"DENY\"\n}\n(accesslog) {\n}\n"
             "import /srv/server/diary-site.caddy\n")
         # The site block names diary.darkovski.dev; for a local run serve it on :8080 instead.
         site = (DEMO / "site.caddy").read_text().replace("diary.darkovski.dev {", "http://:8080 {", 1)
@@ -430,8 +432,38 @@ else:
             check("the right password sets the cookie and goes home",
                   status == 303 and headers.get("Location") == "/"
                   and headers.get("Set-Cookie", "").startswith("diary_gate=" + "f" * 64), (status, headers))
+            # CAP-55: /phone frames the app, so the site may frame itself, and
+            # nothing else may frame it.
+            status, headers, _ = get("/", cookie="diary_gate=" + "f" * 64)
+            check("the site may be framed by itself only (X-Frame-Options)",
+                  headers.get("X-Frame-Options") == "SAMEORIGIN", headers)
+            check("the site may be framed by itself only (CSP frame-ancestors)",
+                  "frame-ancestors 'self'" in headers.get("Content-Security-Policy", ""), headers)
         finally:
             run("docker", "rm", "-f", name)
+
+# ---------------------------------------------------------------------------
+print("deploy/demo/phone, the presenter frame (CAP-55)")
+# ---------------------------------------------------------------------------
+phone = read(DEMO / "phone" / "index.html")
+phone_js = read(DEMO / "phone" / "phone.js")
+web_df = read(DEMO / "web.Dockerfile")
+web_cf = read(DEMO / "web.Caddyfile")
+iframe = re.search(r"<iframe\b[^>]*>", phone)
+tag = iframe.group(0) if iframe else ""
+check("it frames the app at the root", 'src="/"' in tag, tag)
+# The S24 Ultra is 1440 x 3120 at a device pixel ratio of 3.75.
+check("its viewport is the Galaxy S24 Ultra's, 384 x 832 CSS px",
+      'width="384"' in tag and 'height="832"' in tag, tag)
+check("the frame is named for screen readers", "title=" in tag, tag)
+check("it scales with its own script, which the CSP allows (no inline script)",
+      '<script src="phone.js"' in phone and not re.search(r"<script>(?!\s*</script>)", phone)
+      and "transform" in phone_js, phone)
+check("it loads nothing from another origin", not re.search(r"(src|href)=\"https?://", phone), phone)
+check("it ships only in the demo image", "deploy/demo/phone" in web_df and "/srv/phone" in web_df, web_df)
+check("diary-web serves it at /phone", re.search(r"handle_path /phone\*?", web_cf) is not None or "/phone" in web_cf,
+      web_cf)
+check("the product bundle does not carry it", not (ROOT / "web" / "public" / "phone").exists())
 
 print("deploy/demo timer")
 timer = read(DEMO / "diary-deploy.timer")
