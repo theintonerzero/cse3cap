@@ -488,21 +488,23 @@ check("the pointer over the phone is a finger dot, not an arrow",
       and re.search(r"FINGER\s*=\s*\n?\s*\"url\(", phone_js) is not None, phone_js)
 check("click-and-drag scrolls the page with momentum, like a swipe",
       "pointerdown" in phone_js and "pointermove" in phone_js and "requestAnimationFrame" in phone_js, phone_js)
+# Without these the swipe never ends: momentum never starts and the click that
+# ends it presses whatever is under the finger. Lost once in an edit.
+check("a swipe ends when the finger lifts or the pointer is cancelled",
+      "addEventListener('pointerup', release)" in phone_js
+      and "addEventListener('pointercancel', release)" in phone_js, phone_js)
 check("a swipe never starts on a field the presenter is typing in",
       re.search(r"input|textarea|select|contenteditable", phone_js) is not None, phone_js)
 check("the click that ends a swipe does not also press what is under it",
       "click" in phone_js and "stopPropagation" in phone_js, phone_js)
 # Pulling down at the top: the browser's own bounce showed the page background
 # above the header, a band the status bar's colour did not match. Android has
-# no bounce; its edges stretch the content and spring back.
+# no bounce. A stretch drawn on the whole screen (header included) was tried
+# and read as the app wobbling (Jesse, 2026-10-09), so an edge simply stops.
 check("the browser's bounce is off inside the phone, so no gap opens above the header",
       re.search(r"overscroll-behavior(-y)?:\s*none", phone_js) is not None, phone_js)
-check("pulling past an edge stretches the screen, as Android 12+ does",
-      "scaleY" in phone_js and "transformOrigin" in phone_js, phone_js)
-check("the stretch springs back when the finger lifts", re.search(r"transition", phone_js) is not None, phone_js)
-check("a trackpad or wheel past an edge stretches too", "'wheel'" in phone_js, phone_js)
-check("the stretch is drawn on the frame, so the app's fixed buttons never jump",
-      re.search(r"frame\.style\.transform", phone_js) is not None, phone_js)
+check("pulling past an edge does not move the screen: no stretch, no wobble",
+      "scaleY" not in phone_js and not re.search(r"frame\.style\.transform", phone_js), phone_js)
 check("the app is changed from the frame page only, never in its own code",
       not (ROOT / "web" / "src" / "demo" / "phone").exists() and "contentDocument" in phone_js, phone_js)
 check("the frame is named for screen readers", "title=" in tag, tag)

@@ -73,42 +73,6 @@ const PHONE_STYLE = `
   html.phone-swiping, html.phone-swiping * { user-select: none !important; }
 `;
 
-// ---- Android's edge stretch ---------------------------------------------------
-// Android 12+ has no bounce and no gap: pulling past the top or bottom
-// stretches the content a little, and it springs back. The browser's own
-// bounce is off inside the app (overscroll-behavior), and the stretch is drawn
-// here on the frame itself, so nothing inside the app (its floating buttons
-// included) moves relative to anything else.
-const STRETCH_MAX = 0.06; // at most a 6% stretch, however far the pull
-let settleTimer = 0;
-
-function stretch(pull, edge) {
-  const amount = 1 + STRETCH_MAX * (1 - Math.exp(-pull / 240));
-  frame.style.transition = 'none';
-  frame.style.transformOrigin = edge === 'top' ? 'center top' : 'center bottom';
-  frame.style.transform = `scaleY(${amount})`;
-}
-
-function settle() {
-  frame.style.transition = 'transform 360ms cubic-bezier(0.2, 0.9, 0.3, 1)';
-  frame.style.transform = '';
-}
-
-// A fling that reaches an edge stretches by its speed, then springs back.
-function bump(velocity, edge) {
-  stretch(Math.min(240, Math.abs(velocity) * 14), edge);
-  clearTimeout(settleTimer);
-  settleTimer = setTimeout(settle, 90);
-}
-
-function atTop(scroller) {
-  return scroller.scrollTop <= 0;
-}
-
-function atBottom(scroller) {
-  return scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 1;
-}
-
 // ---- Click-and-drag scrolls, like a swipe ------------------------------------
 const START_AFTER = 6; // px before a press becomes a swipe, so taps stay taps
 const FRICTION = 0.94; // momentum lost per frame after release
@@ -141,7 +105,6 @@ function installSwipe(win) {
       velocity: 0,
       scroller: scrollerFor(event.target, doc),
       swiping: false,
-      pull: 0, // > 0 pulling down past the top, < 0 pulling up past the bottom
     };
   });
 
@@ -155,18 +118,8 @@ function installSwipe(win) {
     }
     const dy = event.clientY - press.lastY;
     const dt = Math.max(1, event.timeStamp - press.lastT);
-    // Past an edge the finger stretches the screen instead of scrolling it,
-    // and coming back the other way undoes the stretch before scrolling again.
-    if (press.pull > 0 || (atTop(press.scroller) && dy > 0)) {
-      press.pull = Math.max(0, press.pull + dy);
-    } else if (press.pull < 0 || (atBottom(press.scroller) && dy < 0)) {
-      press.pull = Math.min(0, press.pull + dy);
-    }
-    if (press.pull !== 0) {
-      stretch(Math.abs(press.pull), press.pull > 0 ? 'top' : 'bottom');
-    } else {
-      press.scroller.scrollTop -= dy;
-    }
+    // At an edge the scroll position simply stops: no bounce, no gap.
+    press.scroller.scrollTop -= dy;
     press.velocity = 0.8 * (dy / dt) + 0.2 * press.velocity;
     press.lastY = event.clientY;
     press.lastT = event.timeStamp;
@@ -175,54 +128,22 @@ function installSwipe(win) {
 
   function release() {
     if (!press) return;
-    const { swiping, scroller, pull } = press;
+    const { swiping, scroller } = press;
     let velocity = press.velocity * 16; // px per frame
     press = null;
     doc.documentElement.classList.remove('phone-swiping');
     if (!swiping) return;
     swallowClick = true; // the click this release fires is the end of a swipe
-    if (pull !== 0) {
-      settle(); // let go of a stretch: it springs back, no fling
-      return;
-    }
     const step = () => {
       if (Math.abs(velocity) < 0.5) return;
       const before = scroller.scrollTop;
       scroller.scrollTop -= velocity;
-      if (scroller.scrollTop === before) {
-        // The fling ran into an edge: a small stretch, as Android does.
-        bump(velocity, velocity > 0 ? 'top' : 'bottom');
-        return;
-      }
+      if (scroller.scrollTop === before) return; // a fling stops at the edge
       velocity *= FRICTION;
       glide = win.requestAnimationFrame(step);
     };
     glide = win.requestAnimationFrame(step);
   }
-
-  // A trackpad or mouse wheel past an edge stretches too, and settles once
-  // the scrolling stops.
-  let wheelPull = 0;
-  doc.addEventListener(
-    'wheel',
-    (event) => {
-      const scroller = scrollerFor(event.target, doc);
-      const pastTop = atTop(scroller) && event.deltaY < 0;
-      const pastBottom = atBottom(scroller) && event.deltaY > 0;
-      if (!pastTop && !pastBottom) {
-        wheelPull = 0;
-        return;
-      }
-      wheelPull = Math.min(240, wheelPull + Math.abs(event.deltaY) * 0.5);
-      stretch(wheelPull, pastTop ? 'top' : 'bottom');
-      clearTimeout(settleTimer);
-      settleTimer = setTimeout(() => {
-        wheelPull = 0;
-        settle();
-      }, 140);
-    },
-    { passive: true },
-  );
   doc.addEventListener('pointerup', release);
   doc.addEventListener('pointercancel', release);
 
