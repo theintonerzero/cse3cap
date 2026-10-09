@@ -101,9 +101,9 @@ sequenceDiagram
   W-->>S: the questions, plain text, AI badge
 ```
 
-The sidecar never writes to the API and never sees a password, and nothing it stores is
-text: `diary_ai` holds vectors, usage, the day's spend, cached theme labels and rate-limit
-counts. Switched off (`AI_ENABLED=false`, or no settings file), every `/ai/v1` route answers
+The sidecar never writes to the API and never sees a password, and stores no narrative,
+name or email: `diary_ai` holds vectors, usage, the day's spend, the short theme labels it
+caches per gig, and rate-limit counts. Switched off (`AI_ENABLED=false`, or no settings file), every `/ai/v1` route answers
 `404 AI_DISABLED` and the browser shows no AI element.
 
 ## The request path inside the API

@@ -62,7 +62,9 @@ install -m 0640 "$work/personas.json" "$DIARY_HOME/shared/demo/personas.json"
 # reseeded, so emptied with them. Only once shared/ai.env names a database.
 if grep -Eq '^DATABASE_URL=.+' "$DIARY_HOME/shared/ai.env" 2>/dev/null; then
     printf '==> emptying diary_ai\n'
-    compose run --rm -T diary-ai python -m sidecar.reset
+    # The diary is reset by now; a sidecar that can't be reached is said, not fatal.
+    compose run --rm -T diary-ai python -m sidecar.reset \
+        || printf 'Warning: the demo was reset, but diary_ai was not emptied. Check shared/ai.env.\n' >&2
 else
     printf '==> the AI sidecar has no database configured; nothing to empty\n'
 fi

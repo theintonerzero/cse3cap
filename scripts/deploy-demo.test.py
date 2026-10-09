@@ -369,8 +369,12 @@ ai_df = read(DEMO / "ai.Dockerfile")
 ai_env = read(DEMO / "ai.env.example")
 check("ai.Dockerfile builds the sidecar from the lockfile, without dev tools",
       "uv sync --frozen --no-dev" in ai_df, ai_df)
+model = re.search(r'MODEL = "([^"]+)"', read(ROOT / "ai" / "sidecar" / "embedder.py"))
+fetch_at = ai_df.find(model.group(1)) if model else -1
 check("the embedding model is baked into the image, not fetched on the first request",
-      "FASTEMBED_CACHE_PATH" in ai_df and "FastEmbedder()" in ai_df, ai_df)
+      "FASTEMBED_CACHE_PATH" in ai_df and fetch_at > 0, ai_df)
+check("it is fetched before the code is copied, so a code change doesn't fetch it again",
+      0 < fetch_at < ai_df.find("COPY --chown=sidecar ai/sidecar"), ai_df)
 check("it serves the app factory on 8000, not as root",
       "sidecar.app:create_app" in ai_df and "--factory" in ai_df and "8000" in ai_df
       and re.search(r"^USER\s+(?!root)\S+", ai_df, re.M) is not None, ai_df)
@@ -383,9 +387,10 @@ check("its env file is optional, so a deploy before the box is ready still start
 check("it reaches rddb by the name its certificate carries, like the API",
       '"mysql:rddb.darkovski.dev"' in svc, svc)
 check("it is held to 2g", "mem_limit: 2g" in svc, svc)
-check("ai.env.example starts with AI off and holds no key",
+check("ai.env.example starts with AI off and holds no key and no database",
       re.search(r"^AI_ENABLED=false$", ai_env, re.M) is not None
-      and re.search(r"^ANTHROPIC_API_KEY=$", ai_env, re.M) is not None, ai_env)
+      and re.search(r"^ANTHROPIC_API_KEY=$", ai_env, re.M) is not None
+      and re.search(r"^DATABASE_URL=$", ai_env, re.M) is not None, ai_env)
 check("ai.env.example verifies the database name over TLS with the repo's roots",
       "DATABASE_CA=" in ai_env and "letsencrypt-roots.pem" in ai_env, ai_env)
 for f in ("ai.Dockerfile", "ai.env.example"):

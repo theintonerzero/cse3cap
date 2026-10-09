@@ -112,26 +112,40 @@ names or emails.
    CREATE USER 'diary_ai'@'%' IDENTIFIED BY '<a new password>' REQUIRE SSL;
    GRANT SELECT, INSERT, UPDATE, DELETE, DROP ON diary_ai.* TO 'diary_ai'@'%';
    ```
-   then its tables: `docker exec -i mysql mysql -u root -p diary_ai < /home/ubuntu/diary/src/ai/db/01-schema.sql`.
+   then its tables, from the file inside the container (a password prompt needs a terminal,
+   so the file can't come in on stdin):
+   ```bash
+   docker cp /home/ubuntu/diary/src/ai/db/01-schema.sql mysql:/tmp/diary_ai.sql
+   docker exec -it mysql mysql -u root -p diary_ai -e "source /tmp/diary_ai.sql"
+   docker exec mysql rm /tmp/diary_ai.sql
+   ```
    `DROP` is for the reset, which empties the tables with `TRUNCATE`.
 2. The settings: `install -m 600 /home/ubuntu/diary/src/deploy/demo/ai.env.example
-   /home/ubuntu/diary/shared/ai.env`, then fill in `DATABASE_URL` and `ANTHROPIC_API_KEY`,
+   /home/ubuntu/diary/shared/ai.env`, then fill in `DATABASE_URL`
+   (`mysql://diary_ai:<password>@rddb.darkovski.dev:3306/diary_ai`) and `ANTHROPIC_API_KEY`,
    leaving `AI_ENABLED=false`. Set a monthly limit on the key in the Anthropic Console too,
    a second guard behind the sidecar's US$5 a day.
 3. The route: copy `deploy/demo/site.caddy` again and follow "Changing Caddy" above. Then
    `curl -s -b "diary_gate=<cookie>" https://diary.darkovski.dev/ai/v1/status` answers
    `AI_DISABLED`, which proves the route reaches the sidecar.
-4. On: set `AI_ENABLED=true` in `shared/ai.env`, then `docker compose -p diary up -d
-   --force-recreate diary-ai`. The first start after that loads the embedding model.
+4. On: set `AI_ENABLED=true` in `shared/ai.env`, then start `diary-ai` again at the deployed
+   commit, which re-reads the file:
+   ```bash
+   cd /home/ubuntu/diary && DIARY_SHA=$(cat deployed) DIARY_HOME=$PWD \
+     docker compose -f src/deploy/demo/compose.yml up -d diary-ai
+   ```
+   The compose file is needed (`-p diary` alone can list and log, not start), and so is
+   `DIARY_SHA`. The first start after that loads the embedding model.
 5. Check: `scripts/smoke-demo.sh` from a laptop, then sign in as Jane and open a draft:
    "Ask me questions" is on the competency card. Run `scripts/ai-eval.sh` with the key and
    read its output against `ai/evals/README.md`.
 
-**Off again:** `AI_ENABLED=false` and recreate `diary-ai` as in step 4. The app goes back to
+**Off again:** `AI_ENABLED=false`, then the same command as step 4. The app goes back to
 showing no AI on the next page load; nothing else changes. **Spend:** each call reserves its
-worst case against `DAILY_CAP_USD` before it is made; at the cap every AI feature answers
-`AI_UNAVAILABLE` until midnight UTC. Today's total:
-`docker exec -i mysql mysql -u root -p -e "SELECT * FROM diary_ai.spend_days ORDER BY day DESC LIMIT 3"`.
+worst case against `DAILY_CAP_USD` before it is made; at the cap the features that ask Claude
+(the coach, the calibration coach and themes) answer `AI_UNAVAILABLE` until midnight UTC,
+while similar reflections and search, which never ask Claude, keep working. Today's total:
+`docker exec -it mysql mysql -u root -p -e "SELECT * FROM diary_ai.spend_days ORDER BY day DESC LIMIT 3"`.
 
 ### Rolling back
 
@@ -162,7 +176,7 @@ HSTS.
 | It stopped following `dev` | `systemctl list-timers diary-deploy.timer`, the `freeze` file, and the last ntfy notice |
 | `Access denied` from the database | TLS before the password, as on a laptop: `MYSQL_ATTR_SSL_CA=../db/letsencrypt-roots.pem` in `shared/api.env` |
 | The picker says the demo may have been reset | It was. Reload the page |
-| No AI anywhere, though it is on | `curl -s -b "diary_gate=<cookie>" https://diary.darkovski.dev/ai/v1/status`: HTML means the Caddy route is missing; `AI_DISABLED` means `AI_ENABLED` isn't `true` in `shared/ai.env` or `diary-ai` wasn't recreated |
+| No AI anywhere, though it is on | `curl -s -b "diary_gate=<cookie>" https://diary.darkovski.dev/ai/v1/status`: HTML means the Caddy route is missing; `AI_DISABLED` means `AI_ENABLED` isn't `true` in `shared/ai.env`, or `diary-ai` wasn't started again as in step 4 |
 | AI says it isn't available | `docker logs diary-diary-ai-1`. A `daily_cap` reason is the US$5 cap; `upstream` with "Access denied" is TLS or the `diary_ai` password |
 
 ## Superseded: the host layout (CAP-26, ADR #45)

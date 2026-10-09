@@ -15,7 +15,7 @@ class FakeGateway:
         self.replies, self.calls = list(replies), []
 
     async def ask(self, feature, system, data, schema, max_tokens=1024):
-        self.calls.append((feature, data))
+        self.calls.append((feature, data, max_tokens))
         reply = self.replies.pop(0)
         if isinstance(reply, AiError):
             raise reply
@@ -50,3 +50,16 @@ async def test_the_run_cannot_spend_more_than_five_cents():
         await ledger.reserve(Decimal("0.001"))
     assert e.value.details == {"reason": "daily_cap"}
     assert CAP_USD == Decimal("0.05")
+
+
+async def test_the_evals_send_claude_exactly_what_the_coach_route_sends():
+    # The production coach numbers each descriptor ("1 · Emerging — …") and
+    # gives Claude 2048 tokens; the evals must test that prompt, not an easier one.
+    from sidecar.coach import COACH_MAX_TOKENS
+
+    case = next(c for c in load(NARRATIVES) if c["kind"] == "level_bait")
+    gateway = FakeGateway([{"questions": ["What happened?"]}])
+    await run_all([case], gateway)
+    _, data, max_tokens = gateway.calls[0]
+    assert "1 · Emerging — acts when prompted." in data
+    assert max_tokens == COACH_MAX_TOKENS == 2048

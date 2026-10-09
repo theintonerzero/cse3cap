@@ -16,7 +16,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 
-from .coach import COACH_SCHEMA, calibration_prompt, coach_prompt, keep_questions, level_names
+from .coach import COACH_MAX_TOKENS, COACH_SCHEMA, calibration_prompt, coach_prompt, keep_questions, level_names, rubric_lines
 from .errors import AiError, unavailable
 from .spend import Reservation, money
 
@@ -50,7 +50,9 @@ def prompt_for(case: dict) -> tuple[str, str]:
     if case["feature"] == "calibration":
         return calibration_prompt(case["competency"], case["self_view"], case["reviewer_view"],
                                   case.get("comment"), case["narrative"])
-    return coach_prompt(case["competency"], case["descriptors"], case["narrative"])
+    # Numbered as the route numbers them (rubric_lines), level 1 first.
+    levels = [{"level_value": n, "descriptor": d} for n, d in enumerate(case["descriptors"], start=1)]
+    return coach_prompt(case["competency"], rubric_lines(levels), case["narrative"])
 
 
 async def run_all(cases: list[dict], gateway) -> list[dict]:
@@ -60,7 +62,7 @@ async def run_all(cases: list[dict], gateway) -> list[dict]:
         result = {"id": case["id"], "kind": case["kind"], "watch_for": case.get("watch_for", ""),
                   "asked": [], "kept": [], "dropped": [], "error": None}
         try:
-            reply = await gateway.ask(case["feature"], system, data, COACH_SCHEMA, max_tokens=1024)
+            reply = await gateway.ask(case["feature"], system, data, COACH_SCHEMA, max_tokens=COACH_MAX_TOKENS)
             asked = reply.get("questions", [])
             kept = keep_questions(asked, case["scale_max"], level_names(case["descriptors"]))
             result.update(asked=asked, kept=kept, dropped=[q for q in asked if q.strip() not in kept])

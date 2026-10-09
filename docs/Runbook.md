@@ -106,9 +106,9 @@ All of these run on the box, reached with `ssh accord`.
 | See why it is down | `docker compose -p diary ps`, then `journalctl -u diary-deploy -n 50` |
 | Change the password or sign everyone out | `/home/ubuntu/diary/src/scripts/demo-gate.sh`, then "Changing Caddy" in Deployment.md |
 | Check it from outside | `scripts/smoke-demo.sh` from a laptop |
-| Switch the AI features on or off | `AI_ENABLED` in `/home/ubuntu/diary/shared/ai.env`, then `docker compose -p diary up -d --force-recreate diary-ai`. First time: "The AI sidecar" in Deployment.md |
+| Switch the AI features on or off | `AI_ENABLED` in `/home/ubuntu/diary/shared/ai.env`, then `cd /home/ubuntu/diary && DIARY_SHA=$(cat deployed) DIARY_HOME=$PWD docker compose -f src/deploy/demo/compose.yml up -d diary-ai`. First time: "The AI sidecar" in Deployment.md |
 | See what the AI sidecar is doing | `docker logs --tail 100 diary-diary-ai-1` |
-| See today's AI spend | `SELECT * FROM diary_ai.spend_days ORDER BY day DESC LIMIT 3` as root. The cap is `DAILY_CAP_USD`, US$5 |
+| See today's AI spend | `docker exec -it mysql mysql -u root -p -e "SELECT * FROM diary_ai.spend_days ORDER BY day DESC LIMIT 3"`. The cap is `DAILY_CAP_USD`, US$5 |
 | Read the AI's answers to the fixed cases | `ANTHROPIC_API_KEY=... scripts/ai-eval.sh` from a laptop, against `ai/evals/README.md`. Under US$0.05 |
 
 ## Stop it
