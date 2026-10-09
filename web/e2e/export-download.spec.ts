@@ -118,43 +118,59 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-async function downloadPdf(page: import('@playwright/test').Page) {
+async function openReady(page: import('@playwright/test').Page) {
   await page.goto('/');
   await page.getByRole('button', { name: /export record/i }).click();
   await page.getByRole('button', { name: /^pdf$/i }).click();
   await page.getByRole('button', { name: /request a pdf export/i }).click();
-  const download = page.waitForEvent('download');
-  await page.getByRole('button', { name: /^download$/i }).click();
-  return download;
 }
 
+const seenIn = (page: import('@playwright/test').Page) =>
+  page.evaluate(() => (window as unknown as { __seen: Seen[] }).__seen);
+
 test('Download saves the PDF under its own name', async ({ page }) => {
-  const download = await downloadPdf(page);
-  expect(download.suggestedFilename()).toMatch(/^reflection-diary-.*\.pdf$/);
+  await openReady(page);
+  const download = page.waitForEvent('download');
+  await page.getByRole('link', { name: /^download$/i }).click();
+  expect((await download).suggestedFilename()).toMatch(/^reflection-diary-.*\.pdf$/);
 });
 
-test('the link is attached to the document when it is clicked', async ({ page }) => {
-  await downloadPdf(page);
-  const seen = await page.evaluate(() => (window as unknown as { __seen: Seen[] }).__seen);
-  const clicks = seen.filter((s) => s.kind === 'click');
-  expect(clicks).toHaveLength(1);
-  expect(clicks[0]).toMatchObject({ connected: true });
+// The download starts from the user's own click on a real link to the file:
+// no script-driven click after an await, which a browser may no longer count
+// as the user's, inside a frame or not (CAP-56: Firefox 157 saved nothing).
+test('Download is a real link to the file, named for the download', async ({ page }) => {
+  await openReady(page);
+  const link = page.getByRole('link', { name: /^download$/i });
+  await expect(link).toHaveAttribute('href', /^blob:/);
+  await expect(link).toHaveAttribute('download', /^reflection-diary-.*\.pdf$/);
 });
 
-test('the blob URL outlives the click long enough for the browser to read it', async ({
+test('no script clicks a link for the user', async ({ page }) => {
+  await openReady(page);
+  await page.getByRole('link', { name: /^download$/i }).click();
+  await page.waitForTimeout(300);
+  expect((await seenIn(page)).filter((s) => s.kind === 'click')).toEqual([]);
+});
+
+test('while the file is fetched, Download waits and says so', async ({ page, api }) => {
+  const release = api.hold('GET /exports/:id/download');
+  await openReady(page);
+  await expect(page.getByRole('button', { name: /preparing/i })).toBeDisabled();
+  await expect(page.getByRole('link', { name: /^download$/i })).toHaveCount(0);
+  release();
+  await expect(page.getByRole('link', { name: /^download$/i })).toBeVisible();
+});
+
+test('the file stays downloadable while the sheet is open, and is freed when it closes', async ({
   page,
 }) => {
-  await downloadPdf(page);
-  await page.waitForTimeout(2000);
-  const seen = await page.evaluate(() => (window as unknown as { __seen: Seen[] }).__seen);
-  const click = seen.find((s) => s.kind === 'click');
-  const revoke = seen.find((s) => s.kind === 'revoke');
-  // Revoked eventually (no leak), but not within the first seconds.
-  expect(click).toBeTruthy();
-  expect(revoke === undefined || revoke.at - click!.at > 2000).toBe(true);
-});
-
-test('the link does not stay in the document after the click', async ({ page }) => {
-  await downloadPdf(page);
-  await expect(page.locator('a[href^="blob:"]')).toHaveCount(0);
+  await openReady(page);
+  await page.getByRole('link', { name: /^download$/i }).click();
+  await page.waitForTimeout(1500);
+  expect((await seenIn(page)).filter((s) => s.kind === 'revoke')).toEqual([]);
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('link', { name: /^download$/i })).toHaveCount(0);
+  await expect
+    .poll(async () => (await seenIn(page)).filter((s) => s.kind === 'revoke').length)
+    .toBe(1);
 });

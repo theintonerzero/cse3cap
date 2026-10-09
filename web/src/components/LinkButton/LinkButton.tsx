@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactNode, Ref } from 'react';
 import { Link } from 'react-router';
 
 import button_styles from '../Button/Button.module.css';
@@ -15,6 +15,13 @@ export interface LinkButtonProps {
   back?: boolean;
   /** Button's small size (CAP-38 round 3). The default renders as before. */
   size?: 'md' | 'sm';
+  /**
+   * A file to save rather than a page to open (CAP-56): renders a plain
+   * <a href download> to `to` (a blob: URL), named this. The user's own click
+   * starts the download, which every browser honours, in a frame or not.
+   */
+  download?: string;
+  ref?: Ref<HTMLAnchorElement>;
 }
 
 /**
@@ -30,6 +37,8 @@ export function LinkButton({
   full_width = false,
   back = false,
   size = 'md',
+  download,
+  ref,
 }: LinkButtonProps) {
   const class_name = [
     button_styles.button,
@@ -41,13 +50,24 @@ export function LinkButton({
     .filter(Boolean)
     .join(' ');
 
+  const chevron = back && (
+    <span className={styles.chevron} aria-hidden="true">
+      ‹
+    </span>
+  );
+
+  if (download !== undefined) {
+    return (
+      <a className={class_name} href={to} download={download} ref={ref}>
+        {chevron}
+        {children}
+      </a>
+    );
+  }
+
   return (
-    <Link className={class_name} to={to}>
-      {back && (
-        <span className={styles.chevron} aria-hidden="true">
-          ‹
-        </span>
-      )}
+    <Link className={class_name} to={to} ref={ref}>
+      {chevron}
       {children}
     </Link>
   );
