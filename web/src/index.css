@@ -34,3 +34,27 @@ html {
     scroll-padding-top: 9rem;
   }
 }
+
+/* The browser's own surfaces in the product's colours (CAP-63): selected
+   text on the diary's lavender, and the caret in the primary purple. */
+::selection {
+  background: var(--color-accent-lavender);
+  color: var(--color-text);
+}
+
+input,
+textarea {
+  caret-color: var(--color-primary);
+}
+
+/* Hint text at the muted colour, which clears AA; browsers otherwise pick
+   their own grey, and Firefox fades it further. */
+::placeholder {
+  color: var(--color-text-muted);
+  opacity: 1;
+}
+
+/* Scrollbars in the border grey on no track, in both themes. */
+:root {
+  scrollbar-color: var(--color-border) transparent;
+}

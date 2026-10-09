@@ -46,6 +46,11 @@
  */
 
 :root {
+  /* What the browser draws itself -- the open list of a select, scrollbars,
+     radio buttons, autofill -- follows the theme (CAP-63). Without it every
+     one of them stayed light in the dark theme. */
+  color-scheme: light;
+
   /* Colour -- sampled from Home Page, Reflection Diary hub, Score
      Reflection and Your learning record (exported Figma screens) */
   --color-bg: #f6f7f9;
@@ -222,6 +227,8 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
+    color-scheme: dark;
+
     /* Derived from the sampled (pre-AA-fix) light hues by HSL lightness
        inversion, then independently re-verified against WCAG AA -- see
        Task 1 Step 2. Verified standalone, not chained off the light
@@ -271,6 +278,7 @@
 }
 
 :root[data-theme='dark'] {
+  color-scheme: dark;
   --color-bg: #12151c;
   --color-surface: #242424;
   --color-surface-alt: #303030;

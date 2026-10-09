@@ -311,6 +311,20 @@ test('the summary, one section per written gig, and the grid of self/assessor', 
   ).toBeVisible();
 });
 
+test('notes read as notes, not as empty fields (CAP-63)', async ({ page }) => {
+  await page.goto('/record');
+  for (const text of ['Yours to keep', 'aren’t compared']) {
+    const note = page.getByText(text);
+    await expect(note).toBeVisible();
+    const look = await note.evaluate((el) => {
+      const s = getComputedStyle(el);
+      return { border: s.borderTopWidth, fill: s.backgroundColor };
+    });
+    expect(look.border, `${text}: no border`).toBe('0px');
+    expect(look.fill, `${text}: a fill`).not.toBe('rgba(0, 0, 0, 0)');
+  }
+});
+
 test('each section opens the diary scoped to its gig', async ({ page }) => {
   await page.goto('/record');
 

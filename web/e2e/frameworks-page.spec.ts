@@ -138,6 +138,34 @@ test('tapping a row opens its sheet: Edit a copy, then the gigs to pick from', a
   await expect(sheet.getByRole('button', { name: 'Assign', exact: true })).toBeDisabled();
 });
 
+test("the gig radios are drawn in the product's colours, not the browser's (CAP-63)", async ({
+  page,
+}) => {
+  await install(page, [TEMPLATE, COPY]);
+  await page.goto('/frameworks');
+  await row_button(page, TEMPLATE.name).click();
+  const radio = page
+    .getByRole('dialog', { name: TEMPLATE.name })
+    .getByRole('group', { name: 'Assign to a gig' })
+    .getByRole('radio')
+    .first();
+  await expect(radio).toBeVisible();
+  expect(await radio.evaluate((r) => getComputedStyle(r).appearance)).toBe('none');
+});
+
+test.describe('dark theme', () => {
+  test.use({ colorScheme: 'dark' });
+
+  test('what the browser draws follows the theme (CAP-63)', async ({ page }) => {
+    await install(page, [TEMPLATE, COPY]);
+    await page.goto('/frameworks');
+    const scheme = await page.evaluate(
+      () => getComputedStyle(document.documentElement).colorScheme,
+    );
+    expect(scheme).toBe('dark');
+  });
+});
+
 test('pick a gig, Assign, and the sheet says so; one POST however often it is pressed', async ({
   page,
 }) => {

@@ -42,10 +42,12 @@
   color: var(--color-text-muted);
 }
 
+/* Notes take the app's quiet fill, not a border (CAP-63): a bordered
+   rounded box is what this app's text fields look like. */
 .summary_note {
   padding: var(--space-8) var(--space-12);
-  border: var(--border-width-sm) solid var(--color-border);
   border-radius: var(--radius-md);
+  background: var(--color-surface-alt);
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
 }
@@ -93,6 +95,8 @@
 }
 
 .table {
+  /* Scores line up down a column (CAP-63). */
+  font-variant-numeric: tabular-nums;
   width: 100%;
   border-collapse: collapse;
   font-size: var(--font-size-sm);
@@ -158,8 +162,8 @@
 .note {
   margin: 0;
   padding: var(--space-8) var(--space-12);
-  border: var(--border-width-sm) solid var(--color-border);
   border-radius: var(--radius-md);
+  background: var(--color-surface-alt);
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
