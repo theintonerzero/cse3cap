@@ -60,6 +60,52 @@ Two things the picture is deliberately showing.
   share one MySQL on the VPS, and it refuses unencrypted connections. A missing CA reads as
   "Access denied", not as a TLS error (`docs/Runbook.md`).
 
+## The AI sidecar's data flow (HO-9, ADR #64)
+
+One reflection coach request, end to end, on the live demo. The other features take the same
+path to the sidecar and the same reads back to the API; similar reflections and search make
+no Claude call, and themes ask Claude once per gig per day.
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor S as Student (browser)
+  participant C as Caddy (gate)
+  participant W as web/ (React)
+  participant AI as diary-ai (sidecar)
+  participant API as diary-api (Laravel)
+  participant DB as diary_ai (MySQL)
+  participant M as Claude (Anthropic)
+
+  S->>W: opens a draft
+  W->>C: GET /ai/v1/status (Bearer token, gate cookie)
+  C->>AI: passes /ai/* on, the cookie checked
+  AI->>API: GET /auth/me (the same token)
+  API-->>AI: who is asking
+  AI-->>W: {"features": [...]}, once per session
+  S->>W: "Ask me questions"
+  W->>C: POST /ai/v1/reflections/{r}/entries/{e}/coach
+  C->>AI: (gated)
+  AI->>API: GET /auth/me, GET /reflections/{r}
+  API-->>AI: the reflection, only if this person may read it
+  Note over AI: own draft only, 15 words or more,<br/>never told the self-score
+  AI->>DB: rate limit for SHA-256(token)
+  AI->>API: GET /frameworks/{f}
+  AI->>M: count tokens
+  AI->>DB: reserve the worst case against US$5 a day
+  AI->>M: messages (narrative and descriptors as data, no names or ids)
+  M-->>AI: {"questions": [...]}
+  AI->>DB: settle what it cost, log usage
+  Note over AI: keep only questions, under 200 characters,<br/>naming no level, score or number
+  AI-->>W: {"questions": [...]}
+  W-->>S: the questions, plain text, AI badge
+```
+
+The sidecar never writes to the API and never sees a password, and nothing it stores is
+text: `diary_ai` holds vectors, usage, the day's spend, cached theme labels and rate-limit
+counts. Switched off (`AI_ENABLED=false`, or no settings file), every `/ai/v1` route answers
+`404 AI_DISABLED` and the browser shows no AI element.
+
 ## The request path inside the API
 
 Every `/api/v1` request follows the same order. The layering is the rule in `CLAUDE.md`:
