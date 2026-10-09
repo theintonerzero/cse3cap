@@ -35,3 +35,15 @@ async def test_empty_narratives_are_not_embedded():
     embedder = CountingEmbedder()
     assert await ensure_vectors(MemoryStore(), embedder, {"e": "   ", "f": ""}) == {}
     assert embedder.seen == []
+
+
+def test_the_hash_names_the_model_that_made_the_vector():
+    # A new embedding model must not reuse an old model's vectors (M10).
+    assert content_hash("same words", "model-a") != content_hash("same words", "model-b")
+
+
+async def test_a_vector_from_another_model_is_embedded_again():
+    store, embedder = MemoryStore(), CountingEmbedder()
+    store.rows["e1"] = (content_hash("text", "an-older-model"), [1.0] * 384)
+    await ensure_vectors(store, embedder, {"e1": "text"})
+    assert embedder.seen == ["text"]

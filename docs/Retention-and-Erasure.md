@@ -43,15 +43,15 @@ The identifying material that does accumulate is the reflective writing itself.
 and incidents. Treat those two columns as the sensitive part of this database, not the
 `users` row.
 
+Uploaded evidence is a third category. `evidence` stores a URI rather than a blob, so
+deleting a row here leaves the file wherever it was put. Any erasure procedure has to
+reach the storage as well as the database.
+
 The AI sidecar (ADR #64) keeps a fourth, in its own database `diary_ai`. `entry_vectors`
 holds 384 numbers per narrative, derived from the text but not the text. They are personal
 data in the same sense as the narrative they came from, so erasing a person means deleting
 their entries' rows there too, by entry id. `diary_ai` holds no names, emails or narrative
 text, and the demo's reset empties every table in it.
-
-Uploaded evidence is a third category. `evidence` stores a URI rather than a blob, so
-deleting a row here leaves the file wherever it was put. Any erasure procedure has to
-reach the storage as well as the database.
 
 ## What the constraints do
 

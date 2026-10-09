@@ -1,3 +1,4 @@
+import time
 from datetime import UTC, datetime, timedelta
 
 from .errors import AiError
@@ -13,6 +14,17 @@ class RateLimiter:
 
     def __init__(self, pool):
         self._pool = pool
+        self._pruned_at: float | None = None
+
+    async def prune(self) -> None:
+        """Windows older than the longest limit can't refuse anything: delete them,
+        at most once a minute, so the table doesn't grow forever (M10)."""
+        if self._pruned_at is not None and time.monotonic() - self._pruned_at < 60:
+            return
+        self._pruned_at = time.monotonic()
+        before = (datetime.now(UTC) - timedelta(days=2)).replace(tzinfo=None)
+        async with self._pool.acquire() as conn, conn.cursor() as cur:
+            await cur.execute("DELETE FROM rate_limits WHERE window_start < %s", (before,))
 
     async def hit(self, token_hash: str, bucket: str, limit: int, window: timedelta) -> None:
         now = datetime.now(UTC)
@@ -36,5 +48,6 @@ class RateLimiter:
             raise AiError("AI_RATE_LIMITED", 429, "Too many requests. Try again shortly.", {"retry_after": retry_after})
 
     async def check(self, token_hash: str, bucket: str) -> None:
+        await self.prune()
         for limit, window in LIMITS[bucket]:
             await self.hit(token_hash, bucket, limit, window)

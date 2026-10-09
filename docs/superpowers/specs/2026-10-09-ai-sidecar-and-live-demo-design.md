@@ -82,7 +82,7 @@ Each unit has one job:
 | `Embedder` | Text in, 384-dimension vector out | bge-small, loaded once at start |
 | `VectorStore` | Reads and writes `diary_ai.entry_vectors`; cosine ranking in Python. **Every query takes the list of entry ids `DiaryReader` just fetched for this caller and ranks only within it** | `diary_ai` |
 | `Coach` | Builds the prompt for each feature, validates the reply | `ClaudeGateway` |
-| `ClaudeGateway` | The only code that calls Claude: timeout, retry, usage, spend cap, rate limits | Anthropic Python SDK, `diary_ai.usage` |
+| `ClaudeGateway` | The only code that calls Claude: timeout, retry, usage, spend cap, rate limits | Anthropic Python SDK, `diary_ai.usage_log`, `diary_ai.spend_days` |
 
 The scoping rule in `VectorStore` is the security boundary between users: vectors
 for everyone's entries share a table, and a search may only ever rank the ids the
@@ -211,7 +211,8 @@ the `/ai/v1` base path and a generated `web/src/api/ai-schema.ts` from
 
 - **Spend.** US$5 per UTC day. `ClaudeGateway` reserves the worst-case cost of a
   call (input tokens counted, `max_tokens` output) before calling and records
-  actual usage after, both in `diary_ai.usage`. A call that would cross the cap is
+  actual usage after, in `diary_ai.spend_days` (the day's totals) and
+  `diary_ai.usage_log` (one row per call). A call that would cross the cap is
   refused, not made.
 - **Rate limits.** Claude-backed endpoints 20 a minute and 200 a day per token;
   search and related 60 a minute. Keyed by a SHA-256 of the token. Tokens are
@@ -225,7 +226,8 @@ the `/ai/v1` base path and a generated `web/src/api/ai-schema.ts` from
 | Table | Holds |
 |---|---|
 | `entry_vectors` | `entry_id char(36)`, `content_hash char(64)`, `embedding VECTOR(384)`, `created_at DATETIME(6)` |
-| `usage` | One row per Claude call: feature, model, input and output tokens, cost, `created_at DATETIME(6)` |
+| `usage_log` | One row per Claude call: feature, model, input and output tokens, cost, `created_at DATETIME(6)` |
+| `spend_days` | Per UTC day: what is reserved and what was spent, against the cap |
 | `theme_cache` | `gig_id char(36)`, UTC day, the theme labels |
 | `rate_limits` | Token hash, window, count |
 

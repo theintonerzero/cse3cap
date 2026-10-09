@@ -170,7 +170,7 @@ export interface components {
                 /** @enum {string} */
                 code: "UNAUTHENTICATED" | "ROLE_FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "AI_DISABLED" | "AI_RATE_LIMITED" | "AI_UNAVAILABLE";
                 message: string;
-                /** @description AI_RATE_LIMITED carries retry_after, in seconds. AI_UNAVAILABLE carries reason, one of timeout, upstream, refusal, invalid_reply, daily_cap. */
+                /** @description AI_RATE_LIMITED carries retry_after, in seconds. AI_UNAVAILABLE carries reason, one of timeout, upstream, refusal, invalid_reply, daily_cap, too_long (a prompt over 100K tokens). */
                 details: Record<string, never>;
             };
         };

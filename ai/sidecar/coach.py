@@ -52,19 +52,19 @@ def level_names(descriptors: list[str]) -> list[str]:
     return [d.split(" — ", 1)[0].strip() for d in descriptors if " — " in d]
 
 
-def keep_questions(questions: list[str], scale_max: int, level_names: list[str] | tuple = ()) -> list[str]:
+def keep_questions(questions: list[str], scale_max: int, names: list[str] | tuple = ()) -> list[str]:
     """Only real questions: ending in "?", under 200 characters, asked once, and
     saying nothing about a level, a score, a number on the scale (in digits or
     words) or a level by its name."""
     on_scale = [str(n) for n in range(0, scale_max + 1)] + NUMBER_WORDS[: scale_max + 1]
     numbers = re.compile(r"\b(" + "|".join(on_scale) + r")\b", re.IGNORECASE)
-    names = re.compile(r"\b(" + "|".join(re.escape(n) for n in level_names) + r")\b", re.IGNORECASE) if level_names else None
+    named = re.compile(r"\b(" + "|".join(re.escape(n) for n in names) + r")\b", re.IGNORECASE) if names else None
     kept, seen = [], set()
     for question in questions:
         q = question.strip()
         if not (q.endswith("?") and len(q) < 200) or LEVEL_TALK.search(q) or numbers.search(q):
             continue
-        if names and names.search(q):
+        if named and named.search(q):
             continue
         if q.casefold() in seen:
             continue

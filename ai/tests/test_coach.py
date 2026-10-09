@@ -72,7 +72,7 @@ def test_spelled_out_numbers_on_the_scale_are_dropped():
 
 
 def test_a_question_naming_a_level_is_dropped():
-    kept = keep_questions(["Would you call this emerging?", "Who acted on it?"], 4, level_names=["Emerging", "Developing"])
+    kept = keep_questions(["Would you call this emerging?", "Who acted on it?"], 4, names=["Emerging", "Developing"])
     assert kept == ["Who acted on it?"]
 
 

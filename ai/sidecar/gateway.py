@@ -12,6 +12,9 @@ log = logging.getLogger("sidecar.gateway")
 # output, so the worst case of a call is its counted input plus max_tokens out.
 PRICE_IN = Decimal("0.10") / 1_000_000
 PRICE_OUT = Decimal("0.50") / 1_000_000
+# These prices hold for prompts up to 100K tokens; a longer one costs more, so
+# it is refused rather than reserved too low (core review M2).
+MAX_INPUT_TOKENS = 100_000
 
 
 def client_for(api_key: str | None, base_url: str | None = None, timeout: float = 15.0) -> anthropic.AsyncAnthropic:
@@ -62,23 +65,33 @@ class ClaudeGateway:
             log.warning("Claude call failed (%s)", feature, exc_info=True)
             raise unavailable("upstream")
 
-        reservation = await self._ledger.reserve(counted.input_tokens * PRICE_IN + max_tokens * PRICE_OUT)
+        if counted.input_tokens > MAX_INPUT_TOKENS:
+            raise unavailable("too_long")
+        worst = counted.input_tokens * PRICE_IN + max_tokens * PRICE_OUT
+        reservation = await self._ledger.reserve(worst)
         used_in = used_out = 0
+        # A timed-out or dropped call may still have been billed: until a reply
+        # says what it cost, it counts its worst case against the cap (M1).
+        cost = worst
         try:
             response = await self._client.messages.create(
                 model=self._model, max_tokens=max_tokens, system=system, messages=messages, output_config=output_config
             )
             used_in, used_out = response.usage.input_tokens, response.usage.output_tokens
+            cost = used_in * PRICE_IN + used_out * PRICE_OUT
         except anthropic.APITimeoutError:
             log.warning("Claude timed out (%s)", feature)
             raise unavailable("timeout")
-        except (anthropic.APIStatusError, anthropic.APIConnectionError):
+        except anthropic.APIStatusError:
+            # An error answer is not a billed completion.
+            cost = Decimal(0)
+            log.warning("Claude call failed (%s)", feature, exc_info=True)
+            raise unavailable("upstream")
+        except anthropic.APIConnectionError:
             log.warning("Claude call failed (%s)", feature, exc_info=True)
             raise unavailable("upstream")
         finally:
-            await self._ledger.settle(
-                reservation, feature, self._model, used_in, used_out, used_in * PRICE_IN + used_out * PRICE_OUT
-            )
+            await self._ledger.settle(reservation, feature, self._model, used_in, used_out, cost)
 
         if response.stop_reason == "refusal":
             raise unavailable("refusal")  # Haiku has no server-side fallback, and nothing retries a refusal

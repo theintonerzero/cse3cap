@@ -348,4 +348,4 @@ components:
               description: >
                 AI_RATE_LIMITED carries retry_after, in seconds. AI_UNAVAILABLE
                 carries reason, one of timeout, upstream, refusal,
-                invalid_reply, daily_cap.
+                invalid_reply, daily_cap, too_long (a prompt over 100K tokens).
