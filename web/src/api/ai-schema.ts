@@ -112,8 +112,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Three to five recurring themes across a gig's reflections.
-         * @description For the gig's assessors and supervisors, by the diary's /auth/me, and not for anyone who is also a student on it. Read from the submitted and assessed reflections' narratives, never drafts and never names. Claude is asked once per gig per UTC day; every other request that day is served from the cache. Fewer than five narratives is an empty list, with no Claude call.
+         * Up to five recurring themes across a gig's reflections.
+         * @description For the gig's assessors and supervisors, by the diary's /auth/me, and not for anyone who is also a student on it. Read from the submitted and assessed reflections' narratives, never drafts and never names. Claude is asked once per gig per UTC day; every other request that day is served from the cache, and concurrent requests make one call. Fewer than five narratives is an empty list, with no Claude call. A refused or unusable reply is not asked again for ten minutes: those requests get an empty list.
          */
         get: operations["getThemes"];
         put?: never;

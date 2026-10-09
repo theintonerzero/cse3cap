@@ -40,3 +40,8 @@ def test_details_does_not_hide_an_upstream_failure():
         assert error.status == 503
     else:
         raise AssertionError("expected the 503 to pass through")
+
+
+def test_a_student_row_is_not_reviewed():
+    # The shape Laravel's MeResource sends: one row per gig, its role resolved.
+    assert reviewed_gigs({"participations": [{"gig_id": "g1", "gig_title": "La Trobe", "role": "student"}]}) == {}

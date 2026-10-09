@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi.testclient import TestClient
 from pytest_httpserver import HTTPServer
 
@@ -14,14 +16,29 @@ TEXT = "We kept finding the blocker late in the sprint, and nobody owned the imp
 
 
 class Cache:
+    """ThemeCache's shape. `held` may be a list of answers, one per get(), to
+    model another request filling the day while this one waited."""
+
     def __init__(self, held=None):
-        self.held, self.put_calls = held, []
+        self.held, self.put_calls, self.failures = held, [], set()
 
     async def get(self, gig_id, day):
+        if isinstance(self.held, list) and self.held and isinstance(self.held[0], (list, type(None))):
+            return self.held.pop(0)
         return self.held
 
     async def put(self, gig_id, day, themes):
         self.put_calls.append((gig_id, themes))
+
+    @asynccontextmanager
+    async def lock(self, gig_id, day):
+        yield
+
+    def recently_failed(self, gig_id, day):
+        return (gig_id, day) in self.failures
+
+    def failed(self, gig_id, day):
+        self.failures.add((gig_id, day))
 
 
 def laravel(server, me=LEE, n=6, status="submitted"):
@@ -84,5 +101,40 @@ def test_themes_refuse_a_gig_the_caller_studies_on(httpserver: HTTPServer):
 def test_themes_refuse_a_gig_the_caller_does_not_review(httpserver: HTTPServer):
     httpserver.expect_request("/api/v1/auth/me").respond_with_json(
         {"id": "lee", "display_name": "Dr Lee", "participations": [{"gig_id": "g2", "gig_title": "Other", "role": "supervisor"}]})
+    response, _ = themes(httpserver, Gateway({"themes": []}), Cache())
+    assert response.status_code == 403
+
+
+def test_a_miss_filled_while_waiting_for_the_lock_makes_no_call(httpserver: HTTPServer):
+    # Two reviewers miss at once: this one waits on the lock, and the other
+    # has cached the day by the time it gets it.
+    httpserver.expect_request("/api/v1/auth/me").respond_with_json(LEE)
+    gateway = Gateway({"themes": ["x", "y", "z"]})
+    response, limiter = themes(httpserver, gateway, Cache(held=[None, ["Blockers raised late"]]))
+    assert response.json() == {"themes": ["Blockers raised late"]} and gateway.calls == []
+
+
+def test_a_failed_reply_is_not_retried_for_a_while(httpserver: HTTPServer):
+    from sidecar.errors import unavailable
+
+    laravel(httpserver)
+    cache = Cache()
+
+    class Refusing(Gateway):
+        async def ask(self, *args, **kwargs):
+            self.calls.append(args)
+            raise unavailable("refusal")
+
+    gateway = Refusing({})
+    first, _ = themes(httpserver, gateway, cache)
+    second, _ = themes(httpserver, gateway, cache)
+    assert first.status_code == 503 and second.json() == {"themes": []}
+    assert len(gateway.calls) == 1
+
+
+def test_a_student_row_from_auth_me_gets_no_themes(httpserver: HTTPServer):
+    # Laravel's real shape: one row per gig, its role resolved (ADR #47).
+    httpserver.expect_request("/api/v1/auth/me").respond_with_json(
+        {"id": "lee", "display_name": "Dr Lee", "participations": [{"gig_id": G1, "gig_title": "SFIA", "role": "student"}]})
     response, _ = themes(httpserver, Gateway({"themes": []}), Cache())
     assert response.status_code == 403

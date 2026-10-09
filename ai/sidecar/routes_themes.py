@@ -19,25 +19,44 @@ def register(router: APIRouter) -> None:
         held = await deps.themes.get(gig_id, day)
         if held is not None:
             return {"themes": held}
+        if deps.themes.recently_failed(gig_id, day):
+            return {"themes": []}  # optional, like similar reflections: absent, not an error
 
-        # The Laravel reads count against search; the Claude limit, which the
-        # coaches share, only once a call is actually going to be made.
-        await deps.limiter.check(who.token_hash, "search")
-        rows = [r["id"] for r in await who.reader.reflections(gig_id=gig_id)
-                if r.get("status") in READABLE and r.get("gig_id") == gig_id]
-        found = [d for d in await details(who.reader, rows)
-                 if d.get("status") in READABLE and d.get("gig_id") == gig_id]
-        found.sort(key=lambda d: d.get("submitted_at") or "", reverse=True)  # newest first
-        narratives = [(e.get("narrative") or "").strip() for d in found for e in d.get("entries", [])]
-        narratives = [n for n in narratives if n]
-        if len(narratives) < MIN_NARRATIVES:
-            return {"themes": []}
+        # One request per gig and day asks Claude; others wait here, then find
+        # the day cached and answer from it.
+        async with deps.themes.lock(gig_id, day):
+            held = await deps.themes.get(gig_id, day)
+            if held is not None:
+                return {"themes": held}
+            return await ask_for_themes(gig_id, day, who, deps)
 
-        await deps.limiter.check(who.token_hash, "claude")
-        system, data = themes_prompt(narratives)
+
+async def ask_for_themes(gig_id: str, day, who: Caller, deps: Deps) -> dict:
+    # The Laravel reads count against search; the Claude limit, which the
+    # coaches share, only once a call is actually going to be made.
+    await deps.limiter.check(who.token_hash, "search")
+    rows = [r["id"] for r in await who.reader.reflections(gig_id=gig_id)
+            if r.get("status") in READABLE and r.get("gig_id") == gig_id]
+    found = [d for d in await details(who.reader, rows)
+             if d.get("status") in READABLE and d.get("gig_id") == gig_id]
+    found.sort(key=lambda d: d.get("submitted_at") or "", reverse=True)  # newest first
+    narratives = [(e.get("narrative") or "").strip() for d in found for e in d.get("entries", [])]
+    narratives = [n for n in narratives if n]
+    if len(narratives) < MIN_NARRATIVES:
+        return {"themes": []}
+
+    await deps.limiter.check(who.token_hash, "claude")
+    system, data = themes_prompt(narratives)
+    try:
         reply = await deps.gateway.ask("themes", system, data, THEMES_SCHEMA, max_tokens=1024)
         kept = keep_themes(reply.get("themes", []))
         if not kept:
             raise unavailable("invalid_reply")
-        await deps.themes.put(gig_id, day, kept)
-        return {"themes": kept}
+    except AiError as error:
+        # A refusal or an unusable reply would come back the same next time:
+        # remember it rather than ask again on every queue load.
+        if error.details.get("reason") in ("refusal", "invalid_reply"):
+            deps.themes.failed(gig_id, day)
+        raise
+    await deps.themes.put(gig_id, day, kept)
+    return {"themes": kept}
