@@ -43,6 +43,10 @@
   margin-inline: auto;
 }
 
+.progress {
+  margin-bottom: var(--space-16);
+}
+
 /* CAP-38: on a phone, Back and Next stay under the thumb rather than at
    the end of a long card. Fixed to the bottom edge (round 2b): sticky let
    the bar rise off the bottom once the page ended, over the page's own

@@ -6,7 +6,7 @@
  *
  * Self-contained scenario, ids prefixed '3850'.
  */
-import { test as base, expect } from '@playwright/test';
+import { test as base, expect, type Page } from '@playwright/test';
 
 import type { components } from '../src/api/schema.ts';
 import {
@@ -110,6 +110,34 @@ const test = base.extend<{ api: FakeApi }>({
   ],
 });
 
+/**
+ * CAP-61: the space between the progress track and the competency card
+ * under it, in CSS px. The card is the nearest box around the competency's
+ * name that draws a border or a background, which is what the eye reads as
+ * the card, whatever wraps it.
+ */
+async function progress_gap(page: Page, competency: string): Promise<number> {
+  const track = (await page.getByRole('progressbar').boundingBox())!;
+  const card_top = await page.getByText(competency, { exact: true }).evaluate((name) => {
+    for (let el = name.parentElement; el; el = el.parentElement) {
+      const style = getComputedStyle(el);
+      const drawn =
+        parseFloat(style.borderTopWidth) > 0 ||
+        style.backgroundColor !== 'rgba(0, 0, 0, 0)';
+      if (drawn) return el.getBoundingClientRect().top;
+    }
+    throw new Error('no card around the competency name');
+  });
+  return card_top - (track.y + track.height);
+}
+
+/** --space-16, the gap every other block on the page leaves under itself. */
+const PROGRESS_GAP = 16;
+const WIDTHS = [
+  ['phone', 390],
+  ['desktop', 1280],
+] as const;
+
 test.describe('Back and Next', () => {
   test.use({ reducedMotion: 'reduce' });
 
@@ -143,6 +171,24 @@ test.describe('Back and Next', () => {
     await expect(page.getByText('Competency 1 of 2')).toBeVisible();
     await expect(page.getByText('Contribution', { exact: true })).not.toBeFocused();
   });
+});
+
+test.describe('the progress bar (CAP-61)', () => {
+  for (const [name, width] of WIDTHS) {
+    test(`${name}: clear of the card on every step`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 800 });
+      await page.goto(`/reflections/${DRAFT}`);
+      await expect(page.getByText('Competency 1 of 2')).toBeVisible();
+      expect(await progress_gap(page, 'Contribution'), 'step 1').toBeGreaterThanOrEqual(
+        PROGRESS_GAP,
+      );
+      await page.getByRole('button', { name: 'Next', exact: true }).click();
+      await expect(page.getByText('Competency 2 of 2')).toBeVisible();
+      expect(await progress_gap(page, 'Communication'), 'step 2').toBeGreaterThanOrEqual(
+        PROGRESS_GAP,
+      );
+    });
+  }
 });
 
 test.describe('the heading', () => {
@@ -278,6 +324,20 @@ assessor_test.describe('the assessor', () => {
       expect(Math.abs(f.height - b.height), 'same height as Back').toBeLessThanOrEqual(1);
       expect(f.x + f.width, 'inside the screen').toBeLessThanOrEqual(360);
     });
+  }
+
+  for (const [name, width] of WIDTHS) {
+    assessor_test(
+      `${name}: the progress bar is clear of the card (CAP-61)`,
+      async ({ page }) => {
+        await page.setViewportSize({ width, height: 800 });
+        await page.goto(`/review-queue/reflections/${SUBMITTED}`);
+        await expect(page.getByText('Competency 1 of 2')).toBeVisible();
+        expect(await progress_gap(page, 'Contribution')).toBeGreaterThanOrEqual(
+          PROGRESS_GAP,
+        );
+      },
+    );
   }
 
   assessor_test(

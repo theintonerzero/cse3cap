@@ -554,7 +554,14 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
         </div>
       )}
 
-      <ProgressBar current={current_index + 1} total={entries.length} label="Competency" />
+      {/* Its own space below, as every block on this page has (CAP-61). */}
+      <div className={styles.progress}>
+        <ProgressBar
+          current={current_index + 1}
+          total={entries.length}
+          label="Competency"
+        />
+      </div>
 
       <EntryCard
         key={current.id}
