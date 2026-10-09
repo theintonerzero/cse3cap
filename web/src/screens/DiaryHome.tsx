@@ -51,6 +51,8 @@ import {
 } from './diary-scope.ts';
 import styles from './DiaryHome.module.css';
 import { ExportSheet } from './ExportSheet.tsx';
+import { sprints_needing_reflection } from './gig-timing.ts';
+import { StartReflection } from './StartReflection.tsx';
 
 type Load =
   | { status: 'loading' }
@@ -180,6 +182,13 @@ export function DiaryHome() {
     <section className={styles.with_fab}>
       <ScopeChips gigs={mine} scope={scope} on_select={go_to} />
 
+      <ReflectionNudge
+        gigs={mine}
+        gig={mine.find((candidate) => candidate.id === scope.gig_id) ?? null}
+        reflections={whole_record}
+        on_refresh={retry}
+      />
+
       {/*
        * Three ways to be empty, and they are not the same sentence. An
        * untouched record needs telling what to do next; a scope with
@@ -213,6 +222,14 @@ export function DiaryHome() {
             />
           )}
           <ReflectionList rows={rows} show_gig={scope.gig_id === null} gigs={mine} />
+        </div>
+      )}
+
+      {whole_record.length > 0 && (
+        <div className={styles.record_link}>
+          <LinkButton to="/record" variant="secondary" size="sm">
+            Your learning record ›
+          </LinkButton>
         </div>
       )}
 
@@ -460,6 +477,67 @@ function ScopeChips({
           />
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * "2 sprints need your reflection" (CAP-53, Figma 66:34): the sprints that
+ * have opened with nothing written, from gig-timing.ts. In one gig it
+ * offers to start the earliest; under All gigs there is no single gig to
+ * start in, so it only counts and says to pick one.
+ *
+ * `reflections` is the student's own whole record (reflections_in_scope),
+ * so a reflection returned to them as a reviewer on another gig never
+ * counts as written. It never says late: see gig-timing.ts's header.
+ */
+function ReflectionNudge({
+  gigs,
+  gig,
+  reflections,
+  on_refresh,
+}: {
+  gigs: Gig[];
+  gig: Gig | null;
+  reflections: ReflectionSummary[];
+  on_refresh: () => void;
+}) {
+  const today = new Date();
+  const written = new Set(
+    reflections.flatMap((reflection) =>
+      reflection.sprint_id ? [reflection.sprint_id] : [],
+    ),
+  );
+  const needing = gig
+    ? sprints_needing_reflection(gig.sprints, written, today)
+    : gigs.flatMap((one) => sprints_needing_reflection(one.sprints, written, today));
+
+  if (needing.length === 0) return null;
+
+  const first = needing[0];
+  const counted =
+    needing.length === 1
+      ? '1 sprint needs your reflection.'
+      : `${needing.length} sprints need your reflection.`;
+  const sentence = !gig
+    ? `${counted} Pick a gig to start.`
+    : needing.length === 1
+      ? `Sprint ${first.ordinal} needs your reflection.`
+      : counted;
+
+  return (
+    <div className={styles.nudge} data-testid="reflection-nudge">
+      <p className={styles.nudge_text}>{sentence}</p>
+      {gig && (
+        <StartReflection
+          key={first.id}
+          sprint_id={first.id}
+          on_refresh={on_refresh}
+          label={
+            needing.length === 1 ? 'Start reflection' : `Start Sprint ${first.ordinal}`
+          }
+        />
+      )}
     </div>
   );
 }

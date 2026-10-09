@@ -33,6 +33,7 @@ import { DiaryHome } from '../screens/DiaryHome.tsx';
 import { EditFramework } from '../screens/EditFramework.tsx';
 import { EntryStepper } from '../screens/EntryStepper.tsx';
 import { GigDetail } from '../screens/GigDetail.tsx';
+import { LearningRecord } from '../screens/LearningRecord.tsx';
 import { AppShell } from './AppShell.tsx';
 import { ReviewQueue } from '../screens/ReviewQueue.tsx';
 import { SelectFramework } from '../screens/SelectFramework.tsx';
@@ -96,6 +97,10 @@ export function AppRoutes() {
         <Route index element={<Home />} />
 
         <Route path="gigs/:gig_id" element={<GigDetail />} />
+
+        {/* CAP-53: the learning record (Figma 86:936). A deeper diary screen
+            to sections.ts, so back goes to the diary home. */}
+        <Route path="record" element={<LearningRecord />} />
 
         {/*
          * By reflection, not by entry: GET /reflections carries no entry

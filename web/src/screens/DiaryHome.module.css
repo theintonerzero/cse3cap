@@ -220,3 +220,33 @@
     margin-top: var(--space-16);
   }
 }
+
+/* CAP-53: the hub frame's purple line (Figma 66:34), on a surface card so
+   --color-primary passes AA at this size (check-contrast.mjs pairs it with
+   --color-surface; on --color-bg it is large-text only). */
+.nudge {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+  margin: 0 0 var(--space-16);
+  padding: var(--space-12) var(--space-16);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+.nudge_text {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-primary);
+}
+
+/* CAP-53: the way into the learning record, under the list. */
+.record_link {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-16);
+}

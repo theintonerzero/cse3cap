@@ -155,14 +155,17 @@ README.md                setup, connection details, the three tokens
       (ADR #27), a route per screen with placeholders until each ticket lands, and the
       three seeded tokens held per browser tab. `./run verify-shell` checks it
 
-**Screens.** Ten, each with loaded / loading / empty / error states. All built; the
+**Screens.** Eleven, each with loaded / loading / empty / error states. All built; the
 four-states evidence is CAP-21 (#74)
 
 *Student*
 - [x] Diary home: a gig picker (all gigs / per gig), sprint chips inside a gig, a radar
       whose scope the picker and chips name (ADR #58), entry list with status badges, export.
       Scope lives in the URL (ADR #27) so a scoped diary is linkable, and the export link
-      opens the sheet CAP-18 fills in. `./run verify-diary` checks it
+      opens the sheet CAP-18 fills in. `./run verify-diary` checks it. A card names the
+      sprints that need a reflection and starts the earliest (CAP-53)
+- [x] Your learning record (`/record`): one competency by sprint table of self and assessor
+      scores per gig, from `GET /me/progress`, with Export record (CAP-53, ADR #63)
 - [x] Gig detail: two of the design's three Overview cards -- Timeline
       (start/end/duration), and a Reflection Diary card carrying the framework, a row per
       sprint as `SPRINT / SELF REFLECTION / ASSESSOR REFLECTION`, and the link into the
