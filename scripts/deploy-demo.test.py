@@ -365,8 +365,11 @@ else:
 
     with tempfile.TemporaryDirectory() as tmp:
         srv = pathlib.Path(tmp)
-        bcrypt = run("docker", "run", "--rm", "caddy:2", "caddy", "hash-password",
-                     "--plaintext", "test-password-123").stdout.strip()
+        hashed = run("docker", "run", "--rm", "caddy:2", "caddy", "hash-password",
+                     "--plaintext", "test-password-123")
+        bcrypt = hashed.stdout.strip()
+        check("caddy hashes a test password", hashed.returncode == 0 and bcrypt.startswith("$2"),
+              hashed.stdout + hashed.stderr)
         r = run(GATE_SCRIPT, "--out", srv / "diary-gate.caddy", "--hash", bcrypt, "--secret", "f" * 64)
         check("demo-gate.sh writes the gate file", r.returncode == 0 and (srv / "diary-gate.caddy").exists(),
               r.stdout + r.stderr)
@@ -401,7 +404,8 @@ else:
         time.sleep(2)
         r = run("docker", "exec", name, "caddy", "validate", "--config", "/srv/server/Caddyfile",
                 "--adapter", "caddyfile")
-        check("caddy validates the site with its gate", r.returncode == 0, r.stdout + r.stderr)
+        check("caddy validates the site with its gate", r.returncode == 0,
+              r.stdout + r.stderr + run("docker", "logs", name).stdout + run("docker", "logs", name).stderr)
 
         class NoRedirect(urllib.request.HTTPRedirectHandler):
             def redirect_request(self, *args, **kwargs):
