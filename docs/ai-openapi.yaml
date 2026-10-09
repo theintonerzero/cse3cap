@@ -132,6 +132,43 @@ paths:
           $ref: "#/components/responses/Error"
         "503":
           $ref: "#/components/responses/Error"
+  /search:
+    get:
+      operationId: searchReflections
+      summary: Submitted and assessed reflections on the caller's reviewed gigs, by meaning.
+      description: >
+        For assessors and supervisors. Ranks the entries of submitted and
+        assessed reflections on gigs where the diary lists the caller as an
+        assessor or supervisor and not also as a student. Never drafts and
+        never the caller's own. Up to ten results, best first, with no
+        similarity score. No Claude call. A blank query is 400
+        VALIDATION_FAILED with details.reason empty_query; over 200
+        characters, too_long. A caller who reviews no gig is 403.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            maxLength: 200
+      responses:
+        "200":
+          description: The matching entries.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResults"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+        "503":
+          $ref: "#/components/responses/Error"
+
 components:
   securitySchemes:
     bearer:
@@ -188,6 +225,34 @@ components:
               entry_id:
                 type: string
                 format: uuid
+              sprint_ordinal:
+                type: [integer, "null"]
+              competency_name:
+                type: string
+              excerpt:
+                type: string
+                description: The narrative's first line, cut at a word.
+    SearchResults:
+      type: object
+      required: [results]
+      properties:
+        results:
+          type: array
+          maxItems: 10
+          items:
+            type: object
+            required: [reflection_id, entry_id, student_name, gig_title, sprint_ordinal, competency_name, excerpt]
+            properties:
+              reflection_id:
+                type: string
+                format: uuid
+              entry_id:
+                type: string
+                format: uuid
+              student_name:
+                type: string
+              gig_title:
+                type: string
               sprint_ordinal:
                 type: [integer, "null"]
               competency_name:

@@ -13,5 +13,5 @@ class Settings(BaseSettings):
     database_url: str | None = None  # mysql://diary_ai:...@rddb.darkovski.dev:3306/diary_ai
     daily_cap_usd: Decimal = Decimal("5.00")
     model: str = "claude-haiku-5-5"
-    ai_features: list[str] = ["coach", "related", "calibration"]
+    ai_features: list[str] = ["coach", "related", "calibration", "search"]
     anthropic_api_key: str | None = None
