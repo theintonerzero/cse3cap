@@ -38,9 +38,10 @@ def install(app: FastAPI) -> None:
 
     @app.exception_handler(StarletteHTTPException)
     async def _http(_: Request, e: StarletteHTTPException) -> JSONResponse:
+        # Switched off, the sidecar has nothing at any path or with any method (M4).
+        if not app.state.settings.ai_enabled:
+            return disabled().response()
         if e.status_code == 404:
-            if not app.state.settings.ai_enabled:
-                return disabled().response()
             return AiError("NOT_FOUND", 404, "Not found.").response()
         return AiError("VALIDATION_FAILED", e.status_code, str(e.detail)).response()
 

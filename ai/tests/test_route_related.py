@@ -6,6 +6,9 @@ from sidecar.config import Settings
 from sidecar.deps import Deps
 from tests.test_vectors import MemoryStore
 
+R1 = "11111111-1111-4111-8111-111111111111"
+E1 = "eeeeeeee-0000-4000-8000-000000000001"
+
 
 class WordEmbedder:
     """Deterministic: one dimension per vocabulary word, so overlap ranks."""
@@ -41,10 +44,10 @@ EARLIER_CREATED = "2026-08-01T10:00:00.000000Z"
 
 def laravel(server: HTTPServer, me="u1", earlier=True, later=False):
     server.expect_request("/api/v1/auth/me").respond_with_json({"id": me, "display_name": "X", "participations": []})
-    this = reflection("r1", "u1", [("e1", "Communication", "I raised the blocker with my team at standup."),
+    this = reflection(R1, "u1", [(E1, "Communication", "I raised the blocker with my team at standup."),
                                    ("e2", "Agile", "We ran the retro.")], status="draft", created=THIS_CREATED)
-    server.expect_request("/api/v1/reflections/r1").respond_with_json(this)
-    rows = [row("r1", 2, THIS_CREATED)] + ([row("r0", 1, EARLIER_CREATED)] if earlier else [])
+    server.expect_request(f"/api/v1/reflections/{R1}").respond_with_json(this)
+    rows = [row(R1, 2, THIS_CREATED)] + ([row("r0", 1, EARLIER_CREATED)] if earlier else [])
     if later:
         # Written after this one (sprint 3, or another gig's later sprint): not "earlier".
         rows.append(row("r9", 3, "2026-08-30T10:00:00.000000Z"))
@@ -64,7 +67,7 @@ def call(server: HTTPServer):
     limiter = Limiter()
     with TestClient(app) as client:
         app.state.deps = Deps(gateway=None, store=MemoryStore(), embedder=WordEmbedder(), limiter=limiter)
-        response = client.get("/ai/v1/reflections/r1/entries/e1/related", headers={"Authorization": "Bearer t"})
+        response = client.get(f"/ai/v1/reflections/{R1}/entries/{E1}/related", headers={"Authorization": "Bearer t"})
     return response, limiter
 
 
@@ -103,11 +106,11 @@ def test_related_uses_the_search_rate_limit(httpserver: HTTPServer):
 def test_a_student_who_also_assesses_never_sees_another_students_entry(httpserver: HTTPServer):
     # Laravel lists everything on the gigs the caller reviews as well as their own.
     httpserver.expect_request("/api/v1/auth/me").respond_with_json({"id": "u1", "display_name": "X", "participations": []})
-    httpserver.expect_request("/api/v1/reflections/r1").respond_with_json(
-        reflection("r1", "u1", [("e1", "Communication", "I raised the blocker with my team at standup.")], status="draft", created=THIS_CREATED))
+    httpserver.expect_request(f"/api/v1/reflections/{R1}").respond_with_json(
+        reflection(R1, "u1", [(E1, "Communication", "I raised the blocker with my team at standup.")], status="draft", created=THIS_CREATED))
     # r9 is earlier, so only the owner check can keep it out.
     httpserver.expect_request("/api/v1/reflections").respond_with_json(
-        [row("r1", 2, THIS_CREATED), row("r9", 1, EARLIER_CREATED)])
+        [row(R1, 2, THIS_CREATED), row("r9", 1, EARLIER_CREATED)])
     httpserver.expect_request("/api/v1/reflections/r9").respond_with_json(
         reflection("r9", "someone-else", [("e90", "Communication", "I raised the blocker with my team at standup.")]))
     response, _ = call(httpserver)

@@ -42,16 +42,37 @@ def coach_prompt(competency: str, descriptors: list[str], narrative: str) -> tup
     return SYSTEM, data
 
 
-def keep_questions(questions: list[str], scale_max: int) -> list[str]:
-    """Only real questions: ending in "?", under 200 characters, and saying nothing
-    about a level, a score or a number on the scale."""
-    numbers = re.compile(r"\b(" + "|".join(str(n) for n in range(0, scale_max + 1)) + r")\b")
-    kept = []
+NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]
+
+
+def level_names(descriptors: list[str]) -> list[str]:
+    """A level's name, where its descriptor has one: "Emerging" in "Emerging — acts
+    when prompted.". SFIA's bare verbs ("Apply") are not taken as names, or
+    every question asking what the student applied would be dropped."""
+    return [d.split(" — ", 1)[0].strip() for d in descriptors if " — " in d]
+
+
+def keep_questions(questions: list[str], scale_max: int, level_names: list[str] | tuple = ()) -> list[str]:
+    """Only real questions: ending in "?", under 200 characters, asked once, and
+    saying nothing about a level, a score, a number on the scale (in digits or
+    words) or a level by its name."""
+    on_scale = [str(n) for n in range(0, scale_max + 1)] + NUMBER_WORDS[: scale_max + 1]
+    numbers = re.compile(r"\b(" + "|".join(on_scale) + r")\b", re.IGNORECASE)
+    names = re.compile(r"\b(" + "|".join(re.escape(n) for n in level_names) + r")\b", re.IGNORECASE) if level_names else None
+    kept, seen = [], set()
     for question in questions:
         q = question.strip()
-        if q.endswith("?") and len(q) < 200 and not LEVEL_TALK.search(q) and not numbers.search(q):
-            kept.append(q)
+        if not (q.endswith("?") and len(q) < 200) or LEVEL_TALK.search(q) or numbers.search(q):
+            continue
+        if names and names.search(q):
+            continue
+        if q.casefold() in seen:
+            continue
+        seen.add(q.casefold())
+        kept.append(q)
     return kept
+
+
 CALIBRATION_SYSTEM = (
     "You help a university student understand why their own assessment of one competency differs "
     "from their reviewer's. Ask one to three short, open questions that help them compare what they did "

@@ -122,6 +122,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RelatedEntries"
+        "400":
+          $ref: "#/components/responses/Error"
         "401":
           $ref: "#/components/responses/Error"
         "403":
@@ -189,6 +191,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Themes"
+        "400":
+          $ref: "#/components/responses/Error"
         "401":
           $ref: "#/components/responses/Error"
         "403":

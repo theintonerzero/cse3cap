@@ -64,3 +64,22 @@ def test_latest_counter_is_the_last_counter_by_time():
     ]}
     assert latest_counter(entry)["level_id"] == "l4" and self_score(entry)["level_id"] == "l2"
     assert latest_counter({"scores": []}) is None
+
+
+def test_spelled_out_numbers_on_the_scale_are_dropped():
+    kept = keep_questions(["Is this closer to three or four?", "What did you do next?"], 4)
+    assert kept == ["What did you do next?"]
+
+
+def test_a_question_naming_a_level_is_dropped():
+    kept = keep_questions(["Would you call this emerging?", "Who acted on it?"], 4, level_names=["Emerging", "Developing"])
+    assert kept == ["Who acted on it?"]
+
+
+def test_a_repeated_question_is_kept_once():
+    assert keep_questions(["Who acted on it?", "who acted on it?"], 4) == ["Who acted on it?"]
+
+
+def test_level_names_come_from_named_descriptors_only():
+    from sidecar.coach import level_names
+    assert level_names(["Emerging — acts when prompted.", "Follow", "Apply"]) == ["Emerging"]

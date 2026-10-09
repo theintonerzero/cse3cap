@@ -4,12 +4,13 @@ from .caller import Caller, caller
 from .deps import Deps, get_deps
 from .errors import AiError, unavailable
 from .reviewer import READABLE, details, reviewed_gigs
+from .routes_coach import Id
 from .themes import MIN_NARRATIVES, THEMES_SCHEMA, keep_themes, themes_prompt, today
 
 
 def register(router: APIRouter) -> None:
     @router.get("/gigs/{gig_id}/themes")
-    async def themes(gig_id: str, who: Caller = Depends(caller), deps: Deps = Depends(get_deps)) -> dict:
+    async def themes(gig_id: Id, who: Caller = Depends(caller), deps: Deps = Depends(get_deps)) -> dict:
         """Three to five recurring themes across a gig's submitted and assessed reflections.
         Claude is asked once per gig per UTC day; every other request reads the cache."""
         if gig_id not in reviewed_gigs(who.me):

@@ -13,6 +13,7 @@ def test_status_lists_the_features_switched_on(httpserver: HTTPServer):
     me(httpserver)
     app = create_app(Settings(ai_enabled=True, diary_api_base=httpserver.url_for("/api/v1"), ai_features=["coach"]))
     with TestClient(app) as client:
+        app.state.deps = object()  # a database is configured: the features can be served
         assert client.get("/ai/v1/status", headers={"Authorization": "Bearer t"}).json() == {"features": ["coach"]}
 
 

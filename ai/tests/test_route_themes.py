@@ -7,7 +7,9 @@ from sidecar.deps import Deps
 from tests.test_route_calibration import Gateway
 from tests.test_route_related import Limiter
 
-LEE = {"id": "lee", "display_name": "Dr Lee", "participations": [{"gig_id": "g1", "gig_title": "SFIA", "role": "supervisor"}]}
+G1 = "99999999-0000-4000-8000-000000000001"
+
+LEE = {"id": "lee", "display_name": "Dr Lee", "participations": [{"gig_id": G1, "gig_title": "SFIA", "role": "supervisor"}]}
 TEXT = "We kept finding the blocker late in the sprint, and nobody owned the import step."
 
 
@@ -24,14 +26,14 @@ class Cache:
 
 def laravel(server, me=LEE, n=6, status="submitted"):
     server.expect_request("/api/v1/auth/me").respond_with_json(me)
-    rows = [{"id": f"r{i}", "status": status, "gig_id": "g1"} for i in range(n)] + [{"id": "rd", "status": "draft", "gig_id": "g1"}]
+    rows = [{"id": f"r{i}", "status": status, "gig_id": G1} for i in range(n)] + [{"id": "rd", "status": "draft", "gig_id": G1}]
     server.expect_request("/api/v1/reflections").respond_with_json(rows)
     for i in range(n):
         server.expect_request(f"/api/v1/reflections/r{i}").respond_with_json(
-            {"id": f"r{i}", "status": status, "gig_id": "g1", "owner": {"id": f"s{i}", "display_name": f"Student {i}"},
+            {"id": f"r{i}", "status": status, "gig_id": G1, "owner": {"id": f"s{i}", "display_name": f"Student {i}"},
              "entries": [{"id": f"e{i}", "competency_name": "Communication", "narrative": TEXT}]})
     server.expect_request("/api/v1/reflections/rd").respond_with_json(
-        {"id": "rd", "status": "draft", "gig_id": "g1", "owner": {"id": "sd", "display_name": "Drafty"},
+        {"id": "rd", "status": "draft", "gig_id": G1, "owner": {"id": "sd", "display_name": "Drafty"},
          "entries": [{"id": "ed", "competency_name": "C", "narrative": "DRAFT TEXT"}]})
 
 
@@ -40,7 +42,7 @@ def themes(server, gateway, cache, limiter=None):
     limiter = limiter or Limiter()
     with TestClient(app) as client:
         app.state.deps = Deps(gateway=gateway, store=None, embedder=None, limiter=limiter, themes=cache)
-        return client.get("/ai/v1/gigs/g1/themes", headers={"Authorization": "Bearer t"}), limiter
+        return client.get(f"/ai/v1/gigs/{G1}/themes", headers={"Authorization": "Bearer t"}), limiter
 
 
 def test_a_miss_asks_claude_once_and_caches_the_day(httpserver: HTTPServer):
@@ -49,7 +51,7 @@ def test_a_miss_asks_claude_once_and_caches_the_day(httpserver: HTTPServer):
     response, limiter = themes(httpserver, gateway, cache)
     assert response.json() == {"themes": ["Blockers raised late", "Unclear task ownership", "Import step"]}
     assert len(gateway.calls) == 1 and gateway.calls[0][0] == "themes" and limiter.calls == ["search", "claude"]
-    assert cache.put_calls == [("g1", ["Blockers raised late", "Unclear task ownership", "Import step"])]
+    assert cache.put_calls == [(G1, ["Blockers raised late", "Unclear task ownership", "Import step"])]
     data = gateway.calls[0][2]
     assert "DRAFT TEXT" not in data and "Student" not in data and "s1" not in data
 
@@ -73,8 +75,8 @@ def test_too_few_narratives_is_no_themes_and_no_call(httpserver: HTTPServer):
 def test_themes_refuse_a_gig_the_caller_studies_on(httpserver: HTTPServer):
     httpserver.expect_request("/api/v1/auth/me").respond_with_json(
         {"id": "lee", "display_name": "Dr Lee", "participations": [
-            {"gig_id": "g1", "gig_title": "SFIA", "role": "supervisor"},
-            {"gig_id": "g1", "gig_title": "SFIA", "role": "student"}]})
+            {"gig_id": G1, "gig_title": "SFIA", "role": "supervisor"},
+            {"gig_id": G1, "gig_title": "SFIA", "role": "student"}]})
     response, _ = themes(httpserver, Gateway({"themes": []}), Cache())
     assert response.status_code == 403
 

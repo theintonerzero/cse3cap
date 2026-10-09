@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends
 from .caller import Caller, caller
 from .deps import Deps, get_deps
 from .ranking import rank
-from .routes_coach import find_entry, own_reflection
+from .routes_coach import Id, find_entry, own_reflection
 from .vectors import ensure_vectors
 
 LIMIT = 3
@@ -30,7 +30,7 @@ def written_before(row: dict, this: dict) -> bool:
 
 def register(router: APIRouter) -> None:
     @router.get("/reflections/{reflection_id}/entries/{entry_id}/related")
-    async def related(reflection_id: str, entry_id: str, who: Caller = Depends(caller), deps: Deps = Depends(get_deps)) -> dict:
+    async def related(reflection_id: Id, entry_id: Id, who: Caller = Depends(caller), deps: Deps = Depends(get_deps)) -> dict:
         """The student's own earlier entries that read most like this one. No Claude call."""
         this = await who.reader.reflection(reflection_id)
         own_reflection(this, who.me)
