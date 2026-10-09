@@ -243,3 +243,10 @@
   font-weight: var(--font-weight-medium);
   color: var(--color-primary);
 }
+
+/* CAP-53: the way into the learning record, under the list. */
+.record_link {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-16);
+}

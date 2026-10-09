@@ -225,6 +225,14 @@ export function DiaryHome() {
         </div>
       )}
 
+      {whole_record.length > 0 && (
+        <div className={styles.record_link}>
+          <LinkButton to="/record" variant="secondary" size="sm">
+            Your learning record ›
+          </LinkButton>
+        </div>
+      )}
+
       <FloatingAction
         label="Export record"
         icon={<DownloadIcon />}
