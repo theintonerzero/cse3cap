@@ -390,3 +390,20 @@ Notifications are derived (review queue + status changes), never stored.
 `assessed`. Never backwards. Draft is the only editable state. Frameworks: editable while
 `created_by` = you and `in_use` = false; permanently read-only after first use. Deletable
 while `created_by` = you and `assigned` = false; kept for good once a gig takes it.
+
+## 13. The AI sidecar: a separate contract
+
+`/ai/v1` is not part of this API. It is the AI sidecar in `ai/` (ADR #64), with its own
+contract in `docs/ai-openapi.yaml`, which wins where this paragraph disagrees with it.
+Laravel never calls it and changes nothing for it. It takes the same bearer token, reads
+this API with it, and answers in the same error envelope. With `AI_ENABLED` off every route
+is `404 AI_DISABLED`.
+
+| Route | What it answers |
+| --- | --- |
+| `GET /ai/v1/status` | The features this deployment serves |
+| `POST /ai/v1/reflections/{reflection_id}/entries/{entry_id}/coach` | One to three questions about the owner's draft narrative |
+| `GET /ai/v1/reflections/{reflection_id}/entries/{entry_id}/related` | Up to three of the owner's earlier entries that read alike |
+
+Its own error codes are `AI_DISABLED`, `AI_UNAVAILABLE` and `AI_RATE_LIMITED`, beside the
+envelope codes it shares with this API.
