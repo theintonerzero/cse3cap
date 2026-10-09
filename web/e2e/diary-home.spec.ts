@@ -185,9 +185,6 @@ test.describe('a student on two gigs', () => {
       const turn = await tick.evaluate((t) => t.getAttribute('transform') ?? '');
       expect(turn, 'no sideways rotation').not.toMatch(/rotate\((?!0[ ,)])/);
     }
-    await page.locator('.recharts-wrapper').first().screenshot({
-      path: 'test-results/cap-63-radar.png',
-    });
   });
 
   test("the gig list opens in the product's look where the browser allows (CAP-63)", async ({
@@ -207,11 +204,6 @@ test.describe('a student on two gigs', () => {
     expect(fill, 'the chosen option is marked in the diary lavender').toBe(
       'rgb(239, 235, 250)',
     );
-    await page.screenshot({ path: 'test-results/cap-63-select.png' });
-    await page.keyboard.press('Escape');
-    await page.emulateMedia({ colorScheme: 'dark' });
-    await select.click();
-    await page.screenshot({ path: 'test-results/cap-63-select-dark.png' });
     await page.keyboard.press('Escape');
   });
 
