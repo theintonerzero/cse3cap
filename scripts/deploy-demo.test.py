@@ -492,6 +492,17 @@ check("a swipe never starts on a field the presenter is typing in",
       re.search(r"input|textarea|select|contenteditable", phone_js) is not None, phone_js)
 check("the click that ends a swipe does not also press what is under it",
       "click" in phone_js and "stopPropagation" in phone_js, phone_js)
+# Pulling down at the top: the browser's own bounce showed the page background
+# above the header, a band the status bar's colour did not match. Android has
+# no bounce; its edges stretch the content and spring back.
+check("the browser's bounce is off inside the phone, so no gap opens above the header",
+      re.search(r"overscroll-behavior(-y)?:\s*none", phone_js) is not None, phone_js)
+check("pulling past an edge stretches the screen, as Android 12+ does",
+      "scaleY" in phone_js and "transformOrigin" in phone_js, phone_js)
+check("the stretch springs back when the finger lifts", re.search(r"transition", phone_js) is not None, phone_js)
+check("a trackpad or wheel past an edge stretches too", "'wheel'" in phone_js, phone_js)
+check("the stretch is drawn on the frame, so the app's fixed buttons never jump",
+      re.search(r"frame\.style\.transform", phone_js) is not None, phone_js)
 check("the app is changed from the frame page only, never in its own code",
       not (ROOT / "web" / "src" / "demo" / "phone").exists() and "contentDocument" in phone_js, phone_js)
 check("the frame is named for screen readers", "title=" in tag, tag)

@@ -66,6 +66,7 @@ body {
    the punch-hole camera in the middle of it. */
 .status-bar {
   position: relative;
+  z-index: 1; /* above the app when its edge stretch grows towards it */
   flex: none;
   height: var(--status-height);
   display: flex;
@@ -143,6 +144,8 @@ body {
 
 /* Android's gesture navigation: a thin pill, in the app's bottom colour. */
 .gesture-bar {
+  position: relative;
+  z-index: 1; /* above the app when its edge stretch grows towards it */
   flex: none;
   height: var(--gesture-height);
   display: grid;
