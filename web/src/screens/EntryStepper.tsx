@@ -37,7 +37,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, FormEvent, ReactNode, SetStateAction } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useNavigate, useParams, useSearchParams } from 'react-router';
 
 import { api, ApiError } from '../api/client.ts';
 import {
@@ -135,6 +135,8 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
   const [load, setLoad] = useState<Load>({ status: 'loading' });
   const [reload_key, setReloadKey] = useState(0);
   const [step, setStep] = useState(0);
+  const [search_params] = useSearchParams();
+  const wanted_entry = search_params.get('entry');
 
   // Back and Next move to another competency, and two
   // competencies' chips can look nearly the same. So a move goes to the
@@ -210,7 +212,10 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
             // An assessor lands on the first entry they still owe a score,
             // so a part-scored reflection does not reopen on finished work.
             if (mode === 'assessor' && me_id) {
-              setStep(first_unscored_index(reflection.entries, me_id));
+              // A search result names the competency it matched (ADR #64);
+              // otherwise the first one still owed.
+              const named = reflection.entries.findIndex((e) => e.id === wanted_entry);
+              setStep(named >= 0 ? named : first_unscored_index(reflection.entries, me_id));
               // Unfinished work kept on this device comes back with the
               // reflection (round 3, ADR #57). What's on screen wins.
               const kept = kept_as_drafts(
@@ -233,7 +238,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
       });
 
     return () => controller.abort();
-  }, [reflection_id, reload_key, mode, me_id]);
+  }, [reflection_id, reload_key, mode, me_id, wanted_entry]);
 
   const retry = useCallback(() => {
     setLoad({ status: 'loading' });
