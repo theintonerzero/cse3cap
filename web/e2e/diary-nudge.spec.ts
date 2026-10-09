@@ -31,6 +31,8 @@ const A = (n: number) => id(`0a0${n}`);
 const B = (n: number) => id(`0b0${n}`);
 const C1 = id('0c01');
 const D1 = id('0d01');
+const NO_RUBRIC_GIG = id('0e00');
+const E1 = id('0e11');
 
 const RUBRIC: FrameworkDetail = {
   id: FRAMEWORK,
@@ -68,6 +70,7 @@ function gig(
   title: string,
   role: 'student' | 'assessor',
   sprints: { id: string; dates: typeof PAST }[],
+  has_rubric = true,
 ): GigDetail {
   return {
     id: gig_id,
@@ -81,12 +84,9 @@ function gig(
       ordinal: i + 1,
       ...sprint.dates,
     })),
-    framework: {
-      id: FRAMEWORK,
-      fw_key: 'latrobe6',
-      name: RUBRIC.name,
-      version: 'v1',
-    },
+    framework: has_rubric
+      ? { id: FRAMEWORK, fw_key: 'latrobe6', name: RUBRIC.name, version: 'v1' }
+      : null,
     reflection_summary: { draft: 0, submitted: 1, assessed: 0 },
     participants: [{ id: id('0e01'), display_name: 'Ash', role }],
   };
@@ -107,6 +107,9 @@ const GIGS: GigDetail[] = [
   ]),
   gig(GIG_C, 'Policy chatbot', 'student', [{ id: C1, dates: LATER }]),
   gig(REVIEWED_GIG, 'Cohort review', 'assessor', [{ id: D1, dates: PAST }]),
+  // No rubric yet: starting a reflection here can only answer "This gig has
+  // no rubric yet", so its open sprint is never offered (CAP-62).
+  gig(NO_RUBRIC_GIG, 'Unassigned gig', 'student', [{ id: E1, dates: PAST }], false),
 ];
 
 function reflection(
@@ -215,6 +218,13 @@ test('all gigs: counts across the student gigs only, with no button', async ({ p
     '3 sprints need your reflection. Pick a gig to start.',
   );
   await expect(nudge(page).getByRole('button')).toHaveCount(0);
+});
+
+test('a gig with no rubric shows no nudge, though its sprint is open', async ({ page }) => {
+  await page.goto(`/?gig_id=${NO_RUBRIC_GIG}`);
+
+  await expect(page.getByRole('button', { name: 'Gig details ›' })).toBeEnabled();
+  await expect(nudge(page)).toHaveCount(0);
 });
 
 test.describe('a student who has written nothing', () => {
