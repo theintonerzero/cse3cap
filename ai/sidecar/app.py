@@ -54,7 +54,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     errors.install(app)
 
     @app.get("/ai/v1/status", dependencies=[Depends(enabled)])
-    async def status(_: Caller = Depends(caller)) -> dict:
+    async def status(request: Request, _: Caller = Depends(caller)) -> dict:
+        # With no database, no feature can be served, so none is offered.
+        if getattr(request.app.state, "deps", None) is None:
+            return {"features": []}
         return {"features": settings.ai_features}
 
     router = features_router()

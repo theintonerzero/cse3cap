@@ -1,6 +1,10 @@
+import logging
+import time
 from datetime import UTC, datetime, timedelta
 
 from .errors import AiError
+
+log = logging.getLogger("sidecar.limits")
 
 LIMITS = {
     "claude": [(20, timedelta(minutes=1)), (200, timedelta(days=1))],
@@ -13,6 +17,25 @@ class RateLimiter:
 
     def __init__(self, pool):
         self._pool = pool
+        self._pruned_at: float | None = None
+
+    async def prune(self) -> None:
+        """Windows older than the longest limit can't refuse anything: delete them,
+        at most once a minute, so the table doesn't grow forever (M10)."""
+        if self._pruned_at is not None and time.monotonic() - self._pruned_at < 60:
+            return
+        self._pruned_at = time.monotonic()
+        try:
+            await self._delete_old()
+        except Exception:
+            # Housekeeping: a failed prune is retried in a minute, and never
+            # turns the request it rode on into a refusal.
+            log.warning("pruning rate_limits failed", exc_info=True)
+
+    async def _delete_old(self) -> None:
+        before = (datetime.now(UTC) - timedelta(days=2)).replace(tzinfo=None)
+        async with self._pool.acquire() as conn, conn.cursor() as cur:
+            await cur.execute("DELETE FROM rate_limits WHERE window_start < %s", (before,))
 
     async def hit(self, token_hash: str, bucket: str, limit: int, window: timedelta) -> None:
         now = datetime.now(UTC)
@@ -36,5 +59,6 @@ class RateLimiter:
             raise AiError("AI_RATE_LIMITED", 429, "Too many requests. Try again shortly.", {"retry_after": retry_after})
 
     async def check(self, token_hash: str, bucket: str) -> None:
+        await self.prune()
         for limit, window in LIMITS[bucket]:
             await self.hit(token_hash, bucket, limit, window)

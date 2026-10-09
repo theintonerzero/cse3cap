@@ -110,6 +110,27 @@ async def test_timeout_is_ai_unavailable_timeout(httpserver: HTTPServer):
         return Response(json.dumps(message(json.dumps({"questions": ["Late?"]}))), content_type="application/json")
 
     httpserver.expect_request("/v1/messages", method="POST").respond_with_handler(slow)
+    ledger = Ledger()
     with pytest.raises(AiError) as e:
-        await gateway(httpserver, Ledger(), timeout=0.2).ask("coach", "s", "d", SCHEMA)
+        await gateway(httpserver, ledger, timeout=0.2).ask("coach", "s", "d", SCHEMA)
     assert e.value.details == {"reason": "timeout"}
+    # Claude may have billed a call the sidecar stopped waiting for, so the cap
+    # counts what was reserved for it, not nothing (core review M1).
+    # Two attempts (the SDK retries once), and either may have been billed.
+    assert ledger.settled[0][4] == 2 * ledger.reserved[0] > 0
+
+
+async def test_a_prompt_over_100k_tokens_is_refused_before_reserving():
+    # Priced as a short prompt it would be reserved too low (M2), so it is refused.
+    # Its own server: an earlier test's slow handler can still be answering on the shared one.
+    server = HTTPServer()
+    server.start()
+    try:
+        server.expect_request("/v1/messages/count_tokens").respond_with_json({"input_tokens": 100_001})
+        ledger = Ledger()
+        with pytest.raises(AiError) as e:
+            await ClaudeGateway(client_for("k", server.url_for("").rstrip("/")), ledger).ask("themes", "s", "d", SCHEMA)
+        assert e.value.details == {"reason": "too_long"}
+        assert ledger.reserved == [] and messages_calls(server) == []
+    finally:
+        server.stop()

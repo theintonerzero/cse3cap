@@ -5,6 +5,9 @@ from sidecar.app import create_app
 from sidecar.config import Settings
 from sidecar.deps import Deps
 
+R1 = "11111111-1111-4111-8111-111111111111"
+E1 = "eeeeeeee-0000-4000-8000-000000000001"
+
 
 class Gateway:
     def __init__(self, reply):
@@ -41,9 +44,9 @@ def laravel(server, status="assessed", owner="u1", scores=None):
     server.expect_request("/api/v1/auth/me").respond_with_json({"id": "u1", "display_name": "Jane N", "participations": []})
     scores = scores if scores is not None else [score("self", "l2", "2026-08-01T00:00:00Z"),
                                                 score("counter", "l3", "2026-08-02T00:00:00Z", "Only once, in sprint 2.")]
-    server.expect_request("/api/v1/reflections/r1").respond_with_json({
-        "id": "r1", "status": status, "framework_id": "f1", "owner": {"id": owner, "display_name": "Jane N"},
-        "entries": [{"id": "e1", "competency_id": "c1", "competency_name": "Communication",
+    server.expect_request(f"/api/v1/reflections/{R1}").respond_with_json({
+        "id": R1, "status": status, "framework_id": "f1", "owner": {"id": owner, "display_name": "Jane N"},
+        "entries": [{"id": E1, "competency_id": "c1", "competency_name": "Communication",
                      "narrative": "I told Sam about the blocker.", "scores": scores}]})
     server.expect_request("/api/v1/frameworks/f1").respond_with_json(FRAMEWORK)
 
@@ -53,7 +56,7 @@ def call(server, gateway, limiter=None):
     limiter = limiter or Limiter()
     with TestClient(app) as client:
         app.state.deps = Deps(gateway=gateway, store=None, embedder=None, limiter=limiter)
-        return client.post("/ai/v1/reflections/r1/entries/e1/calibration", headers={"Authorization": "Bearer t"}), limiter
+        return client.post(f"/ai/v1/reflections/{R1}/entries/{E1}/calibration", headers={"Authorization": "Bearer t"}), limiter
 
 
 def test_calibration_asks_about_the_difference(httpserver: HTTPServer):

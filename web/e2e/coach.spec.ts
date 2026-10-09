@@ -53,6 +53,19 @@ test.describe('the coach on the owner’s draft', () => {
     );
   });
 
+  test('a repeated question shows twice, with no key clash', async ({ page, api }) => {
+    const warnings: string[] = [];
+    page.on('console', (message) => {
+      if (message.text().includes('same key')) warnings.push(message.text());
+    });
+    api.ai_reply(COACH, { questions: ['Who acted on it?', 'Who acted on it?'] });
+    await page.goto(`/reflections/${DRAFT}`);
+    await page.getByRole('button', { name: 'Ask me questions' }).click();
+    const panel = page.getByRole('region', { name: 'Questions to think about' });
+    await expect(panel.getByRole('listitem')).toHaveCount(2);
+    expect(warnings).toEqual([]);
+  });
+
   test('Hide puts the button back', async ({ page }) => {
     await page.goto(`/reflections/${DRAFT}`);
     await page.getByRole('button', { name: 'Ask me questions' }).click();

@@ -412,7 +412,14 @@ Its own error codes are `AI_DISABLED`, `AI_UNAVAILABLE` and `AI_RATE_LIMITED`, b
 envelope codes it shares with this API.
 `400 VALIDATION_FAILED` names its cause in `details.reason`: `too_short` (the coach, under
 15 words), `no_difference` (calibration, where the two scores agree or there is no
-counter-score), `empty_query` and `too_long` (search).
+counter-score), `empty_query` and `too_long` (search). An id that is not a UUID is a 400 too,
+before anything reaches this API. `503 AI_UNAVAILABLE` gives `timeout`, `upstream`,
+`refusal`, `invalid_reply`, `daily_cap` or `too_long` (a prompt over 100K tokens).
+
+A known cost: search reads one reflection detail from this API per submitted or assessed
+reflection on the caller's gigs, five at a time, because this API has no bulk read of
+narratives and ADR #64 keeps it unchanged for the sidecar. It is fine at a gig's scale and
+would want a bulk endpoint at a faculty's.
 
 A search result opens the reviewer's stepper at the entry it matched:
 `/review-queue/reflections/{reflection_id}?entry={entry_id}`.

@@ -112,8 +112,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Three to five recurring themes across a gig's reflections.
-         * @description For the gig's assessors and supervisors, by the diary's /auth/me, and not for anyone who is also a student on it. Read from the submitted and assessed reflections' narratives, never drafts and never names. Claude is asked once per gig per UTC day; every other request that day is served from the cache. Fewer than five narratives is an empty list, with no Claude call.
+         * Up to five recurring themes across a gig's reflections.
+         * @description For the gig's assessors and supervisors, by the diary's /auth/me, and not for anyone who is also a student on it. Read from the submitted and assessed reflections' narratives, never drafts and never names. Claude is asked once per gig per UTC day; every other request that day is served from the cache, and concurrent requests make one call. Fewer than five narratives is an empty list, with no Claude call. A refused or unusable reply is not asked again for ten minutes: those requests get an empty list.
          */
         get: operations["getThemes"];
         put?: never;
@@ -141,6 +141,8 @@ export interface components {
                 competency_name: string;
                 /** @description The narrative's first line, cut at a word. */
                 excerpt: string;
+                /** @description The entry's gig, named only when it is not this reflection's. */
+                gig_title: string | null;
             }[];
         };
         SearchResults: {
@@ -168,7 +170,7 @@ export interface components {
                 /** @enum {string} */
                 code: "UNAUTHENTICATED" | "ROLE_FORBIDDEN" | "NOT_FOUND" | "VALIDATION_FAILED" | "AI_DISABLED" | "AI_RATE_LIMITED" | "AI_UNAVAILABLE";
                 message: string;
-                /** @description AI_RATE_LIMITED carries retry_after, in seconds. AI_UNAVAILABLE carries reason, one of timeout, upstream, refusal, invalid_reply, daily_cap. */
+                /** @description AI_RATE_LIMITED carries retry_after, in seconds. AI_UNAVAILABLE carries reason, one of timeout, upstream, refusal, invalid_reply, daily_cap, too_long (a prompt over 100K tokens). */
                 details: Record<string, never>;
             };
         };
@@ -297,6 +299,7 @@ export interface operations {
                     "application/json": components["schemas"]["RelatedEntries"];
                 };
             };
+            400: components["responses"]["Error"];
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
@@ -351,6 +354,7 @@ export interface operations {
                     "application/json": components["schemas"]["Themes"];
                 };
             };
+            400: components["responses"]["Error"];
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             429: components["responses"]["Error"];

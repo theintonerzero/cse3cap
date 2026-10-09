@@ -39,3 +39,15 @@ async def test_contending_reservations_never_take_more_than_the_cap(db):
     granted = [r for r in results if not isinstance(r, BaseException)]
     refused = [r for r in results if isinstance(r, AiError) and r.details == {"reason": "daily_cap"}]
     assert (len(granted), len(refused)) == (3, 7)
+
+
+async def test_amounts_are_kept_to_the_ledgers_six_decimals(db):
+    # A seventh decimal used to be truncated by the driver, and the reserved
+    # total drifted (M3).
+    ledger = SpendLedger(db, Decimal("1"))
+    reservation = await ledger.reserve(Decimal("0.0000016"))
+    assert reservation.usd == Decimal("0.000002")
+    await ledger.settle(reservation, "coach", "m", 1, 1, Decimal("0.0000004"))
+    async with db.acquire() as conn, conn.cursor() as cur:
+        await cur.execute("SELECT reserved_usd, spent_usd FROM spend_days")
+        assert await cur.fetchone() == (Decimal("0.000000"), Decimal("0.000000"))
