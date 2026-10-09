@@ -13,14 +13,30 @@
 import type { SlotId } from '../session/tokens.ts';
 
 /**
- * True only on the development server with VITE_DEMO_SHELL=1. Never in a
+ * The live demo's personas file (CAP-54, ADR #62), a path such as
+ * /demo/personas.json. A path, never a secret: the file sits behind the site's
+ * password gate and is written on the box by scripts/demo-reset.sh. Setting it
+ * turns the picker on in a build, with no token compiled in, so F15 stays
+ * closed; scripts/check-bundle-secrets.sh builds with it set to prove that.
+ */
+const PERSONAS_URL = import.meta.env.VITE_DEMO_PERSONAS_URL;
+
+/**
+ * True with a personas URL (the live demo, in any build), or on the
+ * development server with VITE_DEMO_SHELL=1. Otherwise false in every
  * production build: import.meta.env.DEV is statically false there, so the
- * shell is off in every one (CAP-51, criterion 1), whatever the env files say.
- * Vite reads web/.env.local for `vite build` too, so a flag left there would
+ * laptop flag alone can never turn the shell on (CAP-51, criterion 1). Vite
+ * reads web/.env.local for `vite build` too, so a flag left there would
  * otherwise reach a production build: the env alone cannot promise this (F15).
  */
 export function demoMode(): boolean {
+  if (PERSONAS_URL) return true;
   return import.meta.env.DEV ? import.meta.env.VITE_DEMO_SHELL === '1' : false;
+}
+
+/** True when the people come from the box rather than the laptop's env. */
+export function demoLive(): boolean {
+  return Boolean(PERSONAS_URL);
 }
 
 /**
@@ -50,18 +66,42 @@ export function demoPersonas(): DemoPersona[] {
     // fails if it survives.
     const raw = import.meta.env.DEV ? import.meta.env.VITE_DEMO_TOKENS : undefined;
     if (!raw) return [];
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (entry): entry is DemoPersona =>
-        typeof entry === 'object' &&
-        entry !== null &&
-        typeof (entry as DemoPersona).id === 'string' &&
-        typeof (entry as DemoPersona).name === 'string' &&
-        typeof (entry as DemoPersona).slot === 'string' &&
-        typeof (entry as DemoPersona).token === 'string',
-    );
+    return parsePersonas(JSON.parse(raw));
   } catch {
     return [];
   }
+}
+
+/**
+ * The people, from the live file when there is one, else from the dev env.
+ * Any failure is an empty list, so the welcome falls back to the paste gate.
+ * Not through api/client.ts on purpose: this is a static file beside the app,
+ * not the API, and it is fetched without a bearer token.
+ */
+export async function loadDemoPersonas(): Promise<DemoPersona[]> {
+  if (!PERSONAS_URL) return demoPersonas();
+  try {
+    // no-store: a reset revokes every token in the previous copy.
+    const response = await fetch(PERSONAS_URL, {
+      cache: 'no-store',
+      credentials: 'same-origin',
+    });
+    if (!response.ok) return [];
+    return parsePersonas(await response.json());
+  } catch {
+    return [];
+  }
+}
+
+function parsePersonas(parsed: unknown): DemoPersona[] {
+  if (!Array.isArray(parsed)) return [];
+  return parsed.filter(
+    (entry): entry is DemoPersona =>
+      typeof entry === 'object' &&
+      entry !== null &&
+      typeof (entry as DemoPersona).id === 'string' &&
+      typeof (entry as DemoPersona).name === 'string' &&
+      typeof (entry as DemoPersona).slot === 'string' &&
+      typeof (entry as DemoPersona).token === 'string',
+  );
 }

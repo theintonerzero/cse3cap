@@ -36,6 +36,9 @@ const ORIGIN_DEMO = `http://127.0.0.1:${PORT_DEMO}`;
 const PORT_DEMO_PASTE = 5177;
 const ORIGIN_DEMO_PASTE = `http://127.0.0.1:${PORT_DEMO_PASTE}`;
 
+const PORT_DEMO_LIVE = 5178;
+const ORIGIN_DEMO_LIVE = `http://127.0.0.1:${PORT_DEMO_LIVE}`;
+
 // Placeholder tokens the fake backend never checks: the demo welcome only
 // needs a non-null value per persona to call sign_in_with and GET /auth/me.
 const DEMO_TOKENS = JSON.stringify([
@@ -51,7 +54,7 @@ const DEMO_TOKENS = JSON.stringify([
   },
 ]);
 
-const PRODUCT_IGNORE = ['**/shots/**', '**/demo/**'];
+const PRODUCT_IGNORE = ['**/shots/**', '**/demo/**', '**/demo-live/**'];
 
 export default defineConfig({
   testDir: './e2e',
@@ -98,6 +101,13 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], baseURL: ORIGIN_DEMO_PASTE },
       testMatch: ['**/demo/welcome-paste.spec.ts'],
     },
+    // CAP-54: the live demo's picker, people from /demo/personas.json at
+    // runtime, as the deployed build has it.
+    {
+      name: 'demo-live',
+      use: { ...devices['Desktop Chrome'], baseURL: ORIGIN_DEMO_LIVE },
+      testMatch: ['**/demo-live/**/*.spec.ts'],
+    },
   ],
   webServer: [
     {
@@ -134,6 +144,20 @@ export default defineConfig({
         VITE_DEMO_SHELL: '1',
         // Blank, not absent: absent, Vite would take a developer's demo personas.
         VITE_DEMO_TOKENS: '',
+      },
+    },
+    {
+      // The live demo (CAP-54): demo mode from the personas URL alone, with no
+      // VITE_DEMO_SHELL and no VITE_DEMO_TOKENS, as the deployed build has.
+      command: `npx vite --host 127.0.0.1 --port ${PORT_DEMO_LIVE} --strictPort`,
+      url: ORIGIN_DEMO_LIVE,
+      reuseExistingServer: false,
+      env: {
+        VITE_API_BASE_URL: `${ORIGIN_DEMO_LIVE}/api/v1`,
+        VITE_API_TOKEN: '',
+        VITE_DEMO_SHELL: '',
+        VITE_DEMO_TOKENS: '',
+        VITE_DEMO_PERSONAS_URL: '/demo/personas.json',
       },
     },
   ],
