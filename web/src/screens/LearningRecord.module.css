@@ -84,8 +84,11 @@
   color: var(--color-text-muted);
 }
 
-/* A gig with more sprints than fit scrolls here, never the page. */
+/* A gig with more sprints than fit scrolls here, never the page. Positioned
+   so each cell's absolutely positioned screen-reader text is contained, and
+   clipped, by this box: unpositioned, it escapes to the page and widens it. */
 .scroller {
+  position: relative;
   overflow-x: auto;
 }
 

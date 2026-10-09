@@ -218,7 +218,7 @@ test('all gigs: counts across the student gigs only, with no button', async ({ p
 });
 
 test.describe('a student who has written nothing', () => {
-  test.use({ reflections: [] });
+  test.use({ reflections: [[], { scope: 'test' }] });
 
   test('the nudge sits above the empty diary', async ({ page }) => {
     await page.goto(`/?gig_id=${GIG_A}`);

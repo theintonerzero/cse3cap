@@ -186,18 +186,20 @@ const REVIEWER: Me = {
 
 const test = base.extend<{
   me: Me;
+  gigs: GigDetail[];
   reflections: ReflectionSummary[];
   api: FakeApi;
   progress_calls: string[];
 }>({
   me: [STUDENT, { option: true }],
+  gigs: [GIGS, { option: true }],
   reflections: [REFLECTIONS, { option: true }],
   api: [
-    async ({ page, me, reflections }, provide) => {
+    async ({ page, me, gigs, reflections }, provide) => {
       const api = new FakeApi(
         [LATROBE_RUBRIC, SFIA_RUBRIC],
         me,
-        me === REVIEWER ? GIGS.filter((g) => g.id === GIG_REVIEWED) : GIGS,
+        me === REVIEWER ? gigs.filter((g) => g.id === GIG_REVIEWED) : gigs,
         reflections,
       );
       await api.install(page);
@@ -365,7 +367,7 @@ test('a failed read shows the error, and Try again recovers', async ({ page }) =
 });
 
 test.describe('a student who has written nothing', () => {
-  test.use({ reflections: [] });
+  test.use({ reflections: [[], { scope: 'test' }] });
 
   test('says the record starts with the first reflection', async ({ page }) => {
     await page.goto('/record');
@@ -392,13 +394,42 @@ test.describe('someone who is not a student anywhere', () => {
   });
 });
 
-test('on a phone the table scrolls inside its card, not the page', async ({ page }) => {
-  await page.setViewportSize({ width: 360, height: 800 });
-  await page.goto('/record');
-  await expect(page.getByRole('table')).toHaveCount(2);
+test.describe('a gig with more sprints than fit on a phone', () => {
+  // Fourteen sprints on Data migration audit: far wider than a 360px card,
+  // so columns start past the viewport's edge, where anything absolutely
+  // positioned in a cell (the screen-reader text) escapes an unpositioned
+  // scroller and widens the page. Sprint 1 keeps its id, so the fixture's
+  // reflection still belongs to it.
+  // [value, options]: a bare array would be read as that tuple (as in
+  // diary-home-layout.spec.ts).
+  test.use({
+    gigs: [
+      GIGS.map((g) =>
+        g.id === GIG_B
+          ? gig(GIG_B, 'Data migration audit', 'student', SFIA_RUBRIC, 14, '2026-08-17')
+          : g,
+      ),
+      { scope: 'test' },
+    ],
+  });
 
-  const overflow = await page.evaluate(
-    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-  );
-  expect(overflow).toBeLessThanOrEqual(0);
+  test('the table scrolls inside its card, not the page', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 800 });
+    await page.goto('/record');
+    const table = page.getByRole('table', { name: 'Data migration audit' });
+    await expect(table.getByRole('columnheader')).toHaveCount(15);
+
+    const scroller = await table.evaluate((node) => {
+      const box = node.parentElement!;
+      return { scroll: box.scrollWidth, client: box.clientWidth };
+    });
+    expect(scroller.scroll, 'the table is wider than its card').toBeGreaterThan(
+      scroller.client,
+    );
+
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow, 'the page itself does not scroll sideways').toBeLessThanOrEqual(0);
+  });
 });
