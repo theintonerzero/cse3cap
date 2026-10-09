@@ -6,6 +6,7 @@ COPY web/package.json web/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY web/ ./
 ENV VITE_API_BASE_URL=/api/v1 \
+    VITE_AI_BASE_URL=/ai/v1 \
     VITE_DEMO_PERSONAS_URL=/demo/personas.json \
     VITE_API_TOKEN= \
     VITE_DEMO_SHELL= \

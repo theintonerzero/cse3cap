@@ -377,6 +377,15 @@ for f in ("ai.Dockerfile", "ai.env.example"):
     check(f"deploy/demo/{f} holds no secret",
           re.search(r"sk-ant-[A-Za-z0-9_-]{10,}", read(DEMO / f)) is None)
 
+site_caddy = read(DEMO / "site.caddy")
+ai_at, web_at = site_caddy.find("reverse_proxy /ai/* diary-ai:8000"), site_caddy.find("reverse_proxy diary-web:80")
+check("the site sends /ai/* to the sidecar, inside the gated route and before the app",
+      0 < site_caddy.find("import /srv/server/diary-gate.caddy") < ai_at < web_at, site_caddy)
+web_df = read(DEMO / "web.Dockerfile")
+check("the demo bundle is built pointing at /ai/v1",
+      re.search(r"VITE_AI_BASE_URL=/ai/v1", web_df) is not None
+      and re.search(r"^VITE_AI_BASE_URL=/ai/v1$", read(ROOT / "web" / ".env.production"), re.M) is not None, web_df)
+
 print("deploy/demo/site.caddy with a generated gate")
 # ---------------------------------------------------------------------------
 GATE_SCRIPT = ROOT / "scripts" / "demo-gate.sh"
@@ -416,6 +425,8 @@ else:
         # The site block names diary.darkovski.dev; for a local run serve it on :8080 instead.
         site = (DEMO / "site.caddy").read_text().replace("diary.darkovski.dev {", "http://:8080 {", 1)
         site = site.replace("reverse_proxy diary-web:80", 'respond "app" 200')
+        # The sidecar stands in as its own reply, so a test can tell the two apart.
+        site = site.replace("reverse_proxy /ai/* diary-ai:8000", 'respond /ai/* "ai" 200')
         (srv / "diary-site.caddy").write_text(site)
 
         # docker cp rather than a bind mount: Docker Desktop and colima do not
@@ -468,6 +479,14 @@ else:
             check("the right password sets the cookie and goes home",
                   status == 303 and headers.get("Location") == "/"
                   and headers.get("Set-Cookie", "").startswith("diary_gate=" + "f" * 64), (status, headers))
+            # CAP-69: /ai/* is behind the same gate, and with it reaches the sidecar.
+            status, headers, body = get("/ai/v1/status")
+            check("/ai/* without the cookie is the gate's 401 JSON, never the sidecar",
+                  status == 401 and headers.get("Content-Type") == "application/json" and "ai" != body,
+                  (status, headers, body))
+            status, headers, body = get("/ai/v1/status", cookie="diary_gate=" + "f" * 64)
+            check("with the cookie, /ai/* reaches the sidecar, not the app",
+                  status == 200 and body == "ai", (status, body))
             # CAP-55: /phone frames the app, so the site may frame itself, and
             # nothing else may frame it.
             status, headers, _ = get("/", cookie="diary_gate=" + "f" * 64)
