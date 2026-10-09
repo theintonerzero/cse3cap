@@ -68,11 +68,24 @@
   white-space: nowrap;
 }
 
-/* A phone has about 21rem for three columns, and the centred title takes
-   about ten of them, so the sides tighten and the name drops a size. */
+/* A phone has about 21rem for three columns. Centring the title gave each
+   side the same width, which left the identity side about 2rem for a name
+   beside the ⋮ button: "Jane…", "stu…" (CAP-57). So on a phone the bar is
+   Android's: the title sits by the back arrow, the identity takes the room
+   its name needs, up to half the bar, so a very long name shortens itself
+   and the title stays on screen. */
 @media (max-width: 40rem) {
   .bar {
     column-gap: var(--space-8);
+    grid-template-columns: auto minmax(0, 1fr) fit-content(50%);
+  }
+
+  .title {
+    justify-self: start;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 
