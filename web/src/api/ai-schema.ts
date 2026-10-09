@@ -44,6 +44,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/reflections/{reflection_id}/entries/{entry_id}/calibration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Questions about why the student and their reviewer scored this differently.
+         * @description One to three open questions about the gap between the student's self-score and the latest counter-score on this competency. Only the student who owns the reflection, only once it is assessed, so it cannot influence a self-score. Answers 400 VALIDATION_FAILED with details.reason no_difference when the two scores name the same level or there is no counter-score. Never says who is right and never names a level: questions that mention a level, a score or a number on the scale are dropped.
+         */
+        post: operations["askCalibration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/reflections/{reflection_id}/entries/{entry_id}/related": {
         parameters: {
             query?: never;
@@ -56,6 +76,46 @@ export interface paths {
          * @description Up to three of the student's own entries from their other reflections, best first, ranked by meaning within the reflections the diary returned for their token. No Claude call. Only the student who owns the reflection. An empty narrative, or nothing earlier, is an empty list.
          */
         get: operations["getRelated"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Submitted and assessed reflections on the caller's reviewed gigs, by meaning.
+         * @description For assessors and supervisors. Ranks the entries of submitted and assessed reflections on gigs where the diary lists the caller as an assessor or supervisor and not also as a student. Never drafts and never the caller's own. Up to ten results, best first, with no similarity score. No Claude call. A blank query is 400 VALIDATION_FAILED with details.reason empty_query; over 200 characters, too_long. A caller who reviews no gig is 403.
+         */
+        get: operations["searchReflections"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gigs/{gig_id}/themes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Three to five recurring themes across a gig's reflections.
+         * @description For the gig's assessors and supervisors, by the diary's /auth/me, and not for anyone who is also a student on it. Read from the submitted and assessed reflections' narratives, never drafts and never names. Claude is asked once per gig per UTC day; every other request that day is served from the cache. Fewer than five narratives is an empty list, with no Claude call.
+         */
+        get: operations["getThemes"];
         put?: never;
         post?: never;
         delete?: never;
@@ -83,6 +143,23 @@ export interface components {
                 excerpt: string;
             }[];
         };
+        SearchResults: {
+            results: {
+                /** Format: uuid */
+                reflection_id: string;
+                /** Format: uuid */
+                entry_id: string;
+                student_name: string;
+                gig_title: string;
+                sprint_ordinal: number | null;
+                competency_name: string;
+                /** @description The narrative's first line, cut at a word. */
+                excerpt: string;
+            }[];
+        };
+        Themes: {
+            themes: string[];
+        };
         Status: {
             features: ("coach" | "related" | "calibration" | "search" | "themes")[];
         };
@@ -108,6 +185,7 @@ export interface components {
         };
     };
     parameters: {
+        GigId: string;
         ReflectionId: string;
         EntryId: string;
     };
@@ -169,6 +247,35 @@ export interface operations {
             503: components["responses"]["Error"];
         };
     };
+    askCalibration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reflection_id: components["parameters"]["ReflectionId"];
+                entry_id: components["parameters"]["EntryId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The questions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachQuestions"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            429: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
     getRelated: {
         parameters: {
             query?: never;
@@ -193,6 +300,59 @@ export interface operations {
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
+            429: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    searchReflections: {
+        parameters: {
+            query: {
+                q: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The matching entries. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchResults"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            429: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    getThemes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gig_id: components["parameters"]["GigId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The themes, possibly none. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Themes"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
             429: components["responses"]["Error"];
             503: components["responses"]["Error"];
         };

@@ -129,6 +129,54 @@ export function earlier_reflection(): ReflectionDetail {
   return r;
 }
 
+export const ASSESSED = id('0008');
+export const LEE = { id: id('0009'), display_name: 'Dr Lee' };
+export const LEE_COMMENT = 'You raised it once, in sprint 2, not yet as a habit.';
+
+/**
+ * Jane's assessed sprint 2: on Communication she chose level 2 and Dr Lee
+ * level 3, with a comment; on Contribution they agree at level 3.
+ */
+export function assessed_for_tests(): ReflectionDetail {
+  const r = reflection_for_tests(ASSESSED, 'assessed');
+  const score = (
+    entry_id: string,
+    n: number,
+    cls: 'self' | 'counter',
+    value: number,
+    comment: string | null,
+  ) => ({
+    id: id(`03${n}${cls === 'self' ? 's' : 'c'}`),
+    reflection_entry_id: entry_id,
+    scorer_role: cls === 'self' ? ('student' as const) : ('supervisor' as const),
+    scorer_class: cls,
+    level_id: id(`0${n}l${value}`),
+    level_value: value,
+    comment,
+    scored_at:
+      cls === 'self' ? '2026-08-27T10:00:00.000000Z' : '2026-09-02T10:00:00.000000Z',
+    scorer: cls === 'self' ? { id: JANE.id, display_name: JANE.display_name } : LEE,
+  });
+  r.entries = r.entries.map((e, n) => {
+    const entry_id = id(`02e${n}`);
+    return {
+      ...e,
+      id: entry_id,
+      scores:
+        n === 0
+          ? [
+              score(entry_id, n, 'self', 2, null),
+              score(entry_id, n, 'counter', 3, LEE_COMMENT),
+            ]
+          : [
+              score(entry_id, n, 'self', 3, null),
+              score(entry_id, n, 'counter', 3, 'Agreed.'),
+            ],
+    };
+  });
+  return r;
+}
+
 export const test = base.extend<{ api: FakeApi }>({
   api: [
     async ({ page }, provide) => {
@@ -140,6 +188,7 @@ export const test = base.extend<{ api: FakeApi }>({
           reflection_for_tests(DRAFT, 'draft'),
           reflection_for_tests(SUBMITTED, 'submitted'),
           earlier_reflection(),
+          assessed_for_tests(),
         ],
       );
       await api.install(page);

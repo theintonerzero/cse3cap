@@ -56,6 +56,8 @@ import {
 // once, with its level, in the POST. Same look, no new styles.
 import button_styles from '../components/Button/Button.module.css';
 import text_area_styles from '../components/TextArea/TextArea.module.css';
+import { calibration_reviewer } from '../ai/calibration.ts';
+import { CalibrationPanel } from '../ai/CalibrationPanel.tsx';
 import { CoachPanel } from '../ai/CoachPanel.tsx';
 import { RelatedDisclosure } from '../ai/RelatedDisclosure.tsx';
 import { useAiStatus } from '../ai/useAiStatus.ts';
@@ -584,6 +586,14 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
         related_reflection_id={
           !read_only && ai_features?.has('related') ? reflection.id : null
         }
+        calibration_reflection_id={
+          mode !== 'assessor' &&
+          is_owner &&
+          reflection.status === 'assessed' &&
+          ai_features?.has('calibration')
+            ? reflection.id
+            : null
+        }
       >
         {mode === 'assessor' && me && (
           <CounterScorePanel
@@ -715,6 +725,7 @@ function EntryCard({
   viewer_id = null,
   coach_reflection_id = null,
   related_reflection_id = null,
+  calibration_reflection_id = null,
   children,
 }: {
   entry: ReflectionEntry;
@@ -730,6 +741,8 @@ function EntryCard({
   coach_reflection_id?: string | null;
   /** ADR #64: the reflection to find earlier, similar entries for, when shown. */
   related_reflection_id?: string | null;
+  /** ADR #64: the assessed reflection to ask calibration questions about, when shown. */
+  calibration_reflection_id?: string | null;
   /** The assessor's own score, last in the card so it reads after the evidence. */
   children?: ReactNode;
 }) {
@@ -740,6 +753,7 @@ function EntryCard({
   // it to match the screen, and similar reflections are looked up again when
   // it changes, not on every keystroke.
   const [saved_narrative, setSavedNarrative] = useState(entry.narrative ?? '');
+  const calibration_with = calibration_reflection_id ? calibration_reviewer(entry) : null;
   const levels = levels_for(framework, entry.competency_id);
   const self_score = self_score_of(entry);
 
@@ -906,6 +920,13 @@ function EntryCard({
         />
       )}
       {counter_scores}
+      {calibration_reflection_id && calibration_with && (
+        <CalibrationPanel
+          reflection_id={calibration_reflection_id}
+          entry_id={entry.id}
+          reviewer_name={calibration_with}
+        />
+      )}
 
       <EvidenceList
         entry={entry}

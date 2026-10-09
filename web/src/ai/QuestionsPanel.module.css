@@ -1,5 +1,6 @@
-/* ADR #64. The coach sits in a neutral inset under the narrative: never
-   purple, so its words never read as the student's own choice. */
+/* ADR #64. Questions sit in a neutral inset under the words they are
+   about: never purple, so they never read as the student's own choice.
+   Shared by the reflection coach and the calibration coach. */
 .ask {
   display: flex;
   flex-wrap: wrap;
