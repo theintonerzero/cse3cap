@@ -48,7 +48,7 @@ def test_a_miss_asks_claude_once_and_caches_the_day(httpserver: HTTPServer):
     gateway, cache = Gateway({"themes": ["Blockers raised late", "Unclear task ownership", "Import step"]}), Cache()
     response, limiter = themes(httpserver, gateway, cache)
     assert response.json() == {"themes": ["Blockers raised late", "Unclear task ownership", "Import step"]}
-    assert len(gateway.calls) == 1 and gateway.calls[0][0] == "themes" and limiter.calls == ["claude"]
+    assert len(gateway.calls) == 1 and gateway.calls[0][0] == "themes" and limiter.calls == ["search", "claude"]
     assert cache.put_calls == [("g1", ["Blockers raised late", "Unclear task ownership", "Import step"])]
     data = gateway.calls[0][2]
     assert "DRAFT TEXT" not in data and "Student" not in data and "s1" not in data
@@ -64,8 +64,10 @@ def test_a_cached_day_makes_no_claude_call(httpserver: HTTPServer):
 def test_too_few_narratives_is_no_themes_and_no_call(httpserver: HTTPServer):
     laravel(httpserver, n=3)
     gateway, cache = Gateway({"themes": ["x", "y", "z"]}), Cache()
-    response, _ = themes(httpserver, gateway, cache)
+    response, limiter = themes(httpserver, gateway, cache)
     assert response.json() == {"themes": []} and gateway.calls == [] and cache.put_calls == []
+    # A thin gig is never cached, so it must not spend the Claude limit the coaches share.
+    assert limiter.calls == ["search"]
 
 
 def test_themes_refuse_a_gig_the_caller_studies_on(httpserver: HTTPServer):

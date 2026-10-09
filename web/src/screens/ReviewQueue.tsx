@@ -13,6 +13,7 @@ import { Link } from 'react-router';
 import { api, ApiError } from '../api/client.ts';
 import type { paths } from '../api/schema.ts';
 import { CohortSearch } from '../ai/CohortSearch.tsx';
+import { reviewed_gigs } from '../ai/reviewed-gigs.ts';
 import { useAiStatus } from '../ai/useAiStatus.ts';
 import { useSession } from '../session/useSession.ts';
 import { kept_done_count } from './counter-drafts.ts';
@@ -88,8 +89,12 @@ export function ReviewQueue() {
 
       <h1 className={styles.heading}>Review queue</h1>
 
-      {/* ADR #64: above the queue, only when the sidecar serves search. */}
-      {ai_features?.has('search') && <CohortSearch themes={ai_features.has('themes')} />}
+      {/* ADR #64: above the queue, when the sidecar serves search and this
+          person assesses or supervises a gig. An employer reaches the queue
+          too, and the sidecar would refuse them. */}
+      {ai_features?.has('search') && reviewed_gigs(me).length > 0 && (
+        <CohortSearch themes={ai_features.has('themes')} />
+      )}
 
       {state.status === 'loading' && <LoadingState />}
       {state.status === 'error' && <ErrorNotice error={state.error} on_retry={retry} />}

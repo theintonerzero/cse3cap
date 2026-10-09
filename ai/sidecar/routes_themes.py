@@ -19,7 +19,9 @@ def register(router: APIRouter) -> None:
         if held is not None:
             return {"themes": held}
 
-        await deps.limiter.check(who.token_hash, "claude")
+        # The Laravel reads count against search; the Claude limit, which the
+        # coaches share, only once a call is actually going to be made.
+        await deps.limiter.check(who.token_hash, "search")
         rows = [r["id"] for r in await who.reader.reflections(gig_id=gig_id)
                 if r.get("status") in READABLE and r.get("gig_id") == gig_id]
         found = [d for d in await details(who.reader, rows)
@@ -30,6 +32,7 @@ def register(router: APIRouter) -> None:
         if len(narratives) < MIN_NARRATIVES:
             return {"themes": []}
 
+        await deps.limiter.check(who.token_hash, "claude")
         system, data = themes_prompt(narratives)
         reply = await deps.gateway.ask("themes", system, data, THEMES_SCHEMA, max_tokens=1024)
         kept = keep_themes(reply.get("themes", []))

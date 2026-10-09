@@ -273,3 +273,61 @@ for (const [name, setup] of OFF) {
     expect(api.ai_calls.map((c) => c.route)).toEqual(['GET /status']);
   });
 }
+
+test('a theme chip is a plain button that searches, not a toggle', async ({ page }) => {
+  await page.goto('/review-queue');
+  const chip = page
+    .getByRole('group', { name: 'Recurring themes, Develop AI use cases' })
+    .getByRole('button', { name: 'Import step' });
+  await expect(chip).toBeVisible();
+  await expect(chip).not.toHaveAttribute('aria-pressed');
+});
+
+test('results are announced as they arrive, and so is nothing found', async ({
+  page,
+  api,
+}) => {
+  await page.goto('/review-queue');
+  await field(page).fill('blockers');
+  await field(page).press('Enter');
+  await expect(
+    page.getByRole('status').filter({ hasText: '1 entry for “blockers”' }),
+  ).toBeVisible();
+  api.ai_reply(SEARCH, { results: [] });
+  await field(page).fill('quantum');
+  await field(page).press('Enter');
+  await expect(
+    page
+      .getByRole('status')
+      .filter({ hasText: 'Nothing matches that yet. Try other words.' }),
+  ).toBeVisible();
+});
+
+// An employer reaches the queue too (RoleResolver::REVIEWER_ROLES), but search
+// is for assessors and supervisors (ADR #64), so the sidecar would refuse them.
+const as_employer = base.extend<{ api: FakeApi }>({
+  api: [
+    async ({ page }, provide) => {
+      const employer = {
+        id: 'erin-the-employer',
+        display_name: 'Erin E',
+        participations: [
+          { gig_id: GIG, gig_title: 'Develop AI use cases', role: 'employer' as const },
+        ],
+      };
+      const api = new FakeApi([RUBRIC_FOR_TESTS], employer, [GIG_FOR_TESTS], []);
+      api.ai_status(['search', 'themes']);
+      await api.install(page);
+      await provide(api);
+      expect(api.unexpected, 'requests the fake does not serve').toEqual([]);
+    },
+    { auto: true },
+  ],
+});
+
+as_employer('an employer gets no search field it could never use', async ({ page }) => {
+  await page.goto('/review-queue');
+  await expect(page.getByText('Nothing is waiting on you right now.')).toBeVisible();
+  await page.waitForLoadState('networkidle');
+  await expect(page.getByRole('searchbox')).toHaveCount(0);
+});

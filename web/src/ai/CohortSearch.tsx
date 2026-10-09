@@ -116,14 +116,13 @@ export function CohortSearch({ themes }: CohortSearchProps) {
       {search.kind !== 'idle' && (
         <div className={styles.results}>
           <div className={styles.results_head}>
-            {search.kind === 'loaded' && search.results.length > 0 && (
-              <p className={styles.count}>
-                {search.results.length === 1
-                  ? '1 entry'
-                  : `${search.results.length} entries`}{' '}
-                for “{search.q}”
-              </p>
-            )}
+            {/* Announced as results arrive: a screen reader otherwise hears
+                nothing after Search. */}
+            <p className={styles.count} role="status">
+              {search.kind === 'loaded' && search.results.length > 0
+                ? `${search.results.length === 1 ? '1 entry' : `${search.results.length} entries`} for “${search.q}”`
+                : ''}
+            </p>
             <Button variant="secondary" size="sm" full_width={false} on_click={clear}>
               Clear
             </Button>
@@ -140,7 +139,9 @@ export function CohortSearch({ themes }: CohortSearchProps) {
             </SkeletonGroup>
           )}
           {search.kind === 'loaded' && search.results.length === 0 && (
-            <p className={styles.note}>Nothing matches that yet. Try other words.</p>
+            <p className={styles.note} role="status">
+              Nothing matches that yet. Try other words.
+            </p>
           )}
           {search.kind === 'loaded' && search.results.length > 0 && (
             <ul className={styles.list}>
