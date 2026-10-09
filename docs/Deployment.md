@@ -35,8 +35,11 @@ network. Bringing it up or down never restarts MySQL or Caddy.
 | `diary-web` | `diary-web:<sha>`, Caddy | The built bundle, `/demo/personas.json`, and `/api` and `/up` passed to `diary-api` |
 
 The database is `reflection_diary_demo`, user `diary_demo_app`, granted on nothing else. It
-is reached as `rddb.darkovski.dev` through the Docker host gateway, because the certificate
-is issued for that name. Visitors never touch the team's `reflection_diary`.
+is reached as `rddb.darkovski.dev`, because the certificate is issued for that name, and
+inside `diary-api` that name is a link to the `mysql` container on `server_web`. Not the
+Docker host gateway: the box's `iptables` INPUT chain accepts only 22, 80 and 443 and rejects
+the rest, so from `server_web` the published 3306 is "No route to host". Visitors never touch
+the team's `reflection_diary`.
 
 ### The gate
 

@@ -45,8 +45,12 @@ check("it joins server_web as an external network",
 services = re.findall(r"^\s{2}diary-[a-z]+:", compose, re.M)
 check("every service has a memory limit", len(services) > 0 and compose.count("mem_limit:") == len(services))
 check("images are tagged by DIARY_SHA", "diary-api:${DIARY_SHA" in compose and "diary-web:${DIARY_SHA" in compose)
-check("MySQL is reached by its certificate name through the host gateway",
-      "rddb.darkovski.dev:host-gateway" in compose)
+# The box's INPUT chain rejects server_web -> host:3306 (only 22, 80, 443 are
+# open), so the host gateway is "No route to host". The mysql container is on
+# server_web itself; a link alias gives it the certificate's name in diary-api.
+check("MySQL is reached by its certificate name, as the mysql container on server_web",
+      "mysql:rddb.darkovski.dev" in compose and "external_links" in compose)
+check("not through the host gateway, which the box's firewall rejects", "host-gateway" not in compose)
 check("evidence uploads live in a named volume", "diary_storage:/app/api/storage" in compose)
 
 print("deploy/demo, no secrets")
