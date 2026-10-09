@@ -404,6 +404,15 @@ is `404 AI_DISABLED`.
 | `GET /ai/v1/status` | The features this deployment serves |
 | `POST /ai/v1/reflections/{reflection_id}/entries/{entry_id}/coach` | One to three questions about the owner's draft narrative |
 | `GET /ai/v1/reflections/{reflection_id}/entries/{entry_id}/related` | Up to three of the owner's earlier entries that read alike |
+| `POST /ai/v1/reflections/{reflection_id}/entries/{entry_id}/calibration` | One to three questions about why the owner and their reviewer chose different levels, once assessed |
+| `GET /ai/v1/search?q=` | Up to ten submitted or assessed entries on the caller's reviewed gigs, by meaning |
+| `GET /ai/v1/gigs/{gig_id}/themes` | Three to five recurring themes across a gig's reflections, for its assessors and supervisors |
 
 Its own error codes are `AI_DISABLED`, `AI_UNAVAILABLE` and `AI_RATE_LIMITED`, beside the
 envelope codes it shares with this API.
+`400 VALIDATION_FAILED` names its cause in `details.reason`: `too_short` (the coach, under
+15 words), `no_difference` (calibration, where the two scores agree or there is no
+counter-score), `empty_query` and `too_long` (search).
+
+A search result opens the reviewer's stepper at the entry it matched:
+`/review-queue/reflections/{reflection_id}?entry={entry_id}`.
