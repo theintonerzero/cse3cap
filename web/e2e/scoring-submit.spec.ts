@@ -153,7 +153,7 @@ async function install(page: Page) {
 }
 
 const OPEN = `/review-queue/reflections/${REFLECTION_ID}`;
-const your_score = (page: Page) => page.getByRole('group', { name: 'Your score' });
+const your_score = (page: Page) => page.getByRole('radiogroup', { name: 'Your score' });
 
 test('no per-competency Save: a pick stays changeable and counts as scored', async ({
   page,
@@ -163,12 +163,16 @@ test('no per-competency Save: a pick stays changeable and counts as scored', asy
   await expect(page.getByText('you have scored 0 of 2')).toBeVisible();
   await expect(page.getByRole('button', { name: /^Save score/ })).toHaveCount(0);
 
-  await your_score(page).getByRole('button', { name: /^3 · / }).click();
+  await your_score(page)
+    .getByRole('radio', { name: /^3 of / })
+    .click();
   await expect(page.getByText('you have scored 1 of 2')).toBeVisible();
   // Still open: a different pick replaces it.
-  await your_score(page).getByRole('button', { name: /^4 · / }).click();
-  await expect(your_score(page).getByRole('button', { name: /^4 · / })).toHaveAttribute(
-    'aria-pressed',
+  await your_score(page)
+    .getByRole('radio', { name: /^4 of / })
+    .click();
+  await expect(your_score(page).getByRole('radio', { name: /^4 of / })).toHaveAttribute(
+    'aria-checked',
     'true',
   );
   await expect(page.getByText('you have scored 1 of 2')).toBeVisible();
@@ -180,14 +184,16 @@ test('unfinished work comes back after leaving: a score alone, a comment alone',
 }) => {
   await install(page);
   await page.goto(OPEN);
-  await your_score(page).getByRole('button', { name: /^3 · / }).click();
+  await your_score(page)
+    .getByRole('radio', { name: /^3 of / })
+    .click();
   await page.getByRole('button', { name: 'Next', exact: true }).click();
   await page.getByLabel(/^Why this score/).fill('Half a thought');
 
   await page.goto('/review-queue');
   await page.goto(OPEN);
-  await expect(your_score(page).getByRole('button', { name: /^3 · / })).toHaveAttribute(
-    'aria-pressed',
+  await expect(your_score(page).getByRole('radio', { name: /^3 of / })).toHaveAttribute(
+    'aria-checked',
     'true',
   );
   await page.getByRole('button', { name: 'Next', exact: true }).click();
@@ -207,8 +213,8 @@ test("someone else's unfinished work on this device never shows", async ({ page 
   );
   await page.goto(OPEN);
   await expect(page.getByText('you have scored 0 of 2')).toBeVisible();
-  await expect(your_score(page).getByRole('button', { name: /^4 · / })).toHaveAttribute(
-    'aria-pressed',
+  await expect(your_score(page).getByRole('radio', { name: /^4 of / })).toHaveAttribute(
+    'aria-checked',
     'false',
   );
 });
@@ -248,9 +254,13 @@ test('Submit when complete: every score goes, and the device copy is cleared', a
 }) => {
   const sent = await install(page);
   await page.goto(OPEN);
-  await your_score(page).getByRole('button', { name: /^3 · / }).click();
+  await your_score(page)
+    .getByRole('radio', { name: /^3 of / })
+    .click();
   await page.getByRole('button', { name: 'Next', exact: true }).click();
-  await your_score(page).getByRole('button', { name: /^2 · / }).click();
+  await your_score(page)
+    .getByRole('radio', { name: /^2 of / })
+    .click();
   await page.getByRole('button', { name: 'Submit scores' }).click();
 
   await expect(page.getByText('That was the last one.')).toBeVisible();
@@ -268,7 +278,9 @@ test('the device copy marks a finished pick done, for the queue to count', async
 }) => {
   await install(page);
   await page.goto(OPEN);
-  await your_score(page).getByRole('button', { name: /^3 · / }).click();
+  await your_score(page)
+    .getByRole('radio', { name: /^3 of / })
+    .click();
   await page.getByRole('button', { name: 'Next', exact: true }).click();
   await page.getByLabel(/^Why this score/).fill('Half a thought');
   await expect

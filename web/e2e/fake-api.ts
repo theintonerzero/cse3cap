@@ -454,6 +454,34 @@ export class FakeApi {
       return route.fulfill({ status: 204 });
     }
 
+    // A self-score. Shape only: who may score, and when, is the API's rule.
+    if (key === 'PUT /entries/:id/scores/self') {
+      const { level_id } = body as { level_id: string };
+      for (const reflection of this.reflections) {
+        if (!('entries' in reflection)) continue;
+        const entry = reflection.entries.find((e) => e.id === id);
+        if (!entry) continue;
+        const level = this.frameworks
+          .flatMap((f) => f.competencies)
+          .flatMap((c) => c.levels)
+          .find((l) => l.id === level_id);
+        const score = {
+          id: this.mint(),
+          reflection_entry_id: entry.id,
+          scorer_role: 'student' as const,
+          scorer_class: 'self' as const,
+          level_id,
+          level_value: level?.level_value ?? 0,
+          comment: null,
+          scored_at: '2026-10-05T00:00:00.000000Z',
+          scorer: { id: this.me.id, display_name: this.me.display_name },
+        };
+        entry.scores = [...entry.scores.filter((s) => s.scorer_class !== 'self'), score];
+        return reply(route, 200, score);
+      }
+      return reply(route, 404, envelope('NOT_FOUND', 'Not found.'));
+    }
+
     // Saving a narrative. Shape only: the stepper's draft-only rule is the API's.
     if (key === 'PATCH /entries/:id') {
       for (const reflection of this.reflections) {
