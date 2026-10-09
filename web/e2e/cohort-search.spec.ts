@@ -331,3 +331,37 @@ as_employer('an employer gets no search field it could never use', async ({ page
   await page.waitForLoadState('networkidle');
   await expect(page.getByRole('searchbox')).toHaveCount(0);
 });
+
+test.describe('at phone width', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test('themes start folded under one toggle, so the queue stays near the top', async ({
+    page,
+  }) => {
+    await page.goto('/review-queue');
+    const toggle = page.getByRole('button', { name: 'Recurring themes' });
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.getByRole('group', { name: /Recurring themes,/ })).toHaveCount(0);
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await expect(
+      page.getByRole('group', { name: 'Recurring themes, Develop AI use cases' }),
+    ).toBeVisible();
+  });
+});
+
+test('wider than a phone, themes start open under the same toggle', async ({ page }) => {
+  await page.goto('/review-queue');
+  await expect(page.getByRole('button', { name: 'Recurring themes' })).toHaveAttribute(
+    'aria-expanded',
+    'true',
+  );
+});
+
+test('no gig has themes: no toggle either', async ({ page, api }) => {
+  api.ai_reply(THEMES, { themes: [] });
+  await page.goto('/review-queue');
+  await expect(field(page)).toBeVisible();
+  await page.waitForLoadState('networkidle');
+  await expect(page.getByRole('button', { name: 'Recurring themes' })).toHaveCount(0);
+});

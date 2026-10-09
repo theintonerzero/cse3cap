@@ -106,11 +106,7 @@ export function CohortSearch({ themes }: CohortSearchProps) {
       </form>
 
       {search.kind === 'idle' && themes && gigs.length > 0 && (
-        <div className={styles.themes}>
-          {gigs.map((gig) => (
-            <ThemeRow key={gig.gig_id} gig={gig} on_choose={choose} />
-          ))}
-        </div>
+        <ThemesBlock gigs={gigs} on_choose={choose} />
       )}
 
       {search.kind !== 'idle' && (
@@ -186,57 +182,102 @@ function ResultRow({ result }: { result: Result }) {
 
 type Themes = { kind: 'loading' } | { kind: 'loaded'; themes: string[] } | { kind: 'gone' };
 
+/** Phones start with the themes folded, so the queue stays near the top. */
+const PHONE = '(max-width: 40rem)';
+
 /**
- * One gig's recurring themes. Optional, like similar reflections: none found
- * and none reachable both leave no row.
+ * Recurring themes for each reviewed gig, under one toggle. Optional, like
+ * similar reflections: a gig with no themes, or none reachable, has no row,
+ * and with no themes anywhere there is no toggle either.
  */
-function ThemeRow({
-  gig,
+function ThemesBlock({
+  gigs,
   on_choose,
 }: {
-  gig: ReviewedGig;
+  gigs: ReviewedGig[];
   on_choose: (theme: string) => void;
 }) {
-  const [state, setState] = useState<Themes>({ kind: 'loading' });
-  const label = `Recurring themes, ${gig.gig_title}`;
+  const [found, setFound] = useState<Record<string, Themes>>({});
+  const [open, setOpen] = useState(() => !window.matchMedia(PHONE).matches);
+  const list_id = useId();
+  const gig_ids = gigs.map((gig) => gig.gig_id).join(',');
 
   useEffect(() => {
     const controller = new AbortController();
-    ai.get('/gigs/{gig_id}/themes', {
-      path: { gig_id: gig.gig_id },
-      signal: controller.signal,
-    })
-      .then((reply) => setState({ kind: 'loaded', themes: reply.themes }))
-      .catch(() => {
-        if (!controller.signal.aborted) setState({ kind: 'gone' });
-      });
+    for (const gig_id of gig_ids.split(',')) {
+      ai.get('/gigs/{gig_id}/themes', { path: { gig_id }, signal: controller.signal })
+        .then((reply) =>
+          setFound((was) => ({
+            ...was,
+            [gig_id]: { kind: 'loaded', themes: reply.themes },
+          })),
+        )
+        .catch(() => {
+          if (!controller.signal.aborted)
+            setFound((was) => ({ ...was, [gig_id]: { kind: 'gone' } }));
+        });
+    }
     return () => controller.abort();
-  }, [gig.gig_id]);
+  }, [gig_ids]);
 
-  if (state.kind === 'loading') {
-    return (
-      <SkeletonGroup label="Finding themes">
-        <div className={styles.chip_skeletons}>
-          {[0, 1, 2].map((n) => (
-            <Skeleton key={n} variant="block" width="8rem" height="2.75rem" />
-          ))}
-        </div>
-      </SkeletonGroup>
-    );
-  }
-  if (state.kind === 'gone' || state.themes.length === 0) return null;
+  const loading = gigs.some((gig) => !found[gig.gig_id]);
+  const with_themes = gigs.flatMap((gig) => {
+    const state = found[gig.gig_id];
+    return state?.kind === 'loaded' && state.themes.length > 0
+      ? [{ gig, themes: state.themes }]
+      : [];
+  });
+  const skeleton = (
+    <SkeletonGroup label="Finding themes">
+      <div className={styles.chip_skeletons}>
+        {[0, 1, 2].map((n) => (
+          <Skeleton key={n} variant="block" width="8rem" height="2.75rem" />
+        ))}
+      </div>
+    </SkeletonGroup>
+  );
+
+  // Nothing yet: the skeleton where the themes will be, or nothing while folded.
+  if (with_themes.length === 0) return loading && open ? skeleton : null;
 
   return (
-    <div className={styles.theme_row} role="group" aria-label={label}>
-      <p className={styles.theme_label}>
-        Recurring themes <span className={styles.meta}>· {gig.gig_title}</span>
-      </p>
-      <div className={styles.chips}>
-        {state.themes.map((theme) => (
-          <Chip key={theme} on_click={() => on_choose(theme)}>
-            {theme}
-          </Chip>
+    <div className={styles.themes}>
+      <button
+        type="button"
+        className={styles.toggle}
+        aria-expanded={open}
+        aria-controls={list_id}
+        onClick={() => setOpen((was) => !was)}
+      >
+        <svg
+          className={styles.chevron}
+          viewBox="0 0 16 16"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" strokeWidth="1.75" />
+        </svg>
+        Recurring themes
+      </button>
+      <div className={styles.theme_rows} id={list_id} hidden={!open}>
+        {with_themes.map(({ gig, themes }) => (
+          <div
+            key={gig.gig_id}
+            className={styles.theme_row}
+            role="group"
+            aria-label={`Recurring themes, ${gig.gig_title}`}
+          >
+            <p className={styles.theme_label}>{gig.gig_title}</p>
+            <div className={styles.chips}>
+              {themes.map((theme) => (
+                <Chip key={theme} on_click={() => on_choose(theme)}>
+                  {theme}
+                </Chip>
+              ))}
+            </div>
+          </div>
         ))}
+        {loading && skeleton}
       </div>
     </div>
   );
