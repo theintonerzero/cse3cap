@@ -6,23 +6,10 @@ export interface ChipProps {
   selected?: boolean;
   disabled?: boolean;
   on_click?: () => void;
-  /**
-   * Whose answer a selected chip is. `primary` (the default) is the
-   * student's purple; `counter` is the assessor's green, the same colour the
-   * radar draws the counter-score in, so green means the assessor everywhere.
-   */
-  tone?: 'primary' | 'counter';
 }
 
-export function Chip({
-  children,
-  selected,
-  disabled = false,
-  on_click,
-  tone = 'primary',
-}: ChipProps) {
-  const selected_class = tone === 'counter' ? styles.selected_counter : styles.selected;
-  const class_name = selected ? `${styles.chip} ${selected_class}` : styles.chip;
+export function Chip({ children, selected, disabled = false, on_click }: ChipProps) {
+  const class_name = selected ? `${styles.chip} ${styles.selected}` : styles.chip;
 
   return (
     <button

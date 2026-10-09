@@ -69,7 +69,7 @@ test.describe('the coach on the owner’s draft', () => {
   test('Hide puts the button back', async ({ page }) => {
     await page.goto(`/reflections/${DRAFT}`);
     await page.getByRole('button', { name: 'Ask me questions' }).click();
-    await page.getByRole('button', { name: 'Hide' }).click();
+    await page.getByRole('button', { name: 'Hide', exact: true }).click();
     await expect(
       page.getByRole('region', { name: 'Questions to think about' }),
     ).toHaveCount(0);

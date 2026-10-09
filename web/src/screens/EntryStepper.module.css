@@ -155,21 +155,6 @@
   margin-top: var(--space-8);
 }
 
-.level_row {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
-}
-
-/* CAP-38: one level per line at every width. Wrapped across a wide card
-   the four descriptors scattered over two ragged rows; stacked, they read
-   as the scale they are, lowest first. */
-.level_row > * {
-  width: 100%;
-  justify-content: flex-start;
-  text-align: left;
-}
-
 .evidence_list {
   display: flex;
   flex-direction: column;

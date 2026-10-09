@@ -132,7 +132,7 @@ const ROW: QueueEntry = {
 
 const KEY = `reflection-diary-counter-drafts:${SAM.id}:${REFLECTION_ID}`;
 const OPEN = `/review-queue/reflections/${REFLECTION_ID}`;
-const your_score = (page: Page) => page.getByRole('group', { name: 'Your score' });
+const your_score = (page: Page) => page.getByRole('radiogroup', { name: 'Your score' });
 
 /**
  * Installs the fake as Sam. The first score is held until `let_first_go`,
@@ -192,9 +192,13 @@ async function install(page: Page) {
 /** Picks a 3 then a 2 and presses Submit scores. */
 async function score_both_and_submit(page: Page) {
   await page.goto(OPEN);
-  await your_score(page).getByRole('button', { name: /^3 · / }).click();
+  await your_score(page)
+    .getByRole('radio', { name: /^3 of / })
+    .click();
   await page.getByRole('button', { name: 'Next', exact: true }).click();
-  await your_score(page).getByRole('button', { name: /^2 · / }).click();
+  await your_score(page)
+    .getByRole('radio', { name: /^2 of / })
+    .click();
   await page.getByRole('button', { name: 'Submit scores' }).click();
 }
 

@@ -24,8 +24,8 @@
  * reflects what the POST returns, including the flip to assessed, and
  * never triggers anything itself. It adds no styles of its own: every
  * class it uses already existed for CAP-11, so both modes look the same.
- * The one visual difference is the assessor's chips, which use Chip's
- * tone="counter" (the radar's counter-score green).
+ * The one visual difference is the assessor's scale, which uses
+ * LevelScale's tone="counter" (the radar's counter-score green).
  *
  * Evidence files are never given a link here. The contract's
  * /evidence/{evidence_id} only deletes -- there is no endpoint that serves
@@ -44,7 +44,7 @@ import {
   Badge,
   BottomSheet,
   Button,
-  Chip,
+  LevelScale,
   ErrorNotice,
   ProgressBar,
   Skeleton,
@@ -79,6 +79,7 @@ import {
   my_counter_score_of,
   scored_by_count,
   self_score_of,
+  type ReflectionScore,
 } from './entry-stepper-logic.ts';
 import {
   kept_as_drafts,
@@ -106,6 +107,16 @@ import styles from './EntryStepper.module.css';
  *          read-only; the level picker is the scorer's own.
  */
 type StepperMode = 'student' | 'assessor';
+
+/** How long the arrow keys must rest on a level before it is saved (CAP-66). */
+const KEY_SETTLE_MS = 500;
+
+/** "A and B", "A, B and C": names a shared scale by who is on it. */
+function list_of(parts: string[]): string {
+  return parts.length < 2
+    ? (parts[0] ?? '')
+    : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+}
 
 type Load =
   | { status: 'loading' }
@@ -587,6 +598,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
         mode={mode}
         owner_name={reflection.owner.display_name}
         viewer_id={me_id}
+        viewer_is_owner={is_owner}
         coach_reflection_id={!read_only && ai_features?.has('coach') ? reflection.id : null}
         related_reflection_id={
           !read_only && ai_features?.has('related') ? reflection.id : null
@@ -610,6 +622,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
             draft={drafts[current.id] ?? EMPTY_DRAFT}
             saving={counter_saving}
             on_draft={(patch) => update_draft(current.id, patch)}
+            owner_name={reflection.owner.display_name}
           />
         )}
       </EntryCard>
@@ -729,6 +742,7 @@ function EntryCard({
   owner_name,
   viewer_id = null,
   coach_reflection_id = null,
+  viewer_is_owner = true,
   related_reflection_id = null,
   calibration_reflection_id = null,
   children,
@@ -742,6 +756,8 @@ function EntryCard({
   owner_name: string;
   /** Who is looking, so assessor mode can leave their own score to the panel. */
   viewer_id?: string | null;
+  /** Whether the person reading is the student whose card this is. */
+  viewer_is_owner?: boolean;
   /** ADR #64: the reflection to coach on, when this card may show the coach. */
   coach_reflection_id?: string | null;
   /** ADR #64: the reflection to find earlier, similar entries for, when shown. */
@@ -784,21 +800,65 @@ function EntryCard({
     [entry.id],
   );
 
-  const choose_level = useCallback(
+  // CAP-66: the scale shows a choice at once. A tap saves at once; arrow keys
+  // save once they stop, so stepping from 1 to 4 sends one save, not three.
+  const [pending_level, setPendingLevel] = useState<string | null>(null);
+  const settle = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // A keyboard choice not yet sent. Leaving the scale or the card sends it
+  // now rather than dropping it: a student who arrows to a level and presses
+  // Next or Submit at once still has that level saved.
+  const waiting = useRef<string | null>(null);
+  // Only the latest save's answer counts: two answered out of order must not
+  // leave the scale, or an error, showing the earlier one.
+  const save_seq = useRef(0);
+  const save_level = useCallback(
     async (level_id: string) => {
+      const seq = ++save_seq.current;
       setScoreError(null);
       try {
         const score = await api.put('/entries/{entry_id}/scores/self', {
           path: { entry_id: entry.id },
           body: { level_id },
         });
+        if (seq !== save_seq.current) return;
         const others = entry.scores.filter((existing) => existing.scorer_class !== 'self');
         on_change({ ...entry, scores: [...others, score] });
       } catch (error) {
+        if (seq !== save_seq.current) return;
         setScoreError(as_api_error(error, 'Could not save that score.').message);
+      } finally {
+        // The scale shows what was saved from here on, or what was there before.
+        setPendingLevel((pending) => (pending === level_id ? null : pending));
       }
     },
     [entry, on_change],
+  );
+
+  const flush = useCallback(() => {
+    clearTimeout(settle.current);
+    const level_id = waiting.current;
+    waiting.current = null;
+    if (level_id) void save_level(level_id);
+  }, [save_level]);
+  const flush_latest = useRef(flush);
+  useEffect(() => {
+    flush_latest.current = flush;
+  }, [flush]);
+  useEffect(() => () => flush_latest.current(), []);
+
+  const choose_level = useCallback(
+    (level_id: string, how: 'pointer' | 'key') => {
+      clearTimeout(settle.current);
+      setPendingLevel(level_id);
+      if (how === 'pointer') {
+        waiting.current = null;
+        void save_level(level_id);
+      } else {
+        waiting.current = level_id;
+        settle.current = setTimeout(flush, KEY_SETTLE_MS);
+      }
+    },
+    [save_level, flush],
   );
 
   const narrative = (
@@ -819,21 +879,54 @@ function EntryCard({
     </>
   );
 
+  // Everyone else's score on this entry, oldest first. In assessor mode the
+  // viewer's own is shown by the panel instead, so it is left out here.
+  const counters = read_only
+    ? counter_scores_of(entry)
+        .filter((score) => mode !== 'assessor' || score.scorer?.id !== viewer_id)
+        .sort((a, b) => a.scored_at.localeCompare(b.scored_at))
+    : [];
+  // CAP-66: on the student's own read-only card, their score and the
+  // reviewers' share one scale (ADR #65), where they used to be two lists.
+  const shared = mode !== 'assessor' && counters.length > 0;
+  const name_of = (score: ReflectionScore) => score.scorer?.display_name ?? 'Counter-score';
+
   const self_score_row = (
     <div className={styles.levels}>
-      <p className={styles.field_label}>{self_label}</p>
-      <div className={styles.level_row} role="group" aria-label={self_label}>
-        {levels.map((level) => (
-          <Chip
-            key={level.id}
-            selected={self_score?.level_id === level.id}
-            disabled={read_only}
-            on_click={() => choose_level(level.id)}
-          >
-            {level.level_value} &middot; {level.descriptor}
-          </Chip>
-        ))}
-      </div>
+      {shared ? (
+        <LevelScale
+          label={list_of([
+            viewer_is_owner ? 'Your score' : `${owner_name}'s score`,
+            ...counters.map((score) => `${name_of(score)}'s`),
+          ])}
+          levels={levels}
+          marks={[
+            ...(self_score
+              ? [
+                  {
+                    level_id: self_score.level_id,
+                    // Someone else reading the student's card is not "you".
+                    who: viewer_is_owner ? 'You' : owner_name,
+                    tone: 'primary' as const,
+                  },
+                ]
+              : []),
+            ...counters.map((score) => ({
+              level_id: score.level_id,
+              who: name_of(score),
+              tone: 'counter' as const,
+            })),
+          ]}
+        />
+      ) : (
+        <LevelScale
+          label={self_label}
+          levels={levels}
+          value={pending_level ?? self_score?.level_id ?? null}
+          on_change={read_only ? undefined : choose_level}
+          on_leave={flush}
+        />
+      )}
       {score_error && (
         <p className={styles.field_error} role="alert">
           {score_error}
@@ -845,52 +938,50 @@ function EntryCard({
   // The counter-scores, each with its comment, read-only. Their own block
   // now, after the narrative, so each person's score sits beside their own
   // words (round 2b).
-  const counter_scores = (
+  const comment_of = (score: ReflectionScore) => {
+    if (!score.comment) return null;
+    const comment_id = `counter-comment-${score.id}`;
+    return (
+      <div key={comment_id} className={text_area_styles.field}>
+        <label className={text_area_styles.label} htmlFor={comment_id}>
+          {name_of(score)}'s comment
+        </label>
+        <textarea
+          id={comment_id}
+          className={text_area_styles.textarea}
+          value={score.comment}
+          disabled
+          readOnly
+        />
+      </div>
+    );
+  };
+
+  const counter_scores = shared ? (
+    // The scores are on the shared scale above; what follows the reflection
+    // is each reviewer's comment, the words behind their score.
+    counters.some((score) => score.comment) && (
+      <div className={styles.counter_block}>{counters.map(comment_of)}</div>
+    )
+  ) : (
     <>
-      {read_only &&
-        counter_scores_of(entry)
-          // In assessor mode the viewer's own score is shown by the panel
-          // as greyed chips, so it is not repeated here as a text line.
-          .filter((score) => mode !== 'assessor' || score.scorer?.id !== viewer_id)
-          .map((score) => {
-            // The way the assessor sees their own saved score (Patrick, PR
-            // #56): the chips greyed with the level selected, in the
-            // counter-score green, and the comment in its box, read-only.
-            // Never folded into one line of text (CAP-38).
-            const who = `${score.scorer?.display_name ?? 'Counter-score'}'s`;
-            const comment_id = `counter-comment-${score.id}`;
-            return (
-              <div key={score.id} className={styles.counter_block}>
-                <p className={styles.field_label}>{who} score</p>
-                <div className={styles.level_row} role="group" aria-label={`${who} score`}>
-                  {levels.map((level) => (
-                    <Chip
-                      key={level.id}
-                      tone="counter"
-                      selected={score.level_id === level.id}
-                      disabled
-                    >
-                      {level.level_value} &middot; {level.descriptor}
-                    </Chip>
-                  ))}
-                </div>
-                {score.comment && (
-                  <div className={text_area_styles.field}>
-                    <label className={text_area_styles.label} htmlFor={comment_id}>
-                      {who} comment
-                    </label>
-                    <textarea
-                      id={comment_id}
-                      className={text_area_styles.textarea}
-                      value={score.comment}
-                      disabled
-                      readOnly
-                    />
-                  </div>
-                )}
-              </div>
-            );
-          })}
+      {counters.map((score) => {
+        // The way the assessor sees another reviewer's saved score (Patrick,
+        // PR #56): the score on its own scale in the counter-score green, and
+        // the comment in its box, read-only (CAP-38, CAP-66).
+        const who = `${name_of(score)}'s`;
+        return (
+          <div key={score.id} className={styles.counter_block}>
+            <LevelScale
+              label={`${who} score`}
+              levels={levels}
+              tone="counter"
+              value={score.level_id}
+            />
+            {comment_of(score)}
+          </div>
+        );
+      })}
     </>
   );
 
@@ -1167,8 +1258,8 @@ function EvidenceList({
  * rule is Scoring.php's, and a 400 COMMENT_REQUIRED marks the box required
  * whatever the hint said.
  *
- * Chips use tone="counter", the radar's counter-score green, so the
- * assessor's row reads apart from the student's purple one above it.
+ * The scale uses tone="counter", the radar's counter-score green, so the
+ * assessor's choice reads apart from the student's purple one above it.
  */
 function CounterScorePanel({
   entry,
@@ -1179,6 +1270,7 @@ function CounterScorePanel({
   draft,
   saving,
   on_draft,
+  owner_name,
 }: {
   entry: ReflectionEntry;
   framework: FrameworkDetail;
@@ -1190,6 +1282,8 @@ function CounterScorePanel({
   /** "Submit scores" is sending. */
   saving: boolean;
   on_draft: (patch: Partial<CounterDraft>) => void;
+  /** The student, whose own level is marked on the assessor's scale (CAP-66). */
+  owner_name: string;
 }) {
   const levels = levels_for(framework, entry.competency_id);
   const self_score = self_score_of(entry);
@@ -1216,19 +1310,12 @@ function CounterScorePanel({
           {/* Presented exactly as the student's self-score row above: the
               same chips, greyed, with the chosen level selected, and the
               comment kept in its box, read-only. */}
-          <p className={styles.field_label}>Your score</p>
-          <div className={styles.level_row} role="group" aria-label="Your score">
-            {levels.map((level) => (
-              <Chip
-                key={level.id}
-                tone="counter"
-                selected={mine.level_id === level.id}
-                disabled
-              >
-                {level.level_value} &middot; {level.descriptor}
-              </Chip>
-            ))}
-          </div>
+          <LevelScale
+            label="Your score"
+            levels={levels}
+            tone="counter"
+            value={mine.level_id}
+          />
           {mine.comment && (
             <div className={text_area_styles.field}>
               <label className={text_area_styles.label} htmlFor={comment_id}>
@@ -1259,20 +1346,19 @@ function CounterScorePanel({
           // No Save here (round 3, ADR #57): the pick and the comment stay
           // open until "Submit scores" sends every competency at once.
           <div className={styles.levels}>
-            <p className={styles.field_label}>Your score</p>
-            <div className={styles.level_row} role="group" aria-label="Your score">
-              {levels.map((level) => (
-                <Chip
-                  key={level.id}
-                  tone="counter"
-                  selected={draft.level_id === level.id}
-                  disabled={saving}
-                  on_click={() => on_draft({ level_id: level.id })}
-                >
-                  {level.level_value} &middot; {level.descriptor}
-                </Chip>
-              ))}
-            </div>
+            {/* Kept on this device until "Submit scores" (ADR #57), so a
+                keyboard choice needs no settling: nothing is sent. */}
+            <LevelScale
+              label="Your score"
+              levels={levels}
+              tone="counter"
+              value={draft.level_id}
+              on_change={(level_id) => on_draft({ level_id })}
+              disabled={saving}
+              marker={
+                self_score ? { level_id: self_score.level_id, who: owner_name } : null
+              }
+            />
 
             <div className={text_area_styles.field}>
               <label className={text_area_styles.label} htmlFor={comment_id}>

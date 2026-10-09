@@ -32,23 +32,24 @@ test('student stepper: every typed field is text, and a javascript: link is not 
   const card = page.getByRole('main');
   await expect(card.locator('p', { hasText: PAYLOAD }).first()).toHaveText(PAYLOAD);
   await expect(page.getByLabel('Your reflection')).toHaveValue(PAYLOAD);
-  for (const value of [1, 2]) {
-    await expect(
-      page
-        .getByRole('group', { name: 'Self-score' })
-        .getByRole('button', { name: `${value} · ${PAYLOAD}` }),
-    ).toBeVisible();
-  }
-  // The counter-score reads as the assessor sees it (CAP-38): the scorer's
-  // name labels a chip row and a read-only comment box, both still text.
-  const counter = page.getByRole('group', { name: `${PAYLOAD}'s score` });
-  for (const value of [1, 2]) {
-    await expect(
-      counter.getByRole('button', { name: `${value} · ${PAYLOAD}` }),
-    ).toBeVisible();
-  }
+  // Both scores share one scale (CAP-66): who chose which level, and every
+  // level's words once "All levels" is open, are still text.
+  // Read by a reviewer, so the student is named (CAP-66), and their name is
+  // PAYLOAD too: on the scale's label and its words lines, still text.
+  const shared = page.getByRole('group', { name: `${PAYLOAD}'s score and ${PAYLOAD}'s` });
+  await expect(
+    shared.getByRole('listitem').filter({ hasText: `${PAYLOAD} · 2` }),
+  ).toBeVisible();
+  await expect(
+    shared.getByRole('listitem').filter({ hasText: `${PAYLOAD} · 1` }),
+  ).toBeVisible();
+  await shared.getByRole('button', { name: 'All levels' }).click();
+  const level_words = shared.locator('ol > li');
+  await expect(level_words).toHaveCount(2);
+  for (const words of await level_words.all()) await expect(words).toContainText(PAYLOAD);
   await expect(page.getByLabel(`${PAYLOAD}'s comment`)).toHaveValue(PAYLOAD);
-  await expect(page.getByRole('listitem').filter({ hasText: PAYLOAD })).toHaveCount(2);
+  // Two scorers' lines, two levels' words, and the two evidence labels.
+  await expect(page.getByRole('listitem').filter({ hasText: PAYLOAD })).toHaveCount(6);
 
   // StoreEvidenceRequest refuses this scheme (F7), and the screen still
   // renders a stored one as plain text rather than trusting that.
@@ -64,7 +65,9 @@ test("assessor stepper: the student's name and work are text", async ({ page }) 
   // puts it in the status line and in two field labels.
   await expect(page.getByText(`${PAYLOAD} · you have scored 0 of 1`)).toBeVisible();
   await expect(page.getByLabel(`${PAYLOAD} wrote`)).toHaveValue(PAYLOAD);
-  await expect(page.getByRole('group', { name: `${PAYLOAD}'s self-score` })).toBeVisible();
+  await expect(
+    page.getByRole('radiogroup', { name: `${PAYLOAD}'s self-score` }),
+  ).toBeVisible();
   await expect(page.locator('a[href^="javascript:"]')).toHaveCount(0);
   await assertInert(page);
 });

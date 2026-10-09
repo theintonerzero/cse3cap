@@ -176,8 +176,8 @@ test.describe('a reviewer on the gig', () => {
 
     await expect(narrative).toBeDisabled();
     for (const chip of await page
-      .getByRole('group', { name: 'Self-score' })
-      .getByRole('button')
+      .getByRole('radiogroup', { name: 'Self-score' })
+      .getByRole('radio')
       .all()) {
       await expect(chip).toBeDisabled();
     }
@@ -196,7 +196,7 @@ test.describe('a reviewer on the gig', () => {
     api,
   }) => {
     await page.goto(`/reflections/${DRAFT}`);
-    const chips = page.getByRole('group', { name: 'Self-score' }).getByRole('button');
+    const chips = page.getByRole('radiogroup', { name: 'Self-score' }).getByRole('radio');
     await expect(chips.first()).toBeVisible();
 
     // force skips Playwright's "is it enabled" wait, so the click reaches the
@@ -221,7 +221,7 @@ test.describe('the owner', () => {
 
     await expect(narrative).toBeEnabled();
     await expect(
-      page.getByRole('group', { name: 'Self-score' }).getByRole('button').first(),
+      page.getByRole('radiogroup', { name: 'Self-score' }).getByRole('radio').first(),
     ).toBeEnabled();
     await expect(page.getByRole('button', { name: 'Remove' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Add a link' })).toBeVisible();

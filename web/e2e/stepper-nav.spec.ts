@@ -274,7 +274,7 @@ test("the student's card leads with the self-score, then the reflection", async 
   // Patrick, round 2b: score first, words second, for both people, the way
   // the assessor's view already reads.
   await page.goto(`/reflections/${DRAFT}`);
-  const score = (await page.getByRole('group', { name: 'Self-score' }).boundingBox())!;
+  const score = (await page.getByRole('radiogroup', { name: 'Self-score' }).boundingBox())!;
   const words = (await page
     .getByRole('textbox', { name: 'Your reflection' })
     .boundingBox())!;
