@@ -195,10 +195,16 @@ export function ExportSheet({ reflections }: ExportSheetProps) {
       const anchor = document.createElement('a');
       anchor.href = url;
       anchor.download = download_name(id, file_format);
+      anchor.hidden = true;
+      // Attached for the click, and the URL kept for a minute after it:
+      // Firefox reads a blob download asynchronously, and a detached link or
+      // a URL revoked on the next task let the file vanish with no error
+      // (CAP-56; the live demo's Firefox 157 saved nothing). A minute is long
+      // past any read, and the blob is freed then rather than held forever.
+      document.body.appendChild(anchor);
       anchor.click();
-      // Revoked on the next task, not synchronously: some WebViews drop a
-      // download whose URL went away in the same tick as the click.
-      window.setTimeout(() => URL.revokeObjectURL(url), 0);
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
       setJob((prev) => (still_this(prev) ? { ...prev, downloading: false } : prev));
     } catch (error) {
       const failure = as_api_error(error, 'The file could not be downloaded.');
