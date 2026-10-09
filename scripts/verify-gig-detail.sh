@@ -290,7 +290,7 @@ else
     cat > "$OUT/check.mjs" <<'JS'
 import {
   sprint_timing, days_between, format_short_date, gig_dates,
-  sprint_progress, gig_duration_weeks,
+  sprint_progress, gig_duration_weeks, sprints_needing_reflection,
 } from './gig-timing.js';
 
 const today = new Date(2026, 8, 14);
@@ -442,13 +442,38 @@ for (const [starts, ends, weeks] of duration_cases) {
   }
 }
 
+// CAP-53: which sprints the diary home's nudge names. Opened (or undated)
+// and nothing written. A sprint that has not opened is never counted, and
+// nothing here reads due_on: the nudge makes no judgement about lateness.
+const S = (id, ordinal, opens_on, due_on) => ({ id, ordinal, opens_on, due_on });
+const needing_cases = [
+  ['past and open, none written, ordinal order',
+    [S('b', 2, '2026-09-01', '2026-09-17'), S('a', 1, '2026-08-03', '2026-08-16')], [], ['a', 'b']],
+  ['a written sprint drops out',
+    [S('a', 1, '2026-08-03', '2026-08-16'), S('b', 2, '2026-09-01', '2026-09-17')], ['a'], ['b']],
+  ['not yet open is never counted',
+    [S('a', 1, '2026-08-03', '2026-08-16'), S('c', 3, '2026-09-20', '2026-10-03')], [], ['a']],
+  ['opens tomorrow is not open', [S('c', 3, '2026-09-15', '2026-09-28')], [], []],
+  ['opens today counts', [S('d', 4, '2026-09-14', '2026-09-28')], [], ['d']],
+  ['undated counts', [S('e', 5, null, null)], [], ['e']],
+  ['everything written', [S('a', 1, '2026-08-03', '2026-08-16')], ['a'], []],
+];
+
+for (const [name, sprints, written, want] of needing_cases) {
+  const got = sprints_needing_reflection(sprints, new Set(written), today).map((s) => s.id);
+  if (JSON.stringify(got) !== JSON.stringify(want)) {
+    console.log(`  MISMATCH needing "${name}": want ${want.join(',')}, got ${got.join(',')}`);
+    failed++;
+  }
+}
+
 process.exit(failed === 0 ? 0 : 1);
 JS
 
     if TZ=Pacific/Auckland node "$OUT/check.mjs" && TZ=America/Los_Angeles node "$OUT/check.mjs"; then
-        ok "wording 11, states 9, duration 6, shape 6" "east and west of UTC"
+        ok "wording 11, states 9, duration 6, shape 6, needing 7" "east and west of UTC"
     else
-        bad "wording 11, states 9, duration 6, shape 6" "see mismatches above"
+        bad "wording 11, states 9, duration 6, shape 6, needing 7" "see mismatches above"
     fi
 fi
 
