@@ -12,6 +12,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { api, ApiError } from '../api/client.ts';
 import type { paths } from '../api/schema.ts';
+import { CohortSearch } from '../ai/CohortSearch.tsx';
+import { useAiStatus } from '../ai/useAiStatus.ts';
 import { useSession } from '../session/useSession.ts';
 import { kept_done_count } from './counter-drafts.ts';
 import { ErrorNotice, ProgressBar, Skeleton, SkeletonGroup } from '../components/index.ts';
@@ -59,6 +61,7 @@ export function ReviewQueue() {
   // ReviewerOnly is: Frameworks is a supervisor's (ADR #17).
   const { me } = useSession();
   const supervises = me?.participations.some((p) => p.role === 'supervisor') ?? false;
+  const ai_features = useAiStatus();
 
   return (
     <section>
@@ -84,6 +87,9 @@ export function ReviewQueue() {
       )}
 
       <h1 className={styles.heading}>Review queue</h1>
+
+      {/* ADR #64: above the queue, only when the sidecar serves search. */}
+      {ai_features?.has('search') && <CohortSearch themes={ai_features.has('themes')} />}
 
       {state.status === 'loading' && <LoadingState />}
       {state.status === 'error' && <ErrorNotice error={state.error} on_retry={retry} />}
