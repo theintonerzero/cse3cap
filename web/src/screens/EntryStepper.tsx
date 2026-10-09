@@ -54,6 +54,7 @@ import {
 // The design system's own text box, borrowed by class rather than by
 // component: TextArea autosaves, and a counter-score comment must travel
 // once, with its level, in the POST. Same look, no new styles.
+import button_styles from '../components/Button/Button.module.css';
 import text_area_styles from '../components/TextArea/TextArea.module.css';
 import { useSession } from '../session/useSession.ts';
 import type { SessionUser } from '../session/useSession.ts';
@@ -678,8 +679,10 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
 function LoadingState() {
   return (
     <SkeletonGroup label="Loading this reflection">
-      <Skeleton variant="block" width="100%" height="var(--space-32)" />
-      <Skeleton variant="block" width="100%" height="12rem" />
+      <div className={styles.loading}>
+        <Skeleton variant="block" width="100%" height="var(--space-32)" />
+        <Skeleton variant="block" width="100%" height="12rem" />
+      </div>
     </SkeletonGroup>
   );
 }
@@ -975,6 +978,10 @@ function EvidenceList({
     <div className={styles.evidence}>
       <p className={styles.field_label}>Evidence</p>
 
+      {read_only && entry.evidence.length === 0 && (
+        <p className={styles.evidence_hint}>No evidence attached.</p>
+      )}
+
       {entry.evidence.length > 0 && (
         <ul className={styles.evidence_list}>
           {entry.evidence.map((item) => (
@@ -1047,7 +1054,11 @@ function EvidenceList({
               >
                 Add a link
               </Button>
-              <label className={styles.file_button}>
+              {/* A label, so the file picker opens from it, with Button's own
+                  look: the same control as "Add a link" beside it (CAP-63). */}
+              <label
+                className={`${button_styles.button} ${button_styles.secondary} ${styles.file_button}`}
+              >
                 Attach a file
                 <input
                   type="file"

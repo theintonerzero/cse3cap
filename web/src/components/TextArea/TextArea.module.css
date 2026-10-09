@@ -22,8 +22,19 @@
   resize: vertical;
 }
 
+/* Read-only text is still text to read (CAP-63). Opacity 0.6 put body text at
+   about 4.4:1 on white, under AA; the quiet fill says "not editable" at full
+   contrast instead. No resize grip, and the box fits its words where the
+   browser can size a field to its content (Chromium today), so a
+   reflection is not read through a five-line window. Elsewhere it scrolls,
+   as before. Safari fades disabled text on its own, hence the two resets. */
 .textarea:disabled {
-  opacity: 0.6;
+  background: var(--color-surface-alt);
+  color: var(--color-text);
+  -webkit-text-fill-color: currentColor;
+  opacity: 1;
+  resize: none;
+  field-sizing: content;
 }
 
 .status {

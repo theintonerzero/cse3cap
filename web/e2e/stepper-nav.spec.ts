@@ -191,6 +191,55 @@ test.describe('the progress bar (CAP-61)', () => {
   }
 });
 
+test.describe('polish (CAP-63)', () => {
+  test('"Attach a file" is the same button as "Add a link"', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 800 });
+    await page.goto(`/reflections/${DRAFT}`);
+    const link = page.getByRole('button', { name: 'Add a link', exact: true });
+    const file = page.getByText('Attach a file', { exact: true });
+    await expect(link).toBeVisible();
+    const look = (el: Element) => {
+      const s = getComputedStyle(el);
+      return [
+        s.borderRadius,
+        s.fontSize,
+        s.fontWeight,
+        s.minHeight,
+        s.backgroundColor,
+      ].join(' ');
+    };
+    expect(await file.evaluate(look)).toBe(await link.evaluate(look));
+  });
+
+  test("the add-a-link fields use the app's font", async ({ page }) => {
+    await page.goto(`/reflections/${DRAFT}`);
+    await page.getByRole('button', { name: 'Add a link', exact: true }).click();
+    const body = await page.evaluate(() => getComputedStyle(document.body).fontFamily);
+    for (const field of await page.locator('form input').all()) {
+      expect(await field.evaluate((el) => getComputedStyle(el).fontFamily)).toBe(body);
+    }
+  });
+
+  test('loading: the progress skeleton stands clear of the card skeleton', async ({
+    page,
+    api,
+  }) => {
+    api.hold('GET /reflections/:id');
+    await page.goto(`/reflections/${DRAFT}`);
+    const group = page.getByRole('status').filter({ hasText: 'Loading this reflection' });
+    await expect(group).toBeVisible();
+    // The two skeleton shapes, top to bottom: the progress bar, then the card.
+    const boxes = await group.evaluate((el) =>
+      [...el.querySelectorAll('[class*="skeleton"]')].map((s) => {
+        const r = s.getBoundingClientRect();
+        return { top: r.top, bottom: r.bottom };
+      }),
+    );
+    expect(boxes).toHaveLength(2);
+    expect(boxes[1].top - boxes[0].bottom).toBeGreaterThanOrEqual(PROGRESS_GAP);
+  });
+});
+
 test.describe('the heading', () => {
   test('names the gig and the sprint', async ({ page }) => {
     await page.goto(`/reflections/${DRAFT}`);
@@ -339,6 +388,30 @@ assessor_test.describe('the assessor', () => {
       },
     );
   }
+
+  assessor_test(
+    'phone: what the student wrote reads in full, at full contrast (CAP-63)',
+    async ({ page }) => {
+      await page.setViewportSize({ width: 390, height: 800 });
+      await page.goto(`/review-queue/reflections/${SUBMITTED}`);
+      const wrote = page.getByLabel(`${JANE.display_name} wrote`);
+      await expect(wrote).toBeDisabled();
+      const view = await wrote.evaluate((el) => ({
+        hidden: el.scrollHeight - el.clientHeight,
+        opacity: getComputedStyle(el).opacity,
+        resize: getComputedStyle(el).resize,
+      }));
+      expect(view.hidden, 'no text scrolled out of sight').toBeLessThanOrEqual(1);
+      expect(view.opacity).toBe('1');
+      expect(view.resize).toBe('none');
+    },
+  );
+
+  assessor_test('no evidence says so (CAP-63)', async ({ page }) => {
+    await page.goto(`/review-queue/reflections/${SUBMITTED}`);
+    await expect(page.getByText('Competency 1 of 2')).toBeVisible();
+    await expect(page.getByText('No evidence attached.', { exact: true })).toBeVisible();
+  });
 
   assessor_test(
     'no in-page "Back to the review queue": the bar does it (round 3)',
