@@ -334,6 +334,21 @@ else:
         check("a reset before any deploy is refused with a reason",
               r.returncode == 1 and "deploy first" in r.stderr, r.stdout + r.stderr)
 
+    # CAP-69: the sidecar's diary_ai is emptied too, once it has a database.
+    with tempfile.TemporaryDirectory() as tmp:
+        home, env, calls = box(tmp, deployed=OLD)
+        (home / "shared" / "ai.env").write_text("AI_ENABLED=true\nDATABASE_URL=mysql://diary_ai:x@rddb.darkovski.dev/diary_ai\n")
+        r = run(RESET, env=env)
+        check("with diary_ai configured, a reset empties it through the sidecar",
+              r.returncode == 0 and any("diary-ai" in l and "sidecar.reset" in l for l in lines(calls)),
+              "\n".join(lines(calls)) + r.stderr)
+    with tempfile.TemporaryDirectory() as tmp:
+        home, env, calls = box(tmp, deployed=OLD)
+        r = run(RESET, env=env)
+        check("without it, a reset leaves the sidecar alone and says so",
+              r.returncode == 0 and not any("sidecar.reset" in l for l in lines(calls))
+              and "no database" in r.stdout, r.stdout + r.stderr)
+
     # Review, Important 4: a reset and a deploy never run at once.
     with tempfile.TemporaryDirectory() as tmp:
         home, env, calls = box(tmp, deployed=OLD)
@@ -385,6 +400,10 @@ web_df = read(DEMO / "web.Dockerfile")
 check("the demo bundle is built pointing at /ai/v1",
       re.search(r"VITE_AI_BASE_URL=/ai/v1", web_df) is not None
       and re.search(r"^VITE_AI_BASE_URL=/ai/v1$", read(ROOT / "web" / ".env.production"), re.M) is not None, web_df)
+
+smoke = read(ROOT / "scripts" / "smoke-demo.sh")
+check("the smoke check asks /ai/v1/status without the cookie and wants the gate's 401",
+      "/ai/v1/status" in smoke and "401" in smoke, smoke)
 
 print("deploy/demo/site.caddy with a generated gate")
 # ---------------------------------------------------------------------------

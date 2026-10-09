@@ -56,4 +56,14 @@ printf '==> writing personas.json\n'
 compose run --rm -T -v "$work:/seed:ro" diary-api php /app/scripts/demo-personas.php /seed/seed.txt \
     > "$work/personas.json" || fail "could not build personas.json; the previous file was kept"
 install -m 0640 "$work/personas.json" "$DIARY_HOME/shared/demo/personas.json"
+
+# The AI sidecar's own database (CAP-69, ADR #64): vectors, usage, the day's
+# spend, cached themes and rate limits. Derived from narratives that were just
+# reseeded, so emptied with them. Only once shared/ai.env names a database.
+if grep -Eq '^DATABASE_URL=.+' "$DIARY_HOME/shared/ai.env" 2>/dev/null; then
+    printf '==> emptying diary_ai\n'
+    compose run --rm -T diary-ai python -m sidecar.reset
+else
+    printf '==> the AI sidecar has no database configured; nothing to empty\n'
+fi
 printf '==> done. Everyone signed in before the reset must reload the page.\n'
