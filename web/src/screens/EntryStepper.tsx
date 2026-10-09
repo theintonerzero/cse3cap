@@ -24,8 +24,8 @@
  * reflects what the POST returns, including the flip to assessed, and
  * never triggers anything itself. It adds no styles of its own: every
  * class it uses already existed for CAP-11, so both modes look the same.
- * The one visual difference is the assessor's chips, which use Chip's
- * tone="counter" (the radar's counter-score green).
+ * The one visual difference is the assessor's scale, which uses
+ * LevelScale's tone="counter" (the radar's counter-score green).
  *
  * Evidence files are never given a link here. The contract's
  * /evidence/{evidence_id} only deletes -- there is no endpoint that serves
@@ -1217,8 +1217,8 @@ function EvidenceList({
  * rule is Scoring.php's, and a 400 COMMENT_REQUIRED marks the box required
  * whatever the hint said.
  *
- * Chips use tone="counter", the radar's counter-score green, so the
- * assessor's row reads apart from the student's purple one above it.
+ * The scale uses tone="counter", the radar's counter-score green, so the
+ * assessor's choice reads apart from the student's purple one above it.
  */
 function CounterScorePanel({
   entry,

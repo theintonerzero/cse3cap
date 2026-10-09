@@ -74,6 +74,7 @@ Index
 #62 The live demo: containers, a gate, its own db .. Proposed
 #63 The learning record adds no endpoint ........ Proposed
 #64 An AI sidecar that asks, never writes ....... Proposed
+#65 One row of levels, not a stack of pills ..... Proposed
 
 ===============================================================
 
@@ -3792,3 +3793,84 @@ model is good enough.
 A separate vector database, pgvector or Qdrant. Real nearest-neighbour search and distance in
 the database. It lost because it is another stateful service on a small box for a few hundred
 vectors that a brute-force ranking orders in milliseconds, and MySQL is already there.
+
+===============================================================
+
+ADR #65: A rubric's levels are one row of numbers, not a stack of pills
+
+Status: Proposed
+Date: 2026-10-09
+
+Context:
+Every competency card stacked one full-width pill per level, the number and the whole
+descriptor on each: four for La Trobe, seven for SFIA. Patrick approved that on PR #56, and
+round 2b put the score first on the card. On a phone the self-score alone took 221px of
+pills, and an assessed reflection stacked two such lists, the student's and the reviewer's,
+for one comparison the reader had to make by eye. The descriptors are short placeholders
+today. Alumable's real rubric text is longer, and every line of it would grow every pill.
+
+Jesse asked for a way to save the height. Three were built as live prototypes in the
+diary's tokens and measured against today: a numbered row with the words beneath, a slider,
+and wrapping chips that keep each level's name. He chose the numbered row, everywhere, with
+the full list open until a level is chosen.
+
+Decision:
+LevelScale, one component in web/src/components, replaces the pills in the entry stepper.
+A rubric's levels are one row of numbered segments, each a radio named "N of M, <descriptor>",
+with the chosen level's words beneath and "All levels" one tap away. Purple is the student's
+own choice and green the assessor's, as before (#54).
+
+While nothing is chosen on an editable scale, the full list is open, so a student reads the
+rubric before a first choice. It folds once a level is chosen and can be reopened.
+
+On the student's own assessed reflection, their score and every counter-score share one
+scale, each person's level in their colour and a line of words for each. The comments
+follow the reflection, so the card still reads score, then the words behind it.
+
+The assessor scores on a green scale with a dot on the student's level.
+
+A tap saves a self-score at once. Arrow keys save once they stop, so a keyboard user
+stepping across the scale sends one save.
+
+Consequences:
+Positive:
+Measured at 390px, the self-score is 40-50% shorter on La Trobe and 60-70% on SFIA, an
+assessed card's scores 60-80% shorter, and the assessor's about 30-55%.
+
+The gap between a self-score and a counter-score is read off one row, the comparison the
+radar makes.
+
+Long rubric text no longer grows the control. The words show once, under the row.
+
+A screen reader hears each level's number and words as a radio, and arrow keys move the
+choice.
+
+Negative:
+Every level's words are no longer on screen at once after a choice. Comparing them takes a
+tap on "All levels". The open-until-chosen list softens this, but a student who chooses
+first and reads later sees less than they did.
+
+Before a choice, with the list open, the block is taller than the pills were for one
+competency. The saving starts once a level is picked.
+
+A keyboard self-score lands half a second after the arrows stop, so a student who moves on
+immediately can leave before it saves. The pills saved on every press.
+
+About a dozen browser specs changed to find radios instead of buttons. The read-only views
+lost the pill rows Patrick signed off on PR #56, and he has not seen this yet.
+
+Alternatives:
+A slider. It looks the most compact, but measured it saves no more than the row. A slider
+always sits somewhere, so it has no honest "no level yet". It suggests a continuum where
+the rubric has discrete levels, and on a phone a horizontal drag competes with scrolling.
+A native slider can't show two people's scores either.
+
+Pills that keep the level's name ("2 · Developing") and wrap side by side. Names stay
+visible without a tap. But the name is guessed from the text before the descriptor's dash,
+which holds for today's seeded La Trobe text and not for a rubric written another way. It
+saves about a third, and on SFIA seven pills still wrap to three rows.
+
+Keep the pills and shorten the descriptors. No code change, but the descriptors are the
+rubric. Shortening them changes what students are scored against, which #16's copy-then-edit
+rule exists to prevent.
+
