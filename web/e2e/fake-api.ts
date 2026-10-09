@@ -32,6 +32,7 @@ type Competency = components['schemas']['Competency'];
 type CompetencySummary = components['schemas']['CompetencySummary'];
 type Level = components['schemas']['Level'];
 type Me = components['schemas']['Me'];
+type Export = components['schemas']['Export'];
 type ErrorCode = components['schemas']['Error']['error']['code'];
 
 /** One request as the page sent it. Paths are relative to /api/v1. */
@@ -63,6 +64,8 @@ export class FakeApi {
   private readonly events: Record<string, ReflectionEvent[]>;
   private readonly faults = new Map<string, Fault[]>();
   private readonly holds = new Map<string, Promise<void>>();
+  /** Exports asked for in this test, by id (CAP-56). */
+  private readonly exports = new Map<string, Export>();
   private minted = 0;
 
   constructor(
@@ -197,6 +200,45 @@ export class FakeApi {
     // base for review-queue-error and review-queue-loading, both of which
     // intercept above via fault()/hold() before this line is ever reached.
     if (key === 'GET /review-queue') return reply(route, 200, []);
+
+    // CAP-56: an export, in the shape ExportController returns. It is built
+    // at once (the backend's sync queue does the same, ADR #30); whether a
+    // caller may export, and building the file, are the backend's, tested in
+    // api/tests. A test that needs a failed build asks for it with fail().
+    if (key === 'POST /exports') {
+      const { format, reflection_id = null } = body as {
+        format: 'json' | 'pdf';
+        reflection_id?: string | null;
+      };
+      const made = export_of(format, reflection_id);
+      this.exports.set(made.id, made);
+      return reply(route, 202, made);
+    }
+
+    if (key === 'GET /exports/:id') {
+      const found = this.exports.get(id);
+      return found
+        ? reply(route, 200, found)
+        : reply(route, 404, envelope('NOT_FOUND', 'No such resource, or it is not yours.'));
+    }
+
+    if (key === 'GET /exports/:id/download') {
+      const found = this.exports.get(id);
+      if (!found)
+        return reply(
+          route,
+          404,
+          envelope('NOT_FOUND', 'No such resource, or it is not yours.'),
+        );
+      return route.fulfill({
+        status: 200,
+        contentType: found.format === 'pdf' ? 'application/pdf' : 'application/json',
+        headers: {
+          'Content-Disposition': `attachment; filename=reflection-diary-${found.id}.${found.format}`,
+        },
+        body: found.format === 'pdf' ? '%PDF-1.4\n%fake\n' : '{}',
+      });
+    }
 
     if (key === 'GET /reflections') {
       // ReflectionController::index only applies the gig_id filter when the
@@ -380,6 +422,24 @@ export class FakeApi {
 }
 
 /** A list row is the summary: the detail's owner and entries are not in it. */
+let exports_made = 0;
+
+/** A finished export, as ExportController returns it once BuildExport ran. */
+function export_of(format: Export['format'], reflection_id: string | null): Export {
+  exports_made += 1;
+  const id = `eeee${String(exports_made).padStart(4, '0')}-0000-4eee-8eee-eeeeeeeeeeee`;
+  return {
+    id,
+    format,
+    status: 'complete',
+    reflection_id,
+    summary: { reflections: 1, sprints: 1, scores: 6, files: 0 },
+    requested_at: '2026-10-09T01:00:00Z',
+    completed_at: '2026-10-09T01:00:01Z',
+    uri: `exports/e2e/${id}.${format}`,
+  };
+}
+
 function summary_of(reflection: ReflectionSummary | ReflectionDetail): ReflectionSummary {
   const { owner: _owner, entries: _entries, ...rest } = reflection as ReflectionDetail;
   return rest;
