@@ -3,8 +3,11 @@
  *
  * The flag swaps the diary's token gate for a one-click picker of named
  * demo people, under the Alumable logo, and changes nothing else (ADR #61).
- * It is off in every production build, where the app is exactly the diary
- * with its own token entry. Demo-only, not product scope.
+ * It is off in every production build unless that build is given a personas
+ * URL, which only the live demo's build is (CAP-54, ADR #62); then the people
+ * come from a file at runtime and no token is ever in the bundle. Everywhere
+ * else the app is exactly the diary with its own token entry. Demo-only, not
+ * product scope.
  *
  * No React here on purpose: the gate is read in AppShell's render and its
  * menu, and it is easier to trust when it is not tangled with a render cycle. This

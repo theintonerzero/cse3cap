@@ -19,8 +19,9 @@ network. Bringing it up or down never restarts MySQL or Caddy.
 /home/ubuntu/diary/
   src/                        checkout of the public repository, at the deployed commit
   bin/deploy-demo.sh          the copy the timer runs (a deploy refreshes it)
-  shared/api.env              Laravel's settings, mode 0600. The only secrets of the demo
-  shared/deploy.env           ntfy topic for deploy notices, mode 0600
+  shared/api.env              Laravel's settings, mode 0600. Secret: APP_KEY, DB_PASSWORD
+  shared/deploy.env           ntfy topic and publish token for deploy notices, mode 0600. Secret
+  failed                      a commit that failed, which the timer will not retry
   shared/demo/personas.json   the picker's people, mode 0640, written by every reset
   deployed, previous          the running commit and the one before
   freeze                      while this exists, the timer deploys nothing
@@ -80,14 +81,21 @@ has moved it fetches the commit, builds both images, runs `php artisan migrate` 
 them and checks `/up`. The result goes to ntfy. A failed build or migration changes nothing
 that is running.
 
+A commit that fails (build, migration or health check) is written to `failed`, and the timer
+does not retry it: retrying would take the demo down for a minute and re-run its migration
+every 5 minutes. The timer waits for the next commit on `dev`, or a person deploys it by hand.
+
 For a presentation, `touch /home/ubuntu/diary/freeze` and remove it afterwards. To pin a
-commit by hand: `/home/ubuntu/diary/bin/deploy-demo.sh <sha|tag|branch>`.
+commit by hand: `/home/ubuntu/diary/bin/deploy-demo.sh <sha|tag|branch>`. **A deploy by hand
+creates `freeze` itself**, so the timer does not put `dev` back 5 minutes later; `rm
+/home/ubuntu/diary/freeze` to follow `dev` again. If a deploy or reset is already running, a
+deploy by hand says so and changes nothing.
 
 ### Rolling back
 
 Automatic: a deploy whose `/up` fails puts the previous images back and says so on ntfy. By
-hand: `/home/ubuntu/diary/bin/deploy-demo.sh $(cat /home/ubuntu/diary/previous)`. A rollback
-restores code, not schema. If the bad commit migrated the demo database, follow it with a
+hand: `/home/ubuntu/diary/bin/deploy-demo.sh $(cat /home/ubuntu/diary/previous)`, which freezes
+the timer like any deploy by hand. A rollback restores code, not schema. If the bad commit migrated the demo database, follow it with a
 reset.
 
 ### Resetting the demo

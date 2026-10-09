@@ -74,6 +74,16 @@ check("the image carries db/ beside api/, schema included",
 check("the image makes /app readable to FPM whatever the checkout's modes",
       re.search(r"chmod -R a\+rX /app\b", api_df) is not None, api_df)
 
+# Review, Important 1: PHP's built-in defaults cap uploads at 2M and a POST at
+# 8M, where the product promises evidence up to 10 MB and both Caddies allow
+# 101MiB; they also show errors and announce PHP. ADR #45's pool set all four.
+ini = read(DEMO / "php-diary.ini")
+check("the image starts from PHP's production ini", "php.ini-production" in api_df, api_df)
+check("the demo's ini is installed into conf.d", "php-diary.ini" in api_df and "conf.d" in api_df, api_df)
+for key, want in (("upload_max_filesize", "100M"), ("post_max_size", "101M"),
+                  ("display_errors", "Off"), ("expose_php", "Off")):
+    check(f"{key} = {want}", re.search(rf"^{key}\s*=\s*{want}\s*$", ini, re.M) is not None, ini)
+
 print("deploy/demo/web.Caddyfile")
 web = read(DEMO / "web.Caddyfile")
 check("personas.json is never cached", re.search(r"personas\.json[\s\S]*?no-store", web) is not None, web)
@@ -121,10 +131,15 @@ STUB_CURL = """#!/bin/sh
 echo "curl $*" >> "$CALLS"
 exit 0
 """
-# Called as: flock -n -E 75 LOCKFILE CMD ARGS...
+# Called as: flock [-n | -w SECS] -E 75 LOCKFILE CMD ARGS... Records how it
+# was asked to wait, then skips options up to and including the lock file.
 STUB_FLOCK = """#!/bin/sh
+echo "flock $*" >> "$CALLS"
 [ "${LOCKED:-}" = 1 ] && exit 75
-shift 4
+while [ $# -gt 0 ]; do
+  case "$1" in *deploy.lock) shift; break ;; esac
+  shift
+done
 exec "$@"
 """
 
@@ -226,6 +241,44 @@ with tempfile.TemporaryDirectory() as tmp:
     check("a run while another holds the lock exits quietly",
           r.returncode == 0 and not any(l.startswith("docker") for l in lines(calls)), r.stdout + r.stderr)
 
+# Review, Important 2: a commit that failed is not retried every 5 minutes.
+for kind, flag in (("build", "FAIL_BUILD"), ("migration", "FAIL_MIGRATE"), ("health check", "FAIL_HEALTH")):
+    with tempfile.TemporaryDirectory() as tmp:
+        home, env, calls = box(tmp, deployed=OLD)
+        run(SCRIPT, "--if-changed", "dev", env={**env, "REMOTE_SHA": NEW, flag: "1"})
+        calls.unlink(missing_ok=True)
+        r = run(SCRIPT, "--if-changed", "dev", env={**env, "REMOTE_SHA": NEW, flag: "1"})
+        log = lines(calls)
+        check(f"a commit whose {kind} failed is not retried by the timer",
+              r.returncode == 0 and not any(l.startswith("docker") or l.startswith("curl") for l in log),
+              "\n".join(log) + r.stdout + r.stderr)
+
+with tempfile.TemporaryDirectory() as tmp:
+    home, env, calls = box(tmp, deployed=OLD)
+    run(SCRIPT, "--if-changed", "dev", env={**env, "REMOTE_SHA": NEW, "FAIL_HEALTH": "1"})
+    r = run(SCRIPT, NEW, env={**env, "REMOTE_SHA": NEW})
+    check("a deploy by hand still tries a commit that failed before",
+          r.returncode == 0 and read(home / "deployed").strip() == NEW, r.stdout + r.stderr)
+    calls.unlink(missing_ok=True)
+    third = "c" * 40
+    r = run(SCRIPT, "--if-changed", "dev", env={**env, "REMOTE_SHA": third})
+    check("after that deploy by hand, the timer stays frozen even for a new commit",
+          not any(" build" in l for l in lines(calls)) and (home / "freeze").exists(), r.stdout + r.stderr)
+
+# Review, Important 3: a deploy by hand is not silently skipped or undone.
+with tempfile.TemporaryDirectory() as tmp:
+    home, env, calls = box(tmp, deployed=OLD)
+    r = run(SCRIPT, NEW, env={**env, "REMOTE_SHA": NEW})
+    check("a deploy by hand freezes the timer, so it is not undone 5 minutes later",
+          r.returncode == 0 and (home / "freeze").exists() and "freeze" in r.stdout, r.stdout + r.stderr)
+
+with tempfile.TemporaryDirectory() as tmp:
+    home, env, calls = box(tmp, deployed=OLD)
+    r = run(SCRIPT, NEW, env={**env, "REMOTE_SHA": NEW, "LOCKED": "1"})
+    check("a deploy by hand that finds another running says so and fails",
+          r.returncode != 0 and "another deploy" in r.stderr and not any(l.startswith("docker") for l in lines(calls)),
+          r.stdout + r.stderr)
+
 check("the script never touches Caddy or the server project",
       SCRIPT.exists() and not re.search(r"server-caddy|/home/ubuntu/server|caddy reload|-p server", SCRIPT.read_text()))
 
@@ -280,6 +333,20 @@ else:
         r = run(RESET, env=env)
         check("a reset before any deploy is refused with a reason",
               r.returncode == 1 and "deploy first" in r.stderr, r.stdout + r.stderr)
+
+    # Review, Important 4: a reset and a deploy never run at once.
+    with tempfile.TemporaryDirectory() as tmp:
+        home, env, calls = box(tmp, deployed=OLD)
+        r = run(RESET, env=env)
+        check("a reset waits for the deploy lock",
+              any(l.startswith("flock") and "-w" in l and "deploy.lock" in l for l in lines(calls)),
+              "\n".join(lines(calls)))
+    with tempfile.TemporaryDirectory() as tmp:
+        home, env, calls = box(tmp, deployed=OLD)
+        r = run(RESET, env={**env, "LOCKED": "1"})
+        check("a reset that cannot get the lock touches nothing and says why",
+              r.returncode != 0 and "deploy" in r.stderr and not any("migrate" in l for l in lines(calls)),
+              r.stdout + r.stderr)
 
 # ---------------------------------------------------------------------------
 print("deploy/demo/site.caddy with a generated gate")

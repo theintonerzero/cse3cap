@@ -8,6 +8,15 @@ DIARY_HOME="${DIARY_HOME:-/home/ubuntu/diary}"
 COMPOSE="$DIARY_HOME/src/deploy/demo/compose.yml"
 fail() { printf 'Error: %s\n' "$*" >&2; exit 1; }
 
+# The deploy's lock: a timed deploy must not check out a new src/ or migrate
+# while this runs migrate:fresh. Waits up to 10 minutes for one to finish.
+if [ "${DIARY_LOCKED:-}" != 1 ]; then
+    rc=0
+    DIARY_LOCKED=1 flock -w 600 -E 75 "$DIARY_HOME/deploy.lock" "$0" "$@" || rc=$?
+    [ "$rc" -eq 75 ] && fail "a deploy has held the lock for 10 minutes; nothing was reset. Try again when it finishes."
+    exit "$rc"
+fi
+
 # The rule deploy-demo.sh keeps too: only a *_demo database is ever touched.
 db="$(sed -n 's/^DB_DATABASE=["'\'']\{0,1\}\([^"'\'']*\).*/\1/p' "$DIARY_HOME/shared/api.env" | tail -n 1)"
 case "$db" in

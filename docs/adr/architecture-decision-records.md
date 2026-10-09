@@ -3525,6 +3525,7 @@ ADR #62: The live demo runs as containers behind a gate, on its own database
 Status: Proposed
 Date: 2026-10-09
 Supersedes: #45 (in part)
+Amends: #61 (in part), its picker is no longer dev server only
 
 Context:
 ADR #45 built a deploy for a box nobody could get a shell on. Its design assumed what a
@@ -3565,7 +3566,10 @@ refuse any database whose name does not end in _demo.
 
 The picker reads its people at runtime from /demo/personas.json, a file the reset writes on
 the box and the gate protects. The build carries the personas URL and no token, and
-./run bundle-secrets proves that with the live flag set.
+./run bundle-secrets proves that with the live flag set. This amends ADR #61, which kept the
+picker on the dev server only. A production build now turns it on when, and only when, it
+is given a personas URL. What #61 kept off production was the tokens, and they still never
+reach a bundle, so F15 is not reopened.
 
 The box deploys itself. A systemd timer runs scripts/deploy-demo.sh every 5 minutes. When
 dev has moved it builds the new commit, migrates the demo database, starts it, checks /up,

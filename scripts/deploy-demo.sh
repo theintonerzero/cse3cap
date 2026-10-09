@@ -25,12 +25,17 @@ notify() {
 fail() { printf 'Error: %s\n' "$*" >&2; notify "failed: $*"; exit 1; }
 compose() { DIARY_SHA="$1" DIARY_HOME="$DIARY_HOME" docker compose -f "$COMPOSE" "${@:2}"; }
 
-# One run at a time: a first build on this box can outlast the timer. flock
-# exits 75 when another run holds the lock; that is not a failure.
+# One run at a time, and demo-reset.sh takes the same lock. flock exits 75
+# when another run holds it: the timer just tries again in 5 minutes, but a
+# person is told, rather than getting a silent success that deployed nothing.
 if [ "${DIARY_LOCKED:-}" != 1 ]; then
     rc=0
     DIARY_LOCKED=1 flock -n -E 75 "$DIARY_HOME/deploy.lock" "$0" "$@" || rc=$?
-    [ "$rc" -eq 75 ] && exit 0
+    if [ "$rc" -eq 75 ]; then
+        [ "${1:-}" = "--if-changed" ] && exit 0
+        printf 'Error: another deploy or a reset is running. Nothing was changed; try again when it finishes.\n' >&2
+        exit 1
+    fi
     exit "$rc"
 fi
 
@@ -42,6 +47,7 @@ case "$db" in
 esac
 
 deployed="$(cat "$DIARY_HOME/deployed" 2>/dev/null || true)"
+failed="$(cat "$DIARY_HOME/failed" 2>/dev/null || true)"
 
 if [ "${1:-}" = "--if-changed" ]; then
     branch="${2:?--if-changed needs a branch}"
@@ -49,10 +55,20 @@ if [ "${1:-}" = "--if-changed" ]; then
     want="$(git ls-remote "$DIARY_REPO" "refs/heads/$branch" | cut -f1)"
     [ -n "$want" ] || fail "could not read $branch from $DIARY_REPO"
     [ "$want" = "$deployed" ] && exit 0
+    # A commit that already failed is not retried every 5 minutes (it would
+    # take the demo down for a minute and re-run its migration each time);
+    # the timer waits for the next commit. A deploy by hand still tries it.
+    [ "$want" = "$failed" ] && exit 0
     ref="$want"
 else
     ref="${1:?usage: deploy-demo.sh --if-changed <branch> | deploy-demo.sh <sha|tag|branch>}"
+    # Pinning by hand (a version, or a rollback) stops the timer from putting
+    # dev back 5 minutes later. Following dev again is a deliberate rm.
+    touch "$DIARY_HOME/freeze"
+    say "froze the timer: rm $DIARY_HOME/freeze to follow dev again"
 fi
+# Remembers the commit that failed, so the timer leaves it alone, then fails.
+fail_at() { printf '%s\n' "$1" > "$DIARY_HOME/failed"; fail "$2"; }
 
 say "fetching $ref"
 [ -d "$SRC/.git" ] || git clone --quiet --no-checkout "$DIARY_REPO" "$SRC"
@@ -62,11 +78,11 @@ sha="$(git -C "$SRC" rev-parse HEAD)"
 short="${sha:0:7}"
 
 say "building $short"
-compose "$sha" build || fail "build of $short failed; nothing running was changed"
+compose "$sha" build || fail_at "$sha" "build of $short failed; nothing running was changed"
 
 say "migrating $db"
 compose "$sha" run --rm diary-api php artisan migrate --force --no-interaction \
-    || fail "migration at $short failed; the running demo was left as it was"
+    || fail_at "$sha" "migration at $short failed; the running demo was left as it was"
 
 say "starting $short"
 compose "$sha" up -d --remove-orphans
@@ -87,6 +103,7 @@ if healthy "$sha"; then
         printf '%s\n' "$deployed" > "$DIARY_HOME/previous"
     fi
     printf '%s\n' "$sha" > "$DIARY_HOME/deployed"
+    rm -f "$DIARY_HOME/failed"
     # The timer runs bin/, never the checkout this run just rewrote. mv swaps
     # the file atomically, so a running copy keeps reading its old inode.
     { install -m 755 "$SRC/scripts/deploy-demo.sh" "$DIARY_HOME/bin/deploy-demo.sh.new" \
@@ -99,6 +116,7 @@ if healthy "$sha"; then
     exit 0
 fi
 
+printf '%s\n' "$sha" > "$DIARY_HOME/failed"
 if [ -z "$deployed" ]; then
     printf 'Error: %s failed its health check and there is nothing to roll back to.\n' "$short" >&2
     notify "first deploy $short failed its health check; nothing to roll back to"

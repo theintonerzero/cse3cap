@@ -24,6 +24,10 @@ COPY scripts/lib/token-for.php scripts/lib/demo-people.php /app/scripts/lib/
 # leaves files FPM's www-data cannot read ("File not found." on every request).
 RUN chmod -R a+rX /app
 
+# PHP ships no php.ini in this image: its built-in defaults cap uploads at 2M.
+RUN cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
+COPY deploy/demo/php-diary.ini "$PHP_INI_DIR/conf.d/zz-diary.ini"
+
 COPY deploy/demo/php-fpm-diary.conf /usr/local/etc/php-fpm.d/zz-diary.conf
 COPY deploy/demo/api-entrypoint.sh /usr/local/bin/diary-api-entrypoint
 RUN chmod 755 /usr/local/bin/diary-api-entrypoint

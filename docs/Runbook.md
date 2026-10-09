@@ -101,7 +101,7 @@ All of these run on the box, reached with `ssh accord`.
 | --- | --- |
 | Hold it still for a presentation | `touch /home/ubuntu/diary/freeze`, and `rm` it afterwards |
 | Start the data again | `/home/ubuntu/diary/src/scripts/demo-reset.sh`. Everyone signed in reloads |
-| Go back to the commit before | `/home/ubuntu/diary/bin/deploy-demo.sh $(cat /home/ubuntu/diary/previous)` |
+| Go back to the commit before | `/home/ubuntu/diary/bin/deploy-demo.sh $(cat /home/ubuntu/diary/previous)`. This freezes the timer; `rm /home/ubuntu/diary/freeze` to follow `dev` again |
 | See why it is down | `docker compose -p diary ps`, then `journalctl -u diary-deploy -n 50` |
 | Change the password or sign everyone out | `/home/ubuntu/diary/src/scripts/demo-gate.sh`, then "Changing Caddy" in Deployment.md |
 | Check it from outside | `scripts/smoke-demo.sh` from a laptop |
