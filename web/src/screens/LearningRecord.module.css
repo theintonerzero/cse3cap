@@ -92,6 +92,11 @@
   overflow-x: auto;
 }
 
+.scroller:focus-visible {
+  outline: 0.125rem solid var(--color-focus-ring);
+  outline-offset: 0.0625rem;
+}
+
 .table {
   width: 100%;
   border-collapse: collapse;

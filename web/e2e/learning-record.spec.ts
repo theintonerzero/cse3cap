@@ -311,6 +311,28 @@ test('the summary, one section per written gig, and the grid of self/assessor', 
   ).toBeVisible();
 });
 
+test('each table can be reached from the keyboard and names its sprints in full', async ({
+  page,
+}) => {
+  await page.goto('/record');
+
+  // Safari does not focus a scroll box on its own, so a wide table could
+  // not be scrolled without a mouse. The box is a named, focusable region.
+  const region = page.getByRole('region', {
+    name: 'Develop AI use cases, scores by sprint',
+  });
+  await expect(region).toHaveAttribute('tabindex', '0');
+  await region.focus();
+  await expect(region).toBeFocused();
+
+  // "S1" is read aloud as "S one"; the header's name is the word.
+  const headers = section(page, 'Develop AI use cases').getByRole('columnheader');
+  await expect(headers.nth(1)).toHaveAccessibleName('Sprint 1');
+  await expect(headers.nth(3)).toHaveAccessibleName('Sprint 3');
+  // The visible text stays short, as the frame draws it.
+  await expect(headers.nth(1)).toHaveText('S1');
+});
+
 test('each section opens the diary scoped to its gig', async ({ page }) => {
   await page.goto('/record');
 

@@ -258,7 +258,15 @@ function RecordTable({ section }: { section: RecordSection }) {
           </span>
         </div>
 
-        <div className={styles.scroller}>
+        {/* Focusable and named (CAP-62): Safari does not focus a scroll box
+            on its own, so without this a wide table cannot be scrolled from
+            the keyboard. */}
+        <div
+          className={styles.scroller}
+          tabIndex={0}
+          role="region"
+          aria-label={`${gig.title}, scores by sprint`}
+        >
           <table className={styles.table}>
             <caption className={styles.sr_only}>{gig.title}</caption>
             <thead>
@@ -267,7 +275,7 @@ function RecordTable({ section }: { section: RecordSection }) {
                   Competency
                 </th>
                 {sprints.map((sprint) => (
-                  <th key={sprint.id} scope="col">
+                  <th key={sprint.id} scope="col" aria-label={`Sprint ${sprint.ordinal}`}>
                     S{sprint.ordinal}
                   </th>
                 ))}
