@@ -85,10 +85,7 @@ Jane's classmate on the La Trobe gig, part-way through the course.
    link** (give it a label and any `https://` address, then **Add link**), and choose a
    self-score. Each level shows its descriptor, so the student is scoring against words
    rather than a number.
-4. Do the same for the rest. Saving happens as you go. Until CAP-52 is merged, let each
-   narrative show **Saved** before pressing **Next** or **Submit**, and don't type while a
-   score is saving. Both can lose words in the current build. Delete this sentence once
-   CAP-52 is on `dev`.
+4. Do the same for the rest. Saving happens as you go.
 5. Press **Submit**. If anything the rubric requires is missing, the screen says what and
    jumps to the first competency at fault, instead of failing generically. It reports one
    kind of gap at a time: writing first, then self-scores, then evidence. On success the

@@ -22,7 +22,7 @@ after the subject closes and after they graduate.
 | Backend | **Complete.** 31 endpoints, all eight business rules, 167 feature tests and 6 unit tests |
 | Contract | `docs/openapi.yaml` matches the served routes, checked mechanically |
 | Frontend | **Complete.** Design tokens, the ten core components, the typed client, the app shell and every screen in the build scope, with 53 Playwright browser checks |
-| Release | v1.0.0 planned for 11 October 2026, after a cut-off at the end of 10 October. Changes are in [`docs/CHANGELOG.md`](docs/CHANGELOG.md) |
+| Release | v1.0.0, tagged 10 October 2026. Changes are in [`docs/CHANGELOG.md`](docs/CHANGELOG.md) |
 
 The API is finished and stable. The contract is the agreement, so a screen can be built
 against `prism mock docs/openapi.yaml` without waiting for anything.
@@ -129,7 +129,8 @@ A Reflection Diary module inside Alumable where:
 
 **Out of scope**
 
-- AI features of any kind. Cut at the scope review, see [ADR #10](docs/adr/).
+- AI inside the product. Cut by [ADR #10](docs/adr/); an optional sidecar that asks and never
+  writes was added beside it (ADR #64).
 - Framework creation from scratch, adding or removing competencies, changing level counts.
   Editing means copying a seeded base, then renaming and rewording only.
 - Re-scoring by an assessor, pagination, notifications as stored state, real-time updates.
@@ -226,7 +227,7 @@ update that file and redraw after any schema change. Schema with inline reasonin
 ├── db/           # Schema, patches and the TLS root bundle
 ├── docs/         # Brief, ERD, API spec, ADRs. Every document lives here
 ├── scripts/      # Setup, smoke, the client and per-screen checks, CI checks, two agent guards, the deploy
-├── deploy/       # The demo's Caddy site block and PHP-FPM pool (CAP-26)
+├── deploy/       # The live demo's containers and gate in demo/ (CAP-54, ADR #62); caddy/ and php-fpm/ are ADR #45's unused host install
 ├── run           # Task runner. ./run dev starts everything (run.ps1 on Windows)
 ├── .claude/      # Shared agent configuration: agents, skills, permissions
 ├── .github/      # CI, and Dependabot's weekly dependency pass
