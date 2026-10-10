@@ -19,9 +19,10 @@ after the subject closes and after they graduate.
 | Part | State |
 | --- | --- |
 | Database | Applied and verified on the shared instance. 14 tables, 5 views |
-| Backend | **Complete.** 31 endpoints, all eight business rules, 167 feature tests and 6 unit tests |
+| Backend | **Complete.** 31 endpoints, all eight business rules, 172 feature tests and 6 unit tests |
 | Contract | `docs/openapi.yaml` matches the served routes, checked mechanically |
-| Frontend | **Complete.** Design tokens, the ten core components, the typed client, the app shell and every screen in the build scope, with 53 Playwright browser checks |
+| Frontend | **Complete.** Design tokens, the ten core components, the typed client, the app shell and every screen in the build scope, with 449 Playwright browser checks in 64 spec files, Chromium plus a Firefox check |
+| AI sidecar | **Built, off by default.** Python FastAPI in `ai/`, its own contract and database, 129 tests (`./run ai-test`). Asks and finds, never writes (ADR #64) |
 | Release | v1.0.0, tagged 10 October 2026. Changes are in [`docs/CHANGELOG.md`](docs/CHANGELOG.md) |
 
 The API is finished and stable. The contract is the agreement, so a screen can be built
@@ -472,10 +473,11 @@ in the repository is the copy that everyone can read, and the one to edit.
 ### Testing it
 
 ```bash
-./run test                          # 167 feature and 6 unit tests, against real MySQL
+./run test                          # 172 feature and 6 unit tests, against real MySQL
 ./run smoke                         # 71 checks, over HTTP, with the three real tokens (CI runs it too)
 ./run verify                        # 28 checks on the typed API client, both servers (CI runs it too)
-./run e2e                           # 53 browser checks, Playwright against a fake API
+./run e2e                           # 449 browser checks, Playwright against a fake API
+./run ai-test                       # 129 AI sidecar tests (pytest, needs uv)
 ./run check                         # the suite, lint, contract, guards, build and browser checks
 ```
 
