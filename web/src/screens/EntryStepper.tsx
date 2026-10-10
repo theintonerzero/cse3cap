@@ -36,7 +36,7 @@
  * comment.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ChangeEvent, FormEvent, ReactNode, SetStateAction } from 'react';
+import type { ChangeEvent, FormEvent, ReactNode, Ref, SetStateAction } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
 
 import { api, ApiError } from '../api/client.ts';
@@ -61,6 +61,7 @@ import { CalibrationPanel } from '../ai/CalibrationPanel.tsx';
 import { CoachPanel } from '../ai/CoachPanel.tsx';
 import { RelatedDisclosure } from '../ai/RelatedDisclosure.tsx';
 import { useAiStatus } from '../ai/useAiStatus.ts';
+import type { TextAreaHandle } from '../components/TextArea/TextArea.tsx';
 import { useSession } from '../session/useSession.ts';
 import type { SessionUser } from '../session/useSession.ts';
 import {
@@ -117,6 +118,14 @@ function list_of(parts: string[]): string {
     ? (parts[0] ?? '')
     : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
 }
+
+/** Applies `change` to the entry as it is now, not as a caller last saw it:
+ * a save that comes back late patches only the field it owns, so text typed
+ * while it was in flight survives (CAP-52). */
+type EntryUpdate = (
+  entry_id: string,
+  change: (entry: ReflectionEntry) => ReflectionEntry,
+) => void;
 
 type Load =
   | { status: 'loading' }
@@ -183,6 +192,34 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
   // Whose kept work has been read back (`${me_id}:${reflection_id}`), so
   // nothing is written over it before it has been (round 3, ADR #57).
   const restored = useRef<string | null>(null);
+  // The narrative box, so Submit can ask it to send an edit still waiting
+  // out its debounce (CAP-52).
+  const narrative_ref = useRef<TextAreaHandle>(null);
+  // Narrative saves in flight, from any card. A card that unmounts sends its
+  // last words as it goes, and Submit must wait for those too, not only for
+  // the card on screen (CAP-52).
+  const pending_saves = useRef(new Set<Promise<void>>());
+  // Entries whose newest narrative save was refused. A card that has left the
+  // screen cannot retry it, and Submit must not post without it. Saves for one
+  // entry can overlap (the debounce starts a new one while an old one is in
+  // flight), so only the newest save's outcome counts, never settle order.
+  const failed_saves = useRef(new Set<string>());
+  const latest_save = useRef(new Map<string, Promise<void>>());
+  const track_save = useCallback((entry_id: string, saving: Promise<void>) => {
+    pending_saves.current.add(saving);
+    latest_save.current.set(entry_id, saving);
+    const settle = (failed: boolean) => {
+      pending_saves.current.delete(saving);
+      if (latest_save.current.get(entry_id) !== saving) return;
+      latest_save.current.delete(entry_id);
+      if (failed) failed_saves.current.add(entry_id);
+      else failed_saves.current.delete(entry_id);
+    };
+    saving.then(
+      () => settle(false),
+      () => settle(true),
+    );
+  }, []);
   // What "Submit scores" found missing, shown in a pop-up until "Okay",
   // which goes to the first of them (round 3, Patrick 2026-10-05).
   const [missing, setMissing] = useState<SaveAllGap[] | null>(null);
@@ -256,7 +293,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
     setReloadKey((key) => key + 1);
   }, []);
 
-  const update_entry = useCallback((next: ReflectionEntry) => {
+  const update_entry = useCallback<EntryUpdate>((entry_id, change) => {
     setLoad((current) => {
       if (current.status !== 'loaded') return current;
       return {
@@ -264,7 +301,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
         reflection: {
           ...current.reflection,
           entries: current.reflection.entries.map((entry) =>
-            entry.id === next.id ? next : entry,
+            entry.id === entry_id ? change(entry) : entry,
           ),
         },
       };
@@ -447,6 +484,38 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
     setSubmitError(null);
 
     try {
+      await narrative_ref.current?.flush();
+      // Wait for every save still out. Whether one failed is not read from
+      // here: an older save failing after a newer one landed is harmless, and
+      // failed_saves holds only entries whose newest save failed.
+      await Promise.allSettled([...pending_saves.current]);
+      // Words a left card could not save are sent again, here, before the
+      // reflection becomes unchangeable.
+      for (const entry_id of [...failed_saves.current]) {
+        const on_screen = load.reflection.entries.find((e) => e.id === entry_id);
+        if (!on_screen) {
+          failed_saves.current.delete(entry_id);
+          continue;
+        }
+        await api.patch('/entries/{entry_id}', {
+          path: { entry_id },
+          body: { narrative: on_screen.narrative ?? '' },
+        });
+        failed_saves.current.delete(entry_id);
+      }
+    } catch {
+      setSubmitError(
+        new ApiError(
+          0,
+          null,
+          'Your last edit did not save, so nothing was submitted. Check the connection and try again.',
+        ),
+      );
+      setSubmitting(false);
+      return;
+    }
+
+    try {
       await api.post('/reflections/{reflection_id}/submit', { path: { reflection_id } });
       navigate(`/reflections/${reflection_id}/submitted`);
     } catch (error) {
@@ -594,7 +663,9 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
         framework={load.framework}
         read_only={read_only}
         offending={is_offending(current, offending)}
-        on_change={update_entry}
+        on_update={update_entry}
+        narrative_ref={narrative_ref}
+        track_save={track_save}
         mode={mode}
         owner_name={reflection.owner.display_name}
         viewer_id={me_id}
@@ -737,7 +808,9 @@ function EntryCard({
   framework,
   read_only,
   offending = false,
-  on_change,
+  on_update,
+  narrative_ref,
+  track_save,
   mode,
   owner_name,
   viewer_id = null,
@@ -751,7 +824,10 @@ function EntryCard({
   framework: FrameworkDetail;
   read_only: boolean;
   offending?: boolean;
-  on_change: (next: ReflectionEntry) => void;
+  on_update: EntryUpdate;
+  narrative_ref: Ref<TextAreaHandle>;
+  /** Registers a save so Submit can wait for it after this card is gone. */
+  track_save: (entry_id: string, saving: Promise<void>) => void;
   mode: StepperMode;
   owner_name: string;
   /** Who is looking, so assessor mode can leave their own score to the panel. */
@@ -786,10 +862,14 @@ function EntryCard({
         // onChange already wrote the student's keystrokes there as they
         // typed, and that is authoritative. Echoing this response would
         // revert an edit typed during this request's own round trip.
-        await api.patch('/entries/{entry_id}', {
-          path: { entry_id: entry.id },
-          body: { narrative: value },
-        });
+        const saving = api
+          .patch('/entries/{entry_id}', {
+            path: { entry_id: entry.id },
+            body: { narrative: value },
+          })
+          .then(() => {});
+        track_save(entry.id, saving);
+        await saving;
         setSavedNarrative(value);
       } catch (error) {
         const api_error = as_api_error(error, 'Could not save that.');
@@ -797,7 +877,7 @@ function EntryCard({
         throw api_error; // TextArea's own status turns "failed" on a rejection.
       }
     },
-    [entry.id],
+    [entry.id, track_save],
   );
 
   // CAP-66: the scale shows a choice at once. A tap saves at once; arrow keys
@@ -821,8 +901,10 @@ function EntryCard({
           body: { level_id },
         });
         if (seq !== save_seq.current) return;
-        const others = entry.scores.filter((existing) => existing.scorer_class !== 'self');
-        on_change({ ...entry, scores: [...others, score] });
+        on_update(entry.id, (current) => ({
+          ...current,
+          scores: [...current.scores.filter((s) => s.scorer_class !== 'self'), score],
+        }));
       } catch (error) {
         if (seq !== save_seq.current) return;
         setScoreError(as_api_error(error, 'Could not save that score.').message);
@@ -831,7 +913,7 @@ function EntryCard({
         setPendingLevel((pending) => (pending === level_id ? null : pending));
       }
     },
-    [entry, on_change],
+    [entry.id, on_update],
   );
 
   const flush = useCallback(() => {
@@ -866,8 +948,11 @@ function EntryCard({
       <TextArea
         label={mode === 'assessor' ? `${owner_name} wrote` : 'Your reflection'}
         value={entry.narrative ?? ''}
-        onChange={(value) => on_change({ ...entry, narrative: value })}
+        onChange={(value) =>
+          on_update(entry.id, (current) => ({ ...current, narrative: value }))
+        }
         onSave={save_narrative}
+        ref={narrative_ref}
         disabled={read_only}
         placeholder="What did you do, and what did you learn from it?"
       />
@@ -1028,7 +1113,7 @@ function EntryCard({
         entry={entry}
         framework={framework}
         read_only={read_only}
-        on_change={on_change}
+        on_update={on_update}
       />
 
       {children}
@@ -1056,12 +1141,12 @@ function EvidenceList({
   entry,
   framework,
   read_only,
-  on_change,
+  on_update,
 }: {
   entry: ReflectionEntry;
   framework: FrameworkDetail;
   read_only: boolean;
-  on_change: (next: ReflectionEntry) => void;
+  on_update: EntryUpdate;
 }) {
   const [adding_link, setAddingLink] = useState(false);
   const [label, setLabel] = useState('');
@@ -1074,15 +1159,15 @@ function EvidenceList({
       setError(null);
       try {
         await api.delete('/evidence/{evidence_id}', { path: { evidence_id } });
-        on_change({
-          ...entry,
-          evidence: entry.evidence.filter((e) => e.id !== evidence_id),
-        });
+        on_update(entry.id, (current) => ({
+          ...current,
+          evidence: current.evidence.filter((e) => e.id !== evidence_id),
+        }));
       } catch (deleteError) {
         setError(as_api_error(deleteError, 'Could not remove that.').message);
       }
     },
-    [entry, on_change],
+    [entry.id, on_update],
   );
 
   const add_link = useCallback(
@@ -1094,7 +1179,10 @@ function EvidenceList({
           path: { entry_id: entry.id },
           body: { kind: 'link', label, uri },
         });
-        on_change({ ...entry, evidence: [...entry.evidence, evidence] });
+        on_update(entry.id, (current) => ({
+          ...current,
+          evidence: [...current.evidence, evidence],
+        }));
         setLabel('');
         setUri('');
         setAddingLink(false);
@@ -1102,7 +1190,7 @@ function EvidenceList({
         setError(as_api_error(addError, 'Could not attach that link.').message);
       }
     },
-    [entry, label, uri, on_change],
+    [entry.id, label, uri, on_update],
   );
 
   const add_file = useCallback(
@@ -1119,12 +1207,15 @@ function EvidenceList({
           path: { entry_id: entry.id },
           body: form,
         });
-        on_change({ ...entry, evidence: [...entry.evidence, evidence] });
+        on_update(entry.id, (current) => ({
+          ...current,
+          evidence: [...current.evidence, evidence],
+        }));
       } catch (addError) {
         setError(as_api_error(addError, 'Could not attach that file.').message);
       }
     },
-    [entry, on_change],
+    [entry.id, on_update],
   );
 
   return (
