@@ -1,0 +1,168 @@
+/*
+ * The presenter's phone frame (CAP-55): a Galaxy S24 Ultra, which has flat
+ * sides and tight corners rather than a rounded pebble. Outside web/, so no
+ * tokens.css here: the backdrop is the diary's dark page colour
+ * (--color-bg, dark theme), the rest is the device's own hardware. The system
+ * bars take their colours from the app at run time (phone.js), as Android's do.
+ */
+:root {
+  --backdrop: #12151c;
+  --bezel: #0d0d0f;
+  --rim: #3c3c40;
+  --bezel-width: 9px;
+  --screen-radius: 12px;
+  --screen-width: 384px;
+  --screen-height: 832px;
+  --status-height: 28px;
+  --gesture-height: 20px;
+  /* Until phone.js samples the app: the diary's light page and text. */
+  --bar-bg: #ffffff;
+  --bar-fg: #202020;
+  --nav-bg: #ffffff;
+  --nav-fg: #202020;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--backdrop);
+}
+
+.stage {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.device {
+  box-sizing: content-box;
+  width: var(--screen-width);
+  height: var(--screen-height);
+  padding: var(--bezel-width);
+  background: var(--bezel);
+  border-radius: calc(var(--screen-radius) + var(--bezel-width));
+  /* The titanium edge, then a soft drop so the phone sits on the backdrop. */
+  box-shadow:
+    0 0 0 2px var(--rim),
+    0 28px 72px rgb(0 0 0 / 0.55);
+  transform: scale(var(--scale, 1));
+  transform-origin: center;
+}
+
+.screen {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: var(--screen-width);
+  height: var(--screen-height);
+  border-radius: var(--screen-radius);
+  overflow: hidden;
+  background: var(--bar-bg);
+}
+
+/* Android's status bar: time on the left, connectivity and battery right,
+   the punch-hole camera in the middle of it. */
+.status-bar {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  height: var(--status-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px 0 20px;
+  background: var(--bar-bg);
+  color: var(--bar-fg);
+  font: 600 13px/1 system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-variant-numeric: tabular-nums;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+.status-icons {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.battery {
+  position: relative;
+  width: 20px;
+  height: 10px;
+  border: 1.5px solid currentColor;
+  border-radius: 3px;
+  box-sizing: border-box;
+}
+
+.battery::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  right: -3.5px;
+  width: 2px;
+  height: 3px;
+  border-radius: 0 1px 1px 0;
+  background: currentColor;
+}
+
+.battery-level {
+  position: absolute;
+  inset: 1px;
+  right: 3px;
+  border-radius: 1px;
+  background: currentColor;
+}
+
+.battery-text {
+  font-size: 12px;
+}
+
+/* The centred punch-hole camera, over the status bar as on the phone. */
+.camera {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 11px;
+  height: 11px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: #000;
+  box-shadow: 0 0 0 1.5px #1a1a1c;
+}
+
+.screen iframe {
+  display: block;
+  flex: none;
+  width: var(--screen-width);
+  height: calc(var(--screen-height) - var(--status-height) - var(--gesture-height));
+  border: 0;
+  /* Transparent, never a colour. GPU Chrome draws the app as its own layer
+     over this element and, at the device's fractional --scale, antialiases
+     that layer's edges against whatever the element paints: white showed
+     through as grey hairlines down both sides and across the status and
+     gesture bars. The app paints its own page; Firefox never showed it. */
+  background: transparent;
+}
+
+/* Android's gesture navigation: a thin pill, in the app's bottom colour. */
+.gesture-bar {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  height: var(--gesture-height);
+  display: grid;
+  place-items: center;
+  background: var(--nav-bg);
+  transition: background-color 150ms ease;
+}
+
+.pill {
+  width: 108px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--nav-fg);
+  opacity: 0.55;
+}

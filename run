@@ -1,0 +1,464 @@
+#!/usr/bin/env bash
+#
+# One entry point for the whole project, from the repository root.
+#
+#   ./run            what you can do
+#   ./run dev        both servers, one Ctrl-C stops both
+#   ./run demo       the client demo: checks the database and the demo people, then dev
+#   ./run check      everything CI runs
+#
+# api/ and web/ are separate applications with separate toolchains. This
+# does not hide that, it just saves the cd. Every command it runs is
+# printed before it runs, so this stays a shortcut rather than a layer
+# nobody can see through.
+#
+# Windows: use run.ps1.
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$ROOT"
+
+if [ -t 1 ]; then
+    BLUE=$'\033[1;34m'; GREEN=$'\033[1;32m'; YELLOW=$'\033[1;33m'
+    RED=$'\033[1;31m';  DIM=$'\033[2m';      RESET=$'\033[0m'
+else
+    BLUE=''; GREEN=''; YELLOW=''; RED=''; DIM=''; RESET=''
+fi
+
+say()  { printf '%s==>%s %s\n' "$BLUE" "$RESET" "$1"; }
+die()  { printf '%sError:%s %s\n' "$RED" "$RESET" "$1" >&2; exit 1; }
+
+# Print what is about to happen, then do it. The point of a task runner is
+# to save typing, not to make the real command a mystery, so what it prints
+# is what you would type yourself.
+step() {
+    printf '%s$ %s%s\n' "$DIM" "$*" "$RESET"
+    "$@"
+}
+
+# The same, inside api/ or web/. Printed as "web $ npm run lint" rather
+# than wrapped in a bash -c whose quoting does not survive being echoed.
+in_dir() {
+    local dir="$1"; shift
+    printf '%s%s $ %s%s\n' "$DIM" "$dir" "$*" "$RESET"
+    ( cd "$dir" && "$@" )
+}
+
+need_api() {
+    [ -f api/artisan ] || die "api/ is not set up. Run ./scripts/setup.sh first."
+
+    # A fresh clone has artisan and no vendor/, so checking for artisan
+    # alone let every command through to a raw PHP fatal about a missing
+    # autoload.php. That is the first thing a new teammate would have hit.
+    [ -f api/vendor/autoload.php ] || {
+        say "Installing PHP dependencies"
+        ( cd api && composer install --no-interaction )
+    }
+
+    # This one cannot be fixed automatically: .env carries the database
+    # password and setup.sh asks for it. Say so, rather than failing later
+    # with a connection error that reads like a network problem.
+    [ -f api/.env ] || die "api/.env is missing. Run ./scripts/setup.sh, which asks for the database password."
+}
+
+need_web() { [ -f web/package.json ] || die "web/ does not exist yet."; }
+
+need_web_deps() {
+    need_web
+    [ -d web/node_modules ] || { say "Installing frontend dependencies"; ( cd web && npm install ); }
+}
+
+# --------------------------------------------------------------------------
+# dev: both servers at once
+# --------------------------------------------------------------------------
+# Stopping this cleanly is the whole difficulty. Each server sits under a
+# subshell and a prefixing pipeline, so the pid bash reports is never the
+# pid holding the port. Signalling the process group was tried first and
+# left both servers orphaned on :8000 and :5173, which is worse than no
+# runner at all: the next ./run dev fails on a port already in use and the
+# cause is invisible.
+#
+# So the descendants are walked explicitly and killed from the leaves up.
+# pgrep -P behaves the same on macOS and Linux.
+kill_tree() {
+    local pid="$1" child
+    for child in $(pgrep -P "$pid" 2>/dev/null || true); do
+        kill_tree "$child"
+    done
+    kill "$pid" 2>/dev/null || true
+}
+
+dev() {
+    need_api
+    need_web_deps
+
+    local pids=()
+
+    stop() {
+        trap - INT TERM EXIT
+        printf '\n'
+        say "Stopping"
+        local pid
+        for pid in "${pids[@]}"; do
+            kill_tree "$pid"
+        done
+        wait 2>/dev/null || true
+        say "Stopped"
+    }
+    trap stop INT TERM EXIT
+
+    prefixed() {
+        local label="$1" colour="$2"; shift 2
+        "$@" 2>&1 | while IFS= read -r line; do
+            printf '%s%-4s%s %s\n' "$colour" "$label" "$RESET" "$line"
+        done
+    }
+
+    say "api  http://localhost:8000/api/v1"
+    say "web  http://localhost:5173"
+    printf '%sCtrl-C stops both.%s\n\n' "$DIM" "$RESET"
+
+    prefixed api "$BLUE"  bash -c 'cd api && exec php artisan serve --port=8000' &
+    pids+=($!)
+    prefixed web "$GREEN" bash -c 'cd web && exec npm run dev' &
+    pids+=($!)
+
+    wait
+}
+
+# --------------------------------------------------------------------------
+case "${1:-help}" in
+    dev)   dev ;;
+
+    # The client demo on this laptop (CAP-51): the shared database must
+    # answer (a hotspot if the wifi blocks 3306), and the demo sign-in's
+    # people come from the team's tokens file. Then both servers, as dev.
+    demo)  need_api; need_web_deps; php scripts/demo-preflight.php || exit 1; dev ;;
+
+    api)   need_api; in_dir api php artisan serve --port=8000 ;;
+    web)   need_web_deps; in_dir web npm run dev ;;
+
+    # The contract mocked, so the frontend does not need the backend.
+    mock)  step npx -y @stoplight/prism-cli mock docs/openapi.yaml ;;
+
+    # Both halves of the seam against the contract (CAP-25): schema.ts is
+    # what the contract generates, and Laravel's routes are its operations.
+    # Needs api/vendor and api/.env for route:list; never the database.
+    contract-drift) need_api; step ./scripts/check-contract-drift.sh ;;
+
+    # Rewrites docs/Dependency-Register.md from composer and npm: licences and
+    # known advisories, dated and tied to a commit (SMD 8.6, CAP-32). Needs the
+    # network for the two audits. Commit the result.
+    deps) need_api; need_web_deps; step python3 scripts/dependency-register.py ;;
+
+    # The docs still describe the repository: links resolve, ./run commands
+    # exist, docs/ is listed in the README, the ADR index matches the records,
+    # and the dependency register matches the lockfiles. No network needed.
+    docs) step python3 scripts/check-docs.py ;;
+
+    test)  need_api; in_dir api php artisan test ;;
+
+    # The AI sidecar's tests (ADR #64). Store tests need AI_TEST_DATABASE_URL,
+    # a throwaway MySQL, never the shared one; without it they skip.
+    ai-test) in_dir ai uv run pytest ;;
+
+    # The frontend client against real servers, plus the compile-time
+    # checks the generated types exist for. Starts prism itself; needs
+    # ./run api for the rest.
+    verify) need_web_deps; step ./scripts/verify-client.sh "${2:-}" ;;
+
+    # The app shell's own invariants: one owner for the token, a route per
+    # screen, and /auth/me really carrying what the nav is built from. The
+    # live third needs a server; it skips itself rather than failing.
+    verify-shell) step ./scripts/verify-app-shell.sh ;;
+
+    # The diary home's own invariants: the screen is mounted, its rows link
+    # to a route that exists, it declares no types of its own, and it ships
+    # four states. The live radar check needs a server and a token; it
+    # skips itself rather than failing.
+    verify-diary) step ./scripts/verify-diary-home.sh ;;
+
+    # The entry stepper's own invariants: mounted in place of the CAP-11
+    # placeholder, one API client with no hand-written response type, four
+    # states, and the evidence-link security condition from the ticket's
+    # own comment -- exactly one href in the file and it is gated on
+    # kind === 'link', so a file or image item never gets a clickable URL.
+    verify-entry-stepper) step ./scripts/verify-entry-stepper.sh ;;
+
+    # The same stepper in assessor mode (CAP-13): one component rather than
+    # two, reached from the review queue, POST and never PUT because there
+    # is no re-scoring (ADR #34), each error handled by its code, and the
+    # flip to assessed read from the response rather than made by the client.
+    verify-assessor-stepper) step ./scripts/verify-assessor-stepper.sh ;;
+
+    # The gig detail screen's own invariants: the screen is mounted, its
+    # diary card links into a scope the diary home actually reads back, it
+    # ships four states, and the relative sprint wording is compiled and
+    # executed rather than grepped for -- every seeded sprint is already
+    # past due, so "not open yet" is unreachable by looking at the app.
+    # The live half needs a server and a token; it skips rather than fails.
+    verify-gig) step ./scripts/verify-gig-detail.sh ;;
+
+    # The export sheet's own invariants: the real sheet replaced CAP-7's
+    # stub, every call goes through client.ts and the file through
+    # api.blob, five states by name with in-progress its own block rather
+    # than a skeleton, and the poll backoff is compiled and executed --
+    # on a sync queue every export is complete before the 202 arrives,
+    # so backing off and giving up cannot be seen by clicking. The live
+    # half needs a server and a token; it skips rather than fails.
+    verify-export) step ./scripts/verify-export-sheet.sh ;;
+
+    # The history sheet's own invariants: mounted in a BottomSheet on the
+    # gig page for a student only, every call through client.ts, four
+    # states, and the milestone rules compiled and executed -- every
+    # seeded event on a reflection shares one timestamp, so an order that
+    # only reads the clock looks fine on some loads and shuffled on
+    # others. The live half needs a server and tokens; it skips rather
+    # than fails.
+    verify-history) step ./scripts/verify-history-sheet.sh ;;
+
+    # The select framework screen's own invariants: mounted in place of the
+    # CAP-15 placeholder, reachable from the nav a supervisor sees, Copy and
+    # edit on every row and pointed at a route the router actually declares,
+    # four states, and no replace flow -- a gig takes one rubric (ADR #33,
+    # #35). The templates-from-copies split is compiled and executed rather
+    # than grepped for: the shared database holds two stock templates and a
+    # pile of smoke-test copies, so an empty list and an all-stock list
+    # cannot be produced by looking at the app. The live half needs a
+    # server and Dr Lee's token; it skips rather than fails.
+    verify-frameworks) step ./scripts/verify-select-framework.sh ;;
+
+    # The edit framework screen (CAP-16): mounted, reachable from every
+    # rubric, the four calls the ticket names through the typed client,
+    # four states, and ADR #16's scope -- rename and reword only, no control
+    # for adding or removing anything. Which PATCHes a save still owes, and
+    # what a retry resends, is compiled and executed. The live half is
+    # read-only and needs a server and Dr Lee's token; it skips rather than
+    # fails.
+    verify-framework-edit) step ./scripts/verify-edit-framework.sh ;;
+
+    # Browser checks (ADR #42): the real screens in headless Chromium against
+    # a fake API, so no server, database or token is needed. Extra arguments
+    # go to Playwright: ./run e2e -g "partway", ./run e2e --headed.
+    e2e)
+        need_web_deps
+        in_dir web npx playwright install chromium
+        shift
+        # ${@+"$@"}, not "$@": macOS's bash 3.2 calls an empty "$@" unbound
+        # under set -u, which would make a bare ./run e2e fail.
+        in_dir web npx playwright test ${@+"$@"}
+        ;;
+
+    # HO-6: screenshots for the User Manual and SMD, against a separate
+    # config so this never runs under CI or ./run check. Writes PNGs to
+    # web/e2e/shots/output/, named by web/e2e/shots/manifest.ts's ids --
+    # see web/e2e/shots/README.md for what those ids mean and when to run
+    # this for real (after the UI freeze on 7 Oct, then again before
+    # submission).
+    # Redraws docs/erd.png from docs/erd.mmd, legend included (CAP-27). Needs
+    # the network: Mermaid loads from a pinned CDN version. Run it after any
+    # change to db/01-schema.sql, with erd.mmd brought up to date first.
+    erd)
+        need_web_deps
+        in_dir web npx playwright install chromium
+        in_dir web node ../scripts/render-erd.mjs
+        ;;
+
+    shots)
+        need_web_deps
+        in_dir web node --experimental-strip-types e2e/shots/manifest.test.ts
+        in_dir web npx playwright install chromium
+        shift
+        in_dir web npx playwright test --config=playwright.shots.config.ts ${@+"$@"}
+        ;;
+
+    # Proves your Jira credentials work, over plain HTTP, independently of
+    # the atlassian MCP server. Run it when Jira misbehaves: it separates a
+    # wrong token from a broken MCP server, which look identical otherwise.
+    # Prints how to get a token when you do not have one.
+    jira) step ./scripts/check-jira.sh ;;
+
+    # Reads the deploy host and reports what is actually on it. Read-only:
+    # writes nothing, reloads nothing, which matters because that box also
+    # carries the shared database. A check, like verify and smoke.
+    check-host) step ./scripts/check-deploy-host.sh "${2:-}" ;;
+
+    # The live demo's scripts and deploy/demo, against stubs and a local
+    # Caddy (CAP-54). Writes nothing outside a temporary directory.
+    deploy-demo-test) step python3 scripts/deploy-demo.test.py ;;
+
+    # Proves your api/ reaches the database over TLS: Ssl_cipher non-empty
+    # on a connection Laravel made itself. Read-only. After any change to
+    # Caddy on the database box, this is how you know the certificate
+    # survived (docs/Deployment.md).
+    db-tls) need_api; step ./scripts/check-db-tls.sh ;;
+
+    # Not a deploy. A production deploy one mistyped word away from
+    # ./run dev is a loaded gun next to the coffee machine (spec §9.2), so
+    # this prints the real command and does nothing else.
+    deploy)
+        printf 'There is no ./run deploy. Type the script, so the choice is deliberate:\n\n'
+        printf '  scripts/deploy.sh diary@rddb.darkovski.dev <tag>\n\n'
+        printf 'Tags only, pushed to origin first. docs/Deployment.md has the rest.\n'
+        exit 1
+        ;;
+
+    # Over HTTP against a server you started yourself, with the real
+    # tokens. Proves the wiring the unit tests cannot.
+    smoke)
+        curl -fsS -o /dev/null "http://localhost:8000/api/v1/auth/me" 2>/dev/null \
+            || [ "$?" = "22" ] \
+            || die "Nothing is serving on :8000. Start it with ./run api"
+        step ./scripts/smoke.sh
+        ;;
+
+    # CAP-31. Walks the permission matrix with the three seeded tokens and
+    # checks the refusals. Reads and refusals only, so safe on the shared db.
+    pentest)
+        curl -fsS -o /dev/null "http://localhost:8000/up" 2>/dev/null \
+            || die "Nothing is serving on :8000. Start it with ./run api"
+        step ./scripts/pentest.sh
+        ;;
+
+    # CAP-20. The rubric is data, not code: same endpoints, two gigs, two
+    # frameworks, different axes and scale. Needs a server and Jane's token.
+    swap)
+        curl -fsS -o /dev/null "http://localhost:8000/api/v1/auth/me" 2>/dev/null \
+            || [ "$?" = "22" ] \
+            || die "Nothing is serving on :8000. Start it with ./run api"
+        step ./scripts/verify-framework-swap.sh
+        ;;
+
+    # Builds for production with a token in the environment and fails if it
+    # survives into the bundle. The regression test for F1 in
+    # docs/Security-Review.md, which is only latent until a screen calls the
+    # API client.
+    bundle-secrets) need_web_deps; step ./scripts/check-bundle-secrets.sh ;;
+
+    # CLAUDE.md says a business rule has exactly one implementation.
+    # Greps the rules that are a literal somebody could retype: CAP-19's
+    # audit found the reviewer roles written out five times.
+    one-rule) step ./scripts/check-one-rule.sh ;;
+
+    lint)
+        need_api
+        in_dir api ./vendor/bin/pint --test
+        if [ -f web/package.json ]; then
+            need_web_deps
+            in_dir web npm run lint
+            in_dir web npx prettier --check .
+        fi
+        ;;
+
+    fmt|format)
+        need_api
+        in_dir api ./vendor/bin/pint
+        [ -f web/package.json ] && { need_web_deps; in_dir web npm run format; }
+        ;;
+
+    build)
+        need_web_deps
+        in_dir web npm run build
+        ;;
+
+    # Everything CI runs, in CI's order, so a red pipeline is something you
+    # can reproduce here rather than by pushing again.
+    check)
+        say "Contract"
+        step npx -y @redocly/cli@latest lint docs/openapi.yaml
+        step npx -y @redocly/cli@latest lint docs/ai-openapi.yaml
+        step python3 scripts/contract-routes.test.py
+        step python3 scripts/dependency-register.test.py
+        need_api
+        step ./scripts/check-contract-drift.sh
+        say "Guards"
+        step python3 scripts/guard-shared-db.test.py
+        step python3 scripts/guard-docs-location.test.py
+        step python3 scripts/deploy.test.py
+        step python3 scripts/deploy-demo.test.py
+        step ./scripts/check-one-rule.sh
+        step python3 scripts/check-tokens.test.py
+        step python3 scripts/token-for.test.py
+        step python3 scripts/demo-personas.test.py
+        step python3 scripts/check-docs.test.py
+        step python3 scripts/check-docs.py
+        say "Backend"
+        need_api
+        in_dir api ./vendor/bin/pint --test
+        in_dir api php artisan test
+        say "AI sidecar"
+        # Its database tests run when AI_TEST_DATABASE_URL names a _test database
+        # (ai/README.md), and are skipped otherwise.
+        in_dir ai uv run pytest
+        if [ -f web/package.json ]; then
+            say "Frontend"
+            need_web_deps
+            in_dir web npm run lint
+            in_dir web npx prettier --check .
+            step scripts/check-tokens.sh
+            step node scripts/check-contrast.mjs
+            in_dir web npm run build
+            step scripts/check-bundle-secrets.sh
+            for check in app-shell diary-home gig-detail entry-stepper assessor-stepper \
+                         export-sheet history-sheet select-framework edit-framework; do
+                step "./scripts/verify-$check.sh"
+            done
+            in_dir web npx playwright install chromium
+            in_dir web npm run test:e2e
+        fi
+        printf '\n%sAll checks passed.%s\n' "$GREEN" "$RESET"
+        ;;
+
+    setup) step ./scripts/setup.sh ;;
+
+    help|-h|--help)
+        cat <<HELP
+${BLUE}Alumable Reflection Diary${RESET}
+
+  ${GREEN}./run dev${RESET}      both servers. api on :8000, web on :5173. Ctrl-C stops both
+  ${GREEN}./run demo${RESET}     the client demo: database check, demo people from your tokens file, then dev
+  ${GREEN}./run api${RESET}      backend only
+  ${GREEN}./run web${RESET}      frontend only
+  ${GREEN}./run mock${RESET}     mock the contract on :4010, so web needs no backend
+  ${GREEN}./run contract-drift${RESET}  schema.ts and Laravel's routes, both against the contract
+  ${GREEN}./run ai-test${RESET}  the AI sidecar's tests (database tests need AI_TEST_DATABASE_URL)
+  ${GREEN}./run docs${RESET}     the docs still describe the repo: links, commands, ADR index, register
+  ${GREEN}./run deps${RESET}     regenerate docs/Dependency-Register.md: licences and advisories
+
+  ${GREEN}./run test${RESET}     backend test suite, against your own test database
+  ${GREEN}./run smoke${RESET}    end-to-end over HTTP. Needs a server already running
+  ${GREEN}./run pentest${RESET}  the permission matrix over HTTP, refusals only. Needs a server running
+  ${GREEN}./run one-rule${RESET}  no business rule implemented twice
+  ${GREEN}./run verify${RESET}   the typed API client, against both servers and the compiler
+  ${GREEN}./run verify-shell${RESET}  the app shell: token ownership, routes, /auth/me
+  ${GREEN}./run verify-diary${RESET}  the diary home: mounted, linked, four states
+  ${GREEN}./run verify-entry-stepper${RESET}  the entry stepper: mounted, four states, evidence-link security
+  ${GREEN}./run verify-assessor-stepper${RESET}  the assessor stepper: one component, POST only, errors by code
+  ${GREEN}./run verify-gig${RESET}    the gig detail: mounted, linked, four states, dates
+  ${GREEN}./run verify-history${RESET}  the history sheet: milestones, order, local time
+  ${GREEN}./run verify-frameworks${RESET}  the select framework screen: groups, in_use, the 409
+  ${GREEN}./run verify-framework-edit${RESET}  the edit framework screen: copy then edit, scope, retries
+  ${GREEN}./run e2e${RESET}      browser checks in headless Chromium against a fake API (no server)
+  ${GREEN}./run shots${RESET}    screenshots for the User Manual, against a separate config (HO-6)
+  ${GREEN}./run swap${RESET}     the framework swap: SFIA against La Trobe, over HTTP
+  ${GREEN}./run bundle-secrets${RESET}  proves a production build carries no token
+  ${GREEN}./run lint${RESET}     pint, oxlint and prettier, checking only
+  ${GREEN}./run fmt${RESET}      the same, writing changes
+  ${GREEN}./run build${RESET}    production build of the frontend
+  ${GREEN}./run check${RESET}    everything CI runs, in CI's order
+
+  ${GREEN}./run setup${RESET}    first-time setup. Writes env files, installs dependencies
+  ${GREEN}./run check-host${RESET} [user@vps]  read the deploy host. Writes nothing
+  ${GREEN}./run deploy-demo-test${RESET}  the live demo's deploy and gate rules
+  ${GREEN}./run db-tls${RESET}   prove your database session is encrypted
+  ${GREEN}./run jira${RESET}     check your Jira API access, and how to get it
+
+${DIM}api/ and web/ are separate applications. This saves the cd, nothing more:
+every command is printed before it runs. Windows: use run.ps1.
+See docs/Frontend-and-Backend.md for how the two connect.${RESET}
+HELP
+        ;;
+
+    *) die "Unknown command '$1'. Try ./run help" ;;
+esac

@@ -1,0 +1,7 @@
+"Issue Type","Issue ID","Epic Name","Summary","Description","Priority","Labels","Labels"
+"Epic","1000","Frontend Foundation","Frontend Foundation","Tokens, the typed API client, the component library and the app shell. The toolchain is proven; nothing is built on it. Every screen epic depends on this one closing in Sprint 3.","High","foundation","frontend"
+"Epic","1001","Student Reflection Journey","Student Reflection Journey","Writing a reflection: diary home, gig detail, the entry stepper, submitted confirmation. Definition of done items 2 and 4.","High","screen","frontend"
+"Epic","1002","Assessment and Review","Assessment and Review","The counter-score loop: review queue and the assessor stepper. Definition of done item 3.","High","screen","frontend"
+"Epic","1003","Framework Management","Framework Management","Copy-then-edit rubrics, assignment, and the SFIA 9 swap that proves frameworks are data. Definition of done items 5 and 6.","High","screen","frontend"
+"Epic","1004","Record Export and History","Record Export and History","PDF via dompdf, the export sheet, the event timeline. The record leaving the system. Definition of done item 7.","High","backend","frontend"
+"Epic","1005","Demo Data, Hardening and Release","Demo Data, Hardening and Release","Seeded narratives and shaped scores, policies, the four-states audit, end-to-end tests, accessibility, security, deployment, handover. Definition of done items 1, 8 and 9.","High","release","testing"

@@ -1,0 +1,90 @@
+/* ADR #64. Similar past reflections: a quiet disclosure under the narrative.
+   Neutral like the coach, so it reads as a pointer, not as the student's own. */
+.related {
+  margin-top: var(--space-12);
+}
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-height: 2.75rem; /* the tap target Button and Select keep */
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.chevron {
+  inline-size: var(--space-16);
+  block-size: var(--space-16);
+  color: var(--color-text-muted);
+  transition: transform var(--duration-quick) ease-out;
+}
+
+.toggle[aria-expanded='true'] .chevron {
+  transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chevron {
+    transition: none;
+  }
+}
+
+.rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  inline-size: 100%;
+  min-height: 2.75rem; /* the tap target Button and Select keep */
+  padding: var(--space-8) var(--space-12);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  font: inherit;
+  text-align: start;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.row:hover {
+  background: color-mix(in srgb, var(--color-text) 6%, var(--color-bg));
+}
+
+.row_head {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.excerpt {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.earlier {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: var(--line-height-relaxed);
+}
+
+.earlier_error {
+  margin: 0;
+  color: var(--color-text-muted);
+}

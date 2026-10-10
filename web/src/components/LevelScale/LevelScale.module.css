@@ -1,0 +1,222 @@
+/* CAP-66 (ADR #65). One row of levels, the chosen level's words beneath,
+   and every level's words one tap away. Purple is the student's own choice
+   and green the assessor's, as the pills were (ADR #54). */
+.scale {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.label {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+/* No gap between levels: seven of them keep the tap floor on a phone. */
+.track {
+  display: flex;
+  padding: var(--space-4);
+  border-radius: var(--radius-full);
+  background: var(--color-control);
+  box-shadow: var(--shadow-control);
+}
+
+/* SFIA's seven on the narrowest phones fell under the tap floor. The row
+   reaches into the card's side padding there, which keeps every level at
+   the floor down to the smallest common Android width. Four levels never
+   need it. */
+@media (max-width: 24rem) {
+  .many {
+    margin-inline: calc(-1 * var(--space-12));
+  }
+}
+
+.level {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 2.75rem; /* the tap floor Button and Chip keep */
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: none;
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  font-variant-numeric: tabular-nums;
+}
+
+button.level:not(:disabled) {
+  cursor: pointer;
+}
+
+button.level:not(:disabled):hover {
+  background: var(--color-surface-alt);
+}
+
+.level:focus-visible {
+  outline: 0.125rem solid var(--color-focus-ring);
+  outline-offset: 0.0625rem;
+}
+
+.primary,
+button.level.primary:not(:disabled):hover {
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+}
+
+.counter,
+button.level.counter:not(:disabled):hover {
+  background: var(--color-success);
+  color: var(--color-text-inverse);
+}
+
+/* The student and a reviewer on the same level: half each. */
+.both {
+  background: linear-gradient(90deg, var(--color-primary) 50%, var(--color-success) 50%);
+  color: var(--color-text-inverse);
+}
+
+/* Another person's level on a scale being chosen on: a dot under the number. */
+.dot {
+  position: absolute;
+  bottom: var(--space-4);
+  left: 50%;
+  inline-size: var(--space-4);
+  block-size: var(--space-4);
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  transform: translateX(-50%);
+}
+
+.counter .dot {
+  background: var(--color-text-inverse);
+}
+
+.marker_note {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.marker_swatch {
+  inline-size: var(--space-8);
+  block-size: var(--space-8);
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+}
+
+.words_row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-12);
+}
+
+.words {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+
+.muted {
+  color: var(--color-text-muted);
+}
+
+.toggle {
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
+
+.toggle:focus-visible {
+  outline: 0.125rem solid var(--color-focus-ring);
+  outline-offset: 0.125rem;
+}
+
+.who {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--space-16);
+  row-gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+
+.who li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.swatch {
+  inline-size: var(--space-8);
+  block-size: var(--space-8);
+  border-radius: var(--radius-full);
+}
+
+.who_name {
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+/* display: flex above would otherwise beat the hidden attribute. */
+.list[hidden] {
+  display: none;
+}
+
+.list li {
+  display: grid;
+  grid-template-columns: 1.5em 1fr;
+  gap: var(--space-8);
+  padding: var(--space-4) var(--space-8);
+  border-radius: var(--radius-sm);
+}
+
+.list_on {
+  background: var(--color-surface-alt);
+  color: var(--color-text);
+}
+
+.list_n {
+  font-weight: var(--font-weight-medium);
+  font-variant-numeric: tabular-nums;
+}
+
+.list_who {
+  font-weight: var(--font-weight-medium);
+}

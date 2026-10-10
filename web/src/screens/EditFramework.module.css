@@ -1,0 +1,277 @@
+.heading {
+  margin: 0 0 var(--space-4);
+  font-size: var(--font-size-xl);
+  line-height: var(--line-height-tight);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+}
+
+.sub {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text-muted);
+}
+
+.block {
+  margin-top: var(--space-24);
+}
+
+.form {
+  margin-top: var(--space-24);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+.label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+/* The same field TextArea draws, without its autosave: this screen saves
+   once, explicitly, as a copy. */
+.control {
+  width: 100%;
+  box-sizing: border-box;
+  padding: var(--space-12);
+  border: var(--border-width-sm) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.control:focus-visible {
+  outline: var(--border-width-sm) solid var(--color-focus-ring);
+  outline-offset: var(--border-width-sm);
+}
+
+.control:disabled {
+  opacity: 0.6;
+}
+
+.descriptor {
+  min-height: 4.5em;
+  line-height: var(--line-height-normal);
+  resize: vertical;
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text-muted);
+}
+
+/* The one place the fixed shape is stated. Prose, never a control: ADR #16
+   and the ticket forbid UI for adding, removing or resizing, even disabled. */
+.shape {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text-muted);
+}
+
+.competencies {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+.fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+/* The competency's name, in the weight the Frameworks rows give a name
+   (round 3 E18), rather than the code as a small uppercase label. */
+.legend {
+  padding: 0;
+  margin-bottom: var(--space-12);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-tight);
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+/* SFIA's category, the muted line under the name. Pulled up to sit with
+   the name rather than a field's distance below it. */
+.category {
+  margin: calc(-1 * var(--space-8)) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+/* Name and radar label side by side where there is room, stacked on a
+   phone. The label is the shorter field, so it takes the smaller share. */
+.pair {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-12);
+}
+
+@media (min-width: 40rem) {
+  .pair {
+    grid-template-columns: 2fr 1fr;
+  }
+}
+
+.footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  padding-top: var(--space-16);
+  border-top: var(--border-width-sm) solid var(--color-border);
+}
+
+.outcome {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-8);
+}
+
+/* Both sit on --color-bg, a pairing check-contrast.mjs already covers for
+   --color-danger and --color-success. */
+.saved {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-success);
+}
+
+.refused {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-danger);
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-32) var(--space-16);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-alt);
+  text-align: center;
+}
+
+.empty_title {
+  margin: 0;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+/* --color-text-muted on --color-surface-alt measured under AA in light mode
+   before CAP-23 darkened --color-text-muted (tokens.css); that pair now
+   clears 4.5:1 -- see check-contrast.mjs -- so this --color-text choice is
+   a style preference now, not an AA requirement. Same reasoning as
+   SelectFramework. */
+.empty_body {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text);
+}
+
+/* CAP-38: each level's label as a small numbered pill, so four stacked
+   descriptors read as a scale at a glance. Still the field's label, so its
+   name is unchanged. */
+.level_label {
+  align-self: flex-start;
+  padding: var(--space-4) var(--space-8);
+  border-radius: var(--radius-full);
+  background: var(--color-accent-lavender);
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+}
+
+.levels {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  min-width: 0;
+}
+
+/* A wide screen holds a competency's name and label beside its four
+   levels, so the page is half as long. */
+@media (min-width: 60rem) {
+  .fieldset {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
+    align-items: start;
+    gap: var(--space-24);
+  }
+
+  .fieldset .pair {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* On a phone the save stays in reach at the foot of a long form. Fixed to
+   the bottom edge, as the stepper's Back and Next (round 2b, round 3 E17):
+   sticky let the bar rise off the bottom once the page ended, over the
+   page's own bottom padding. index.css keeps a focused field clear of it. */
+@media (max-width: 40rem) {
+  .footer {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: var(--z-sticky-bar);
+    margin: 0;
+    padding: var(--space-12) var(--space-16)
+      calc(var(--space-12) + env(safe-area-inset-bottom, 0));
+    background: var(--color-surface);
+    box-shadow: var(--shadow-sheet);
+    border-top: 0;
+  }
+
+  /* Room for the bar under the last field. The bar grows when a hint or a
+     save's outcome shows in it, so the screen measures it into
+     --footer-height; before it has, room for the button and its padding. */
+  .form {
+    padding-bottom: var(
+      --footer-height,
+      calc(2.75rem + 2 * var(--space-12) + env(safe-area-inset-bottom, 0))
+    );
+  }
+}
+
+/* CAP-50: the delete sits under "Based on", small, so it never reads as
+   the page's main action. The confirm sheet stacks its two buttons as the
+   app shell's Leave sheet does. */
+.delete {
+  margin-top: var(--space-4);
+}
+
+.confirm_body {
+  margin: calc(-1 * var(--space-8)) 0 var(--space-24);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text);
+}
+
+.confirm_actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}

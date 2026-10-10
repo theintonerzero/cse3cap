@@ -1,0 +1,556 @@
+/**
+ * One gig: what it is, how long it runs, and where its reflections are up
+ * to -- the three cards the design draws on My Gig -> Overview.
+ *
+ * This screen is not a diary screen. In the design it belongs to the host
+ * app: Earn -> My Gigs -> a gig, with tabs Overview / Application / Offer,
+ * and the diary appears on it as one card of three. Alumable's own Earn
+ * section is not in this build, so the screen is reached from the diary
+ * instead -- the arrow is reversed, and the cards are what stop it reading
+ * as a second diary list. See "The design, found late" in the CAP-8 plan,
+ * and §11.4a of the prose spec in the prototype at ~/projects/alumable-diary.
+ *
+ * The sprint rows are rows, not a table: the whole row is the target,
+ * the way DiaryHome's entry list works. Selecting a sprint should not be
+ * a different gesture on two screens of the same product.
+ *
+ * Two calls for a student, one for everybody else. GET /gigs/{gig_id}
+ * carries the gig, its sprints, its framework, its participants and the
+ * reflection counts. The per-sprint SELF / ASSESSOR columns need each
+ * sprint's reflection status, which only GET /reflections?gig_id= returns
+ * -- and that endpoint gives a student their own rows but an assessor
+ * every student's on the gig, so a single-student table cannot be built
+ * from it for a non-student. They get the sprint list with its dates
+ * instead, which is the question they can actually be answered.
+ *
+ * The relative date wording and the sprint states are both in
+ * gig-timing.ts, which imports nothing, so scripts/verify-gig-detail.sh
+ * can compile it and call it with dates the seed does not contain. Every
+ * seeded sprint is already past due.
+ */
+import { useCallback, useEffect, useState } from 'react';
+import { Link, useParams } from 'react-router';
+
+import { api, ApiError } from '../api/client.ts';
+import type { components } from '../api/schema.ts';
+import {
+  BottomSheet,
+  Button,
+  ErrorNotice,
+  Skeleton,
+  SkeletonGroup,
+} from '../components/index.ts';
+import { useSession } from '../session/useSession.ts';
+import {
+  by_ordinal,
+  format_full_date,
+  gig_dates,
+  gig_duration_weeks,
+  sprint_progress,
+  sprint_timing,
+} from './gig-timing.ts';
+import styles from './GigDetail.module.css';
+import { HistorySheet } from './HistorySheet.tsx';
+import { StartReflection } from './StartReflection.tsx';
+
+type Gig = components['schemas']['GigDetail'];
+type Sprint = Gig['sprints'][number];
+type Participant = Gig['participants'][number];
+type Reflection = components['schemas']['ReflectionSummary'];
+type Role = components['schemas']['Role'];
+
+type Load =
+  | { status: 'loading' }
+  | { status: 'error'; error: ApiError }
+  | { status: 'loaded'; gig: Gig; reflections: Reflection[] };
+
+/**
+ * The route pattern guarantees a gig_id, the type does not. A missing one
+ * is the same answer the API would give for a bad one, so it is rendered
+ * through the same notice. Built once at module scope rather than inside
+ * the component: it never varies, and constructing an Error every render
+ * to throw it away is waste.
+ */
+const NO_SUCH_GIG = new ApiError(404, 'NOT_FOUND', 'No such gig, or it is not yours.');
+
+/** How a role is said to a person, rather than how the database spells it. */
+const ROLE_LABEL: Record<Role, string> = {
+  student: 'Student',
+  assessor: 'Assessor',
+  supervisor: 'Supervisor',
+  employer: 'Employer',
+};
+
+export function GigDetail() {
+  const { gig_id } = useParams<{ gig_id: string }>();
+  const { me } = useSession();
+  const [load, setLoad] = useState<Load>({ status: 'loading' });
+  const [reload_key, setReloadKey] = useState(0);
+  const [history_open, setHistoryOpen] = useState(false);
+
+  useEffect(() => {
+    // Nothing to fetch and nothing to set: the render path below answers
+    // this case. Setting state here instead would be a synchronous
+    // setState inside an effect, which is a cascading render for a value
+    // that was knowable before the effect ever ran.
+    if (!gig_id) return;
+
+    const controller = new AbortController();
+    const signal = controller.signal;
+
+    api
+      .get('/gigs/{gig_id}', { path: { gig_id }, signal })
+      .then(async (gig): Promise<{ gig: Gig; reflections: Reflection[] }> => {
+        // Only a student's rows describe one person's progress, so only a
+        // student's are asked for. The role comes from the payload the
+        // server just resolved, never from the client.
+        if (gig.my_role !== 'student') return { gig, reflections: [] };
+
+        const reflections = await api.get('/reflections', {
+          query: { gig_id },
+          signal,
+        });
+
+        return { gig, reflections };
+      })
+      .then(({ gig, reflections }) => setLoad({ status: 'loaded', gig, reflections }))
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        setLoad({
+          status: 'error',
+          error:
+            error instanceof ApiError
+              ? error
+              : new ApiError(0, null, 'Something went wrong loading this gig.'),
+        });
+      });
+
+    return () => controller.abort();
+  }, [gig_id, reload_key]);
+
+  const retry = useCallback(() => {
+    setLoad({ status: 'loading' });
+    setReloadKey((key) => key + 1);
+  }, []);
+
+  // Re-reads in place, without the skeleton: the page is already drawn and
+  // only a row's state has changed underneath it (CAP-39's 409).
+  const refresh = useCallback(() => setReloadKey((key) => key + 1), []);
+
+  // Before the load states, because with no id there is no load: the
+  // effect above deliberately does nothing and `load` would sit on
+  // 'loading' for ever.
+  if (!gig_id) {
+    return (
+      <section>
+        <h1 className={styles.heading}>Gig</h1>
+        <ErrorNotice error={NO_SUCH_GIG} />
+      </section>
+    );
+  }
+
+  if (load.status === 'loading') return <LoadingState />;
+
+  /*
+   * A 404 here is "no such gig, or it is not yours", and the two are
+   * deliberately indistinguishable (docs/openapi.yaml, NotFound).
+   * ErrorNotice already switches on NOT_FOUND and on ROLE_FORBIDDEN and
+   * already decides that a 4xx is not worth a retry button, so this hands
+   * it the error rather than re-deciding any of that here.
+   */
+  if (load.status === 'error') {
+    return (
+      <section>
+        <h1 className={styles.heading}>Gig</h1>
+        <ErrorNotice error={load.error} on_retry={retry} />
+      </section>
+    );
+  }
+
+  const { gig, reflections } = load;
+
+  return (
+    <section>
+      <GigHeader
+        gig={gig}
+        me_id={me?.id ?? null}
+        on_history={gig.my_role === 'student' ? () => setHistoryOpen(true) : null}
+      />
+      <TimelineCard gig={gig} />
+      <DiaryCard
+        gig={gig}
+        reflections={reflections}
+        today={new Date()}
+        on_refresh={refresh}
+      />
+
+      <BottomSheet
+        open={history_open}
+        title="History"
+        onClose={() => setHistoryOpen(false)}
+      >
+        <HistorySheet reflections={reflections} />
+      </BottomSheet>
+    </section>
+  );
+}
+
+interface GigHeaderProps {
+  gig: Gig;
+  me_id: string | null;
+  /** Opens the history sheet; null where there is no history to show. */
+  on_history: (() => void) | null;
+}
+
+/**
+ * The frame's page head: the title, the host, and the span underneath.
+ * The status pill beside it ("Applied" / "Accepted") is not here -- this
+ * build has no application or offer state to render, and a pill that
+ * always says the same word is decoration.
+ *
+ * The History button that shares the pill's line in the frame is here
+ * (CAP-14), for a student only: the sheet is one student's milestones,
+ * built from GET /reflections, which gives anyone else every student's
+ * rows -- the same reason DiaryCard splits on role.
+ */
+function GigHeader({ gig, me_id, on_history }: GigHeaderProps) {
+  const when = gig_dates(gig.starts_on, gig.ends_on);
+  const meta = [gig.org_name, when].filter((part): part is string => part !== null);
+
+  return (
+    <header className={styles.header}>
+      {/* Title and its one action on a line (CAP-38), as the frame draws
+          the pill and History together, rather than History floating
+          above the title on a line of its own. Small, and centred on the
+          title's first line (round 2d, Patrick): a long title wraps
+          downward and History stays where it is. */}
+      <div className={styles.title_row}>
+        <h1 className={styles.heading}>{gig.title}</h1>
+        {on_history && (
+          <span className={styles.title_action}>
+            <Button variant="secondary" size="sm" full_width={false} on_click={on_history}>
+              History
+            </Button>
+          </span>
+        )}
+      </div>
+      {meta.length > 0 && <p className={styles.sub}>{meta.join(' \u00b7 ')}</p>}
+      <ParticipantList participants={gig.participants} me_id={me_id} />
+    </header>
+  );
+}
+
+/**
+ * Everyone on the gig and what they are on it. Roles come from the server,
+ * resolved from gig_participants; the client never decides one.
+ *
+ * In the header, as one wrapped row, because criterion 1 asks for the
+ * participant roles in the header and because there is no design for them
+ * anywhere -- all 45 frames were checked and none carries a roster. The
+ * frame's Gig Details card is NOT built: it holds GIG TITLE and HOST, both
+ * of which the header above already says, so on a screen that is not part
+ * of the host app it is a card whose whole content is a repeat. That
+ * redundancy is in the frame itself; reproducing it faithfully cost a
+ * third of the screen's height to say the title twice.
+ *
+ * The caller is marked rather than hidden. On a gig the point is who else
+ * is here, and a list that silently omits you reads as though the API
+ * dropped a row.
+ */
+function ParticipantList({
+  participants,
+  me_id,
+}: {
+  participants: Participant[];
+  me_id: string | null;
+}) {
+  if (participants.length === 0) {
+    return <span className={styles.none}>Nobody is on this gig yet.</span>;
+  }
+
+  return (
+    <ul className={styles.people}>
+      {participants.map((person) => (
+        <li key={`${person.id}:${person.role}`} className={styles.person}>
+          <span className={styles.person_name}>{person.display_name}</span>
+          {person.id === me_id && <span className={styles.you}>(you)</span>}
+          <span className={styles.person_role}>{ROLE_LABEL[person.role]}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * The frame's second card: START | END | DURATION, the weeks computed.
+ *
+ * Rendered only when both ends are known. A timeline with one date is not
+ * a timeline, and the frame has no drawing for that case -- the gig's span
+ * is already in the header line, so nothing is lost by dropping the card.
+ */
+function TimelineCard({ gig }: { gig: Gig }) {
+  const weeks = gig_duration_weeks(gig.starts_on, gig.ends_on);
+
+  if (!gig.starts_on || !gig.ends_on) return null;
+
+  return (
+    // No card (round 2c, Patrick): the frame's blue Timeline card read as a
+    // different app beside the rest of the diary, worst in dark mode. A
+    // quiet section label and label-over-value facts, as Alumable's own
+    // gig page sets out GIG DETAILS and TIMELINE.
+    <section className={styles.block}>
+      <div>
+        <h2 className={styles.section_label}>Timeline</h2>
+        <dl className={styles.timeline}>
+          <div className={styles.timeline_cell}>
+            <dt className={styles.fact_label}>Start</dt>
+            <dd className={styles.timeline_value}>{format_full_date(gig.starts_on)}</dd>
+          </div>
+          <div className={styles.timeline_cell}>
+            <dt className={styles.fact_label}>End</dt>
+            <dd className={styles.timeline_value}>{format_full_date(gig.ends_on)}</dd>
+          </div>
+          {weeks !== null && (
+            <div className={styles.timeline_cell}>
+              <dt className={styles.fact_label}>Duration</dt>
+              <dd className={styles.timeline_value}>
+                {weeks} {weeks === 1 ? 'week' : 'weeks'}
+              </dd>
+            </div>
+          )}
+        </dl>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * The frame's third card. It used to end in criterion 3's link into the
+ * diary scoped to this gig; round 2d dropped it (Patrick, CAP-8's owner):
+ * this page is only reached from the diary, and the bar's back arrow
+ * returns to the diary as it was left (diary-return.ts), which is this gig.
+ *
+ * For a student it is the frame's SPRINT / SELF REFLECTION / ASSESSOR
+ * REFLECTION rows, the two columns being the reflection states split
+ * rather than a second vocabulary (see sprint_progress).
+ *
+ * The counts that used to sit at the bottom are gone. They said in three
+ * numbers what the rows now say sprint by sprint, and a card that states
+ * the same fact twice in two vocabularies is the thing that made this
+ * screen read as over-built. The prose line went with them for a student,
+ * and stayed for everybody else, where it is load-bearing: it is what
+ * explains why they are not offered a link.
+ *
+ * For a non-student the card shows the sprint calendar with its dates,
+ * because GET /reflections returns them every student's rows and a
+ * single-student table cannot be built out of that.
+ */
+function DiaryCard({
+  gig,
+  reflections,
+  today,
+  on_refresh,
+}: {
+  gig: Gig;
+  reflections: Reflection[];
+  today: Date;
+  on_refresh: () => void;
+}) {
+  const is_student = gig.my_role === 'student';
+
+  return (
+    // A plain card, as the radar sits in on the diary home, not the frame's
+    // pink one (round 2c, Patrick).
+    <section className={styles.block}>
+      <div className={styles.diary_card}>
+        {/* "Sprints", not "Reflection diary" (round 2e, Patrick): the page
+            and the bar already say diary, and this card holds the sprints. */}
+        <h2 className={styles.card_heading}>Sprints</h2>
+
+        <p className={styles.framework}>
+          {gig.framework ? (
+            <>
+              Scored against <strong>{gig.framework.name}</strong> ({gig.framework.version})
+            </>
+          ) : (
+            'No rubric assigned to this gig yet.'
+          )}
+        </p>
+
+        {gig.sprints.length === 0 ? (
+          <div className={styles.empty}>
+            <p className={styles.empty_title}>No sprints on this gig yet.</p>
+            <p className={styles.empty_body}>
+              A reflection belongs to a sprint, so nothing can be written here until someone
+              adds one.
+            </p>
+          </div>
+        ) : is_student ? (
+          <SprintRows
+            sprints={gig.sprints}
+            reflections={reflections}
+            today={today}
+            on_refresh={on_refresh}
+          />
+        ) : (
+          <SprintCalendar sprints={gig.sprints} today={today} />
+        )}
+
+        {!is_student && <p className={styles.diary_body}>{NOT_YOUR_DIARY}</p>}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Why a supervisor, assessor or employer is shown the gig's sprints but is
+ * not offered a way into the diary: it is somebody else's record, and their
+ * own work on it is in the review queue.
+ */
+const NOT_YOUR_DIARY =
+  'Reflections on this gig that you can see. The diary itself is each ' +
+  'student\u2019s own record; your work on it is in the review queue.';
+
+/**
+ * A row per sprint, and the row is the target -- not a link buried inside
+ * it. This is the same idiom DiaryHome's entry list uses: the whole row is
+ * one Link, the state sits at the right edge, and a chevron says so. The
+ * first build of this made the sprint NUMBER a hyperlink inside a table
+ * cell, which is a second way of selecting a sprint in a product that
+ * already had one, and a much smaller tap target.
+ *
+ * The frame's three columns survive as a grid rather than a table, because
+ * a <tr> cannot be a link and splitting one row across several links is
+ * exactly the thing that makes a screen reader read it three times. The
+ * header line above carries the column names, and every row shares its
+ * grid template, so they line up as the frame draws them.
+ *
+ * A sprint with no reflection is not a link, because there is nothing yet to
+ * address. It offers Start reflection instead (CAP-39), which creates the
+ * draft and opens it in the stepper.
+ */
+function SprintRows({
+  sprints,
+  reflections,
+  today,
+  on_refresh,
+}: {
+  sprints: Sprint[];
+  reflections: Reflection[];
+  today: Date;
+  on_refresh: () => void;
+}) {
+  // One reflection per student per sprint -- the (user_id, gig_key,
+  // sprint_key) unique index is what guarantees it, so a Map is safe.
+  const by_sprint = new Map(
+    reflections
+      .filter((reflection) => reflection.sprint_id !== null)
+      .map((reflection) => [reflection.sprint_id as string, reflection]),
+  );
+
+  return (
+    <div className={styles.rows}>
+      <p className={styles.rows_head} aria-hidden="true">
+        <span>Sprint</span>
+        <span>Self reflection</span>
+        <span>Assessor reflection</span>
+      </p>
+
+      <ul className={styles.rows_list}>
+        {by_ordinal(sprints).map((sprint) => {
+          const reflection = by_sprint.get(sprint.id) ?? null;
+          const progress = sprint_progress(sprint, reflection?.status ?? null, today);
+          const timing = sprint_timing(sprint, today);
+
+          // The header row is decorative (aria-hidden), so each cell says
+          // what it is to a screen reader instead. Sighted readers get the
+          // column; everyone else gets the label.
+          const body = (
+            <>
+              <span className={styles.row_sprint}>
+                <span className={styles.row_title}>Sprint {sprint.ordinal}</span>
+                <span className={styles.row_meta}>{timing.line}</span>
+              </span>
+              <span className={styles.row_state}>
+                <span className={styles.sr_only}>Self reflection: </span>
+                {progress.self ?? <span aria-hidden="true">{'\u2014'}</span>}
+                {progress.self === null && <span className={styles.sr_only}>none</span>}
+              </span>
+              <span className={styles.row_state}>
+                <span className={styles.sr_only}>Assessor reflection: </span>
+                {progress.assessor ?? <span aria-hidden="true">{'\u2014'}</span>}
+                {progress.assessor === null && <span className={styles.sr_only}>none</span>}
+              </span>
+              {/*
+               * The character itself rather than a numeric HTML entity:
+               * check-tokens.sh reads one as a raw hex colour and fails
+               * the build, which its own header lists as a known false
+               * positive. Same note as DiaryHome's row.
+               */}
+              <span className={styles.chevron} aria-hidden="true">
+                {reflection ? '\u203a' : ''}
+              </span>
+            </>
+          );
+
+          return (
+            <li key={sprint.id}>
+              {reflection ? (
+                <Link className={styles.row} to={`/reflections/${reflection.id}`}>
+                  {body}
+                </Link>
+              ) : (
+                <div className={styles.row_unstarted}>
+                  <div className={styles.row_flat}>{body}</div>
+                  <div className={styles.row_start}>
+                    <StartReflection sprint_id={sprint.id} on_refresh={on_refresh} />
+                  </div>
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+/**
+ * Criterion 2 for a reader who is not the student: one line per sprint,
+ * saying the single most useful thing about its timing -- when it opens,
+ * how long is left, or which window it was. gig_timing picks; the
+ * reasoning is on sprint_timing.
+ */
+function SprintCalendar({ sprints, today }: { sprints: Sprint[]; today: Date }) {
+  return (
+    <ul className={styles.rows_list}>
+      {by_ordinal(sprints).map((sprint) => (
+        <li key={sprint.id}>
+          <div className={styles.row_flat}>
+            <span className={styles.row_sprint}>
+              <span className={styles.row_title}>Sprint {sprint.ordinal}</span>
+            </span>
+            <span className={styles.row_meta}>{sprint_timing(sprint, today).line}</span>
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Shaped like the loaded screen: a header and the three cards. */
+function LoadingState() {
+  return (
+    <SkeletonGroup label="Loading this gig">
+      <div className={styles.header}>
+        <Skeleton variant="text" width="50%" />
+        <Skeleton variant="text" width="30%" />
+      </div>
+      {[0, 1, 2].map((card) => (
+        <div key={card} className={styles.block}>
+          <Skeleton variant="block" height="var(--space-64)" />
+        </div>
+      ))}
+    </SkeletonGroup>
+  );
+}

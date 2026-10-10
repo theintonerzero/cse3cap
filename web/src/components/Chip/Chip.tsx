@@ -1,0 +1,27 @@
+import type { ReactNode } from 'react';
+import styles from './Chip.module.css';
+
+export interface ChipProps {
+  children: ReactNode;
+  selected?: boolean;
+  disabled?: boolean;
+  on_click?: () => void;
+}
+
+export function Chip({ children, selected, disabled = false, on_click }: ChipProps) {
+  const class_name = selected ? `${styles.chip} ${styles.selected}` : styles.chip;
+
+  return (
+    <button
+      type="button"
+      className={class_name}
+      // A toggle only when the caller says whether it is on. A chip with no
+      // `selected` (a theme that runs a search) is a plain button.
+      aria-pressed={selected}
+      disabled={disabled}
+      onClick={on_click}
+    >
+      {children}
+    </button>
+  );
+}

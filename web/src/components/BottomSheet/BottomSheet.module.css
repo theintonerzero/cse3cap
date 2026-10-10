@@ -1,0 +1,103 @@
+/* No overlay/shadow token exists in tokens.css (checked against the CAP-1
+   merge). The backdrop is derived from --color-text instead of a new
+   token so it stays theme-aware without reopening CAP-1's file. */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, var(--color-text) 50%, transparent);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+/* Above the sticky header (CAP-38): an open sheet is modal, so nothing
+   behind it may show through or take a click. Added beside .backdrop. */
+.backdrop {
+  z-index: var(--z-sheet);
+}
+
+.sheet {
+  width: 100%;
+  /* TODO(CAP-1): no spacing token maps to a layout max-width; check with
+     Amenah whether tokens.css adds one, rather than hardcoding a magic
+     pixel value here. */
+  max-width: 30rem;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: var(--space-24);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.title {
+  margin: 0 0 var(--space-16);
+  font-size: var(--font-size-lg);
+}
+
+/* CAP-38 R7: slides up on open while the backdrop fades in, and follows a
+   downward drag. All motion is off with reduced motion. Added beside the
+   rules above, which are unchanged. */
+@keyframes sheet_in {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes backdrop_in {
+  from {
+    opacity: 0;
+  }
+}
+
+.backdrop {
+  animation: backdrop_in var(--duration-sheet) ease-out;
+}
+
+.sheet {
+  position: relative;
+  animation: sheet_in var(--duration-sheet) cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: transform var(--duration-sheet) ease-out;
+  /* Content pans and zooms as usual. A downward swipe at the top becomes
+     the drag through a touchmove listener in BottomSheet.tsx, not through
+     touch-action: pan-down would say the same thing in CSS, but Gecko does
+     not support it, and Firefox is where this gets reviewed. */
+  touch-action: pan-y pinch-zoom;
+  overscroll-behavior: contain;
+}
+
+/* Under the finger, no easing. */
+.dragging {
+  transition: none;
+}
+
+/* A full-width strip, so the target is bigger than the bar drawn in it. It
+   pulls into the sheet's top padding rather than adding height. */
+.grab {
+  display: flex;
+  justify-content: center;
+  margin: calc(-1 * var(--space-16)) calc(-1 * var(--space-24)) var(--space-8);
+  padding: var(--space-12) 0;
+  cursor: grab;
+  touch-action: none;
+}
+
+.handle {
+  width: 2.5rem;
+  height: 0.25rem;
+  border-radius: var(--radius-full);
+  background: var(--color-border);
+}
+
+.title {
+  touch-action: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .backdrop,
+  .sheet {
+    animation: none;
+    transition: none;
+  }
+}

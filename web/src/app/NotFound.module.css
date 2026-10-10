@@ -1,0 +1,38 @@
+/* Centred on the screen (CAP-38 round 3, Patrick). A fixed layer the size
+   of the viewport rather than a taller column, so it needs neither the
+   bar's height nor a change to the shell. The bar's z-index keeps it on
+   top, and only the words take pointer events, so the bar behind this
+   layer stays usable. */
+.not_found {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-16);
+  text-align: center;
+  pointer-events: none;
+}
+
+.not_found > * {
+  pointer-events: auto;
+}
+
+.heading {
+  margin: 0 0 var(--space-8);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+  color: var(--color-text);
+}
+
+.note {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.home {
+  margin-top: var(--space-24);
+}

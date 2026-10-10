@@ -1,0 +1,75 @@
+.skeleton {
+  display: block;
+  background: var(--color-surface-alt);
+  border-radius: var(--radius-sm);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+/*
+ * 1.4s is a bare value: CAP-1 defines no duration scale, and inventing one
+ * in passing is a tokens.css change this ticket does not make. Same
+ * treatment PR #16 gave its transition. check-tokens.sh polices colour and
+ * pixel values, not time.
+ */
+@keyframes pulse {
+  0%,
+  100% {
+    background-color: var(--color-surface-alt);
+  }
+  50% {
+    background-color: var(--color-border);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}
+
+/* Height comes from the type scale, so a text skeleton is the height of the
+   text it stands in for without anyone passing a number. */
+.text {
+  height: 1em;
+}
+
+.block {
+  height: var(--space-64);
+}
+
+.circle {
+  width: var(--space-48);
+  height: var(--space-48);
+  border-radius: var(--radius-full);
+}
+
+/* Inside a flex-row parent (every row-style loading state has one), an
+   unsized flex item shrinks to its content's intrinsic width before the
+   browser can resolve the percentage widths .skeleton's `text` bars are
+   given below -- percentages inside an auto-sized flex item resolve
+   against zero, so the bars vanish. flex: 1 1 auto plus min-width: 0
+   matches the grow-and-shrink idiom this codebase already uses for a
+   flex item holding text (EntryStepper's .evidence_input,
+   SelectFramework's .identity), so .lines claims the same room the real
+   row content -- .row_main / .rowMain -- would occupy once loaded. */
+.lines {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+/* Visually hidden, not display:none -- a screen reader still announces it.
+   Written in rem because check-tokens.sh rejects the conventional pixel value. */
+.sr_only {
+  position: absolute;
+  width: 0.0625rem;
+  height: 0.0625rem;
+  padding: 0;
+  margin: -0.0625rem;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}

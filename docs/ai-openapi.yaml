@@ -1,0 +1,351 @@
+openapi: 3.1.0
+info:
+  title: Reflection Diary AI sidecar
+  version: 0.1.0
+  description: >
+    The AI sidecar (ADR #64). Off unless AI_ENABLED is set, when every route
+    answers 404 AI_DISABLED. Every request is resolved through the diary's
+    /auth/me first, with the caller's own bearer token, and the sidecar never
+    writes to the diary. Same error envelope and snake_case as docs/openapi.yaml.
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+servers:
+  - url: /ai/v1
+security:
+  - bearer: []
+paths:
+  /status:
+    get:
+      operationId: getStatus
+      summary: Which AI features are on.
+      description: >
+        Called once per session by the frontend. A 404 or a network failure
+        means no AI element renders and every screen is as it is without AI.
+      responses:
+        "200":
+          description: On, with the features this deployment serves.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Status"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "503":
+          $ref: "#/components/responses/Error"
+  /reflections/{reflection_id}/entries/{entry_id}/coach:
+    post:
+      operationId: askCoach
+      summary: Questions about a draft narrative, for the student writing it.
+      description: >
+        One to three open questions about this competency's narrative. Never
+        words for the narrative and never a level: the coach is not told the
+        self-score, and questions that mention a level, a score or a number on
+        the scale are dropped. Only the student who owns the reflection, only
+        on a draft, and only once the narrative has 15 words. The path goes
+        through the reflection because the diary has no GET /entries/{id}.
+      parameters:
+        - $ref: "#/components/parameters/ReflectionId"
+        - $ref: "#/components/parameters/EntryId"
+      responses:
+        "200":
+          description: The questions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoachQuestions"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+        "503":
+          $ref: "#/components/responses/Error"
+  /reflections/{reflection_id}/entries/{entry_id}/calibration:
+    post:
+      operationId: askCalibration
+      summary: Questions about why the student and their reviewer scored this differently.
+      description: >
+        One to three open questions about the gap between the student's
+        self-score and the latest counter-score on this competency. Only the
+        student who owns the reflection, only once it is assessed, so it cannot
+        influence a self-score. Answers 400 VALIDATION_FAILED with
+        details.reason no_difference when the two scores name the same level
+        or there is no counter-score. Never says who is right and never names a
+        level: questions that mention a level, a score or a number on the scale
+        are dropped.
+      parameters:
+        - $ref: "#/components/parameters/ReflectionId"
+        - $ref: "#/components/parameters/EntryId"
+      responses:
+        "200":
+          description: The questions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoachQuestions"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+        "503":
+          $ref: "#/components/responses/Error"
+  /reflections/{reflection_id}/entries/{entry_id}/related:
+    get:
+      operationId: getRelated
+      summary: The student's own earlier entries that read most like this one.
+      description: >
+        Up to three of the student's own entries from their other reflections,
+        best first, ranked by meaning within the reflections the diary returned
+        for their token. No Claude call. Only the student who owns the
+        reflection. An empty narrative, or nothing earlier, is an empty list.
+      parameters:
+        - $ref: "#/components/parameters/ReflectionId"
+        - $ref: "#/components/parameters/EntryId"
+      responses:
+        "200":
+          description: The related entries.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RelatedEntries"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+        "503":
+          $ref: "#/components/responses/Error"
+  /search:
+    get:
+      operationId: searchReflections
+      summary: Submitted and assessed reflections on the caller's reviewed gigs, by meaning.
+      description: >
+        For assessors and supervisors. Ranks the entries of submitted and
+        assessed reflections on gigs where the diary lists the caller as an
+        assessor or supervisor and not also as a student. Never drafts and
+        never the caller's own. Up to ten results, best first, with no
+        similarity score. No Claude call. A blank query is 400
+        VALIDATION_FAILED with details.reason empty_query; over 200
+        characters, too_long. A caller who reviews no gig is 403.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            maxLength: 200
+      responses:
+        "200":
+          description: The matching entries.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResults"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+        "503":
+          $ref: "#/components/responses/Error"
+
+  /gigs/{gig_id}/themes:
+    get:
+      operationId: getThemes
+      summary: Up to five recurring themes across a gig's reflections.
+      description: >
+        For the gig's assessors and supervisors, by the diary's /auth/me, and
+        not for anyone who is also a student on it. Read from the submitted
+        and assessed reflections' narratives, never drafts and never names.
+        Claude is asked once per gig per UTC day; every other request that
+        day is served from the cache, and concurrent requests make one call.
+        Fewer than five narratives is an empty list, with no Claude call. A
+        refused or unusable reply is not asked again for ten minutes: those
+        requests get an empty list.
+      parameters:
+        - $ref: "#/components/parameters/GigId"
+      responses:
+        "200":
+          description: The themes, possibly none.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Themes"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+        "503":
+          $ref: "#/components/responses/Error"
+
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+  parameters:
+    GigId:
+      name: gig_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ReflectionId:
+      name: reflection_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    EntryId:
+      name: entry_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    Error:
+      description: The diary's error envelope.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    CoachQuestions:
+      type: object
+      required: [questions]
+      properties:
+        questions:
+          type: array
+          minItems: 1
+          maxItems: 3
+          items:
+            type: string
+            maxLength: 199
+    RelatedEntries:
+      type: object
+      required: [entries]
+      properties:
+        entries:
+          type: array
+          maxItems: 3
+          items:
+            type: object
+            required: [reflection_id, entry_id, sprint_ordinal, competency_name, excerpt, gig_title]
+            properties:
+              reflection_id:
+                type: string
+                format: uuid
+              entry_id:
+                type: string
+                format: uuid
+              sprint_ordinal:
+                type: [integer, "null"]
+              competency_name:
+                type: string
+              excerpt:
+                type: string
+                description: The narrative's first line, cut at a word.
+              gig_title:
+                type: [string, "null"]
+                description: The entry's gig, named only when it is not this reflection's.
+    SearchResults:
+      type: object
+      required: [results]
+      properties:
+        results:
+          type: array
+          maxItems: 10
+          items:
+            type: object
+            required: [reflection_id, entry_id, student_name, gig_title, sprint_ordinal, competency_name, excerpt]
+            properties:
+              reflection_id:
+                type: string
+                format: uuid
+              entry_id:
+                type: string
+                format: uuid
+              student_name:
+                type: string
+              gig_title:
+                type: string
+              sprint_ordinal:
+                type: [integer, "null"]
+              competency_name:
+                type: string
+              excerpt:
+                type: string
+                description: The narrative's first line, cut at a word.
+    Themes:
+      type: object
+      required: [themes]
+      properties:
+        themes:
+          type: array
+          maxItems: 5
+          items:
+            type: string
+    Status:
+      type: object
+      required: [features]
+      properties:
+        features:
+          type: array
+          items:
+            type: string
+            enum: [coach, related, calibration, search, themes]
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, details]
+          properties:
+            code:
+              type: string
+              enum:
+                - UNAUTHENTICATED
+                - ROLE_FORBIDDEN
+                - NOT_FOUND
+                - VALIDATION_FAILED
+                - AI_DISABLED
+                - AI_RATE_LIMITED
+                - AI_UNAVAILABLE
+            message:
+              type: string
+            details:
+              type: object
+              description: >
+                AI_RATE_LIMITED carries retry_after, in seconds. AI_UNAVAILABLE
+                carries reason, one of timeout, upstream, refusal,
+                invalid_reply, daily_cap, too_long (a prompt over 100K tokens).

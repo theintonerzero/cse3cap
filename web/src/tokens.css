@@ -1,0 +1,319 @@
+/*
+ * Design tokens: colour, spacing, radius, type scale.
+ *
+ * Every colour, space, radius and font value used anywhere in web/src/
+ * lives here as a CSS custom property. No component defines a raw hex
+ * colour or a magic pixel value; scripts/check-tokens.sh fails the build
+ * if one shows up outside this file.
+ *
+ * SOURCED FROM FIGMA, not invented (ADR #28). Colours were extracted by
+ * reading raw pixel data out of the team's exported Figma screens; page
+ * margin, card-to-card gap (20px) and large-card radius (~16px) were
+ * measured the same way. The type scale (family, size, weight, line
+ * height) was later read directly off individual text layers in Figma
+ * Design mode -- real values, not pixel-sampled, though this seat has no
+ * Dev Mode so it's the properties panel rather than the Inspect tab.
+ * Two exceptions remain genuinely unsourced rather than estimated:
+ * checked directly, neither a hover nor a focus state variant exists
+ * anywhere in the file. --color-primary-hover is therefore a generated
+ * value (documented below, not a guess); --color-focus-ring is a
+ * deliberate team decision to reuse --color-primary rather than invent a
+ * second colour. Neither has a Figma dark frame to source from at all --
+ * the dark block is derived from the measured light values (HSL
+ * lightness inversion) and independently re-verified against WCAG AA,
+ * not sampled.
+ *
+ * Text-role colours are NOT always the literal sampled value: seven of the
+ * ten text-on-background pairs failed WCAG AA as sampled --
+ * --color-text-muted, --color-danger and --color-success used as text,
+ * plus white button text on the sampled --color-primary itself, all
+ * measured below the 4.5:1 a normal-size pair needs (as low as 2.60:1).
+ * Each was darkened by the minimum amount needed to clear AA against the
+ * *harder* of the two backgrounds it appears on (#f6f7f9, not the easier
+ * pure-white surface -- an earlier pass here optimised against the wrong
+ * one and still fell short by a hair), same hue, same family. This is a
+ * real gap in the source design, not a rounding choice, and is worth
+ * raising with whoever owns the Figma file. The exact sampled value is
+ * still what's used for anything that isn't text (chip backgrounds,
+ * icons) -- --color-primary is the one exception, darkened everywhere
+ * because it doubles as a button fill that always carries white text.
+ *
+ * Light is the default, defined on the bare :root. Dark is defined
+ * twice: once under a prefers-color-scheme media query, guarded with
+ * :not([data-theme="light"]) so an explicit light choice always wins
+ * over the system default, and once under [data-theme="dark"] so an
+ * explicit dark choice always wins regardless of the system.
+ */
+
+:root {
+  /* What the browser draws itself -- the open list of a select, scrollbars,
+     radio buttons, autofill -- follows the theme (CAP-63). Without it every
+     one of them stayed light in the dark theme. */
+  color-scheme: light;
+
+  /* Colour -- sampled from Home Page, Reflection Diary hub, Score
+     Reflection and Your learning record (exported Figma screens) */
+  --color-bg: #f6f7f9;
+  --color-surface: #ffffff;
+  --color-surface-alt: #f1f1f1;
+  --color-border: #d9d9d9;
+  --color-text: #202020;
+  --color-text-muted: #666666; /* AA-adjusted from the sampled #808080 (3.68:1 on bg). The
+    first adjustment, #717171, cleared bg/surface but is still below 4.5:1 as normal text on
+    --color-surface-alt (Submitted/DiaryHome/ReviewQueue empty-state bodies, AppShell's nav
+    identity on hover), on --color-success-bg (ExportSheet's job summary) and on
+    --color-accent-lavender (ExportSheet's building-status detail). Darkened further, same
+    grey, to clear the hardest of those real backgrounds. */
+  --color-text-inverse: #ffffff;
+  --color-primary: #8053ad; /* AA-adjusted from sampled #9a76be (white button text was 3.68:1),
+    then re-adjusted for CAP-23: #8c63b5 (the first adjustment) passed as a button fill but
+    Task 2's exhaustive pair sweep found it is also rendered as normal link text directly on
+    --color-bg (EditFramework's back link), --color-surface-alt (DiaryHome/Submitted empty-state
+    links) and --color-accent-pink (GigDetail's diary link, previously an acknowledged 3.93:1
+    finding against a tint the card no longer uses -- the card is pink now, where the real
+    number was 3.79:1) -- all below 4.5:1 at #8c63b5. Same hue/saturation (270 deg, 35.7%).
+    --color-accent-pink is the binding constraint of the three (lowest luminance, so hardest to
+    clear at this hue/saturation): lightness moved only as far as clearing it needs (54.9% ->
+    50.3%), not further to cover every accent tint in the file -- this is the deliberately
+    narrow, same-as-danger/success-below fix the CAP-23 review asked for, in place of an
+    earlier, broader re-adjustment to 50% that also happened to clear tints nothing actually
+    renders text on. If a future screen puts this link style on a new tint, re-run
+    check-contrast.mjs rather than assuming this value still covers it. */
+  --color-primary-hover: #734a9b; /* generated when --color-primary was #8c63b5: no hover variant
+    in the Figma file (confirmed directly in Design mode). Same hue/saturation as --color-primary
+    (270 deg, 35.7%), lightness moved -10 points (54.9% -> 44.9%). Darker on hover in light mode,
+    lighter in dark mode below -- same direction the rest of this file already uses. Not
+    regenerated against the CAP-23 primary re-adjustment above: the hover fill is never itself a
+    text colour in any pair check-contrast.mjs tracks, so there was nothing to clear. */
+  --color-danger: #8c5226; /* AA-adjusted from sampled #c9793b (was 3.12:1 on bg), then
+    re-adjusted for CAP-23: #a5612d (the first adjustment) passed on bg/surface but Task 2's
+    exhaustive pair sweep found it is also rendered directly on its own --color-danger-bg
+    (ExportSheet's failed-export message, EntryStepper's offending-card field error) at
+    3.97:1. Same hue/saturation (26 deg, 57.1%), darkened further to clear that. */
+  --color-danger-bg: #ffe5c4;
+  --color-success: #317234; /* AA-adjusted from sampled #4baf4f (was 2.60:1 on bg), then
+    re-adjusted for CAP-23: #37803a (the first adjustment) passed on bg/surface but Task 2's
+    exhaustive pair sweep found TextArea's "Saved" status can render on --color-danger-bg too
+    (the narrative field sits inside EntryStepper's offending card, whose own field-error text
+    is a separate, independent piece of state from the autosave status) at 4.00:1. Same
+    hue/saturation (122.5 deg, 39.9%), darkened further to clear that. */
+  --color-success-bg: #e9f4ee;
+  --color-focus-ring: #8053ad; /* confirmed: no focus variant in the Figma file either. Reuses
+    --color-primary by deliberate team decision (2026-08-26), not a default fallback. Kept equal
+    to --color-primary through the CAP-23 re-adjustment above. */
+
+  /* Dashboard card accents -- decorative backgrounds, sampled as-is.
+     Heading text (--color-text) sits directly on these at 13:1+, so no
+     AA adjustment applies to the accents themselves. */
+  --color-accent-peach: #ffe8d6;
+  --color-accent-mint: #e9f4ee;
+  --color-accent-cream: #fbefd5;
+  --color-accent-coral: #ffe0db;
+  --color-accent-pink: #ffe0fb;
+  --color-accent-lavender: #efebfa;
+  --color-accent-evidence: #e9f3fd;
+
+  /* CAP-38 R8, ADR #52: the top screens' background tint says which
+     section you are in. Light: the accents themselves. */
+  --section-tint-diary: #efebfa;
+  --section-tint-review: #e9f4ee;
+
+  /* CAP-38 round 2d, ADR #54: what a secondary button or an unselected chip
+     is filled with, and the hairline round it. Light: white with the
+     border grey, as Select and the sprint rows already are -- the old
+     --color-surface-alt fill measured 1.04:1 against the diary's tint and
+     1.00:1 against the review queue's, so the control all but vanished.
+     The hairline is drawn inside the box, so no control grows by a
+     border's width. Dark: unchanged, see the dark blocks. Hex so
+     check-contrast.mjs can measure it. */
+  --color-control: #ffffff;
+  --shadow-control: inset 0 0 0 1px #d9d9d9;
+
+  /* Spacing, 4px grid. --space-20 is measured, not interpolated: it is
+     both the page's horizontal margin and the gap between dashboard
+     cards, confirmed at four separate card boundaries on the Home
+     screen (19-20px each, matching the AA-quality anti-aliasing slack of
+     a 20px design value). */
+  --space-4: 4px;
+  --space-8: 8px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-20: 20px;
+  --space-24: 24px;
+  --space-32: 32px;
+  --space-48: 48px;
+  --space-64: 64px;
+
+  /* Radius. --radius-lg measured off two dashboard cards' corners
+     (~13px raw edge-detection, consistent between both). --radius-sm and
+     --radius-md are visual-proportion estimates, not measured the same
+     way -- flagged for a Figma Inspect check like the type scale. */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-full: 9999px;
+
+  /* Border width. Added for CAP-4: TextArea needs a hairline field
+     border and no such scale existed yet. Not sourced from Figma like
+     the rest of this file -- a single common value, not a measurement. */
+  --border-width-sm: 1px;
+
+  /* Type scale -- measured directly off text layers in Figma Design mode
+     (family/size/weight from the properties panel; no Dev Mode on this
+     seat, so no auto-generated CSS to cross-check against). Family is
+     'Inter', added as the preferred stack entry with the previous system
+     fallbacks kept behind it -- the webfont itself isn't loaded anywhere
+     yet, so today this still renders in the fallback until that's a
+     deliberate follow-up (self-host vs Google Fonts is a decision, not
+     a default). Loaded self-hosted since CAP-38 (ADR #50). --font-size-base and --font-size-sm measured identical
+     at 14px on the two layers checked ("1. Contribution" and "Alumly Pty
+     Limited") -- kept as two tokens since they're different semantic
+     roles, but flagging that the scale doesn't actually distinguish them
+     at these two points. Line height measured 100% (unitless 1) on every
+     text layer checked, heading and body alike, so all three tiers below
+     carry that same real value rather than three invented ones.
+     Departed from on purpose in CAP-38, ADR #50: the measured scale did
+     not separate sm from base, and line height 1 cramps every multi-line
+     block. */
+  --font-family-base:
+    'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-size-xs: 12px;
+  --font-size-sm: 13px;
+  --font-size-base: 15px;
+  --font-size-lg: 17px;
+  /* Round 2b, ADR #53: the app bar's title, measured off Alumable's bar
+     (about 1.3x body text). The one step between lg and xl. */
+  --font-size-title: 20px;
+  --font-size-xl: 22px;
+  --font-size-2xl: 30px;
+  --font-size-3xl: 36px;
+  --font-weight-regular: 400;
+  --font-weight-medium: 600;
+  --font-weight-bold: 700;
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.45;
+  --line-height-relaxed: 1.6;
+  --letter-spacing-label: 0.06em;
+
+  /* Layout and depth, CAP-38 (ADR #50). Content widths cap the reading
+     column and the list column on wide screens. Shadows are a soft lift
+     in light mode and become a hairline border in dark mode, where a
+     dark shadow on a dark page reads as nothing. */
+  --content-width-read: 47.5rem;
+  --content-width-list: 67.5rem;
+  --shadow-card: 0 1px 2px rgb(20 16 31 / 0.06), 0 4px 12px rgb(20 16 31 / 0.05);
+  --shadow-sheet: 0 -8px 24px rgb(20 16 31 / 0.12);
+
+  /* Stacking order, CAP-38. The sticky header and the sticky phone bars
+     are the first things in this product to sit above the page, so the
+     order is written down once: bars, then the header, then any open
+     sheet over everything, since a modal dialog covers the whole page. */
+  --z-sticky-bar: 5;
+  --z-header: 10;
+  /* CAP-38 R5: a floating action sits over page content and the sticky
+     header (50 > 10), and under every sheet. The header's menu drops from
+     the top and the button sits at the bottom, so the two meet only on a
+     very short window. */
+  --z-fab: 50;
+  --size-fab: 3.5rem;
+  /* CAP-38: the one motion length; prefers-reduced-motion turns it off
+     where it is used. */
+  --duration-quick: 180ms;
+  --z-sheet: 100;
+  /* CAP-38 R7: how long a sheet takes to slide up, and to spring back after
+     a short drag. Off under prefers-reduced-motion where it is used. */
+  --duration-sheet: 220ms;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+
+    /* Derived from the sampled (pre-AA-fix) light hues by HSL lightness
+       inversion, then independently re-verified against WCAG AA -- see
+       Task 1 Step 2. Verified standalone, not chained off the light
+       block's own AA-adjusted values, which is why e.g. --color-primary
+       here isn't a simple lighten of the light block's #8053ad. No
+       Figma dark frame exists to sample instead. */
+    --color-bg: #12151c;
+    --color-surface: #242424;
+    --color-surface-alt: #303030;
+    --color-border: #3d3d3d;
+    --color-text: #f0f0f0;
+    --color-text-muted: #b4b4b4; /* lightened for CAP-23: #a8a8a8 passed every other real
+      pairing but measured 4.11:1 on --color-danger-bg (EntryStepper's offending-card text,
+      same real site as the light-mode re-adjustment above) */
+    --color-text-inverse: #1f1f1f;
+    --color-primary: #bea6d5;
+    --color-primary-hover: #d7c9e5; /* generated: same hue/saturation as dark --color-primary
+      (270 deg, 35.8%), lightness +10 points (74.3% -> 84.3%) -- lighter on hover here, the
+      inverse of the light-mode direction above */
+    --color-danger: #dba57b;
+    --color-danger-bg: #663900;
+    --color-success: #74c377;
+    --color-success-bg: #1b3628;
+    --color-focus-ring: #bea6d5;
+    --color-accent-peach: #662d00;
+    --color-accent-mint: #224431;
+    --color-accent-cream: #5d4309;
+    --color-accent-coral: #660e00;
+    --color-accent-pink: #660059;
+    --color-accent-lavender: #251452;
+    --color-accent-evidence: #08335e;
+
+    /* = color-mix(in srgb, <dark accent> 35%, --color-bg): a hint, not the
+       raw dark accent's wash. Hex so check-contrast.mjs can measure it. */
+    --section-tint-diary: #19152f;
+    --section-tint-review: #182523;
+
+    /* ADR #54: dark keeps its --color-surface-alt fill and draws no edge,
+       so nothing about a dark control changes, to the pixel. */
+    --color-control: #303030;
+    --shadow-control: none;
+
+    /* CAP-38: a hairline instead of a shadow (see the light block). */
+    --shadow-card: 0 0 0 1px var(--color-border);
+    --shadow-sheet: 0 0 0 1px var(--color-border);
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --color-bg: #12151c;
+  --color-surface: #242424;
+  --color-surface-alt: #303030;
+  --color-border: #3d3d3d;
+  --color-text: #f0f0f0;
+  --color-text-muted: #b4b4b4; /* lightened for CAP-23, see the media-query block above */
+  --color-text-inverse: #1f1f1f;
+  --color-primary: #bea6d5;
+  --color-primary-hover: #d7c9e5; /* generated: same hue/saturation as dark --color-primary
+    (270 deg, 35.8%), lightness +10 points (74.3% -> 84.3%) -- lighter on hover here, the
+    inverse of the light-mode direction above */
+  --color-danger: #dba57b;
+  --color-danger-bg: #663900;
+  --color-success: #74c377;
+  --color-success-bg: #1b3628;
+  --color-focus-ring: #bea6d5;
+  --color-accent-peach: #662d00;
+  --color-accent-mint: #224431;
+  --color-accent-cream: #5d4309;
+  --color-accent-coral: #660e00;
+  --color-accent-pink: #660059;
+  --color-accent-lavender: #251452;
+  --color-accent-evidence: #08335e;
+
+  /* = color-mix(in srgb, <dark accent> 35%, --color-bg): a hint, not the
+     raw dark accent's wash. Hex so check-contrast.mjs can measure it. */
+  --section-tint-diary: #19152f;
+  --section-tint-review: #182523;
+
+  /* ADR #54: dark keeps its --color-surface-alt fill and draws no edge,
+     so nothing about a dark control changes, to the pixel. */
+  --color-control: #303030;
+  --shadow-control: none;
+
+  /* CAP-38: a hairline instead of a shadow (see the light block). */
+  --shadow-card: 0 0 0 1px var(--color-border);
+  --shadow-sheet: 0 0 0 1px var(--color-border);
+}

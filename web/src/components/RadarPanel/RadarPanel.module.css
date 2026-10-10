@@ -1,0 +1,90 @@
+/* Chrome only -- panel sizing and the placeholder text, nothing product-
+   specific. 20rem matches the chart's own fixed height (320, set on
+   ResponsiveContainer in RadarPanel.tsx) so loading/loaded/empty/
+   insufficient do not visibly jump size against each other. Not a
+   var(--space-*) value: the scale tops out at --space-64, and a
+   chart's pixel height is not really a spacing decision -- same
+   reasoning Skeleton.tsx already gives for its own width/height props. */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* A pill, not muted caption text -- easy to miss otherwise, sitting above
+   a large chart. Peach-on-text is the same pairing the product's own
+   Figma screens use for "Awaiting assessor" -- already AA-verified in
+   tokens.css (heading text on any accent background clears 13:1+), not
+   a new colour decision. */
+.caption {
+  display: inline-block;
+  margin: 0 0 var(--space-8);
+  padding: var(--space-4) var(--space-12);
+  border-radius: var(--radius-full);
+  background: var(--color-accent-peach);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  text-align: center;
+}
+
+.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 20rem;
+  padding: var(--space-16);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  text-align: center;
+}
+
+.placeholder p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+/* CAP-38: the waiting radar. Column, so the outline sits above its
+   message; stroke and fill are borders and surfaces, nothing that could
+   read as a score. */
+.prompt {
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.prompt_shape {
+  width: 9rem;
+  height: 9rem;
+  fill: var(--color-surface-alt);
+  stroke: var(--color-border);
+  stroke-width: 1.5;
+}
+
+/* Visually hidden, not display:none -- a screen reader still announces it.
+   On a wrapping <div>, not on the <table> itself (CAP-38 R1): Firefox lays
+   a table's <caption> outside the table box, so a clip on the table hid
+   the cells and left the caption painted over the chart. A div's clip
+   covers everything inside it in every engine. Rem because check-tokens.sh
+   rejects the conventional pixel value.
+
+   The caption still wraps (`white-space: normal`): with the inherited
+   nowrap it lays out as one ~34rem line, and that width is what pushed a
+   360-wide page into sideways scroll in CAP-23. */
+.sr_only {
+  position: absolute;
+  width: 0.0625rem;
+  height: 0.0625rem;
+  padding: 0;
+  margin: -0.0625rem;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.sr_only caption {
+  white-space: normal;
+}

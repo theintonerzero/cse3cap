@@ -1,0 +1,52 @@
+/* Token names verified against the merged CAP-1 tokens.css. */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.textarea {
+  min-height: 6em;
+  padding: var(--space-16);
+  border: var(--border-width-sm) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  resize: vertical;
+}
+
+/* Read-only text is still text to read (CAP-63). Opacity 0.6 put body text at
+   about 4.4:1 on white, under AA; the quiet fill says "not editable" at full
+   contrast instead. No resize grip, and the box fits its words where the
+   browser can size a field to its content (Chromium today), so a
+   reflection is not read through a five-line window. Elsewhere it scrolls,
+   as before. Safari fades disabled text on its own, hence the two resets. */
+.textarea:disabled {
+  background: var(--color-surface-alt);
+  color: var(--color-text);
+  -webkit-text-fill-color: currentColor;
+  opacity: 1;
+  resize: none;
+  field-sizing: content;
+}
+
+.status {
+  min-height: 1em;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.saved {
+  color: var(--color-success);
+}
+
+.failed {
+  color: var(--color-danger);
+}

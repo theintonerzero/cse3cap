@@ -1,0 +1,292 @@
+# Reflection Diary: stack and build scope
+
+**CSE3CAP / Alumable · Semester 2 2026**
+What we are building, what it runs on, and what has to exist for it to be done. Companion
+to the API specification (v2) and the ERD.
+
+---
+
+## 1. What this is
+
+An MVP, not a prototype. Feature-complete, running on real data, designed to plug into
+Alumable's platform later. Eleven screens across three roles, backed by a JSON API
+and a MySQL database that is already designed and reviewed.
+
+Scope in one line: a student writes reflections per sprint, scores themselves against a
+swappable rubric, a supervisor or assessor counter-scores, both appear on a radar chart,
+and the student keeps and exports the record.
+
+---
+
+## 2. The stack
+
+| Layer | Technology | Why |
+|---|---|---|
+| Database | MySQL 9.7 LTS, self-hosted on an Oracle Cloud VPS | Set by the client; matches their live platform. One shared instance means no local setup for anyone |
+| Backend | PHP 8.5 / Laravel 13 | Set by the client; Sanctum, policies, queues, Faker all built in |
+| API style | REST, OpenAPI 3 contract | Screens map cleanly to resources; contract enables parallel build |
+| Frontend | React 19 + Vite + TypeScript | Recharts radar; types generated from the contract catch drift at compile time |
+| Charts | recharts | First-class React radar component |
+| Routing | React Router | Standard, nothing exotic needed |
+| Styling | CSS variables + CSS modules | Design tokens already exist as variables; no Tailwind config to maintain |
+| Auth | Sanctum bearer tokens, three seeded | Real token handling, no login screen in MVP |
+| Storage | Server filesystem via Laravel's filesystem abstraction | Swapping to S3 later is config, not code |
+| Export | Queued jobs; JSON native, PDF via dompdf | The `exports` row is the job record |
+
+**Not using, deliberately:** Next.js (no need for SSR or API routes when Laravel is the
+backend), Tailwind (tokens are already CSS variables), axios (one typed fetch wrapper is
+enough), pagination libraries (result sets are small), any vector database (the optional AI
+sidecar keeps its vectors in MySQL and ranks them in its own process, ADR #64).
+
+### Database access
+
+MySQL is self-hosted on a shared Oracle Cloud VPS rather than on each machine, so there is
+nothing to install locally. Everyone connects to the same instance with credentials from
+`.env`. Two consequences worth knowing:
+
+- The schema is applied once, centrally, rather than each person running the DDL.
+  Migrations are run against the shared database by whoever owns the change.
+- Seed data is shared, so anything one person changes, everyone sees. Treat the seeded
+  users, gigs and frameworks as fixed reference data and create new rows for
+  experimentation rather than editing the existing ones.
+
+---
+
+## 3. Repository layout
+
+```
+/db
+  01-schema.sql          the reviewed DDL
+                         frameworks are seeded here; everything else is a Laravel seeder
+/api                     Laravel 13
+/web                     React + Vite + TS
+/docs
+  openapi.yaml           the API contract, source of truth
+  PROJECT-CONTEXT.md     briefing for coding agents
+  adr/                   architecture decision records
+  erd.png
+.claude/settings.json    shared plugins + marketplaces for the team
+.mcp.json                MySQL (read-only) and the atlassian Jira server
+README.md                setup, connection details, the three tokens
+```
+
+---
+
+## 4. What has to be built
+
+### 4.1 Environment and data
+
+- [x] MySQL 9.7 LTS provisioned on the VPS, credentials distributed, `.env.example` committed
+- [x] `01-schema.sql` applied and verified, including the ADR #23 to #25 patch
+- [x] Demo data: three token holders covering every role, two gigs with sprints,
+      reflections at every status, scores with a shaped distribution (hidden ability
+      profile per student, self-scores slightly optimistic, assessor scores closer to
+      truth), hand-written narratives rather than lorem. The two frameworks are already
+      seeded by `01-schema.sql`.
+      Split across two seeders per ADR #37: `DemoSeeder` holds the cast and the tokens
+      and is what the feature tests use as their fixture, `ReflectionSeeder` holds the
+      nine reflections, four students and shaped scores and calls `DemoSeeder` first.
+      `php artisan db:seed` runs both
+- [x] Three seeded tokens issued and documented in the README
+- [x] Views verified: `v_entry_score`, `v_radar`, `v_calibration_gap`, `v_coverage_gaps`,
+      `v_framework_scale`
+
+### 4.2 Backend
+
+**Foundation**
+- [x] Laravel 13 scaffold, Sanctum installed, CORS for the Vite dev origin
+- [x] DDL ported to migrations. The baseline executes `db/01-schema.sql` verbatim rather
+      than restating it, and is recorded as already-run on the shared instance
+- [x] Base model: `HasUuids`, `$keyType = 'string'`, `$incrementing = false`
+- [x] Exception renderer producing the single error envelope
+- [x] `RoleResolver::for(User, Gig)`, behind every policy. Every permission-matrix row has
+      a policy method (CAP-19)
+
+**Endpoints** (full detail in API spec v2)
+- [x] `GET /auth/me`
+- [x] `GET /gigs`, `GET /gigs/{id}`
+- [x] `GET /frameworks`, `GET /frameworks/{id}`
+- [x] `POST /frameworks` (deep copy), `PATCH /frameworks/{id}`, `PATCH /competencies/{id}`,
+      `PATCH /levels/{id}`, all behind the `FRAMEWORK_IN_USE` guard
+- [x] `POST /framework-assignments`
+- [x] `GET/POST /reflections`, `GET /reflections/{id}`, `POST .../submit`, `DELETE`
+- [x] `PATCH /entries/{id}`, `POST /entries/{id}/evidence`, `DELETE /evidence/{id}`
+- [x] `PUT /entries/{id}/scores/self`, `POST /entries/{id}/scores`
+- [x] `GET /review-queue`
+- [x] `GET /me/radar`, `/me/progress`, `/me/calibration`, `/me/coverage`
+- [x] `POST /exports`, `GET /exports/{id}`, `GET /exports`, `GET /exports/{id}/download`.
+      JSON and PDF; PDF renders with dompdf (ADR #39, CAP-17)
+- [x] `GET /reflections/{id}/events`
+
+**Business rules, one implementation each**
+- [x] Submit gate (narrative, self-score, evidence-if-required)
+- [x] Comment required when a counter-score is lower than the self score
+- [x] Level belongs to the entry's competency (service layer; the database cannot express it)
+- [x] Framework immutable once referenced by any reflection
+- [x] One rubric per gig. `FrameworkAssigner` refuses a second, and since ADR #35
+      `ak_fw_assignments` is unique on `gig_id` so the database refuses it too
+- [x] Eager entry creation, one per competency, on reflection create
+- [x] Auto-flip to `assessed` when every entry has a counter-score. Counter-scoring closes
+      with it: `submitted` is the only state that accepts one (ADR #34)
+
+### 4.3 Frontend
+
+**Foundation, in this order**
+- [x] Vite 8 + TS scaffold, Prettier, and oxlint in place of ESLint, which is what the
+      current Vite template ships. Renders the word `test` and nothing else: the point is
+      that the toolchain and the CI job are proven before a screen is written. Swapping
+      oxlint for ESLint is a deliberate decision the team has not made yet.
+      Pin TypeScript to 6.x, not 7. TypeScript 7
+      is the native compiler rewrite and openapi-typescript 7.13 crashes on it
+      (openapi-ts issue #2841, open with no workaround). Generated types are load-bearing
+      here, so the generator picks the compiler version
+- [x] `tokens.css`: colour, spacing, radius as CSS variables; light and dark via
+      `data-theme`. No raw hex anywhere else in the codebase. CAP-1 (#15); the AA palette
+      is ADR #43 (#75). `scripts/check-tokens.sh` and `scripts/check-contrast.mjs` check it
+- [x] Core components: Card, Button, Chip, Badge, TextArea (debounced), ProgressBar,
+      BottomSheet, RadarPanel (axes and domain from props), Skeleton, ErrorNotice. CAP-3
+      (#18), CAP-4 (#16, #22), CAP-6 (#20). `web/gallery.html` renders each in its states
+- [x] Typed API client: one fetch wrapper, types generated from `openapi.yaml` via
+      openapi-typescript, error envelope unwrapped centrally. `web/src/api/client.ts`,
+      with `schema.ts` generated by `npm run gen:types` and committed. The generator runs
+      through `npx` rather than as a dependency, per ADR #36. Verified against the real
+      API on :8000 and the prism mock on :4010
+- [x] App shell: router, token context, role-aware nav from `/auth/me`. React Router 8
+      (ADR #27), a route per screen with placeholders until each ticket lands, and the
+      three seeded tokens held per browser tab. `./run verify-shell` checks it
+
+**Screens.** Eleven, each with loaded / loading / empty / error states. All built; the
+four-states evidence is CAP-21 (#74)
+
+*Student*
+- [x] Diary home: a gig picker (all gigs / per gig), sprint chips inside a gig, a radar
+      whose scope the picker and chips name (ADR #58), entry list with status badges, export.
+      Scope lives in the URL (ADR #27) so a scoped diary is linkable, and the export link
+      opens the sheet CAP-18 fills in. `./run verify-diary` checks it. A card names the
+      sprints that need a reflection and starts the earliest (CAP-53)
+- [x] Your learning record (`/record`): one competency by sprint table of self and assessor
+      scores per gig, from `GET /me/progress`, with Export record (CAP-53, ADR #63)
+- [x] Gig detail: two of the design's three Overview cards -- Timeline
+      (start/end/duration), and a Reflection Diary card carrying the framework, a row per
+      sprint as `SPRINT / SELF REFLECTION / ASSESSOR REFLECTION`, and the link into the
+      diary scoped to that gig. The design's Gig Details card is not built: it holds the
+      title and host, which the header already shows (`GigDetail.tsx`). The two columns
+      are the reflection states split, not a second vocabulary. Sprint dates are worded
+      relatively where it helps ("due in 3 days", "not open yet"); that wording and the
+      state derivation are both a pure module a check compiles and executes, because every
+      seeded sprint is already past due. A student sees the table; every other participant
+      (assessor, supervisor or employer) sees the sprint calendar, because
+      `GET /reflections` returns them every student's rows. `./run verify-gig` checks it.
+      This screen is the host app's gig page in the design, not a diary screen; the
+      History sheet on the same frame is CAP-14
+- [x] Entry stepper: one component, N states from the framework payload: competency name,
+      tappable level descriptors, narrative with debounced autosave, evidence row,
+      "Competency 3 of 6" progress, Back/Next, Submit on last with gate errors mapped to
+      the offending entries. CAP-11 (#54); read-only for anyone but the owner, CAP-36
+      (#70). `./run verify-entry-stepper` checks it
+- [x] Submitted confirmation: assessor notified, next sprint date, back to diary. CAP-12
+      (#65), checked by `web/e2e/submitted.spec.ts`
+- [x] Export sheet: PDF/JSON selector with a line on what each format is, the record's
+      counts by status, request → 202 → poll `GET /exports/{id}` on a 1/2/4/8s backoff
+      that gives up after ten polls with words rather than a spinner → download through
+      `api.blob`. Five states, the in-progress one its own block and not the skeleton.
+      The backoff is a pure module the check compiles and runs, because on the sync queue
+      every export is complete before the 202 arrives. `./run verify-export` checks it
+- [x] History sheet: event timeline. CAP-14 (#61). `./run verify-history` checks it
+
+*Assessor*
+- [x] Review queue: worklist with per-reflection progress. CAP-10 (#19), mounted in #38
+- [x] Assessor stepper: the entry stepper in assessor mode. Student's narrative and
+      evidence read-only, their self-score shown, level picker, comment box that becomes
+      required when scoring lower. CAP-13 (#56). `./run verify-assessor-stepper` checks it
+
+*Educator (supervisor role)*
+- [x] Select framework: available templates vs saved copies, Edit a copy and Assign
+      actions. Edit a copy is on every row: CAP-16 lifted the original "Edit hidden when
+      `in_use`", because the editor only ever copies and both seeded templates are in use.
+      CAP-15 (#46). `./run verify-frameworks` checks it
+- [x] Edit framework: based-on selector, name, competencies with their level descriptors,
+      save as a new copy. Rename and reword only, with no control for changing shape (ADR
+      #16). Save POSTs the copy, then PATCHes it field by field, and a retry after a partial
+      failure finishes the same copy rather than making another. `./run
+      verify-framework-edit` compiles and runs which PATCHes a save still owes
+
+### 4.4 Security and infrastructure
+
+- [x] Sanctum configuration and token handling
+- [x] Policies covering every permission-matrix row, resolved from `gig_participants`.
+      Single records through `GigPolicy`, `ReflectionPolicy`, `FrameworkPolicy` and
+      `ExportPolicy`; lists through named query scopes, per ADR #40. `./run one-rule` fails
+      on a 403 or 404 decided outside a policy (CAP-19)
+- [x] Evidence upload: type and size validation against framework policy, storage wiring
+- [x] Export pipeline: queued jobs, JSON and PDF, download authorisation. PDF per ADR #39
+      (CAP-17)
+- [x] VPS access control, `.env.example`, nothing secret committed
+- [~] Security review on every PR touching scoring, submit, or framework mutation. Done
+      once, on the backend PR, which touches all three: it found a counter-score accepted
+      after a reflection was assessed, a gig able to hold two rubrics, and three analytics
+      endpoints returning a 500 outside the error envelope. ADRs #33, #34, #35. Reviewed
+      again since: both steppers (2026-09-24), injection on every screen (2026-09-29), the
+      permission matrix probed over HTTP (`scripts/pentest.sh`, #92) and a re-verification
+      that found the counter-score findings F12 and F13, fixed in #99 (all in
+      `docs/Security-Review.md`). Stays open because the commitment is per PR, and not
+      every such PR has its own review
+- [x] Retention and erasure note for the report (the `RESTRICT` constraints make deletion
+      deliberate rather than cascading)
+
+### 4.5 Cross-cutting
+
+- [x] CI running Pint, oxlint, Prettier and both builds, set up before the first feature PR.
+      `.github/workflows/ci.yml`. The backend job brings up its own MySQL 9.7 service
+      container rather than touching the shared instance, because the suite runs
+      `migrate:fresh`. The frontend job runs lint, prettier, the token and contrast checks,
+      the build and the Playwright browser checks. The contract job also checks for
+      contract drift (CAP-25).
+- [x] `openapi.yaml` written from API spec v2 for the read path, mock server running
+      (`prism mock`) and serving the seeded data as examples
+- [x] `.claude/settings.json` with shared plugins, permissions and the shared-database
+      guard; six agents in `.claude/agents/`; `PROJECT-CONTEXT.md` in `/docs`
+- [x] ADRs for every decision in §2 of this document (#26 to #32)
+
+---
+
+## 5. Out of scope
+
+Recorded so nobody builds them by accident.
+
+- **AI that writes.** Cut. No AI drafts a narrative, suggests a score or writes a reviewer's
+  comment, and nothing writes scores but a human. The optional sidecar only asks and finds
+  (ADR #64).
+- **Framework creation from scratch.** Copy-then-edit only, from a seeded base.
+- **Adding or removing competencies, changing level counts.** Renaming competencies and
+  rewording descriptors only.
+- **Editing a framework that is in use.** Permanently read-only once referenced.
+- **Re-scoring.** An assessor cannot revise a submitted score; a repeat is a 409, and a
+  reflection that has flipped to `assessed` stops accepting counter-scores entirely.
+- **Changing a gig's rubric once assigned.** A gig takes one and there is no endpoint to
+  replace it, because reflections already created point at the framework they snapshotted.
+  The answer to "I picked the wrong rubric" is a new gig. See ADR #33.
+- **Login screen.** Three seeded tokens; auth exists server-side.
+- **Pagination, notifications table, multi-tenancy, real-time updates.**
+
+---
+
+## 6. Definition of done
+
+The MVP is done when all of the following are true.
+
+1. A fresh clone connects to the shared database and runs against real seed data.
+2. A student token can create a reflection, write every entry, self-score, and submit,
+   with the gate rejecting an incomplete submission.
+3. An assessor token can see the review queue, counter-score, and is forced to comment
+   when scoring lower than the student did.
+4. The radar renders self and assessor polygons from real database rows, with axes and
+   scale read from the active framework.
+5. Switching a gig to SFIA 9 changes the axes, the scale, and every level descriptor with
+   no code change.
+6. A supervisor can copy a framework, rename a competency, reword a descriptor, and assign
+   the copy to a gig, and cannot edit a framework already in use.
+7. A student can export their record and download the file.
+8. Every screen has a loading, empty, and error state.
+9. CI passes on `main`.
+10. The report, the ADRs, and the individual compendiums are written.

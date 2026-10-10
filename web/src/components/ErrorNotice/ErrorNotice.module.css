@@ -1,0 +1,29 @@
+.notice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-12);
+  padding: var(--space-16);
+  border-radius: var(--radius-md);
+  background: var(--color-danger-bg);
+  /* Not --color-danger: it measured 3.97:1 on --color-danger-bg in light
+     mode before CAP-23, under AA. CAP-23 darkened --color-danger
+     specifically because this pair is real (tokens.css), and it now clears
+     5.15:1 -- see check-contrast.mjs's --color-danger/--color-danger-bg
+     entry. Left as --color-text regardless: the fill already carries the
+     alarm, and every other tinted-fill notice in this product (Badge,
+     TokenGate's .rejected) keeps its label neutral the same way rather
+     than colouring it per status. */
+  color: var(--color-text);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+}
+
+.message {
+  margin: 0;
+  font-size: var(--font-size-sm);
+}

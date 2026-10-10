@@ -1,0 +1,77 @@
+# The demo's site block (CAP-26). One origin: the built frontend at /, and
+# /api/* to Laravel through the dedicated PHP-FPM pool in
+# deploy/php-fpm/diary.pool.conf.
+#
+# THIS CADDY ALSO ISSUES THE CERTIFICATE THE SHARED MYSQL SERVES (ADR #21).
+# A broken edit here can take the database out for all five people. It is
+# installed by hand, never by scripts/deploy.sh, and only by the procedure
+# in docs/Deployment.md: copy, `caddy validate`, `systemctl reload caddy`
+# (never restart), then scripts/check-db-tls.sh to prove the database
+# certificate still verifies.
+#
+# It replaces the old commented rdapi.darkovski.dev block on the box, which
+# carried a placeholder upstream that is wrong for Laravel. Rewritten, not
+# extended.
+#
+# Paths go through /var/www/diary/current, which scripts/rollback.sh moves.
+# Caddy resolves it on every request, so a release switch needs no reload
+# here. PHP-FPM does need one, because OPcache caches resolved paths.
+
+diary.darkovski.dev {
+	encode zstd gzip
+
+	log {
+		output file /var/log/caddy/diary.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+	}
+
+	header {
+		# Applied as the response leaves, so it covers what Laravel answers
+		# as well as the file server. Caddy's own error pages (a 502 when
+		# the pool is down) still say Server: Caddy.
+		defer
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	# A framework's max_file_bytes may be up to 100 MiB
+	# (UpdateFrameworkRequest), so evidence uploads can be that large. The
+	# pool's upload_max_filesize says the same.
+	request_body /api/* {
+		max_size 101MiB
+	}
+
+	handle /api/* {
+		root * /var/www/diary/current/api/public
+		php_fastcgi unix//run/php/diary-fpm.sock {
+			# Hand PHP the real release path rather than .../current, so a
+			# request that starts during a switch runs one release's code
+			# from beginning to end.
+			resolve_root_symlink
+		}
+	}
+
+	handle {
+		root * /var/www/diary/current/web/dist
+
+		# Vite fingerprints everything under /assets, so it can be cached
+		# for good. Everything else is revalidated, so a deploy is seen on
+		# the next load. The matcher is on the request path, before
+		# try_files rewrites it: `header /index.html` would miss / and every
+		# deep link, which are index.html too.
+		@assets path /assets/*
+		@not_assets not path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		header @not_assets Cache-Control "no-cache"
+
+		# The app routes on the client (react-router), so any path that is
+		# not a file is the app.
+		try_files {path} /index.html
+		file_server
+	}
+}

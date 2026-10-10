@@ -1,0 +1,466 @@
+#!/usr/bin/env bash
+#
+# Proves the select framework screen's invariants still hold.
+#
+#   ./run verify-frameworks                 from the repository root
+#   ./scripts/verify-select-framework.sh    the same thing
+#
+# web/ has no test runner (CLAUDE.md), so this is where a frontend check
+# lives. verify-client.sh covers the API client, verify-app-shell.sh the
+# shell, verify-diary-home.sh the diary, verify-gig-detail.sh the gig and
+# verify-export-sheet.sh the export; this covers CAP-15, and they do not
+# overlap.
+#
+# 1. The screen is mounted. A screen left behind a placeholder is a screen
+#    nobody can reach.
+# 2. It is REACHABLE, and the way out of it goes somewhere real. The nav
+#    has addressed /frameworks since CAP-5, gated to a supervisor, and Copy
+#    and edit addresses the CAP-16 route -- a link to a path the router does
+#    not declare lands on the not-found placeholder without saying so.
+# 3. One API client, no hand-written response type.
+# 4. All four states, and skeletons rather than a spinner.
+# 5. The rules this screen must not break: the templates/copies split, Copy
+#    and edit on every row, no replace flow, and no role read from the client.
+# 6. The grouping rule, actually EXECUTED. The shared database holds two
+#    seeded templates and a growing pile of smoke-test-copy-* frameworks,
+#    so the interesting inputs -- no copies, no templates, names that sort
+#    against each other -- cannot all be produced by looking at the app.
+# 7. GET /frameworks really carries created_by and in_use, and a second
+#    rubric on a gig really is a 409. Needs a server and Dr Lee's token;
+#    skips itself loudly when there is neither.
+
+set -uo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT" || exit 1
+
+BASE="${BASE:-http://127.0.0.1:8000/api/v1}"
+TOKENS="${TOKENS:-$HOME/reflection-diary-tokens.txt}"
+. "$(dirname "${BASH_SOURCE[0]}")/lib/token-for.sh"
+SCREEN="web/src/screens/SelectFramework.tsx"
+RULE="web/src/screens/framework-groups.ts"
+# Round 3 E7: the on-screen names, numbered from the same order.
+NAMES="web/src/screens/framework-names.ts"
+ROUTES="web/src/app/routes.tsx"
+SHELL_TSX="web/src/app/AppShell.tsx"
+# CAP-51: nav_items_for moved out of AppShell into one module, so the shell
+# and the Alumable demo home read the same rule. The checks follow it there.
+NAV_TS="web/src/app/nav.ts"
+
+if [ -t 1 ]; then
+    blu=$'\033[1;34m'; grn=$'\033[1;32m'; red=$'\033[1;31m'
+    ylw=$'\033[1;33m'; off=$'\033[0m'
+else
+    blu=''; grn=''; red=''; ylw=''; off=''
+fi
+
+pass=0; fail=0; skip=0
+say()  { printf '\n%s==>%s %s\n' "$blu" "$off" "$1"; }
+ok()   { pass=$((pass+1)); printf '  %sok%s   %-54s %s\n' "$grn" "$off" "$1" "${2:-}"; }
+bad()  { fail=$((fail+1)); printf '  %sFAIL%s %-54s %s\n' "$red" "$off" "$1" "${2:-}"; }
+meh()  { skip=$((skip+1)); printf '  %sskip%s %-54s %s\n' "$ylw" "$off" "$1" "${2:-}"; }
+
+for f in "$SCREEN" "$RULE" "$ROUTES" "$SHELL_TSX"; do
+    [ -f "$f" ] || { bad "$f exists" "nothing to check"; }
+done
+
+# --------------------------------------------------------------------------
+say "1. The screen is mounted"
+
+if grep -q '<SelectFramework />' "$ROUTES"; then
+    ok "routes.tsx renders SelectFramework"
+else
+    bad "routes.tsx renders SelectFramework" "frameworks still a placeholder?"
+fi
+
+if grep -q 'screen="Select framework" ticket="CAP-15"' "$ROUTES"; then
+    bad "the CAP-15 placeholder is gone" "still in $ROUTES"
+else
+    ok "the CAP-15 placeholder is gone"
+fi
+
+# --------------------------------------------------------------------------
+say "2. Reachable, and the way out lands somewhere"
+
+# The way IN. Unlike the gig detail there is no id to name, so the nav can
+# and does carry it -- for a supervisor, which is ADR #17's educator.
+if grep -q "to: '/frameworks'" "$NAV_TS"; then
+    ok "the nav addresses /frameworks" "since CAP-5"
+else
+    bad "the nav addresses /frameworks" "the screen would be URL-only"
+fi
+
+# The rule only reaches the bar if the shell still takes its nav from it.
+if grep -q "import { nav_items_for } from './nav.ts'" "$SHELL_TSX" \
+    && grep -q "nav_items_for(me)" "$SHELL_TSX"; then
+    ok "the shell builds its nav from nav_items_for" "app/nav.ts, CAP-51"
+else
+    bad "the shell builds its nav from nav_items_for" "the rule would be dead code"
+fi
+
+# The /frameworks item itself, not just any supervisor mention: the review
+# queue's condition names supervisor too, which once let an ungated
+# frameworks item pass this check.
+if grep -B2 "to: '/frameworks'" "$NAV_TS" | grep -q "if (roles.has('supervisor'))"; then
+    ok "the nav item is gated on supervisor" "a convenience; the 403 is the rule"
+else
+    bad "the nav item is gated on supervisor"
+fi
+
+# The way OUT. Edit a copy addresses the CAP-16 route -- a link to a path
+# the router does not declare would fall through to the not-found
+# placeholder and look like a working link.
+if grep -q '/frameworks/\${framework.id}/edit' "$SCREEN" \
+   || grep -q 'frameworks/\${framework.id}/edit' "$SCREEN"; then
+    ok "Edit a copy addresses /frameworks/:framework_id/edit"
+else
+    bad "Edit a copy addresses /frameworks/:framework_id/edit"
+fi
+
+if grep -q 'path="frameworks/:framework_id/edit"' "$ROUTES"; then
+    ok "the router declares that path" "CAP-16's editor answers it"
+else
+    bad "the router declares that path" "Edit would hit the not-found route"
+fi
+
+# CAP-3's Button, not a re-styled anchor. Two buttons in one codebase is
+# how the two drift, which is the whole reason the component library exists.
+if grep -q '<Button' "$SCREEN"; then
+    ok "it uses CAP-3's Button"
+else
+    bad "it uses CAP-3's Button"
+fi
+
+# --------------------------------------------------------------------------
+say "3. One API client, no hand-written types"
+
+if grep -qE '\bfetch\(' "$SCREEN" "$RULE"; then
+    bad "no direct fetch" "$(grep -lE '\bfetch\(' "$SCREEN" "$RULE" | tr '\n' ' ')"
+else
+    ok "no direct fetch"
+fi
+
+if grep -qE '^\s*(export )?interface .*(Response|Payload)\b' "$SCREEN" "$RULE"; then
+    bad "no hand-written response type" "declare it in the contract instead"
+else
+    ok "no hand-written response type"
+fi
+
+# The Framework type is the GENERATED one. This is the check the plan's
+# sketch could not fail: it reported ok on both branches of its own ||.
+if grep -q "from '../api/schema.ts'" "$RULE" \
+   && grep -q "components\['schemas'\]\['Framework'\]" "$RULE"; then
+    ok "Framework comes from the generated schema"
+else
+    bad "Framework comes from the generated schema" "check $RULE"
+fi
+
+# Matched on the method rather than on "api.get", because prettier breaks
+# a chained call across lines -- `api` alone, then `.get(...)` indented --
+# and an assertion that depends on the formatter is an assertion that fails
+# the next time someone runs prettier.
+if grep -q "\.get('/frameworks'" "$SCREEN" \
+   && grep -q "\.post('/framework-assignments'" "$SCREEN"; then
+    ok "both calls go through the typed client"
+else
+    bad "both calls go through the typed client"
+fi
+
+# --------------------------------------------------------------------------
+say "4. All four states"
+
+states_missing=""
+grep -q "status: 'loading'" "$SCREEN" || states_missing="$states_missing loading"
+grep -q "status: 'error'" "$SCREEN"   || states_missing="$states_missing error"
+grep -q 'styles.empty' "$SCREEN"      || states_missing="$states_missing empty"
+grep -q "status: 'loaded'" "$SCREEN"  || states_missing="$states_missing loaded"
+
+if [ -z "$states_missing" ]; then
+    ok "loading, error, empty and loaded all present"
+else
+    bad "loading, error, empty and loaded all present" "missing:$states_missing"
+fi
+
+if grep -q 'SkeletonGroup' "$SCREEN"; then
+    ok "loading uses skeletons, not a spinner"
+else
+    bad "loading uses skeletons, not a spinner"
+fi
+
+if grep -q 'ErrorNotice' "$SCREEN"; then
+    ok "the error state is CAP-3's ErrorNotice" "it switches on code, not message"
+else
+    bad "the error state is CAP-3's ErrorNotice"
+fi
+
+# --------------------------------------------------------------------------
+say "5. The rules it must not break"
+
+if grep -q 'created_by === null' "$RULE"; then
+    ok "templates and copies split on created_by" "there is no is_template field"
+else
+    bad "templates and copies split on created_by"
+fi
+
+# Edit a copy is on EVERY row. The editor copies and never changes the
+# rubric it starts from, so in_use is no reason to hide it -- and both
+# seeded templates are in use, so gating on it left a freshly seeded
+# database with no way into the editor. Changed by CAP-16; in_use still
+# drives the "In use" marker.
+if grep -q 'Edit a copy' "$SCREEN" && ! grep -q 'is_editable' "$SCREEN"; then
+    ok "Edit a copy on every row" "in_use does not gate a copy"
+else
+    bad "Edit a copy on every row" "gated on in_use, both seeded templates lose it"
+fi
+
+# ADR #33, extended by #35: a gig takes one rubric and the unique key
+# enforces it. There is no endpoint that replaces one, so a screen offering
+# to would be offering something the API cannot do.
+if grep -qiE 'replace[ _]?(the )?(rubric|framework)|swap[ _]?(the )?(rubric|framework)' "$SCREEN"; then
+    bad "no replace flow" "ADR #33: a gig takes one rubric, there is no endpoint"
+else
+    ok "no replace flow" "ADR #33, #35"
+fi
+
+# The screen filters the gig picker by role, which is a CONVENIENCE. It
+# must not be the only thing standing between a caller and an assign: the
+# 403 is. Asserted as "the refusal is rendered", because a screen that
+# hides the button and swallows the error looks identical until it matters.
+if grep -q "status: 'refused'" "$SCREEN" && grep -q 'ApiError' "$SCREEN"; then
+    ok "a refused assign is surfaced, not swallowed" "the 403 and 409 both land"
+else
+    bad "a refused assign is surfaced, not swallowed"
+fi
+
+# The envelope's own message, as sent. It is one sentence and it explains
+# the rule better than anything worth writing here.
+if grep -q 'message: error.message' "$SCREEN"; then
+    ok "the envelope's message is shown as sent"
+else
+    bad "the envelope's message is shown as sent" "do not write a generic string"
+fi
+
+# Roles are resolved server-side and reach the screen only through
+# /auth/me. A role literal assembled anywhere else is the thing CLAUDE.md
+# forbids.
+if grep -q 'assignable_gigs' "$SCREEN" && grep -q 'useSession' "$SCREEN"; then
+    ok "the gig list comes from /auth/me participations"
+else
+    bad "the gig list comes from /auth/me participations"
+fi
+
+# --------------------------------------------------------------------------
+say "6. The grouping rule, actually executed"
+
+TSC="web/node_modules/.bin/tsc"
+OUT="$(mktemp -d)"
+trap 'rm -rf "$OUT"' EXIT
+
+if [ ! -x "$TSC" ]; then
+    meh "grouping rule" "no web/node_modules; run npm install in web/"
+elif ! "$TSC" --ignoreConfig --target es2022 --module esnext \
+        --moduleResolution bundler --strict --rewriteRelativeImportExtensions \
+        --outDir "$OUT" "$RULE" "$NAMES" \
+        >"$OUT/tsc.log" 2>&1; then
+    bad "framework-groups.ts and framework-names.ts compile standalone" "$(head -1 "$OUT/tsc.log")"
+else
+    ok "framework-groups.ts and framework-names.ts compile standalone"
+
+    # tsc emits into a tree mirroring web/src, because the type-only import
+    # of schema.ts puts both files in the program. The import itself is
+    # erased, so the emitted module has no runtime dependency at all.
+    printf '{"type":"module"}' > "$OUT/package.json"
+
+    cat > "$OUT/check.mjs" <<'JS'
+import { group_frameworks, assignable_gigs }
+  from './screens/framework-groups.js';
+import { display_names, free_name } from './screens/framework-names.js';
+
+const fw = (name, created_by, in_use = false) => ({
+  id: name, fw_key: name, version: 'v1', name, is_active: true, created_by, in_use,
+});
+
+let failed = 0;
+const want = (label, got, expected) => {
+  if (JSON.stringify(got) !== JSON.stringify(expected)) {
+    console.log(`  MISMATCH ${label}: want ${JSON.stringify(expected)}, got ${JSON.stringify(got)}`);
+    failed++;
+  }
+};
+
+// created_by is the whole rule. null is stock, anything else is a copy --
+// including the empty string, which is a value and not an absence.
+const mixed = [
+  fw('SFIA 9', null),
+  fw('zebra copy', 'user-1'),
+  fw('La Trobe six-competency', null, true),
+  fw('alpha copy', 'user-2'),
+  fw('edge', ''),
+];
+const groups = group_frameworks(mixed);
+want('template names', groups.templates.map((f) => f.name),
+  ['La Trobe six-competency', 'SFIA 9']);
+want('copy names', groups.copies.map((f) => f.name),
+  ['alpha copy', 'edge', 'zebra copy']);
+
+// Sorted by name INSIDE each group, not across them: the shared database
+// accumulates a smoke-test-copy-* framework on every run of smoke.sh, so
+// the copies list is long and arrives in no useful order.
+want('sorted independently', groups.templates.map((f) => f.name).join('|'),
+  'La Trobe six-competency|SFIA 9');
+
+// Both edges. An empty list is the screen's empty state; all-stock is what
+// a freshly seeded database looks like before anyone copies anything, and
+// it is the state the demo starts in.
+want('nothing at all', group_frameworks([]), { templates: [], copies: [] });
+want('all stock has no copies', group_frameworks([fw('a', null), fw('b', null)]).copies, []);
+want('all copies has no templates',
+  group_frameworks([fw('a', 'u'), fw('b', 'u')]).templates, []);
+
+// Every input survives exactly once. A filter pair that drops or
+// duplicates a row is the bug this shape invites.
+want('nothing lost, nothing duplicated',
+  groups.templates.length + groups.copies.length, mixed.length);
+
+// Which gigs the picker offers: supervisor only (ADR #48). A student, assessor or
+// employer participation is not one, and the server would 403 it -- this only keeps
+// the picker honest.
+const parts = [
+  { gig_id: 'g1', gig_title: 'La Trobe', role: 'supervisor' },
+  { gig_id: 'g2', gig_title: 'Data migration', role: 'student' },
+  { gig_id: 'g3', gig_title: 'Roster', role: 'employer' },
+  { gig_id: 'g4', gig_title: 'Audit', role: 'assessor' },
+];
+want('assignable roles', assignable_gigs(parts).map((p) => p.gig_id), ['g1']);
+want('no participations', assignable_gigs([]), []);
+want('student only', assignable_gigs([parts[1]]), []);
+want('employer only', assignable_gigs([parts[2]]), []);
+
+// Round 3 E7: a repeated name reads (2), (3) in key order (numeric, so -10
+// after -9), the first stays bare, a template outranks a copy, and a number
+// never repeats a name somebody typed. The stored name is not touched.
+const fwk = (name, fw_key, created_by = 'u') => ({ ...fw(name, created_by), id: fw_key, fw_key });
+const labels = (list) => {
+  const names = display_names(list);
+  return group_frameworks(list).templates.concat(group_frameworks(list).copies)
+    .map((f) => names.get(f.id));
+};
+want('unique names unchanged', labels([fwk('A', 'a', null), fwk('B', 'b')]), ['A', 'B']);
+want('repeats numbered in key order',
+  labels([fwk('S', 's-10'), fwk('S', 's-9'), fwk('S', 's')]), ['S', 'S (2)', 'S (3)']);
+want('key order, not arrival order',
+  display_names([fwk('S', 's-10'), fwk('S', 's-9')]).get('s-10'), 'S (2)');
+want('the template stays bare', labels([fwk('T', 'copy-t'), fwk('T', 't', null)]), ['T', 'T (2)']);
+// Listed by stored name, so the typed "F (2)" sorts after both Fs.
+want('a typed name is skipped',
+  labels([fwk('F (2)', 'f-typed'), fwk('F', 'f'), fwk('F', 'f-2')]), ['F', 'F (3)', 'F (2)']);
+const stored = [fwk('S', 's'), fwk('S', 's-2')];
+display_names(stored);
+want('stored names untouched', stored.map((f) => f.name), ['S', 'S']);
+want('nothing to name', display_names([]).size, 0);
+
+// Round 3 E12: the editor's default name. The first free "(n)", free of
+// stored names and of on-screen labels; a copy of "X (2)" is "X (3)"; a
+// year in brackets is not a copy number; cut to fit the column.
+const lt = fwk('La Trobe', 'lt', null);
+want('free: first is (2)', free_name('La Trobe', [lt], 191), 'La Trobe (2)');
+want('free: skips a stored (2)', free_name('La Trobe', [lt, fwk('La Trobe (2)', 'x')], 191), 'La Trobe (3)');
+want('free: skips an on-screen (2)', free_name('La Trobe', [lt, fwk('La Trobe', 'lt-2')], 191), 'La Trobe (3)');
+want('free: a copy of X (2) is X (3)', free_name('La Trobe (2)', [lt, fwk('La Trobe (2)', 'x')], 191), 'La Trobe (3)');
+want('free: a year in brackets is kept', free_name('Team (2026)', [], 191), 'Team (2026) (2)');
+want('free: cut to fit', free_name('a'.repeat(191), [], 191), 'a'.repeat(187) + ' (2)');
+
+if (failed > 0) { console.log(`${failed} mismatches`); process.exit(1); }
+JS
+
+    if node "$OUT/check.mjs" >"$OUT/run.log" 2>&1; then
+        ok "grouping, sorting, the role filter and the names" "24 assertions"
+    else
+        bad "grouping, sorting, the role filter and the names" "see below"
+        sed 's/^/    /' "$OUT/run.log"
+    fi
+fi
+
+# --------------------------------------------------------------------------
+say "7. The API really carries what the screen reads"
+
+TOKEN=""
+[ -f "$TOKENS" ] && TOKEN="$(token_for 'Dr Lee' "$TOKENS")"
+
+if [ -z "$TOKEN" ]; then
+    meh "live framework checks" "no token for Dr Lee in $TOKENS"
+elif ! curl -fsS -o /dev/null "$BASE/auth/me" -H "Authorization: Bearer $TOKEN" 2>/dev/null; then
+    meh "live framework checks" "nothing answering on $BASE"
+else
+    BODY="$(curl -fsS "$BASE/frameworks" -H "Authorization: Bearer $TOKEN")"
+
+    for field in created_by in_use fw_key version name; do
+        if printf '%s' "$BODY" | grep -q "\"$field\""; then
+            ok "the payload carries $field"
+        else
+            bad "the payload carries $field" "the screen renders it"
+        fi
+    done
+
+    # The split is only real if the data actually has both sides. A seeded
+    # database always has at least one stock template; copies arrive from
+    # smoke.sh and from anyone pressing Edit a copy.
+    if printf '%s' "$BODY" | grep -q '"created_by":null'; then
+        ok "at least one stock template exists" "created_by null"
+    else
+        bad "at least one stock template exists" "has the database been seeded?"
+    fi
+
+    # Dr Lee supervises both seeded gigs, which is why he is the token to
+    # develop with: he is the only seeded user who exercises the picker.
+    ME="$(curl -fsS "$BASE/auth/me" -H "Authorization: Bearer $TOKEN")"
+    if printf '%s' "$ME" | grep -q '"supervisor"'; then
+        ok "the token supervises at least one gig" "the picker has something to offer"
+    else
+        bad "the token supervises at least one gig" "the Assign button would be hidden"
+    fi
+
+    # The 409 the screen is built around. Both seeded gigs already carry a
+    # rubric, so assigning ANY rubric to one of them is a duplicate -- this
+    # is the ordinary path in the demo, not an edge case, and it is the one
+    # behaviour a grep cannot prove.
+    GIG="$(printf '%s' "$ME" | grep -o '"gig_id":"[^"]*"' | head -1 | cut -d'"' -f4)"
+    FW="$(printf '%s' "$BODY" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)"
+
+    if [ -z "$GIG" ] || [ -z "$FW" ]; then
+        meh "the duplicate assignment is a 409" "no gig or no framework to try"
+    else
+        DUP="$(curl -s -X POST "$BASE/framework-assignments" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H 'Content-Type: application/json' \
+            -d "{\"framework_id\":\"$FW\",\"gig_id\":\"$GIG\"}")"
+
+        if printf '%s' "$DUP" | grep -q 'DUPLICATE_ASSIGNMENT'; then
+            ok "a second rubric on a gig is refused" "409 DUPLICATE_ASSIGNMENT"
+        else
+            bad "a second rubric on a gig is refused" "got: $(printf '%s' "$DUP" | head -c 120)"
+        fi
+
+        # The screen shows error.message verbatim, so the message has to be
+        # a sentence a supervisor can act on rather than a code name.
+        #
+        # Either of FrameworkAssigner's two sentences. The pair above is the
+        # first rubric by name and the first gig, which on the seeded data
+        # is La Trobe on the La Trobe gig -- the SAME rubric, so the answer
+        # is "already assigned to this gig", not "already has a rubric".
+        # Matching only the second failed live on 2026-09-24. Picking a pair
+        # that avoids it needs the gig's rubric, which GET /gigs/{id} does
+        # not carry, and guessing risks a 201 that writes to the shared DB.
+        if printf '%s' "$DUP" | grep -qE 'already has a rubric|already assigned to this gig'; then
+            ok "the refusal explains itself" "shown verbatim on the row"
+        else
+            bad "the refusal explains itself" "the screen renders this string"
+        fi
+    fi
+fi
+
+# --------------------------------------------------------------------------
+printf '\n%s%d passed%s, %s%d failed%s, %s%d skipped%s\n' \
+    "$grn" "$pass" "$off" "$red" "$fail" "$off" "$ylw" "$skip" "$off"
+
+[ "$fail" -eq 0 ]

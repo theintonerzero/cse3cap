@@ -1,0 +1,36 @@
+.card {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-radius: var(--radius-lg);
+  padding: var(--space-20);
+}
+
+/* Decorative tints only. A card being mint says nothing about an assessor
+   and a card being apricot is not a warning -- status is the Badge's job. */
+.peach {
+  background: var(--color-accent-peach);
+}
+
+.mint {
+  background: var(--color-accent-mint);
+}
+
+.cream {
+  background: var(--color-accent-cream);
+}
+
+.coral {
+  background: var(--color-accent-coral);
+}
+
+.pink {
+  background: var(--color-accent-pink);
+}
+
+.lavender {
+  background: var(--color-accent-lavender);
+}
+
+.evidence {
+  background: var(--color-accent-evidence);
+}

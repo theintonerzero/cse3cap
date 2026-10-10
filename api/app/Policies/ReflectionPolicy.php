@@ -1,0 +1,127 @@
+<?php
+
+namespace App\Policies;
+
+use App\Models\Reflection;
+use App\Models\User;
+use App\Services\RoleResolver;
+use Illuminate\Auth\Access\Response;
+
+/**
+ * The record belongs to the student. Everything here follows from that.
+ *
+ * Reading is wider than writing: an assessor needs to read a reflection to
+ * score it, and a supervisor needs to read it to moderate. Writing is the
+ * owner and nobody else, ever, including an assessor correcting a typo.
+ */
+class ReflectionPolicy
+{
+    public function __construct(private RoleResolver $roles) {}
+
+    /**
+     * Owner, or a non-student participant of the gig it belongs to.
+     *
+     * Denied as not-found rather than forbidden: a classmate must not be
+     * able to tell someone else's reflection apart from one that does not
+     * exist, and the status code is enough to do that.
+     */
+    public function view(User $user, Reflection $reflection): Response
+    {
+        if ($reflection->user_id === $user->id) {
+            return Response::allow();
+        }
+
+        $gig = $reflection->gig;
+
+        if ($gig === null) {
+            return Response::denyAsNotFound();
+        }
+
+        $role = $this->roles->for($user, $gig);
+
+        return in_array($role, RoleResolver::REVIEWER_ROLES, true)
+            ? Response::allow()
+            : Response::denyAsNotFound();
+    }
+
+    /**
+     * Writing anything on the reflection: the narrative, evidence, the
+     * self-score. Owner only, and only while it is a draft.
+     *
+     * The state half is not a separate concern bolted on. Submitting is
+     * what makes the record real to somebody else, and an owner who could
+     * still edit afterwards would be editing what an assessor already
+     * read.
+     */
+    public function update(User $user, Reflection $reflection): Response
+    {
+        if ($reflection->user_id !== $user->id) {
+            return $this->view($user, $reflection)->allowed()
+                ? Response::deny('Only the student who owns this reflection can change it.')
+                : Response::denyAsNotFound();
+        }
+
+        return Response::allow();
+    }
+
+    public function submit(User $user, Reflection $reflection): Response
+    {
+        return $this->update($user, $reflection);
+    }
+
+    /**
+     * Counter-scoring: an assessor, supervisor or employer on the gig,
+     * never the reflection's owner, whatever other role they hold there.
+     * Whether the reflection is in the right state to actually accept a
+     * score is Scoring::counterScore's job (NOT_SUBMITTED, 409), not this
+     * policy's -- a 403 here would say "you may never do this" when the
+     * truth is "not yet."
+     *
+     * Not-found unless the caller may view it, the same shape as update:
+     * a classmate must get the answer a made-up id gets.
+     */
+    public function counterScore(User $user, Reflection $reflection): Response
+    {
+        if (! $this->view($user, $reflection)->allowed()) {
+            return Response::denyAsNotFound();
+        }
+
+        if ($reflection->user_id === $user->id) {
+            return Response::deny('Nobody can counter-score their own reflection.');
+        }
+
+        // Implied by view today, kept so a later change to view cannot
+        // quietly widen who scores.
+        return in_array($this->roles->for($user, $reflection->gig), RoleResolver::REVIEWER_ROLES, true)
+            ? Response::allow()
+            : Response::deny('Only an assessor, supervisor or employer can counter-score this reflection.');
+    }
+
+    /**
+     * Draft only, and the state check lives in the controller so the
+     * refusal can be a 409 with a code rather than a bare 403. Submitted
+     * and assessed records cannot be deleted through the API at all,
+     * which is part of the ownership promise: the student keeps the
+     * record, and so does the institution.
+     */
+    public function delete(User $user, Reflection $reflection): Response
+    {
+        return $this->update($user, $reflection);
+    }
+
+    /**
+     * Exporting one reflection on its own. The matrix gives export to "own
+     * record" for every role, so this is the owner and nobody else.
+     *
+     * Not-found for everyone else, including a reviewer who may view it.
+     * Exporting is taking the record away, which is the student's alone,
+     * and a made-up id gets the same answer, so the endpoint does not say
+     * which ids exist.
+     */
+    public function export(User $user, Reflection $reflection): Response
+    {
+        return $reflection->user_id === $user->id
+            ? Response::allow()
+            : Response::denyAsNotFound();
+    }
+}

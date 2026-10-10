@@ -1,0 +1,38 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Written and removed again by scripts/verify-client.sh. Present mid-run only,
+# and left behind if it is killed in a way the trap cannot catch.
+src/__verify_*.ts
+.verify-out
+
+# Playwright's output: traces and screenshots of failed runs (ADR #42).
+test-results
+playwright-report
+
+# HO-6's screenshot pipeline (./run shots): generated PNGs, rebuilt on every
+# run from web/e2e/shots/manifest.ts. Not the deliverable itself -- that is
+# whatever the User Manual embeds from a run someone actually took.
+e2e/shots/output

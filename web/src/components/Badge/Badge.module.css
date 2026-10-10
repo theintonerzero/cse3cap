@@ -1,0 +1,41 @@
+.badge {
+  display: inline-block;
+  padding: var(--space-4) var(--space-12);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  /* Every status is a tinted fill with a --color-text label. The obvious
+     alternative -- --color-success on --color-success-bg -- measured 4.32:1
+     in light mode before CAP-23, under the 4.5:1 AA needs; CAP-23 darkened
+     --color-success for an unrelated pair (--color-success on
+     --color-danger-bg, see tokens.css) and this one now clears AA too, at
+     roughly 5.2:1 -- see check-contrast.mjs. Kept neutral regardless: there
+     is no equivalent "ink" variant for every status (.draft's
+     --color-surface-alt fill has no colour of its own to match), and one
+     badge with a coloured label while the others stay neutral would read as
+     an inconsistency, not a feature. */
+  color: var(--color-text);
+}
+
+.draft {
+  background: var(--color-surface-alt);
+}
+
+/* Amber, not red. CAP-1 named this pair --color-danger*; the design it was
+   sampled from calls the same colour "needs attention", which is what a
+   reflection waiting on an assessor is. Not a mistake. */
+.submitted {
+  background: var(--color-danger-bg);
+}
+
+.assessed {
+  background: var(--color-success-bg);
+}
+
+/* ADR #64: AI output's badge. Neutral, never purple: purple is the person's
+   own choice in this app, and the AI's words are not that. */
+.ai {
+  background: var(--color-control);
+  box-shadow: var(--shadow-control);
+}

@@ -1,0 +1,252 @@
+.chip_row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+  margin-bottom: var(--space-12);
+}
+
+.radar_skeleton {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-24) 0;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  margin: var(--space-16) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-16);
+  padding: var(--space-16);
+  border: var(--border-width-sm) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  text-decoration: none;
+}
+
+.row_main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.row_title {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.row_meta {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.row_end {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  margin-left: auto;
+}
+
+.chevron {
+  font-size: var(--font-size-lg);
+  color: var(--color-text-muted);
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-32) var(--space-16);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-alt);
+  text-align: center;
+}
+
+.empty_title {
+  margin: 0;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.empty_body {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text-muted);
+}
+
+.empty_gigs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-12);
+  margin: var(--space-8) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.radar_block {
+  /* The chart's own radius is bounded by its height, so on a wide screen
+     an unbounded card leaves the polygon marooned in empty surface. */
+  max-width: 30rem;
+  margin-top: var(--space-16);
+  padding: var(--space-16);
+  border: var(--border-width-sm) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+/* Round 2b: who counter-scored, the one quiet line over the chart. */
+.scored_by {
+  margin: 0 0 var(--space-8);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+/* CAP-38 R2: a small muted label over the chart, not a sentence. */
+.caption {
+  margin: 0 0 var(--space-8);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-tight);
+  color: var(--color-text-muted);
+}
+
+.footnote {
+  margin: var(--space-8) 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+/* Room under the last row for the floating Export button (CAP-38 R5). */
+.with_fab {
+  padding-bottom: calc(var(--size-fab) + var(--space-24) + env(safe-area-inset-bottom, 0));
+}
+
+.gig_picker {
+  flex: 1;
+  min-width: 0;
+  max-width: 26rem;
+}
+
+/* CAP-38 R6: picker and Gig details share a row, bottom-aligned, so the
+   button lines up with the select box rather than its label. */
+.picker_row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-8);
+  max-width: 34rem;
+  margin-bottom: var(--space-12);
+}
+
+/* One line, always: 2.75rem is the Chip tap floor, and the chip row's
+   padding (below) gives the focus ring room, so the slot is that much
+   taller than a chip. */
+.sprint_slot {
+  display: flex;
+  align-items: center;
+  height: calc(2.75rem + 2 * var(--space-4));
+  margin-bottom: var(--space-12);
+}
+
+.chip_line {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: var(--space-8);
+  /* overflow-x: auto clips to the padding box, so a focus ring needs padding
+     to be drawn in. The negative margin keeps the chips on the page's edge. */
+  padding: var(--space-4);
+  margin-inline: calc(-1 * var(--space-4));
+  width: calc(100% + 2 * var(--space-4));
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  /* Snap to the first chip's own edge, not the padding box's, so it rests
+     where the select's edge is rather than one padding to its left. */
+  scroll-padding-inline: var(--space-4);
+  scrollbar-width: none;
+}
+
+.chip_line > * {
+  flex: none;
+  scroll-snap-align: start;
+}
+
+.fades {
+  mask-image: linear-gradient(to right, black calc(100% - 2rem), transparent);
+}
+
+.sprint_hint {
+  margin: 0;
+  padding: var(--space-8) var(--space-16);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  background: var(--color-surface-alt);
+  border: var(--border-width-sm) dashed var(--color-border);
+  border-radius: var(--radius-full);
+}
+
+/* Radar beside the list on a wide screen, stacked on a phone. The radar
+   stays in view while the list scrolls. */
+.content {
+  display: grid;
+  gap: var(--space-16);
+}
+
+@media (min-width: 60rem) {
+  .content {
+    grid-template-columns: minmax(0, 26rem) minmax(0, 1fr);
+    align-items: start;
+    gap: var(--space-24);
+  }
+
+  .content > .radar_block,
+  .content > :first-child {
+    position: sticky;
+    top: 6rem;
+  }
+
+  .content .list {
+    margin-top: var(--space-16);
+  }
+}
+
+/* CAP-53: the hub frame's purple line (Figma 66:34), on a surface card so
+   --color-primary passes AA at this size (check-contrast.mjs pairs it with
+   --color-surface; on --color-bg it is large-text only). */
+.nudge {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+  margin: 0 0 var(--space-16);
+  padding: var(--space-12) var(--space-16);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+.nudge_text {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-primary);
+}
+
+/* CAP-53: the way into the learning record, under the list. */
+.record_link {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-16);
+}

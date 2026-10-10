@@ -1,0 +1,70 @@
+.fab {
+  position: fixed;
+  right: var(--space-16);
+  bottom: calc(var(--space-16) + env(safe-area-inset-bottom, 0));
+  z-index: var(--z-fab);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  height: var(--size-fab);
+  padding: 0 var(--space-20) 0 var(--space-16);
+  font: inherit;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-inverse);
+  background: var(--color-primary);
+  border: none;
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-sheet);
+  cursor: pointer;
+  transition: padding var(--duration-quick) ease-out;
+}
+
+.fab:hover {
+  background: var(--color-primary-hover);
+}
+
+.fab:focus-visible {
+  outline: 0.125rem solid var(--color-focus-ring);
+  outline-offset: 0.125rem;
+}
+
+.icon {
+  display: inline-flex;
+  flex: none;
+}
+
+.label {
+  max-width: 10rem;
+  overflow: hidden;
+  white-space: nowrap;
+  transition:
+    max-width var(--duration-quick) ease-out,
+    opacity var(--duration-quick) ease-out;
+}
+
+/* Icon only. The label stays in the DOM (still the accessible name), just
+   with no width. Padding evens out so the pill becomes a circle. */
+.compact {
+  gap: 0;
+  padding: 0 calc((var(--size-fab) - 1.5rem) / 2);
+}
+
+.compact .label {
+  max-width: 0;
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fab,
+  .label {
+    transition: none;
+  }
+}
+
+@media (min-width: 60rem) {
+  .fab {
+    right: var(--space-32);
+    bottom: calc(var(--space-32) + env(safe-area-inset-bottom, 0));
+  }
+}

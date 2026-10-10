@@ -1,0 +1,707 @@
+/**
+ * CAP-16. Copy a rubric, rename its competencies, reword its descriptors.
+ *
+ * Copy-then-edit is the only editing model (ADR #16). Saving POSTs a copy of
+ * the base and PATCHes the copy; the base never changes, and neither does
+ * anything already scored against it. The screen says so before anyone
+ * types, because ADR #16 is explicit that copying must be obvious rather
+ * than surprising.
+ *
+ * Deliberately narrow. Renaming and rewording ONLY: there is no control for
+ * adding or removing a competency, changing how many levels one has, or
+ * starting a rubric from nothing -- not even a disabled one. A rubric with a
+ * different shape is a different rubric. The shape is stated once, in prose.
+ *
+ * The file policy (comment_required, evidence_required, accepted file types,
+ * size) is also PATCHable on a copy, and is also not here: the ticket names
+ * the base, the name, competencies and descriptors, and nothing else.
+ *
+ * short_label IS here, as "Radar label". It is the radar's axis label, so a
+ * competency renamed without it keeps its old name on every chart.
+ *
+ * The base comes from the route, so the page is linkable and the selector is
+ * just navigation. Select framework links every row here as "Edit a copy";
+ * in_use does not gate that, because the base is only ever read.
+ *
+ * The one thing this screen deletes is the framework it opened, and only
+ * when the viewer made that copy and no gig has it as its rubric (CAP-50,
+ * ADR #59). Never a competency or a level: that would change the shape.
+ */
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useNavigate, useParams } from 'react-router';
+
+import { api, ApiError } from '../api/client.ts';
+import {
+  BottomSheet,
+  Button,
+  Card,
+  ErrorNotice,
+  Select,
+  Skeleton,
+  SkeletonGroup,
+} from '../components/index.ts';
+import { useSession } from '../session/useSession.ts';
+import { group_frameworks, type Framework } from './framework-groups.ts';
+import { display_names, free_name } from './framework-names.ts';
+import {
+  NAME_MAX,
+  SHORT_LABEL_MAX,
+  apply_edit,
+  draft_from,
+  is_dirty,
+  missing_text,
+  owed_by,
+  pending_edits,
+  set_competency,
+  set_level,
+  type Edit,
+  type FrameworkDetail,
+  type FrameworkDraft,
+} from './framework-edit.ts';
+import styles from './EditFramework.module.css';
+
+type Load =
+  | { status: 'loading' }
+  | { status: 'error'; error: ApiError }
+  | { status: 'loaded'; frameworks: Framework[]; base: FrameworkDetail };
+
+export function EditFramework() {
+  const { framework_id } = useParams<{ framework_id: string }>();
+  const navigate = useNavigate();
+  const [load, setLoad] = useState<Load>({ status: 'loading' });
+  const [reload_key, setReloadKey] = useState(0);
+
+  useEffect(() => {
+    // The router only matches this screen with an id, so there is always
+    // one; the guard is for the type, not for a real case.
+    if (!framework_id) return;
+
+    const controller = new AbortController();
+    const signal = controller.signal;
+
+    Promise.all([
+      api.get('/frameworks', { signal }),
+      api.get('/frameworks/{framework_id}', { path: { framework_id }, signal }),
+    ])
+      .then(([frameworks, base]) => setLoad({ status: 'loaded', frameworks, base }))
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        setLoad({
+          status: 'error',
+          error:
+            error instanceof ApiError
+              ? error
+              : new ApiError(0, null, 'Something went wrong loading this framework.'),
+        });
+      });
+
+    return () => controller.abort();
+  }, [framework_id, reload_key]);
+
+  const retry = useCallback(() => {
+    setLoad({ status: 'loading' });
+    setReloadKey((key) => key + 1);
+  }, []);
+
+  // A refused delete reads the framework again, so `assigned` is what the
+  // server holds. In place rather than through the skeletons, so the editor
+  // and any unsaved edits stay mounted. If the read fails there is nothing
+  // to undo: the refusal is already on screen and the button already gone.
+  const refresh_base = useCallback(() => {
+    if (!framework_id) return;
+    api
+      .get('/frameworks/{framework_id}', { path: { framework_id } })
+      .then((base) =>
+        setLoad((current) =>
+          current.status === 'loaded' && current.base.id === base.id
+            ? { ...current, base }
+            : current,
+        ),
+      )
+      .catch(() => {});
+  }, [framework_id]);
+
+  const fail = useCallback((error: ApiError) => setLoad({ status: 'error', error }), []);
+
+  // Back to the skeletons here, in the event, rather than in the effect:
+  // a synchronous setState inside an effect is a cascading render.
+  const choose_base = useCallback(
+    (id: string) => {
+      setLoad({ status: 'loading' });
+      void navigate(`/frameworks/${id}/edit`, { replace: true });
+    },
+    [navigate],
+  );
+
+  return (
+    <section>
+      <h1 className={styles.heading}>Edit a copy of a framework</h1>
+      <p className={styles.sub}>
+        Saving makes a new framework of your own. The original never changes.
+      </p>
+
+      {load.status === 'loading' && <LoadingState />}
+      {load.status === 'error' && (
+        <div className={styles.block}>
+          <ErrorNotice error={load.error} on_retry={retry} />
+        </div>
+      )}
+      {load.status === 'loaded' && (
+        <Editor
+          key={load.base.id}
+          base={load.base}
+          frameworks={load.frameworks}
+          on_choose_base={choose_base}
+          on_delete_refused={refresh_base}
+          on_delete_failed={fail}
+        />
+      )}
+    </section>
+  );
+}
+
+type Save =
+  | { status: 'idle' }
+  | { status: 'saving'; done: number; total: number }
+  // error is null when nothing came back wrong over HTTP: the copy arrived
+  // but is not this draft's shape. SaveOutcome says that in its own words.
+  | { status: 'failed'; error: ApiError | null }
+  | { status: 'frozen'; error: ApiError }
+  | { status: 'saved' };
+
+function Editor({
+  base,
+  frameworks,
+  on_choose_base,
+  on_delete_refused,
+  on_delete_failed,
+}: {
+  base: FrameworkDetail;
+  frameworks: Framework[];
+  on_choose_base: (id: string) => void;
+  on_delete_refused: () => void;
+  on_delete_failed: (error: ApiError) => void;
+}) {
+  // The copy's starting name, worked out once per base (the screen remounts
+  // on a new base): "<base> (2)", the first number free (round 3 E12).
+  const [start_name] = useState(() => free_name(base.name, frameworks, NAME_MAX));
+  const [draft, setDraft] = useState<FrameworkDraft>(() => draft_from(base, start_name));
+  // The copy as the server holds it, once there is one. Every landed PATCH
+  // is folded in, so pending_edits against it is exactly what is still owed.
+  const [copy, setCopy] = useState<FrameworkDetail | null>(null);
+  const [save, setSave] = useState<Save>({ status: 'idle' });
+
+  // On a phone the Save bar is fixed to the bottom edge and grows with its
+  // hint or outcome, so the form keeps room under its last field equal to
+  // the bar's height (round 3 E17). The CSS only reads it on a phone.
+  const form_ref = useRef<HTMLDivElement>(null);
+  const footer_ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const form = form_ref.current;
+    const footer = footer_ref.current;
+    if (!form || !footer) return;
+
+    const observer = new ResizeObserver(() => {
+      form.style.setProperty('--footer-height', `${footer.offsetHeight}px`);
+    });
+    observer.observe(footer);
+    return () => observer.disconnect();
+  }, []);
+
+  const edit = (next: FrameworkDraft) => {
+    setDraft(next);
+    // A new keystroke after "Saved" means there is something unsaved again.
+    if (save.status === 'saved') setSave({ status: 'idle' });
+  };
+
+  const missing = missing_text(draft);
+  // owed_by, not pending_edits: this runs in render, where a throw is a
+  // blank page. null with a copy means the copy is not this draft's shape.
+  const owed = copy === null ? null : owed_by(copy, draft);
+  const mismatched = copy !== null && owed === null;
+  const saving = save.status === 'saving';
+  const can_save =
+    !saving &&
+    save.status !== 'frozen' &&
+    !mismatched &&
+    missing.length === 0 &&
+    owed?.length !== 0;
+
+  async function run(change: Edit) {
+    switch (change.kind) {
+      case 'framework':
+        await api.patch('/frameworks/{framework_id}', {
+          path: { framework_id: change.id },
+          body: change.body,
+        });
+        return;
+      case 'competency':
+        await api.patch('/competencies/{competency_id}', {
+          path: { competency_id: change.id },
+          body: change.body,
+        });
+        return;
+      case 'level':
+        await api.patch('/levels/{level_id}', {
+          path: { level_id: change.id },
+          body: change.body,
+        });
+        return;
+    }
+  }
+
+  // `from` is the copy to finish, or null to make one. Passed rather than
+  // read from state so "Save to a fresh copy" can clear it and save in the
+  // same press.
+  async function save_draft(from: FrameworkDetail | null) {
+    let current = from;
+
+    try {
+      if (current === null) {
+        setSave({ status: 'saving', done: 0, total: 0 });
+        current = await api.post('/frameworks', {
+          body: { based_on_framework_id: base.id, name: draft.name.trim() },
+        });
+        setCopy(current);
+      }
+
+      const edits = pending_edits(current, draft);
+      for (const [index, next] of edits.entries()) {
+        setSave({ status: 'saving', done: index, total: edits.length });
+        await run(next);
+        current = apply_edit(current, next);
+        setCopy(current);
+      }
+
+      setSave({ status: 'saved' });
+    } catch (error: unknown) {
+      // Every request above rejects with an ApiError, including one that
+      // never reached the server (status 0). Anything else is pending_edits
+      // refusing a copy of the wrong shape -- not a transport failure, so it
+      // must not be dressed as one: ErrorNotice reads status 0 as "Cannot
+      // reach the server".
+      if (!(error instanceof ApiError)) {
+        setSave({ status: 'failed', error: null });
+        return;
+      }
+
+      // The guard firing mid-edit: somebody assigned the new copy to a gig
+      // and a reflection was scored against it between the POST and now.
+      // It is frozen for good, so retrying against it can never succeed.
+      if (error.code === 'FRAMEWORK_IN_USE') {
+        setSave({ status: 'frozen', error });
+        return;
+      }
+
+      setSave({ status: 'failed', error });
+    }
+  }
+
+  // Keeps every keystroke; only abandons the copy that can no longer change.
+  // That copy stays listed under Saved copies, in use, which is true.
+  function save_to_fresh_copy() {
+    setCopy(null);
+    void save_draft(null);
+  }
+
+  const { templates, copies } = group_frameworks(frameworks);
+  const base_name = (code: string) =>
+    base.competencies.find((c) => c.code === code)?.name ?? code;
+  // Same-named rubrics read "(2)", "(3)" … as on Frameworks (round 3 E7),
+  // which is what told them apart here before, in place of the key.
+  const names = display_names(frameworks);
+  const dirty = is_dirty(base, draft, start_name);
+  const empty = base.competencies.length === 0;
+
+  return (
+    <div className={styles.form} ref={form_ref}>
+      <div className={styles.field}>
+        <Select
+          id="based-on"
+          label="Based on"
+          value={base.id}
+          disabled={copy !== null || saving}
+          on_change={on_choose_base}
+        >
+          <optgroup label="Templates">
+            {templates.map((f) => (
+              <option key={f.id} value={f.id}>
+                {names.get(f.id)}
+              </option>
+            ))}
+          </optgroup>
+          {copies.length > 0 && (
+            <optgroup label="Saved copies">
+              {copies.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {names.get(f.id)}
+                </option>
+              ))}
+            </optgroup>
+          )}
+        </Select>
+        {copy !== null ? (
+          <p className={styles.hint}>
+            Your copy already exists, so its base is fixed. To start from another framework,
+            go back to Frameworks.
+          </p>
+        ) : (
+          dirty && (
+            <p className={styles.hint}>
+              Choosing a different framework discards your edits.
+            </p>
+          )
+        )}
+        {/* Once a copy exists the page is about that copy, and a delete
+            here would be ambiguous about which framework it meant. */}
+        {copy === null && (
+          <DeleteFramework
+            framework={base}
+            disabled={saving}
+            on_refused={on_delete_refused}
+            on_failed={on_delete_failed}
+          />
+        )}
+      </div>
+
+      {empty ? (
+        <div className={styles.empty}>
+          <p className={styles.empty_title}>Nothing to rename.</p>
+          <p className={styles.empty_body}>
+            {base.name} has no competencies, so a copy of it would have nothing to edit.
+            Choose another framework above to base your copy on.
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className={styles.field}>
+            <label className={styles.label} htmlFor="copy-name">
+              Name of your copy
+            </label>
+            <input
+              id="copy-name"
+              className={styles.control}
+              value={draft.name}
+              maxLength={NAME_MAX}
+              disabled={saving}
+              onChange={(event) => edit({ ...draft, name: event.target.value })}
+            />
+          </div>
+
+          <p className={styles.shape}>
+            {draft.competencies.length}{' '}
+            {draft.competencies.length === 1 ? 'competency' : 'competencies'}, scored{' '}
+            {base.scale.min} to {base.scale.max}. Names and wording can change; the shape
+            can&rsquo;t.
+          </p>
+
+          <ol className={styles.competencies}>
+            {draft.competencies.map((competency) => (
+              <li key={competency.code}>
+                <Card>
+                  <fieldset className={styles.fieldset} disabled={saving}>
+                    {/* Headed by the name as it is being typed (round 3 E18),
+                        not the code; a blank name shows the one it started
+                        with. SFIA's category sits under it, outside the
+                        legend, so the group is named by the name alone. */}
+                    <legend className={styles.legend}>
+                      {competency.name.trim() || base_name(competency.code)}
+                    </legend>
+                    {competency.category && (
+                      <p className={styles.category}>{competency.category}</p>
+                    )}
+
+                    <div className={styles.pair}>
+                      <div className={styles.field}>
+                        <label className={styles.label} htmlFor={`name-${competency.code}`}>
+                          Competency name
+                        </label>
+                        <input
+                          id={`name-${competency.code}`}
+                          className={styles.control}
+                          value={competency.name}
+                          maxLength={NAME_MAX}
+                          onChange={(event) =>
+                            edit(
+                              set_competency(draft, competency.code, {
+                                name: event.target.value,
+                              }),
+                            )
+                          }
+                        />
+                      </div>
+                      <div className={styles.field}>
+                        <label
+                          className={styles.label}
+                          htmlFor={`label-${competency.code}`}
+                        >
+                          Radar label
+                        </label>
+                        <input
+                          id={`label-${competency.code}`}
+                          className={styles.control}
+                          value={competency.short_label}
+                          maxLength={SHORT_LABEL_MAX}
+                          placeholder={competency.name}
+                          onChange={(event) =>
+                            edit(
+                              set_competency(draft, competency.code, {
+                                short_label: event.target.value,
+                              }),
+                            )
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    <div className={styles.levels}>
+                      {competency.levels.map((level) => {
+                        const id = `level-${competency.code}-${level.level_value}`;
+                        return (
+                          <div key={level.level_value} className={styles.field}>
+                            <label
+                              className={`${styles.label} ${styles.level_label}`}
+                              htmlFor={id}
+                            >
+                              Level {level.level_value}
+                            </label>
+                            <textarea
+                              id={id}
+                              className={`${styles.control} ${styles.descriptor}`}
+                              value={level.descriptor}
+                              onChange={(event) =>
+                                edit(
+                                  set_level(
+                                    draft,
+                                    competency.code,
+                                    level.level_value,
+                                    event.target.value,
+                                  ),
+                                )
+                              }
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </fieldset>
+                </Card>
+              </li>
+            ))}
+          </ol>
+
+          <div className={styles.footer} ref={footer_ref}>
+            <SaveOutcome
+              save={save}
+              copy={copy}
+              owed={owed}
+              on_fresh_copy={save_to_fresh_copy}
+            />
+
+            {missing.length > 0 && (
+              <p className={styles.hint}>
+                Needs text before it can save: {missing.join(', ')}.
+              </p>
+            )}
+
+            <Button disabled={!can_save} on_click={() => void save_draft(copy)}>
+              {saving
+                ? save.total > 0
+                  ? `Saving ${save.done + 1} of ${save.total}…`
+                  : 'Copying…'
+                : copy === null
+                  ? 'Save as a new copy'
+                  : 'Save changes to your copy'}
+            </Button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * What the last press of Save came to. Each failure says whether a copy
+ * exists, because that decides what pressing Save again will do.
+ */
+function SaveOutcome({
+  save,
+  copy,
+  owed,
+  on_fresh_copy,
+}: {
+  save: Save;
+  copy: FrameworkDetail | null;
+  owed: Edit[] | null;
+  on_fresh_copy: () => void;
+}) {
+  if (save.status === 'saved' && copy !== null) {
+    return (
+      <p className={styles.saved} role="status">
+        Saved as {copy.name}. It is listed under Saved copies.
+      </p>
+    );
+  }
+
+  if (save.status === 'frozen' && copy !== null) {
+    return (
+      <div className={styles.outcome} role="alert">
+        <p className={styles.refused}>
+          {copy.name} was used to score a reflection before these edits reached it, so it
+          can no longer change. {save.error.message}
+        </p>
+        <Button variant="secondary" full_width={false} on_click={on_fresh_copy}>
+          Save to a fresh copy
+        </Button>
+      </div>
+    );
+  }
+
+  if (save.status === 'failed') {
+    return (
+      <div className={styles.outcome}>
+        <p className={styles.hint}>
+          {copy === null
+            ? 'Nothing was saved.'
+            : owed === null
+              ? `A copy, ${copy.name}, was made, but it does not have the competencies of the framework it was copied from, so your edits cannot be put on it.`
+              : `Your copy, ${copy.name}, exists, but ${owed.length} of your edits have not reached it yet. Saving again finishes them on the same copy rather than making another.`}
+        </p>
+        {save.error && <ErrorNotice error={save.error} />}
+      </div>
+    );
+  }
+
+  return null;
+}
+
+/**
+ * CAP-50, ADR #59. Offered to the viewer who made this copy while no gig has
+ * it as its rubric. That is the server's rule (FrameworkPolicy::delete,
+ * FrameworkEditing::assertDeletable); this only decides whether to offer it,
+ * and a refusal from the server is shown rather than second-guessed.
+ */
+function DeleteFramework({
+  framework,
+  disabled,
+  on_refused,
+  on_failed,
+}: {
+  framework: FrameworkDetail;
+  disabled: boolean;
+  on_refused: () => void;
+  on_failed: (error: ApiError) => void;
+}) {
+  const { me } = useSession();
+  const navigate = useNavigate();
+  const [confirming, setConfirming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [refusal, setRefusal] = useState<string | null>(null);
+  const refusal_ref = useRef<HTMLParagraphElement>(null);
+  const warning_id = useId();
+
+  // The button the refusal answers is gone by now, so focus would fall to
+  // the page. It goes to the refusal instead, which is also read out.
+  useEffect(() => {
+    if (refusal !== null) refusal_ref.current?.focus();
+  }, [refusal]);
+
+  if (me === null || framework.created_by !== me.id) return null;
+
+  async function confirm() {
+    setDeleting(true);
+    try {
+      await api.delete('/frameworks/{framework_id}', {
+        path: { framework_id: framework.id },
+      });
+      // Replace, so Back does not return to a framework that is gone.
+      void navigate('/frameworks', { replace: true, state: { deleted: framework.name } });
+    } catch (error: unknown) {
+      setDeleting(false);
+      setConfirming(false);
+
+      // A gig took it as its rubric since this page loaded. Kept for good,
+      // so the button goes now rather than after the refresh lands.
+      if (error instanceof ApiError && error.code === 'FRAMEWORK_ASSIGNED') {
+        setRefusal(error.message);
+        on_refused();
+        return;
+      }
+
+      on_failed(
+        error instanceof ApiError
+          ? error
+          : new ApiError(0, null, 'Something went wrong deleting this framework.'),
+      );
+    }
+  }
+
+  return (
+    <>
+      {/* One child of the field, so an empty status adds no gap. */}
+      <div className={styles.delete}>
+        {refusal === null && !framework.assigned && (
+          <Button
+            variant="secondary"
+            size="sm"
+            full_width={false}
+            disabled={disabled}
+            on_click={() => setConfirming(true)}
+          >
+            Delete framework
+          </Button>
+        )}
+        {/* Always in the page, so the refusal is an update a screen reader
+            announces rather than a region that arrived already full. */}
+        <p ref={refusal_ref} className={styles.refused} role="status" tabIndex={-1}>
+          {refusal}
+        </p>
+      </div>
+
+      <BottomSheet
+        open={confirming}
+        title={`Delete ${framework.name}?`}
+        describedBy={warning_id}
+        onClose={() => {
+          if (!deleting) setConfirming(false);
+        }}
+      >
+        <p id={warning_id} className={styles.confirm_body}>
+          This removes {framework.name} and its competencies and descriptors. It can&rsquo;t
+          be undone.
+        </p>
+        {/* Keep it first: the sheet focuses its first control, and an
+            Enter held down on the trigger must land on the answer that
+            loses nothing. */}
+        <div className={styles.confirm_actions}>
+          <Button
+            variant="secondary"
+            disabled={deleting}
+            on_click={() => setConfirming(false)}
+          >
+            Keep it
+          </Button>
+          <Button disabled={deleting} on_click={() => void confirm()}>
+            {deleting ? 'Deleting…' : 'Delete framework'}
+          </Button>
+        </div>
+      </BottomSheet>
+    </>
+  );
+}
+
+/** Shaped like the form: the two fields, then a few competency cards. */
+function LoadingState() {
+  return (
+    <SkeletonGroup label="Loading framework">
+      <div className={styles.form}>
+        <Skeleton variant="block" height="var(--space-48)" />
+        <Skeleton variant="block" height="var(--space-48)" />
+        {[0, 1, 2].map((card) => (
+          <Skeleton key={card} variant="block" height="calc(var(--space-64) * 3)" />
+        ))}
+      </div>
+    </SkeletonGroup>
+  );
+}

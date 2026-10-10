@@ -1,0 +1,136 @@
+#!/usr/bin/env bash
+#
+# Builds the frontend the way a deploy would, with a bearer token deliberately
+# present in the environment, and fails if that token survives into the built
+# assets.
+#
+#   ./run bundle-secrets
+#
+# This is the regression test for F1 in docs/Security-Review.md. Vite replaces
+# `import.meta.env.VITE_API_TOKEN` with a string literal at build time, so
+# before the fix a seeded token compiled straight into public JavaScript the
+# moment any shipped code path read it. Nothing about the running site looked
+# wrong, no error was raised, and the only reason it was not already happening
+# was that no screen called the API client yet -- an accident that ends with
+# CAP-5.
+#
+# client.ts now gates the seed behind `import.meta.env.DEV`, which is
+# statically false in a production build, so the branch and the value are
+# eliminated before the bundle is written. This proves that stayed true.
+#
+# It writes .env.production.local, builds, greps, and removes it again. That
+# filename is gitignored at the repository root and takes priority over
+# web/.env, so a developer's own token file is neither read nor touched.
+
+set -uo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+WEB="$ROOT/web"
+
+if [ -t 1 ]; then
+    dim=$'\033[2m'; red=$'\033[1;31m'; green=$'\033[1;32m'
+    blue=$'\033[1;34m'; off=$'\033[0m'
+else
+    dim=''; red=''; green=''; blue=''; off=''
+fi
+
+say() { printf '\n%s==>%s %s\n' "$blue" "$off" "$1"; }
+die() { printf '%sError:%s %s\n' "$red" "$off" "$1" >&2; exit 2; }
+
+[ -d "$WEB/node_modules" ] || die "web/node_modules is missing. Run npm install in web/ first."
+
+# Recognisable, and not a real credential. If this string ever appears in a
+# built asset the build carried an environment value into public code.
+CANARY='CANARY-bundle-secrets-do-not-ship-8f14e45f'
+# The demo shell's personas (CAP-51) carry real seeded tokens too, read from
+# VITE_DEMO_TOKENS. Same rule, same check: none may reach a production build.
+DEMO_CANARY='CANARY-demo-persona-do-not-ship-3c59dc04'
+LOCAL_ENV="$WEB/.env.production.local"
+OUT="$WEB/.bundle-secrets-out"
+
+cleanup() { rm -f "$LOCAL_ENV"; rm -rf "$OUT"; }
+trap cleanup EXIT INT TERM
+
+[ -e "$LOCAL_ENV" ] && die ".env.production.local already exists. Move it aside; this script owns that file."
+
+say "Building for production with a token in the environment"
+printf 'VITE_API_BASE_URL=/api/v1\nVITE_API_TOKEN=%s\n' "$CANARY" > "$LOCAL_ENV"
+# As a presenter's machine is set up for the demo (docs/Demo-Script.md): the
+# shell switched on and a persona with a token.
+printf 'VITE_DEMO_SHELL=1\nVITE_DEMO_PERSONAS_URL=/demo/personas.json\nVITE_DEMO_TOKENS=[{"id":"canary","name":"Canary","role_hint":"Student","slot":"student","token":"%s"}]\n' \
+    "$DEMO_CANARY" >> "$LOCAL_ENV"
+
+build_log="$(cd "$WEB" && npx vite build --outDir "$OUT" --emptyOutDir --logLevel error 2>&1)"
+status=$?
+
+if [ "$status" -ne 0 ] || [ ! -d "$OUT" ]; then
+    # The stack trace is the least useful part and the longest, so show the
+    # lines that actually name the problem. A missing dependency reads as a
+    # failed resolve, which is a stale node_modules rather than a bad build.
+    printf '%s\n' "$build_log" | grep -viE '^\s+at |^\s*\}$|errors: \[' | tail -8 | sed 's/^/  /'
+    die "the production build failed, so nothing could be checked. If an import would not resolve, run npm install in web/."
+fi
+
+printf '  %sbuilt %s assets%s\n' "$dim" "$(find "$OUT" -type f -name '*.js' | wc -l | tr -d ' ')" "$off"
+
+say "Looking for the token in what would be served"
+hits="$(grep -rl "$CANARY" "$OUT" 2>/dev/null)"
+
+if [ -n "$hits" ]; then
+    printf '  %sFAIL%s   a bearer token from the environment is in the built output:\n' "$red" "$off"
+    printf '%s\n' "$hits" | sed 's/^/           /'
+    printf '\n         %s\n' "Context:"
+    grep -roh ".\{40\}$CANARY.\{10\}" "$OUT" 2>/dev/null | head -2 | sed 's/^/           /'
+    cat <<'WHY'
+
+         Anyone who loads the page can read this out of the JavaScript.
+         The seed in web/src/api/client.ts must stay behind
+         import.meta.env.DEV, which is statically false in a production
+         build. See F1 in docs/Security-Review.md.
+WHY
+    exit 1
+fi
+
+printf '  %sok%s     no token in the production bundle\n' "$green" "$off"
+
+demo_hits="$(grep -rl "$DEMO_CANARY" "$OUT" 2>/dev/null)"
+
+if [ -n "$demo_hits" ]; then
+    printf '  %sFAIL%s   a demo persona token from the environment is in the built output:\n' "$red" "$off"
+    printf '%s\n' "$demo_hits" | sed 's/^/           /'
+    cat <<'WHY'
+
+         Vite reads web/.env.local in every mode, vite build included, and a
+         presenter may keep the demo personas there. web/src/demo/
+         demoMode.ts must read VITE_DEMO_TOKENS (and the flag) only behind
+         import.meta.env.DEV, as client.ts does for its seed. CAP-51.
+WHY
+    exit 1
+fi
+
+printf '  %sok%s     no demo persona token in the production bundle\n' "$green" "$off"
+
+# The inverse, so a pass cannot come from the build silently ignoring the
+# environment file. If the base URL did not make it in either, the check
+# proved nothing and should say so rather than reporting a green tick.
+if ! grep -rq "api/v1" "$OUT" 2>/dev/null; then
+    printf '  %sFAIL%s   VITE_API_BASE_URL is not in the bundle either, so the build\n' "$red" "$off"
+    printf '         ignored .env.production.local and this check proved nothing.\n'
+    exit 1
+fi
+
+printf '  %sok%s     the environment file was read, so the absence above is real\n' "$green" "$off"
+
+# The live demo's build (CAP-54) turns the picker on with a personas URL and
+# no token. The canary build sets that URL, so its path must be in the bundle:
+# otherwise "no demo persona token" above was proved for a build without the
+# live picker in it, which is not the build the demo serves.
+if ! grep -rq "/demo/personas.json" "$OUT" 2>/dev/null; then
+    printf '  %sFAIL%s   VITE_DEMO_PERSONAS_URL is not in the bundle, so the live picker\n' "$red" "$off"
+    printf '         was not built and the persona check above proved nothing for it.\n'
+    exit 1
+fi
+
+printf '  %sok%s     the live picker was built in, and still carries no token\n' "$green" "$off"
+printf '\n%sPassed.%s A production build cannot carry VITE_API_TOKEN or a demo persona token.\n' "$green" "$off"
+exit 0
