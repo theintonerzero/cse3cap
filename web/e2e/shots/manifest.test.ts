@@ -43,6 +43,7 @@ const SCREEN_FOR_ROUTE: Record<string, string> = {
   'review-queue/reflections/:reflection_id': 'Entry stepper',
   frameworks: 'Select framework',
   'frameworks/:framework_id/edit': 'Edit framework',
+  record: 'Learning record',
 };
 
 for (const path of routed_paths) {
