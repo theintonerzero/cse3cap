@@ -132,7 +132,8 @@ test('typing while a self-score saves is not wiped when it returns', async ({
   const release = api.hold('PUT /entries/:id/scores/self');
   await page.goto(`/reflections/${DRAFT}`);
 
-  const level = page.getByRole('button', { name: /^2 · Contribution at level 2/ });
+  // The level row since CAP-66 (ADR #65): radios named "N of M".
+  const level = page.getByRole('radio', { name: /^2 of 4/ });
   await level.click();
   await narrative(page).fill('Typed while the score was on its way.');
 
@@ -140,7 +141,7 @@ test('typing while a self-score saves is not wiped when it returns', async ({
   release();
   await returned;
 
-  await expect(level).toHaveAttribute('aria-pressed', 'true');
+  await expect(level).toHaveAttribute('aria-checked', 'true');
   await expect(narrative(page)).toHaveValue('Typed while the score was on its way.');
 });
 
