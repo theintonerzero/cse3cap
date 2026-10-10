@@ -16,12 +16,15 @@
 # 4. All four states, skeletons rather than a spinner.
 # 5. Scope, ADR #16: renaming and rewording only. No add, no remove, no
 #    framework from nothing, and no UI for any of them -- not even disabled.
-#    FRAMEWORK_IN_USE is handled by code, not by message.
+#    FRAMEWORK_IN_USE is handled by code, not by message. The one delete is
+#    the framework the screen opened (CAP-50, ADR #59), and
+#    FRAMEWORK_ASSIGNED is handled by code too.
 # 6. The save logic, actually EXECUTED: which PATCHes a save still owes,
 #    matched by code and level value, and what a retry resends.
 # 7. The API really carries what the editor renders, and really refuses a
-#    write to a seeded template. Read-only; needs a server and Dr Lee's
-#    token and skips itself loudly when there is neither.
+#    write or a delete on a seeded template. Read-only, since both are
+#    refused; needs a server and Dr Lee's token and skips itself loudly when
+#    there is neither.
 
 set -uo pipefail
 
@@ -74,10 +77,10 @@ fi
 # --------------------------------------------------------------------------
 say "2. Reachable from every rubric"
 
-if grep -q 'frameworks/\${framework.id}/edit' "$SELECT" && grep -q 'Copy and edit' "$SELECT"; then
-    ok "Select framework links Copy and edit to the route"
+if grep -q 'frameworks/\${framework.id}/edit' "$SELECT" && grep -q 'Edit a copy' "$SELECT"; then
+    ok "Select framework links Edit a copy to the route"
 else
-    bad "Select framework links Copy and edit to the route"
+    bad "Select framework links Edit a copy to the route"
 fi
 
 # The editor always copies, so whether a reflection references the base has
@@ -158,11 +161,23 @@ else
     ok "no competency or level is created or deleted"
 fi
 
-if grep -qE "\.delete\(" "$SCREEN"; then
-    bad "nothing is deleted from this screen"
+# ADR #59 narrows ADR #16 by exactly one call: the framework the screen
+# opened, as a whole. Any other delete is a change of shape, or a second
+# way to lose a framework.
+#
+# Counted on .delete( alone first, so a call whose path Prettier wrapped onto
+# the next line, or a template literal, still counts as a second delete.
+calls="$(cat "$SCREEN" "$RULE" | grep -oE '\.delete\(' | wc -l | tr -d ' ')"
+deletes="$(grep -oE "\.delete\('[^']*'" "$SCREEN" "$RULE" | cut -d: -f2- | sort -u)"
+if [ "$calls" = "1" ] && [ "$deletes" = ".delete('/frameworks/{framework_id}'" ]; then
+    ok "the one delete is the framework itself" "ADR #59"
 else
-    ok "nothing is deleted from this screen"
+    bad "the one delete is the framework itself" "$calls call(s), found: ${deletes:-none}"
 fi
+
+grep -q "'FRAMEWORK_ASSIGNED'" "$SCREEN" \
+    && ok "FRAMEWORK_ASSIGNED is handled by code" "the server's refusal, shown as it is" \
+    || bad "FRAMEWORK_ASSIGNED is handled by code"
 
 # "Do not add UI for any of them, not even disabled." The words a control
 # for it would carry.
@@ -257,8 +272,11 @@ const copy_of = (name) => ({
 });
 
 // --- draft_from
-const fresh = draft_from(base);
-want('default name says it is a copy', fresh.name, 'Copy of La Trobe');
+// The screen works out the name (framework-names.ts free_name, round 3
+// E12): "La Trobe (2)", not "Copy of La Trobe". The draft takes it as given.
+const NAME = 'La Trobe (2)';
+const fresh = draft_from(base, NAME);
+want('the name is the one it is given', fresh.name, NAME);
 want('competencies by position', fresh.competencies.map((c) => c.code),
   ['collaboration', 'communication']);
 want('levels by value', fresh.competencies[1].levels.map((l) => l.level_value), [1, 2]);
@@ -266,7 +284,7 @@ want('a null radar label is an empty field', fresh.competencies[0].short_label, 
 want('the base is not mutated', base.competencies[0].code, 'communication');
 
 // --- pending_edits, against a copy that already carries the draft's name
-const copy = copy_of('Copy of La Trobe');
+const copy = copy_of(NAME);
 want('an untouched draft owes nothing', pending_edits(copy, fresh), []);
 
 // The POST set the name, so a first save needs no framework PATCH -- but a
@@ -330,9 +348,9 @@ want('blank fields are named',
 want('a blank radar label is allowed', missing_text(unlabelled), []);
 
 // --- is_dirty
-want('a fresh draft is not dirty', is_dirty(base, fresh), false);
-want('a reworded draft is dirty', is_dirty(base, reworded), true);
-want('a renamed copy is dirty', is_dirty(base, { ...fresh, name: 'Other' }), true);
+want('a fresh draft is not dirty', is_dirty(base, fresh, NAME), false);
+want('a reworded draft is dirty', is_dirty(base, reworded, NAME), true);
+want('a renamed copy is dirty', is_dirty(base, { ...fresh, name: 'Other' }, NAME), true);
 
 if (failed > 0) { console.log(`${failed} of ${count} mismatched`); process.exit(1); }
 console.log(count);
@@ -385,6 +403,17 @@ else
             ok "a PATCH on a seeded template is refused" "403, so the editor must copy"
         else
             bad "a PATCH on a seeded template is refused" "got $CODE"
+        fi
+
+        # A template belongs to nobody, so nobody deletes one (ADR #59).
+        # Refused by the policy before any row is read for the rule, which
+        # is what keeps this check read-only.
+        CODE="$(curl -s -o /dev/null -w '%{http_code}' -X DELETE "$BASE/frameworks/$TEMPLATE" \
+            -H "Authorization: Bearer $TOKEN" -H 'Accept: application/json')"
+        if [ "$CODE" = "403" ]; then
+            ok "a DELETE on a seeded template is refused" "403"
+        else
+            bad "a DELETE on a seeded template is refused" "got $CODE"
         fi
     fi
 fi

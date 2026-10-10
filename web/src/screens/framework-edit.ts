@@ -54,12 +54,13 @@ export type Edit =
   | { kind: 'level'; id: string; body: { descriptor: string } };
 
 /**
- * The name a copy starts with says it is one. ADR #16: "the UI has to make
- * copying obvious rather than surprising".
+ * The draft a copy starts from: the base's competencies and levels, and the
+ * name the screen chose for it (framework-names.ts free_name, round 3 E12:
+ * "<base> (2)" rather than "Copy of <base>").
  */
-export function draft_from(base: FrameworkDetail): FrameworkDraft {
+export function draft_from(base: FrameworkDetail, name: string): FrameworkDraft {
   return {
-    name: `Copy of ${base.name}`.slice(0, NAME_MAX),
+    name: name.slice(0, NAME_MAX),
     competencies: [...base.competencies]
       .sort((a, b) => a.position - b.position)
       .map((competency) => ({
@@ -216,6 +217,10 @@ export function apply_edit(copy: FrameworkDetail, edit: Edit): FrameworkDetail {
 }
 
 /** Whether choosing another base would throw away something typed. */
-export function is_dirty(base: FrameworkDetail, draft: FrameworkDraft): boolean {
-  return JSON.stringify(draft) !== JSON.stringify(draft_from(base));
+export function is_dirty(
+  base: FrameworkDetail,
+  draft: FrameworkDraft,
+  name: string,
+): boolean {
+  return JSON.stringify(draft) !== JSON.stringify(draft_from(base, name));
 }

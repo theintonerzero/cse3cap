@@ -1,0 +1,28 @@
+[project]
+name = "diary-ai"
+version = "0.1.0"
+description = "The Reflection Diary's AI sidecar (ADR #64). Off unless AI_ENABLED is set."
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn>=0.32",
+  "httpx>=0.28",
+  "pydantic-settings>=2.6",
+  "aiomysql>=0.2",
+  "anthropic>=1,<2",
+  "fastembed>=0.4",
+  "cryptography>=43",
+]
+
+[dependency-groups]
+dev = ["pytest>=8", "pytest-asyncio>=0.24", "pytest-httpserver>=1.1", "pyyaml>=6"]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+pythonpath = ["."]
+markers = ["slow: loads the real embedding model", "db: needs AI_TEST_DATABASE_URL"]
+addopts = "-m 'not slow'"

@@ -6,7 +6,7 @@
   min-height: 2.75rem;
   padding: var(--space-12) var(--space-20);
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-full);
   font: inherit;
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-medium);
@@ -39,8 +39,12 @@
    check-contrast.mjs. Kept as --color-text regardless: a secondary button
    styled as a link would be a second interactive language next to the
    primary button's fill, not an AA workaround. */
+/* CAP-38 round 2d (ADR #54): the fill is --color-control, white in light
+   mode with a hairline drawn inside the box, so the button shows on every
+   section tint without growing by a border's width. Dark is unchanged. */
 .secondary {
-  background: var(--color-surface-alt);
+  background: var(--color-control);
+  box-shadow: var(--shadow-control);
   color: var(--color-text);
 }
 
@@ -52,4 +56,11 @@
 .button:focus-visible {
   outline: 0.125rem solid var(--color-focus-ring);
   outline-offset: 0.0625rem;
+}
+
+/* CAP-38 R6: a compact button that sits beside a Select at the same
+   height (Select's min-height is 2.75rem too), with small text. */
+.sm {
+  padding: var(--space-8) var(--space-12);
+  font-size: var(--font-size-sm);
 }

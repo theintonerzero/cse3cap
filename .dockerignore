@@ -1,0 +1,12 @@
+.git
+**/node_modules
+**/.env
+**/.env.*
+!**/.env.example
+api/vendor
+api/storage
+web/dist
+web/test-results
+docs
+.claude
+.superpowers

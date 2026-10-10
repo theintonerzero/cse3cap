@@ -39,8 +39,13 @@ TOKENS="${TOKENS:-$HOME/reflection-diary-tokens.txt}"
 . "$(dirname "${BASH_SOURCE[0]}")/lib/token-for.sh"
 SCREEN="web/src/screens/SelectFramework.tsx"
 RULE="web/src/screens/framework-groups.ts"
+# Round 3 E7: the on-screen names, numbered from the same order.
+NAMES="web/src/screens/framework-names.ts"
 ROUTES="web/src/app/routes.tsx"
 SHELL_TSX="web/src/app/AppShell.tsx"
+# CAP-51: nav_items_for moved out of AppShell into one module, so the shell
+# and the Alumable demo home read the same rule. The checks follow it there.
+NAV_TS="web/src/app/nav.ts"
 
 if [ -t 1 ]; then
     blu=$'\033[1;34m'; grn=$'\033[1;32m'; red=$'\033[1;31m'
@@ -79,26 +84,37 @@ say "2. Reachable, and the way out lands somewhere"
 
 # The way IN. Unlike the gig detail there is no id to name, so the nav can
 # and does carry it -- for a supervisor, which is ADR #17's educator.
-if grep -q "to: '/frameworks'" "$SHELL_TSX"; then
+if grep -q "to: '/frameworks'" "$NAV_TS"; then
     ok "the nav addresses /frameworks" "since CAP-5"
 else
     bad "the nav addresses /frameworks" "the screen would be URL-only"
 fi
 
-if sed -n "/nav_items_for/,/^}/p" "$SHELL_TSX" | grep -q "roles.has('supervisor')"; then
+# The rule only reaches the bar if the shell still takes its nav from it.
+if grep -q "import { nav_items_for } from './nav.ts'" "$SHELL_TSX" \
+    && grep -q "nav_items_for(me)" "$SHELL_TSX"; then
+    ok "the shell builds its nav from nav_items_for" "app/nav.ts, CAP-51"
+else
+    bad "the shell builds its nav from nav_items_for" "the rule would be dead code"
+fi
+
+# The /frameworks item itself, not just any supervisor mention: the review
+# queue's condition names supervisor too, which once let an ungated
+# frameworks item pass this check.
+if grep -B2 "to: '/frameworks'" "$NAV_TS" | grep -q "if (roles.has('supervisor'))"; then
     ok "the nav item is gated on supervisor" "a convenience; the 403 is the rule"
 else
     bad "the nav item is gated on supervisor"
 fi
 
-# The way OUT. Copy and edit addresses the CAP-16 route -- a link to a path
+# The way OUT. Edit a copy addresses the CAP-16 route -- a link to a path
 # the router does not declare would fall through to the not-found
 # placeholder and look like a working link.
 if grep -q '/frameworks/\${framework.id}/edit' "$SCREEN" \
    || grep -q 'frameworks/\${framework.id}/edit' "$SCREEN"; then
-    ok "Copy and edit addresses /frameworks/:framework_id/edit"
+    ok "Edit a copy addresses /frameworks/:framework_id/edit"
 else
-    bad "Copy and edit addresses /frameworks/:framework_id/edit"
+    bad "Edit a copy addresses /frameworks/:framework_id/edit"
 fi
 
 if grep -q 'path="frameworks/:framework_id/edit"' "$ROUTES"; then
@@ -186,15 +202,15 @@ else
     bad "templates and copies split on created_by"
 fi
 
-# Copy and edit is on EVERY row. The editor copies and never changes the
+# Edit a copy is on EVERY row. The editor copies and never changes the
 # rubric it starts from, so in_use is no reason to hide it -- and both
 # seeded templates are in use, so gating on it left a freshly seeded
 # database with no way into the editor. Changed by CAP-16; in_use still
 # drives the "In use" marker.
-if grep -q 'Copy and edit' "$SCREEN" && ! grep -q 'is_editable' "$SCREEN"; then
-    ok "Copy and edit on every row" "in_use does not gate a copy"
+if grep -q 'Edit a copy' "$SCREEN" && ! grep -q 'is_editable' "$SCREEN"; then
+    ok "Edit a copy on every row" "in_use does not gate a copy"
 else
-    bad "Copy and edit on every row" "gated on in_use, both seeded templates lose it"
+    bad "Edit a copy on every row" "gated on in_use, both seeded templates lose it"
 fi
 
 # ADR #33, extended by #35: a gig takes one rubric and the unique key
@@ -243,11 +259,12 @@ trap 'rm -rf "$OUT"' EXIT
 if [ ! -x "$TSC" ]; then
     meh "grouping rule" "no web/node_modules; run npm install in web/"
 elif ! "$TSC" --ignoreConfig --target es2022 --module esnext \
-        --moduleResolution bundler --strict --outDir "$OUT" "$RULE" \
+        --moduleResolution bundler --strict --rewriteRelativeImportExtensions \
+        --outDir "$OUT" "$RULE" "$NAMES" \
         >"$OUT/tsc.log" 2>&1; then
-    bad "framework-groups.ts compiles standalone" "$(head -1 "$OUT/tsc.log")"
+    bad "framework-groups.ts and framework-names.ts compile standalone" "$(head -1 "$OUT/tsc.log")"
 else
-    ok "framework-groups.ts compiles standalone"
+    ok "framework-groups.ts and framework-names.ts compile standalone"
 
     # tsc emits into a tree mirroring web/src, because the type-only import
     # of schema.ts puts both files in the program. The import itself is
@@ -257,6 +274,7 @@ else
     cat > "$OUT/check.mjs" <<'JS'
 import { group_frameworks, assignable_gigs }
   from './screens/framework-groups.js';
+import { display_names, free_name } from './screens/framework-names.js';
 
 const fw = (name, created_by, in_use = false) => ({
   id: name, fw_key: name, version: 'v1', name, is_active: true, created_by, in_use,
@@ -318,13 +336,47 @@ want('no participations', assignable_gigs([]), []);
 want('student only', assignable_gigs([parts[1]]), []);
 want('employer only', assignable_gigs([parts[2]]), []);
 
+// Round 3 E7: a repeated name reads (2), (3) in key order (numeric, so -10
+// after -9), the first stays bare, a template outranks a copy, and a number
+// never repeats a name somebody typed. The stored name is not touched.
+const fwk = (name, fw_key, created_by = 'u') => ({ ...fw(name, created_by), id: fw_key, fw_key });
+const labels = (list) => {
+  const names = display_names(list);
+  return group_frameworks(list).templates.concat(group_frameworks(list).copies)
+    .map((f) => names.get(f.id));
+};
+want('unique names unchanged', labels([fwk('A', 'a', null), fwk('B', 'b')]), ['A', 'B']);
+want('repeats numbered in key order',
+  labels([fwk('S', 's-10'), fwk('S', 's-9'), fwk('S', 's')]), ['S', 'S (2)', 'S (3)']);
+want('key order, not arrival order',
+  display_names([fwk('S', 's-10'), fwk('S', 's-9')]).get('s-10'), 'S (2)');
+want('the template stays bare', labels([fwk('T', 'copy-t'), fwk('T', 't', null)]), ['T', 'T (2)']);
+// Listed by stored name, so the typed "F (2)" sorts after both Fs.
+want('a typed name is skipped',
+  labels([fwk('F (2)', 'f-typed'), fwk('F', 'f'), fwk('F', 'f-2')]), ['F', 'F (3)', 'F (2)']);
+const stored = [fwk('S', 's'), fwk('S', 's-2')];
+display_names(stored);
+want('stored names untouched', stored.map((f) => f.name), ['S', 'S']);
+want('nothing to name', display_names([]).size, 0);
+
+// Round 3 E12: the editor's default name. The first free "(n)", free of
+// stored names and of on-screen labels; a copy of "X (2)" is "X (3)"; a
+// year in brackets is not a copy number; cut to fit the column.
+const lt = fwk('La Trobe', 'lt', null);
+want('free: first is (2)', free_name('La Trobe', [lt], 191), 'La Trobe (2)');
+want('free: skips a stored (2)', free_name('La Trobe', [lt, fwk('La Trobe (2)', 'x')], 191), 'La Trobe (3)');
+want('free: skips an on-screen (2)', free_name('La Trobe', [lt, fwk('La Trobe', 'lt-2')], 191), 'La Trobe (3)');
+want('free: a copy of X (2) is X (3)', free_name('La Trobe (2)', [lt, fwk('La Trobe (2)', 'x')], 191), 'La Trobe (3)');
+want('free: a year in brackets is kept', free_name('Team (2026)', [], 191), 'Team (2026) (2)');
+want('free: cut to fit', free_name('a'.repeat(191), [], 191), 'a'.repeat(187) + ' (2)');
+
 if (failed > 0) { console.log(`${failed} mismatches`); process.exit(1); }
 JS
 
     if node "$OUT/check.mjs" >"$OUT/run.log" 2>&1; then
-        ok "grouping, sorting and the role filter" "11 assertions"
+        ok "grouping, sorting, the role filter and the names" "24 assertions"
     else
-        bad "grouping, sorting and the role filter" "see below"
+        bad "grouping, sorting, the role filter and the names" "see below"
         sed 's/^/    /' "$OUT/run.log"
     fi
 fi
@@ -352,7 +404,7 @@ else
 
     # The split is only real if the data actually has both sides. A seeded
     # database always has at least one stock template; copies arrive from
-    # smoke.sh and from anyone pressing Copy and edit.
+    # smoke.sh and from anyone pressing Edit a copy.
     if printf '%s' "$BODY" | grep -q '"created_by":null'; then
         ok "at least one stock template exists" "created_by null"
     else

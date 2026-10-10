@@ -62,6 +62,7 @@ the controller and not in the FormRequest. Each rule has exactly one implementat
 | Level belongs to the entry's competency | `Scoring` |
 | Assessed once every entry has a counter-score | `Scoring` |
 | Framework immutable once referenced | `FrameworkEditing` |
+| Framework deletable only until assigned | `FrameworkEditing` |
 | One rubric per gig | `FrameworkAssigner` |
 | One entry per competency, on create | `ReflectionCreator` |
 

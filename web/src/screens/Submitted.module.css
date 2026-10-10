@@ -1,6 +1,7 @@
 .heading {
   margin: 0 0 var(--space-16);
   font-size: var(--font-size-xl);
+  line-height: var(--line-height-tight);
   font-weight: var(--font-weight-bold);
   color: var(--color-text);
 }
@@ -19,27 +20,6 @@
 
 .nav {
   margin-top: var(--space-24);
-}
-
-/* Matches Button.module.css's .secondary declaration -- this is a router
-   Link styled as that same button, not a new visual style (see Step 1). */
-.back_button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 2.75rem;
-  padding: var(--space-12) var(--space-20);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-alt);
-  color: var(--color-text);
-  text-decoration: none;
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-medium);
-  width: fit-content;
-}
-
-.back_link {
-  color: var(--color-primary);
 }
 
 .empty {
@@ -63,4 +43,42 @@
   margin: 0 0 var(--space-8);
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
+}
+
+/* CAP-38: the loaded confirmation, centred in a reading column under a
+   tick in the success tint. Loading, error and the not-yet-submitted
+   state keep the plain left-aligned layout. */
+.done {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  max-width: var(--content-width-read);
+  margin-inline: auto;
+  padding-top: var(--space-24);
+  text-align: center;
+}
+
+.done .tick {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  align-self: center;
+  margin-bottom: var(--space-16);
+  border-radius: var(--radius-full);
+  background: var(--color-success-bg);
+  color: var(--color-success);
+  font-size: var(--font-size-2xl);
+  line-height: var(--line-height-tight);
+}
+
+.done .nav {
+  display: flex;
+  justify-content: center;
+}
+
+.empty_action {
+  display: flex;
+  justify-content: center;
 }

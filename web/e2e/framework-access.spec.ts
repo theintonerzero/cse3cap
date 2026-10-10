@@ -26,6 +26,7 @@ const RUBRIC: FrameworkDetail = {
   name: 'La Trobe six-competency',
   created_by: null,
   in_use: true,
+  assigned: true,
   comment_required: true,
   evidence_required: false,
   accepted_file_types: ['pdf'],
@@ -113,19 +114,21 @@ test.describe('a supervisor who is also an employer elsewhere', () => {
     await page.goto('/frameworks');
 
     await expect(page.getByRole('heading', { name: 'Frameworks' })).toBeVisible();
-    const row = page.getByRole('listitem').filter({ hasText: 'La Trobe six-competency' });
-    // One assignable gig skips the picker, so the button names it.
-    await expect(
-      row.getByRole('button', { name: 'Assign to Develop AI use cases' }),
-    ).toBeVisible();
-    await expect(row.getByRole('button', { name: 'Assign to a gig' })).toHaveCount(0);
+    await page.getByRole('button', { name: /^La Trobe six-competency/ }).click();
+    const sheet = page.getByRole('dialog', { name: 'La Trobe six-competency' });
+    // One assignable gig is picked already (round 3 E2): the employer's gig
+    // is never offered.
+    const radios = sheet.getByRole('group', { name: 'Assign to a gig' }).getByRole('radio');
+    await expect(radios).toHaveCount(1);
+    await expect(sheet.getByRole('radio', { name: 'Develop AI use cases' })).toBeChecked();
+    await expect(sheet.getByRole('button', { name: 'Assign', exact: true })).toBeEnabled();
   });
 
   test('can open the editor', async ({ page }) => {
     await page.goto(`/frameworks/${FRAMEWORK}/edit`);
 
     await expect(
-      page.getByRole('heading', { name: 'Copy and edit a rubric' }),
+      page.getByRole('heading', { name: 'Edit a copy of a framework' }),
     ).toBeVisible();
   });
 });

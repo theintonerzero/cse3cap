@@ -22,7 +22,9 @@ test('student stepper: every typed field is text, and a javascript: link is not 
   page,
 }) => {
   await page.goto(`/reflections/${HOSTILE_REFLECTION}`);
-  await expect(page.getByRole('heading', { name: 'Reflection' })).toBeVisible();
+  // The heading is "<gig title> · Sprint N" and the gig title is the payload:
+  // it has to arrive as text (round 2b).
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(`${PAYLOAD} · Sprint 1`);
 
   // One assertion per rendered field, so each one is shown to be on the page
   // as text: the competency name, the narrative, every level descriptor, the
@@ -30,11 +32,24 @@ test('student stepper: every typed field is text, and a javascript: link is not 
   const card = page.getByRole('main');
   await expect(card.locator('p', { hasText: PAYLOAD }).first()).toHaveText(PAYLOAD);
   await expect(page.getByLabel('Your reflection')).toHaveValue(PAYLOAD);
-  for (const value of [1, 2]) {
-    await expect(page.getByRole('button', { name: `${value} · ${PAYLOAD}` })).toBeVisible();
-  }
-  await expect(page.getByText(`${PAYLOAD}: level 1 — “${PAYLOAD}”`)).toBeVisible();
-  await expect(page.getByRole('listitem').filter({ hasText: PAYLOAD })).toHaveCount(2);
+  // Both scores share one scale (CAP-66): who chose which level, and every
+  // level's words once "All levels" is open, are still text.
+  // Read by a reviewer, so the student is named (CAP-66), and their name is
+  // PAYLOAD too: on the scale's label and its words lines, still text.
+  const shared = page.getByRole('group', { name: `${PAYLOAD}'s score and ${PAYLOAD}'s` });
+  await expect(
+    shared.getByRole('listitem').filter({ hasText: `${PAYLOAD} · 2` }),
+  ).toBeVisible();
+  await expect(
+    shared.getByRole('listitem').filter({ hasText: `${PAYLOAD} · 1` }),
+  ).toBeVisible();
+  await shared.getByRole('button', { name: 'All levels' }).click();
+  const level_words = shared.locator('ol > li');
+  await expect(level_words).toHaveCount(2);
+  for (const words of await level_words.all()) await expect(words).toContainText(PAYLOAD);
+  await expect(page.getByLabel(`${PAYLOAD}'s comment`)).toHaveValue(PAYLOAD);
+  // Two scorers' lines, two levels' words, and the two evidence labels.
+  await expect(page.getByRole('listitem').filter({ hasText: PAYLOAD })).toHaveCount(6);
 
   // StoreEvidenceRequest refuses this scheme (F7), and the screen still
   // renders a stored one as plain text rather than trusting that.
@@ -44,13 +59,15 @@ test('student stepper: every typed field is text, and a javascript: link is not 
 
 test("assessor stepper: the student's name and work are text", async ({ page }) => {
   await page.goto(`/review-queue/reflections/${HOSTILE_REFLECTION}`);
-  await expect(page.getByRole('heading', { name: 'Score reflection' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(`${PAYLOAD} · Sprint 1`);
 
   // The owner's display name comes from Alumable, and the assessor screen
   // puts it in the status line and in two field labels.
   await expect(page.getByText(`${PAYLOAD} · you have scored 0 of 1`)).toBeVisible();
   await expect(page.getByLabel(`${PAYLOAD} wrote`)).toHaveValue(PAYLOAD);
-  await expect(page.getByRole('group', { name: `${PAYLOAD}'s self-score` })).toBeVisible();
+  await expect(
+    page.getByRole('radiogroup', { name: `${PAYLOAD}'s self-score` }),
+  ).toBeVisible();
   await expect(page.locator('a[href^="javascript:"]')).toHaveCount(0);
   await assertInert(page);
 });
@@ -60,10 +77,13 @@ test("edit framework: a rubric's wording, and the name a supervisor types, are t
   api,
 }) => {
   await page.goto(`/frameworks/${HOSTILE_FRAMEWORK}/edit`);
-  await expect(page.getByRole('heading', { name: 'Copy and edit a rubric' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Edit a copy of a framework' }),
+  ).toBeVisible();
 
   // The base rubric's own wording, as the fields a supervisor edits.
-  const competency = page.getByRole('group', { name: 'hostile' });
+  // Found by its field's id: the card is headed by the (hostile) name itself.
+  const competency = page.getByRole('group').filter({ has: page.locator('#name-hostile') });
   await expect(competency.getByLabel('Competency name')).toHaveValue(PAYLOAD);
   await expect(competency.getByLabel('Level 1')).toHaveValue(PAYLOAD);
   await expect(

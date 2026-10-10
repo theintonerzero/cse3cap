@@ -23,6 +23,7 @@
 .title {
   margin: 0;
   font-size: var(--font-size-2xl);
+  line-height: var(--line-height-tight);
 }
 
 .toggle {
@@ -51,6 +52,7 @@
 .heading {
   margin: 0;
   font-size: var(--font-size-xl);
+  line-height: var(--line-height-tight);
 }
 
 .row {

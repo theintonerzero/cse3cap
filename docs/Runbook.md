@@ -16,10 +16,9 @@ The reasoning behind each choice lives elsewhere and is linked rather than repea
 | Frontend | React 19 and Vite, `web/` | `http://localhost:5173` locally |
 | Database | MySQL 9.7 LTS on a shared VPS | `rddb.darkovski.dev:3306`, database `reflection_diary` |
 
-There is no deployed instance. A demo deployment is designed in
-`docs/superpowers/specs/2026-09-06-demo-deployment-design.md`, but it was not deployed by
-v1.0.0: it needs shell access to the VPS that the team never confirmed. If it is built, its
-deploy and rollback steps belong here.
+There is no deployed instance yet. The deploy kit is built (#88, ADR #45) and its deploy and
+rollback steps are in `docs/Deployment.md`, but it has not been run, because it needs a shell
+on the VPS (CAP-26).
 
 ## Start it
 
@@ -59,6 +58,58 @@ a database a demo depends on.
 ```bash
 ./run mock           # prism on :4010; point VITE_API_BASE_URL at it
 ```
+
+## Run the demo on your laptop
+
+Anyone on the team can run the full client demo (`docs/Demo-Script.md`) on their own laptop,
+against the shared database:
+
+```bash
+./run demo           # Windows: ./run.ps1 demo
+```
+
+It checks two things, then starts both servers exactly as `./run dev` does:
+
+1. **The shared database answers** on the host and port in `api/.env`. If it doesn't, it
+   stops and says so: venue and campus wifi often block port 3306, so switch to a phone
+   hotspot and run it again. If it still fails, present the recorded video.
+2. **The demo sign-in's people.** It reads the team's tokens file,
+   `~/reflection-diary-tokens.txt` (on Windows `%USERPROFILE%\reflection-diary-tokens.txt`;
+   `TOKENS=` points elsewhere), and writes Jane N, Noor A, Sam O and Dr Lee (and Priya R and
+   Tom H if their lines are there) into `web/.env.development.local`. That file is git-ignored
+   and read only by the dev server, never by a production build (F15). It keeps any other line
+   in that file, and prints who it found, never a token.
+
+**Getting the tokens file.** It is the seeder's output saved as printed, one `Name token`
+line per person, plus Noor's from [Issue a token](#issue-a-token). Tony holds the current
+one and sends it to each presenter directly, never in a channel, a commit or a pull request.
+Save it at the path above and keep it to yourself. Without it the demo still starts, and the
+sign-in asks you to paste a token instead.
+
+First time on the laptop, run `./run setup` before this: the demo needs `api/.env` and the
+dependencies it installs. Then open `http://localhost:5173`; Ctrl-C stops both servers.
+
+## The live demo
+
+`https://diary.darkovski.dev`, behind a shared demo password (user `demo`; ask Jesse). Behind
+it is the same one-click picker as on a laptop, on its own database, `reflection_diary_demo`,
+so nothing done there reaches the team's `reflection_diary`. It follows `dev` by itself
+within about 5 minutes of a merge. How it is built and changed: [`Deployment.md`](Deployment.md).
+All of these run on the box, reached with `ssh accord`.
+
+| To | Run |
+| --- | --- |
+| Present it on a laptop or projector | Open `https://diary.darkovski.dev/phone`: the app in a Galaxy S24 Ultra frame, at the phone's own size (CAP-55) |
+| Hold it still for a presentation | `touch /home/ubuntu/diary/freeze`, and `rm` it afterwards |
+| Start the data again | `/home/ubuntu/diary/src/scripts/demo-reset.sh`. Everyone signed in reloads |
+| Go back to the commit before | `/home/ubuntu/diary/bin/deploy-demo.sh $(cat /home/ubuntu/diary/previous)`. This freezes the timer; `rm /home/ubuntu/diary/freeze` to follow `dev` again |
+| See why it is down | `docker compose -p diary ps`, then `journalctl -u diary-deploy -n 50` |
+| Change the password or sign everyone out | `/home/ubuntu/diary/src/scripts/demo-gate.sh`, then "Changing Caddy" in Deployment.md |
+| Check it from outside | `scripts/smoke-demo.sh` from a laptop |
+| Switch the AI features on or off | `AI_ENABLED` in `/home/ubuntu/diary/shared/ai.env`, then `cd /home/ubuntu/diary && DIARY_SHA=$(cat deployed) DIARY_HOME=$PWD docker compose -f src/deploy/demo/compose.yml up -d diary-ai`. First time: "The AI sidecar" in Deployment.md |
+| See what the AI sidecar is doing | `docker logs --tail 100 diary-diary-ai-1` |
+| See today's AI spend | `docker exec -it mysql mysql -u root -p -e "SELECT * FROM diary_ai.spend_days ORDER BY day DESC LIMIT 3"`. The cap is `DAILY_CAP_USD`, US$5 |
+| Read the AI's answers to the fixed cases | `ANTHROPIC_API_KEY=... scripts/ai-eval.sh` from a laptop, against `ai/evals/README.md`. Under US$0.05 |
 
 ## Stop it
 
@@ -126,9 +177,11 @@ Delete Jane's smoke reflections first if they are in the way. Entries, scores, e
 events cascade with the reflection row. `reflections.user_id` is `ON DELETE RESTRICT`, so a
 user cannot be deleted out from under their record (`docs/Retention-and-Erasure.md`).
 
-Smoke also leaves a framework behind each run: Dr Lee copies La Trobe and renames the copy
-"Renamed by smoke test" (`scripts/smoke.sh`). They are never assigned or scored against, so
-they are harmless, but they pile up in the rubric list. To clear them, announced first:
+Smoke copies La Trobe as Dr Lee and renames the copy "Renamed by smoke test"
+(`scripts/smoke.sh`). Since CAP-50 it deletes that copy again at the end of the framework
+section, so a run that reaches it leaves no framework behind. Runs from before CAP-50, and a
+run that stops partway, left theirs. They are never assigned or scored against, so they are
+harmless, but they pile up in the framework list. To clear them, announced first:
 
 ```sql
 DELETE FROM frameworks WHERE name = 'Renamed by smoke test';
@@ -276,7 +329,9 @@ Check it is still active after any change to Docker on the box.
 | `diary_ro` password | The same for `diary_ro`, then `DB_READONLY_PASSWORD` in each shell profile | Agents' read-only schema access |
 | `APP_KEY` | `php artisan key:generate` in `api/` | Very little. Nothing in `api/app` encrypts with it, and Sanctum stores token hashes, so no one is signed out |
 
-Tokens never expire (`api/config/sanctum.php`), so rotating is the only way one stops working.
+Seeded tokens expire 60 days after they are issued (`DemoSeeder::TOKEN_LIFETIME_DAYS`, ADR #46),
+and rotating is how one stops working sooner. A token issued before ADR #46, or from Tinker
+without an expiry, never expires until it is rotated.
 New credentials go to the new owner out of band, never into this repository or a chat log.
 
 ### CI, Dependabot and branch protection

@@ -1,34 +1,79 @@
+/* The gig page's card heading size ("Sprints"), not a page title (round 3,
+   Patrick: "Review queue" dominated the screen). */
 .heading {
-  margin: 0 0 var(--space-16);
-  font-size: var(--font-size-xl);
-  font-weight: var(--font-weight-bold);
+  margin: 0 0 var(--space-12);
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-tight);
+  font-weight: var(--font-weight-medium);
   color: var(--color-text);
 }
 
 .list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-12);
+  gap: var(--space-8);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
+/* The student rows' look (DiaryHome's .row, GigDetail's .row): a hairline
+   card on --color-surface, --radius-md, no shadow. Name and meta, then a
+   fixed column for the bar so every row's bar lines up, then the chevron. */
 .row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 8rem auto;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-16);
   padding: var(--space-16);
   border: var(--border-width-sm) solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
+  color: inherit;
+  text-decoration: none;
+}
+
+a.row:hover {
+  border-color: var(--color-primary);
+}
+
+a.row:focus-visible {
+  outline: 0.125rem solid var(--color-focus-ring);
+  outline-offset: 0.0625rem;
+}
+
+/* A fixed column, so every row's bar starts and ends in the same place. */
+.rowProgress {
+  min-width: 0;
+}
+
+/* On a phone the bar drops under the name, and the chevron stays at the
+   right edge, centred on both lines. */
+@media (max-width: 40rem) {
+  .row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    /* The bar sits just under "Jane N · Sprint 2" (Patrick, 2026-10-05). */
+    row-gap: var(--space-8);
+  }
+
+  .rowMain {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .rowProgress {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .chevron {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
 }
 
 .rowMain {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
+  min-width: 0;
 }
 
 .studentName {
@@ -37,16 +82,14 @@
   color: var(--color-text);
 }
 
-.rowMeta {
-  font-size: var(--font-size-sm);
+.rowSprint {
+  font-size: var(--font-size-base);
   color: var(--color-text-muted);
 }
 
-.scoreLink {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-primary);
-  white-space: nowrap;
+.chevron {
+  font-size: var(--font-size-lg);
+  color: var(--color-text-muted);
 }
 
 .empty {
@@ -69,5 +112,70 @@
 .emptyBody {
   margin: 0;
   font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+/* Frameworks' way in (round 3 D2). The student rows' look, set apart from
+   the queue below it. */
+.wayIn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-16);
+  margin-bottom: var(--space-24);
+  padding: var(--space-16);
+  border: var(--border-width-sm) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: inherit;
+  text-decoration: none;
+}
+
+a.wayIn:hover {
+  border-color: var(--color-primary);
+}
+
+a.wayIn:focus-visible {
+  outline: 0.125rem solid var(--color-focus-ring);
+  outline-offset: 0.0625rem;
+}
+
+.wayInMain {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.wayInTitle {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.wayInMeta {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.wayInChevron {
+  font-size: var(--font-size-lg);
+  color: var(--color-text-muted);
+}
+
+/* Listed by gig (round 3, Patrick 2026-10-05): each gig's name as the
+   gig page's section label (GigDetail's .section_label), its rows under it. */
+.groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-24);
+}
+
+.groupLabel {
+  margin: 0 0 var(--space-8);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--letter-spacing-label);
+  text-transform: uppercase;
   color: var(--color-text-muted);
 }

@@ -1,0 +1,10 @@
+# The live demo's auto-deploy (CAP-54, ADR #62). Installed to /etc/systemd/system.
+[Unit]
+Description=Check dev for a new demo build every 5 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+
+[Install]
+WantedBy=timers.target

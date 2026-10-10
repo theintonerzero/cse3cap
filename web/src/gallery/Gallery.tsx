@@ -7,6 +7,7 @@
  * but nothing in the product links to it.
  */
 import { useState, type ReactNode } from 'react';
+import { MemoryRouter } from 'react-router';
 
 import { ApiError } from '../api/client.ts';
 import {
@@ -16,11 +17,15 @@ import {
   Card,
   Chip,
   ErrorNotice,
+  FloatingAction,
   RadarPanel,
   Skeleton,
   SkeletonGroup,
   type RadarAxis,
+  LinkButton,
+  Menu,
   ProgressBar,
+  Select,
   TextArea,
 } from '../components/index.ts';
 import { getStoredTheme, setTheme, type Theme } from '../theme.ts';
@@ -84,6 +89,7 @@ export function Section({ title, children }: { title: string; children: ReactNod
 export default function Gallery() {
   const [theme, set_theme_state] = useState<Theme>(initial_theme);
   const [scope, set_scope] = useState('all');
+  const [picked, set_picked] = useState('');
   const [narrative, set_narrative] = useState('');
   const [unsaved_narrative, set_unsaved_narrative] = useState('');
   const [sheet_open, set_sheet_open] = useState(false);
@@ -142,8 +148,54 @@ export default function Gallery() {
             Back (disabled)
           </Button>
           <Button full_width={false}>Inline width</Button>
+          {/* CAP-38 R6: sizes, both variants. */}
+          <Button full_width={false}>Medium</Button>
+          <Button full_width={false} size="sm">
+            Small
+          </Button>
+          <Button full_width={false} variant="secondary">
+            Medium
+          </Button>
+          <Button full_width={false} variant="secondary" size="sm">
+            Small
+          </Button>
         </div>
       </Section>
+      <Section title="LinkButton">
+        {/* A Link needs a router; the gallery has none of its own. */}
+        <MemoryRouter>
+          <LinkButton to="/">Open your diary for this gig</LinkButton>
+          <LinkButton to="/" variant="secondary">
+            Copy and edit
+          </LinkButton>
+          <LinkButton to="/" variant="quiet" back>
+            Frameworks
+          </LinkButton>
+          <LinkButton to="/" variant="secondary" size="sm">
+            Small
+          </LinkButton>
+        </MemoryRouter>
+      </Section>
+
+      <Section title="Select">
+        <Select id="gallery-gig" label="Gig" value={picked} on_change={set_picked}>
+          <option value="">All gigs</option>
+          <option value="a">Alumable onboarding redesign</option>
+          <option value="b">
+            Campus food-waste dashboard for the Bundoora sustainability office
+          </option>
+        </Select>
+        <Select
+          id="gallery-disabled"
+          label="Disabled"
+          value=""
+          on_change={() => {}}
+          disabled
+        >
+          <option value="">Nothing to choose</option>
+        </Select>
+      </Section>
+
       <Section title="TextArea">
         <div className={styles.stack}>
           <TextArea
@@ -202,6 +254,47 @@ export default function Gallery() {
             </Button>
           </div>
         </BottomSheet>
+      </Section>
+      <Section title="FloatingAction">
+        {/* Fixed to the viewport's bottom right, so it floats over this
+            whole page rather than sitting inside the section. Fine on a
+            scratch page. */}
+        <FloatingAction
+          label="Export record"
+          icon={
+            <svg viewBox="0 0 24 24" width="1.5rem" height="1.5rem">
+              <path
+                d="M12 4v11m0 0l-4-4m4 4l4-4M5 19h14"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          }
+          on_click={() => {}}
+        />
+      </Section>
+      <Section title="Menu">
+        {/* The shell's ⋮ (CAP-38 R4). Same two items, wired to this page:
+            the switch is the gallery's own theme, the item opens the sheet above. */}
+        <Menu
+          label="More options"
+          items={[
+            {
+              kind: 'item',
+              label: 'Open the sheet',
+              on_select: () => set_sheet_open(true),
+            },
+            {
+              kind: 'checkbox',
+              label: 'Dark mode',
+              checked: theme === 'dark',
+              on_select: toggle_theme,
+            },
+          ]}
+        />
       </Section>
       <Section title="Skeleton">
         <div className={styles.stack}>

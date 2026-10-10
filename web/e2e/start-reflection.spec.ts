@@ -41,6 +41,7 @@ const RUBRIC: FrameworkDetail = {
   name: 'La Trobe six-competency',
   created_by: null,
   in_use: true,
+  assigned: true,
   comment_required: true,
   evidence_required: false,
   accepted_file_types: ['pdf'],
@@ -146,7 +147,10 @@ test('starting one posts the sprint and opens the new draft in the stepper', asy
   await row(page, 2).getByRole('button', { name: 'Start reflection' }).click();
 
   await expect(page).toHaveURL(/\/reflections\/e2e00000-/);
-  await expect(page.getByRole('heading', { name: 'Reflection' })).toBeVisible();
+  // CAP-38: the stepper is headed "<gig> · Sprint N" once it has loaded.
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+    'Develop AI use cases · Sprint 2',
+  );
   await expect(page.getByLabel('Your reflection')).toBeEditable();
 
   const posts = api.writes().filter((call) => call.route === 'POST /reflections');

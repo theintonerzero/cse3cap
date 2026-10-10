@@ -14,12 +14,13 @@ Becomes **1.0.0**, planned for 11 October 2026 after a cut-off at the end of 10 
 
 ### What 1.0.0 contains
 
-- A Laravel 13 API on MySQL 9.7: thirty endpoints, all seven business rules in their own
+- A Laravel 13 API on MySQL 9.7: thirty-one endpoints, all eight business rules in their own
   service classes, authorisation in policies, and one error envelope for every failure.
   Contract in `docs/openapi.yaml`.
 - A React 19 frontend: the diary home with its captioned radar, the gig page and its history,
   the entry stepper for students and assessors, the submitted confirmation, the review queue,
-  framework selection and copy-then-edit, and export to JSON and PDF.
+  framework selection and copy-then-edit, deleting a copy until it is assigned, and export
+  to JSON and PDF.
 - A swappable rubric: La Trobe's six competencies and SFIA 9 run through the same code
   (`docs/Framework-Swap-Verification.md`).
 - Demo data shaped to show calibration gaps, three seeded tokens in place of a login
@@ -48,11 +49,17 @@ Becomes **1.0.0**, planned for 11 October 2026 after a cut-off at the end of 10 
   evidence items, export files are never pruned, and the API has no rate limit (CAP-42).
 - The seeded gigs run 3 August to 26 October 2026, so after that the demo shows only past
   gigs.
-- Each `./run smoke` leaves a renamed framework copy in the database it runs against.
 
 ## Sprint 5: 30 September to 13 October 2026
 
 ### Added
+- Your learning record at `/record`: a competency by sprint table of self and assessor scores
+  per gig, from the prototype's frame `86:936` (CAP-53, ADR #63).
+- The diary home names the sprints that need a reflection and starts the earliest, from the
+  prototype's hub frame `66:34` (CAP-53).
+- A supervisor can delete a framework copy they made, until a gig has it as its rubric:
+  `DELETE /frameworks/{framework_id}`, 409 `FRAMEWORK_ASSIGNED` once assigned, and a
+  confirmed delete on the edit framework screen (#111, CAP-50, ADR #59).
 - Design inventory: every Figma prototype frame by node ID, what the build did with it and
   why, and the `/design-inventory` skill that refreshes it (#90, CAP-40).
 - A demo deploy kit whoever holds the VPS can run, with a documented rollback (#88, CAP-26,
@@ -92,8 +99,12 @@ Becomes **1.0.0**, planned for 11 October 2026 after a cut-off at the end of 10 
 - The verify scripts read an `rdiary_` token, and every token reader takes the newest line
   through one helper (#96, #97, CAP-44, CAP-45).
 - A reviewer and a stranger are refused on `DELETE /reflections/{id}`, now under test (#91).
+- `./run db-tls`, the deploy's proof that the database session is encrypted, failed on every
+  run with a MySQL syntax error, because `SHOW ... LIKE ?` cannot take a placeholder (CAP-26).
 
 ### Changed
+- CI runs `./run verify` against the seeded API after the smoke test, and a skipped live
+  half fails it rather than passing quietly (#112, CAP-50).
 - Assigning a rubric to a gig is supervisor only. An employer now gets 403, and the framework
   screens show NotFound to anyone who supervises no gig (#100, CAP-46, ADR #48).
 - `docs/Stack-and-Build-Scope.md` §4.3 matches the gig page as built, and ADR #49 records
@@ -105,8 +116,9 @@ Becomes **1.0.0**, planned for 11 October 2026 after a cut-off at the end of 10 
 - The README, this changelog and the handover documents were checked against the code and
   corrected (#78, #81, #94). `ReflectionController` lost a `RoleResolver` it never used (#87).
 - Dependency updates: Laravel 13.25 to 13.34, which cleared four Composer advisories; React
-  19.3; React Router 8.4; Vite 8.3; `@types/node` 26; GitHub Actions checkout and setup-node v7,
-  cache v6, upload-artifact v7 (#68, #33, #53, #9, #66).
+  19.3; React Router 8.4; Vite 8.3; `@types/node` 26, pinned back to ^24 to match Node 24
+  (#82); GitHub Actions checkout and setup-node v7, cache v6, upload-artifact v7 (#68, #33,
+  #53, #9, #66).
 
 ## Sprint 4: 14 to 27 September 2026
 

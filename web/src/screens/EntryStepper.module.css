@@ -1,8 +1,16 @@
 .heading {
   margin: 0 0 var(--space-16);
   font-size: var(--font-size-xl);
+  line-height: var(--line-height-tight);
   font-weight: var(--font-weight-bold);
   color: var(--color-text);
+}
+
+/* Round 2c: the sprint's dates, a quiet line tucked under the heading. */
+.sprint_dates {
+  margin: calc(-1 * var(--space-12)) 0 var(--space-16);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
 }
 
 .status_row {
@@ -27,6 +35,59 @@
   justify-content: space-between;
   gap: var(--space-16);
   margin-top: var(--space-24);
+}
+
+/* CAP-38: a reading column, not the full list width. */
+.page {
+  max-width: var(--content-width-read);
+  margin-inline: auto;
+}
+
+.progress {
+  margin-bottom: var(--space-16);
+}
+
+/* The skeleton keeps the loaded screen's spacing: progress bar, gap, card. */
+.loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+/* CAP-38: on a phone, Back and Next stay under the thumb rather than at
+   the end of a long card. Fixed to the bottom edge (round 2b): sticky let
+   the bar rise off the bottom once the page ended, over the page's own
+   bottom padding. The page keeps room for the bar under its last field
+   instead, so nothing ends up behind it. */
+@media (max-width: 40rem) {
+  .nav {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: var(--z-sticky-bar);
+    margin: 0;
+    /* Inset from the screen edges so the buttons are not jammed into
+       the corners (round 2b). */
+    padding: var(--space-12) var(--space-24)
+      calc(var(--space-12) + env(safe-area-inset-bottom, 0));
+    background: var(--color-surface);
+    box-shadow: var(--shadow-sheet);
+  }
+
+  /* Wide enough to hit easily with a thumb (round 2b). */
+  .nav > * {
+    min-width: 8rem;
+  }
+
+  /* Room for the bar under the last field. The bar is about 4.5rem tall (a
+     large-size label at line height 1.45 plus 1.5rem of padding), more if a label
+     wraps; this padding plus the shell's 4rem under <main> keeps the last
+     field clear of it, and scroll-padding-bottom (index.css) keeps a
+     focused field clear. */
+  .page {
+    padding-bottom: calc(2.75rem + 2 * var(--space-12) + env(safe-area-inset-bottom, 0));
+  }
 }
 
 .empty {
@@ -94,12 +155,6 @@
   margin-top: var(--space-8);
 }
 
-.level_row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-8);
-}
-
 .evidence_list {
   display: flex;
   flex-direction: column;
@@ -131,22 +186,32 @@
   gap: var(--space-8);
 }
 
+/* The same field as the framework editor's (CAP-63): the app's font, not
+   the browser's, and the app's focus ring. */
 .evidence_input {
   flex: 1 1 12rem;
-  padding: var(--space-8);
+  padding: var(--space-12);
   border: var(--border-width-sm) solid var(--color-border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: var(--color-surface);
   color: var(--color-text);
+  font: inherit;
 }
 
+.evidence_input:focus-visible {
+  outline: var(--border-width-sm) solid var(--color-focus-ring);
+  outline-offset: var(--border-width-sm);
+}
+
+/* Button's look comes from Button.module.css (CAP-63); this only places the
+   hidden input and shows Button's focus ring when it has keyboard focus. */
 .file_button {
-  display: inline-flex;
-  align-items: center;
-  padding: var(--space-8) var(--space-16);
-  border: var(--border-width-sm) solid var(--color-border);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
+  position: relative;
+}
+
+.file_button:has(:focus-visible) {
+  outline: 0.125rem solid var(--color-focus-ring);
+  outline-offset: 0.0625rem;
 }
 
 .file_input {
@@ -182,4 +247,71 @@
   margin: var(--space-8) 0 0;
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
+}
+
+/* CAP-38: an evidence link as a row of its own -- a glyph, the label, and
+   the site it goes to -- instead of a bare browser-blue underline. The
+   save-all list reuses .evidence_row, so this is a separate class. */
+.evidence_item {
+  align-items: flex-start;
+  gap: var(--space-12);
+  padding: var(--space-12) var(--space-16);
+  border-radius: var(--radius-md);
+  background: var(--color-accent-evidence);
+}
+
+.evidence_icon {
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-tight);
+  color: var(--color-text);
+}
+
+.evidence_text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.evidence_text a {
+  color: var(--color-text);
+  font-weight: var(--font-weight-medium);
+  text-decoration: underline;
+  text-decoration-color: var(--color-border);
+  text-underline-offset: 0.2em;
+}
+
+.evidence_text a:hover {
+  text-decoration-color: currentColor;
+}
+
+.evidence_host {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+/* The student's read-only view of a counter-score (CAP-38): the same
+   chips-and-comment block the assessor sees, set off by a rule. */
+.counter_block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  margin-top: var(--space-16);
+  padding-top: var(--space-16);
+  border-top: var(--border-width-sm) solid var(--color-border);
+}
+
+/* What "Submit scores" is still waiting on, in its pop-up (round 3): plain
+   words, then "Okay". Reviewer-only; the student's stepper never shows it. */
+.missing_lead {
+  margin: 0 0 var(--space-8);
+  color: var(--color-text);
+}
+
+.missing_list {
+  margin: 0 0 var(--space-24);
+  padding-left: var(--space-24);
+  color: var(--color-text);
 }

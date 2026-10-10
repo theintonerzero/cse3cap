@@ -24,6 +24,10 @@ import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 HELPER = ROOT / "scripts" / "lib" / "token-for.sh"
+# The same rule in PHP, for `./run demo` and `.\\run.ps1 demo` (CAP-51): run.ps1
+# has no bash, and every laptop that runs the API has PHP. Both readers run the
+# same CASES below, so the rule is written twice but pinned once.
+PHP_HELPER = ROOT / "scripts" / "lib" / "token-for.php"
 
 FAKE = "a" * 40
 
@@ -108,12 +112,30 @@ def check_readers():
                "defines its own token_for; source scripts/lib/token-for.sh instead")
 
 
+def run_php_case(label, fixture, name, expected):
+    with tempfile.TemporaryDirectory() as tmp:
+        tokens = pathlib.Path(tmp) / "tokens.txt"
+        if fixture is not None:
+            tokens.write_bytes(fixture.encode("utf-8"))
+        result = subprocess.run(
+            ["php", str(PHP_HELPER), name, str(tokens)], capture_output=True)
+        got = result.stdout.decode("utf-8").rstrip("\n")
+        report(result.returncode == 0 and got == expected, f"php: {label}",
+               f"got {got!r}, wanted {expected!r} (exit {result.returncode}) "
+               f"{result.stderr.decode().strip()}")
+
+
 def main():
     if not HELPER.exists():
         report(False, "scripts/lib/token-for.sh exists", "missing")
     else:
         for case in CASES:
             run_case(*case)
+    if not PHP_HELPER.exists():
+        report(False, "scripts/lib/token-for.php exists", "missing")
+    else:
+        for case in CASES:
+            run_php_case(*case)
     check_readers()
     print(f"\n{'FAIL' if failures else 'ok'}: {failures} failed")
     return 1 if failures else 0

@@ -67,6 +67,7 @@ const LA_TROBE_DETAIL: FrameworkDetail = {
   name: 'La Trobe six-competency',
   created_by: null,
   in_use: true,
+  assigned: true,
   ...policy,
   scale: { min: 1, max: 4 },
   competencies: [
@@ -106,6 +107,7 @@ const SFIA_DETAIL: FrameworkDetail = {
   name: 'SFIA 9',
   created_by: null,
   in_use: true,
+  assigned: true,
   ...policy,
   scale: { min: 2, max: 6 },
   competencies: [
@@ -145,6 +147,7 @@ const EMPTY_DETAIL: FrameworkDetail = {
   name: 'Hollow rubric',
   created_by: DR_LEE.id,
   in_use: false,
+  assigned: false,
   ...policy,
   scale: { min: 1, max: 1 },
   competencies: [],

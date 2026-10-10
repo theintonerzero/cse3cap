@@ -2,6 +2,7 @@
 #
 #   ./run.ps1            what you can do
 #   ./run.ps1 dev        both servers, one Ctrl-C stops both
+#   ./run.ps1 demo       the client demo: checks the database and the demo people, then dev
 #   ./run.ps1 check      everything CI runs
 #
 # The Windows counterpart of ./run. api/ and web/ are separate applications
@@ -104,6 +105,13 @@ function Start-Dev {
 
 switch ($Command) {
     'dev'   { Start-Dev }
+    # The client demo on this laptop (CAP-51): see ./run demo.
+    'demo'  {
+        Need-Api; Need-WebDeps
+        & php scripts/demo-preflight.php
+        if ($LASTEXITCODE -ne 0) { exit 1 }
+        Start-Dev
+    }
 
     'api'   { Need-Api; Step 'api' 'php' @('artisan', 'serve', '--port=8000') }
     'web'   { Need-WebDeps; Step 'web' 'npm' @('run', 'dev') }
@@ -174,6 +182,7 @@ switch ($Command) {
         Write-Host 'Alumable Reflection Diary' -ForegroundColor Blue
         Write-Host ''
         Write-Host '  ./run.ps1 dev      both servers. api on :8000, web on :5173'
+        Write-Host '  ./run.ps1 demo     the client demo: database check, demo people, then dev'
         Write-Host '  ./run.ps1 api      backend only'
         Write-Host '  ./run.ps1 web      frontend only'
         Write-Host '  ./run.ps1 mock     mock the contract on :4010'

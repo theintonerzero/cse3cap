@@ -38,6 +38,15 @@ what crosses between them and what breaks quietly when they drift is
 [`docs/Frontend-and-Backend.md`](../docs/Frontend-and-Backend.md). Read that before your
 first change.
 
+The **Alumable demo shell** (CAP-51, ADR #60) is off by default. Set `VITE_DEMO_SHELL=1` in
+`web/.env.development.local` to turn it on: the app then opens on an Alumable-branded sign-in and a My
+Gigs home around the diary, for the client demo. Add `VITE_DEMO_TOKENS` (a JSON array of
+personas, see `web/.env.example`) for one-click sign-in; without it the welcome falls back to
+the seeded-token paste. Both live only in `web/.env.development.local`, which is git-ignored and which `vite build`
+never reads; the shell is also gated on `import.meta.env.DEV`, so no production build can
+carry it or its tokens (F15 in `docs/Security-Review.md`). With the
+flag unset the app is the diary exactly as it ships.
+
 You do not need the backend running to build a screen. Mock the contract instead:
 
 ```bash
@@ -115,7 +124,7 @@ screenshots (HO-6).
 
 The diary home keeps its scope in the URL rather than in state (ADR #27), so a scoped diary
 is a link somebody can send. What a scope means -- which rows are yours, which sprints can
-be chipped, what the caption under the radar says -- lives in `src/screens/diary-scope.ts`,
+be chipped, who the radar says scored it -- lives in `src/screens/diary-scope.ts`,
 which is pure and imports no React.
 
 The gig detail screen splits the same way and one step further: `src/screens/gig-timing.ts`

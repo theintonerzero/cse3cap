@@ -41,7 +41,7 @@ Educator is not a distinct role. It maps to `supervisor`, which already exists i
 DUPLICATE_ASSIGNMENT · NOT_DRAFT · NOT_SUBMITTED · COMMENT_REQUIRED ·
 LEVEL_NOT_IN_COMPETENCY · EVIDENCE_REQUIRED · NARRATIVE_REQUIRED · SELF_SCORE_MISSING ·
 FILE_TYPE_NOT_ACCEPTED · FILE_TOO_LARGE · FRAMEWORK_NOT_ASSIGNED · FRAMEWORK_IN_USE ·
-ALREADY_SCORED · ROLE_FORBIDDEN · UNAUTHENTICATED · NOT_FOUND`
+FRAMEWORK_ASSIGNED · ALREADY_SCORED · ROLE_FORBIDDEN · UNAUTHENTICATED · NOT_FOUND`
 
 This list is exhaustive. A response carrying a code that is not here is a bug in the
 endpoint, not an undocumented feature. Every non-2xx response carries one, including 401
@@ -52,7 +52,7 @@ for both is the point: a second code would tell the caller which, and that is th
 
 **Status codes:** 400 validation / business rule, 401 no or bad token, 403 wrong role,
 404 not found or not yours (indistinguishable on purpose), 409 conflict (duplicate, wrong
-state, framework in use).
+state, framework in use, framework assigned).
 
 **Pagination:** none. Result sets are small at MVP scale.
 
@@ -103,10 +103,11 @@ Same shape, single object, plus `participants: [{ id, display_name, role }]`.
 ### GET /frameworks?active=true
 ```json
 [{ "id": "…", "fw_key": "latrobe6", "version": "v1", "name": "…", "is_active": true,
-   "created_by": null, "in_use": true }]
+   "created_by": null, "in_use": true, "assigned": true }]
 ```
 `created_by` null means a seeded base template; set means someone's copy. `in_use` true
-means at least one reflection references it, so it is read-only. The Select-framework
+means at least one reflection references it, so it is read-only. `assigned` true means a
+gig has it as its rubric, so it can never be deleted (ADR #59). The Select-framework
 screen groups by `created_by` (Available Templates vs Saved Templates) and uses `in_use`
 to show or hide the Edit action.
 
@@ -115,7 +116,7 @@ The full rubric, nested. Drives the entry stepper, the radar axes, and the edito
 ```json
 {
   "id": "…", "fw_key": "latrobe6", "version": "v1", "name": "La Trobe six-competency",
-  "created_by": null, "in_use": true,
+  "created_by": null, "in_use": true, "assigned": true,
   "comment_required": true, "evidence_required": false,
   "accepted_file_types": ["pdf","png","jpg"], "max_file_bytes": 10485760,
   "scale": { "min": 1, "max": 4 },
@@ -146,6 +147,19 @@ Rename or adjust policy: any of `name`, `comment_required`, `evidence_required`,
 `accepted_file_types`, `max_file_bytes`.
 If any reflection references the framework → **409 FRAMEWORK_IN_USE**.
 If `created_by` isn't the caller (seeded bases included) → 403 `ROLE_FORBIDDEN`.
+
+### DELETE /frameworks/{framework_id}: supervisor, own copy, never assigned
+No body. 204, and the framework goes with its competencies and their levels (the schema's
+own cascades). ADR #59 extends ADR #16: a copy made by mistake can be removed until it is
+a gig's rubric.
+If `created_by` isn't the caller (seeded bases included), or the caller supervises no gig →
+403 `ROLE_FORBIDDEN` (`FrameworkPolicy::delete`).
+If any gig has it as its rubric → **409 FRAMEWORK_ASSIGNED**, `details.framework_id`
+(`FrameworkEditing::assertDeletable`). Assignments are permanent, so this is for good. An
+assignment that lands while the delete is under way is refused by `fk_fa_fw` with MySQL
+1451 and answered with the same 409.
+No separate check on reflections: a reflection takes its framework from the gig's
+assignment (ADR #35), so a framework never assigned has never scored anyone.
 
 ### PATCH /competencies/{competency_id}: same guards
 `{ "name": "…", "short_label": "…" }`. Rename only in MVP scope. Adding or removing
@@ -366,6 +380,7 @@ Notifications are derived (review queue + status changes), never stored.
 | view a reflection | own | on their gigs | on their gigs | on their gigs |
 | counter-score, review queue | - | ✓ | ✓ | ✓ |
 | create / edit frameworks (own copies, not in use) | - | - | ✓ | - |
+| delete a framework (own copy, never assigned) | - | - | ✓ | - |
 | assign framework to gig | - | - | ✓ | - |
 | analytics + export | own record | own record | own record | own record |
 
@@ -373,4 +388,38 @@ Notifications are derived (review queue + status changes), never stored.
 
 `draft` →(owner submits, gate passes)→ `submitted` →(all entries counter-scored)→
 `assessed`. Never backwards. Draft is the only editable state. Frameworks: editable while
-`created_by` = you and `in_use` = false; permanently read-only after first use.
+`created_by` = you and `in_use` = false; permanently read-only after first use. Deletable
+while `created_by` = you and `assigned` = false; kept for good once a gig takes it.
+
+## 13. The AI sidecar: a separate contract
+
+`/ai/v1` is not part of this API. It is the AI sidecar in `ai/` (ADR #64), with its own
+contract in `docs/ai-openapi.yaml`, which wins where this paragraph disagrees with it.
+Laravel never calls it and changes nothing for it. It takes the same bearer token, reads
+this API with it, and answers in the same error envelope. With `AI_ENABLED` off every route
+is `404 AI_DISABLED`.
+
+| Route | What it answers |
+| --- | --- |
+| `GET /ai/v1/status` | The features this deployment serves |
+| `POST /ai/v1/reflections/{reflection_id}/entries/{entry_id}/coach` | One to three questions about the owner's draft narrative |
+| `GET /ai/v1/reflections/{reflection_id}/entries/{entry_id}/related` | Up to three of the owner's earlier entries that read alike |
+| `POST /ai/v1/reflections/{reflection_id}/entries/{entry_id}/calibration` | One to three questions about why the owner and their reviewer chose different levels, once assessed |
+| `GET /ai/v1/search?q=` | Up to ten submitted or assessed entries on the caller's reviewed gigs, by meaning |
+| `GET /ai/v1/gigs/{gig_id}/themes` | Three to five recurring themes across a gig's reflections, for its assessors and supervisors |
+
+Its own error codes are `AI_DISABLED`, `AI_UNAVAILABLE` and `AI_RATE_LIMITED`, beside the
+envelope codes it shares with this API.
+`400 VALIDATION_FAILED` names its cause in `details.reason`: `too_short` (the coach, under
+15 words), `no_difference` (calibration, where the two scores agree or there is no
+counter-score), `empty_query` and `too_long` (search). An id that is not a UUID is a 400 too,
+before anything reaches this API. `503 AI_UNAVAILABLE` gives `timeout`, `upstream`,
+`refusal`, `invalid_reply`, `daily_cap` or `too_long` (a prompt over 100K tokens).
+
+A known cost: search reads one reflection detail from this API per submitted or assessed
+reflection on the caller's gigs, five at a time, because this API has no bulk read of
+narratives and ADR #64 keeps it unchanged for the sidecar. It is fine at a gig's scale and
+would want a bulk endpoint at a faculty's.
+
+A search result opens the reviewer's stepper at the entry it matched:
+`/review-queue/reflections/{reflection_id}?entry={entry_id}`.

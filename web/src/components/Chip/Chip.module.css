@@ -10,7 +10,10 @@
   border-radius: var(--radius-full);
   /* A fill rather than the source design's hairline border, so CAP-3 needs
      no border-width token -- that one lands with PR #16 (CAP-4). */
-  background: var(--color-surface-alt);
+  background: var(--color-control);
+  /* CAP-38 round 2d (ADR #54): a hairline inside the box, so an unselected
+     chip shows on a tint or a white card in light mode. */
+  box-shadow: var(--shadow-control);
   color: var(--color-text);
   font: inherit;
   font-size: var(--font-size-sm);
@@ -19,15 +22,8 @@
 }
 
 .selected {
+  box-shadow: none;
   background: var(--color-primary);
-  color: var(--color-text-inverse);
-}
-
-/* The assessor's own answer (CAP-13): the radar's counter-score colour, so
-   green means the assessor everywhere. Added beside .selected, which is
-   unchanged; approved by Patrick on PR #56. */
-.selected_counter {
-  background: var(--color-success);
   color: var(--color-text-inverse);
 }
 

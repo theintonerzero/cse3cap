@@ -52,9 +52,59 @@ Two things the picture is deliberately showing.
 - **The contract sits between the two halves, not inside either.** `schema.ts` is generated
   from it and the API's routes are compared against it in CI
   (`scripts/check-contract-drift.sh`, CAP-25). Neither side writes types for the other.
+- **The AI sidecar is beside the API, not inside it** (ADR #64). `ai/` is a Python service at
+  `/ai/v1` with its own contract and its own database, `diary_ai`. It reads the API with the
+  caller's own token and never writes to it, so authorisation keeps its one home in Laravel.
+  It is off unless `AI_ENABLED` is set, and the picture above is the whole product without it.
 - **The database is not on anyone's laptop.** Five people and the test suite's own schema
   share one MySQL on the VPS, and it refuses unencrypted connections. A missing CA reads as
   "Access denied", not as a TLS error (`docs/Runbook.md`).
+
+## The AI sidecar's data flow (HO-9, ADR #64)
+
+One reflection coach request, end to end, on the live demo. The other features take the same
+path to the sidecar and the same reads back to the API; similar reflections and search make
+no Claude call, and themes ask Claude once per gig per day.
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor S as Student (browser)
+  participant C as Caddy (gate)
+  participant W as web/ (React)
+  participant AI as diary-ai (sidecar)
+  participant API as diary-api (Laravel)
+  participant DB as diary_ai (MySQL)
+  participant M as Claude (Anthropic)
+
+  S->>W: opens a draft
+  W->>C: GET /ai/v1/status (Bearer token, gate cookie)
+  C->>AI: passes /ai/* on, the cookie checked
+  AI->>API: GET /auth/me (the same token)
+  API-->>AI: who is asking
+  AI-->>W: {"features": [...]}, once per session
+  S->>W: "Ask me questions"
+  W->>C: POST /ai/v1/reflections/{r}/entries/{e}/coach
+  C->>AI: (gated)
+  AI->>API: GET /auth/me, GET /reflections/{r}
+  API-->>AI: the reflection, only if this person may read it
+  Note over AI: own draft only, 15 words or more,<br/>never told the self-score
+  AI->>DB: rate limit for SHA-256(token)
+  AI->>API: GET /frameworks/{f}
+  AI->>M: count tokens
+  AI->>DB: reserve the worst case against US$5 a day
+  AI->>M: messages (narrative and descriptors as data, no names or ids)
+  M-->>AI: {"questions": [...]}
+  AI->>DB: settle what it cost, log usage
+  Note over AI: keep only questions, under 200 characters,<br/>naming no level, score or number
+  AI-->>W: {"questions": [...]}
+  W-->>S: the questions, plain text, AI badge
+```
+
+The sidecar never writes to the API and never sees a password, and stores no narrative,
+name or email: `diary_ai` holds vectors, usage, the day's spend, the short theme labels it
+caches per gig, and rate-limit counts. Switched off (`AI_ENABLED=false`, or no settings file), every `/ai/v1` route answers
+`404 AI_DISABLED` and the browser shows no AI element.
 
 ## The request path inside the API
 

@@ -19,6 +19,7 @@
  */
 import type { Page, Route } from '@playwright/test';
 
+import type { components as aiComponents } from '../src/api/ai-schema.ts';
 import type { components, paths } from '../src/api/schema.ts';
 
 export type FrameworkDetail = components['schemas']['FrameworkDetail'];
@@ -32,6 +33,7 @@ type Competency = components['schemas']['Competency'];
 type CompetencySummary = components['schemas']['CompetencySummary'];
 type Level = components['schemas']['Level'];
 type Me = components['schemas']['Me'];
+type Export = components['schemas']['Export'];
 type ErrorCode = components['schemas']['Error']['error']['code'];
 
 /** One request as the page sent it. Paths are relative to /api/v1. */
@@ -42,6 +44,19 @@ export interface Call {
   route: string;
   body: unknown;
 }
+
+type AiErrorCode = aiComponents['schemas']['Error']['error']['code'];
+
+/** A refusal from the AI sidecar, injected per route like Fault (ADR #42). */
+export type AiFault =
+  | {
+      kind: 'error';
+      status: number;
+      code: AiErrorCode;
+      message: string;
+      details?: Record<string, unknown>;
+    }
+  | { kind: 'network' };
 
 export type Fault =
   | { kind: 'error'; status: number; code: ErrorCode; message: string }
@@ -63,7 +78,18 @@ export class FakeApi {
   private readonly events: Record<string, ReflectionEvent[]>;
   private readonly faults = new Map<string, Fault[]>();
   private readonly holds = new Map<string, Promise<void>>();
+  /** Exports asked for in this test, by id (CAP-56). */
+  private readonly exports = new Map<string, Export>();
   private minted = 0;
+
+  // The AI sidecar (ADR #64). Off by default, as a deployment without it is:
+  // /ai/v1/status answers 404 AI_DISABLED and no AI element renders.
+  /** Every /ai/v1 request, in order. Kept apart so the product's guards are unchanged. */
+  readonly ai_calls: Call[] = [];
+  private ai_features: string[] | null = null;
+  private readonly ai_replies = new Map<string, unknown>();
+  private readonly ai_faults = new Map<string, AiFault[]>();
+  private readonly ai_holds = new Map<string, Promise<void>>();
 
   constructor(
     frameworks: FrameworkDetail[],
@@ -97,6 +123,34 @@ export class FakeApi {
     };
   }
 
+  /** Switches the sidecar on with these features (null: off). */
+  ai_status(features: string[] | null): void {
+    this.ai_features = features;
+  }
+
+  /** The body a sidecar route answers with, e.g. 'POST /reflections/:id/entries/:id/coach'. */
+  ai_reply(route: string, body: unknown): void {
+    this.ai_replies.set(route, body);
+  }
+
+  /** The next `times` requests to a sidecar route fail with `fault`. */
+  ai_fail(route: string, fault: AiFault, times = 1): void {
+    this.ai_faults.set(route, [
+      ...(this.ai_faults.get(route) ?? []),
+      ...Array(times).fill(fault),
+    ]);
+  }
+
+  /** Holds every response on a sidecar route until the returned function is called. */
+  ai_hold(route: string): () => void {
+    let release = () => {};
+    this.ai_holds.set(route, new Promise<void>((resolve) => (release = resolve)));
+    return () => {
+      this.ai_holds.delete(route);
+      release();
+    };
+  }
+
   /** The writes, in order: what a save actually sent. */
   writes(): Call[] {
     return this.calls.filter((call) => call.method !== 'GET');
@@ -116,6 +170,18 @@ export class FakeApi {
   }
 
   /**
+   * A gig takes this framework as its rubric server-side, mid-test, as if a
+   * supervisor assigned it in another tab. The page only sees it on its next
+   * GET. Staged data, not a rule: the refusal a delete meets after this is
+   * injected with fail(), and FrameworkDeletionTest holds the rule itself.
+   */
+  assign(framework_id: string): void {
+    const framework = this.frameworks.find((f) => f.id === framework_id);
+    if (!framework) throw new Error(`The fake has no framework ${framework_id}.`);
+    framework.assigned = true;
+  }
+
+  /**
    * Signs the page in with a placeholder, not a credential: the session
    * reads a slot from sessionStorage, and the fake answers /auth/me without
    * looking at the header.
@@ -129,6 +195,47 @@ export class FakeApi {
       sessionStorage.setItem('reflection-diary-active-slot', 'supervisor');
     });
     await page.route('**/api/v1/**', (route) => this.handle(route));
+    await page.route('**/ai/v1/**', (route) => this.handle_ai(route));
+  }
+
+  private async handle_ai(route: Route): Promise<void> {
+    const request = route.request();
+    const path = new URL(request.url()).pathname.replace(/^\/ai\/v1/, '');
+    const method = request.method();
+    const key = `${method} ${path.replace(UUID, ':id')}`;
+    this.ai_calls.push({ method, path, route: key, body: null });
+
+    const held = this.ai_holds.get(key);
+    if (held) await held;
+
+    const fault = this.ai_faults.get(key)?.shift();
+    if (fault?.kind === 'network') return route.abort('failed');
+    if (fault) {
+      return reply(route, fault.status, {
+        error: { code: fault.code, message: fault.message, details: fault.details ?? {} },
+      });
+    }
+
+    if (this.ai_features === null) {
+      return reply(route, 404, {
+        error: {
+          code: 'AI_DISABLED',
+          message: 'AI features are switched off.',
+          details: {},
+        },
+      });
+    }
+    if (key === 'GET /status') return reply(route, 200, { features: this.ai_features });
+    if (this.ai_replies.has(key)) return reply(route, 200, this.ai_replies.get(key));
+
+    this.unexpected.push(`AI ${key}`);
+    return reply(route, 404, {
+      error: {
+        code: 'NOT_FOUND',
+        message: 'The fake serves no such AI route.',
+        details: {},
+      },
+    });
   }
 
   private async handle(route: Route): Promise<void> {
@@ -185,6 +292,45 @@ export class FakeApi {
     // base for review-queue-error and review-queue-loading, both of which
     // intercept above via fault()/hold() before this line is ever reached.
     if (key === 'GET /review-queue') return reply(route, 200, []);
+
+    // CAP-56: an export, in the shape ExportController returns. It is built
+    // at once (the backend's sync queue does the same, ADR #30); whether a
+    // caller may export, and building the file, are the backend's, tested in
+    // api/tests. A test that needs a failed build asks for it with fail().
+    if (key === 'POST /exports') {
+      const { format, reflection_id = null } = body as {
+        format: 'json' | 'pdf';
+        reflection_id?: string | null;
+      };
+      const made = export_of(format, reflection_id);
+      this.exports.set(made.id, made);
+      return reply(route, 202, made);
+    }
+
+    if (key === 'GET /exports/:id') {
+      const found = this.exports.get(id);
+      return found
+        ? reply(route, 200, found)
+        : reply(route, 404, envelope('NOT_FOUND', 'No such resource, or it is not yours.'));
+    }
+
+    if (key === 'GET /exports/:id/download') {
+      const found = this.exports.get(id);
+      if (!found)
+        return reply(
+          route,
+          404,
+          envelope('NOT_FOUND', 'No such resource, or it is not yours.'),
+        );
+      return route.fulfill({
+        status: 200,
+        contentType: found.format === 'pdf' ? 'application/pdf' : 'application/json',
+        headers: {
+          'Content-Disposition': `attachment; filename=reflection-diary-${found.id}.${found.format}`,
+        },
+        body: found.format === 'pdf' ? '%PDF-1.4\n%fake\n' : '{}',
+      });
+    }
 
     if (key === 'GET /reflections') {
       // ReflectionController::index only applies the gig_id filter when the
@@ -278,11 +424,80 @@ export class FakeApi {
       return reply(route, 201, copy);
     }
 
+    // Round 3 E2: the Frameworks sheet assigns. Shape only, no rule: the
+    // one-rubric-per-gig 409 is injected with fail() where a spec wants it.
+    if (key === 'POST /framework-assignments') {
+      const { gig_id, framework_id } = body as { gig_id: string; framework_id: string };
+      return reply(route, 201, {
+        id: this.mint(),
+        gig_id,
+        framework_id,
+        assigned_by: this.me.id,
+        assigned_at: '2026-10-05T00:00:00.000000Z',
+      });
+    }
+
     if (key === 'PATCH /frameworks/:id') {
       const framework = this.frameworks.find((f) => f.id === id);
       if (!framework) return reply(route, 404, envelope('NOT_FOUND', 'Not found.'));
       Object.assign(framework, body);
       return reply(route, 200, framework);
+    }
+
+    // CAP-50: shape only. Who may delete and the never-assigned rule are
+    // FrameworkPolicy's and FrameworkEditing's; a spec that wants the 403 or
+    // the 409 asks for it with fail().
+    if (key === 'DELETE /frameworks/:id') {
+      const at = this.frameworks.findIndex((f) => f.id === id);
+      if (at === -1) return reply(route, 404, envelope('NOT_FOUND', 'Not found.'));
+      this.frameworks.splice(at, 1);
+      return route.fulfill({ status: 204 });
+    }
+
+    // A self-score. Shape only: who may score, and when, is the API's rule.
+    if (key === 'PUT /entries/:id/scores/self') {
+      const { level_id } = body as { level_id: string };
+      for (const reflection of this.reflections) {
+        if (!('entries' in reflection)) continue;
+        const entry = reflection.entries.find((e) => e.id === id);
+        if (!entry) continue;
+        const level = this.frameworks
+          .flatMap((f) => f.competencies)
+          .flatMap((c) => c.levels)
+          .find((l) => l.id === level_id);
+        const score = {
+          id: this.mint(),
+          reflection_entry_id: entry.id,
+          scorer_role: 'student' as const,
+          scorer_class: 'self' as const,
+          level_id,
+          level_value: level?.level_value ?? 0,
+          comment: null,
+          scored_at: '2026-10-05T00:00:00.000000Z',
+          scorer: { id: this.me.id, display_name: this.me.display_name },
+        };
+        entry.scores = [...entry.scores.filter((s) => s.scorer_class !== 'self'), score];
+        return reply(route, 200, score);
+      }
+      return reply(route, 404, envelope('NOT_FOUND', 'Not found.'));
+    }
+
+    // Saving a narrative. Shape only: the stepper's draft-only rule is the API's.
+    if (key === 'PATCH /entries/:id') {
+      for (const reflection of this.reflections) {
+        if (!('entries' in reflection)) continue;
+        const entry = reflection.entries.find((e) => e.id === id);
+        if (!entry) continue;
+        entry.narrative = (body as { narrative: string | null }).narrative;
+        return reply(route, 200, {
+          id: entry.id,
+          reflection_id: reflection.id,
+          competency_id: entry.competency_id,
+          narrative: entry.narrative,
+          updated_at: '2026-10-05T00:00:00.000000Z',
+        });
+      }
+      return reply(route, 404, envelope('NOT_FOUND', 'Not found.'));
     }
 
     if (key === 'PATCH /competencies/:id') {
@@ -328,6 +543,7 @@ export class FakeApi {
       name: name.trim(),
       created_by: this.me.id,
       in_use: false,
+      assigned: false,
       competencies: base.competencies.map((competency): Competency => ({
         ...structuredClone(competency),
         id: this.mint(),
@@ -344,14 +560,32 @@ export class FakeApi {
 }
 
 /** A list row is the summary: the detail's owner and entries are not in it. */
+let exports_made = 0;
+
+/** A finished export, as ExportController returns it once BuildExport ran. */
+function export_of(format: Export['format'], reflection_id: string | null): Export {
+  exports_made += 1;
+  const id = `eeee${String(exports_made).padStart(4, '0')}-0000-4eee-8eee-eeeeeeeeeeee`;
+  return {
+    id,
+    format,
+    status: 'complete',
+    reflection_id,
+    summary: { reflections: 1, sprints: 1, scores: 6, files: 0 },
+    requested_at: '2026-10-09T01:00:00Z',
+    completed_at: '2026-10-09T01:00:01Z',
+    uri: `exports/e2e/${id}.${format}`,
+  };
+}
+
 function summary_of(reflection: ReflectionSummary | ReflectionDetail): ReflectionSummary {
   const { owner: _owner, entries: _entries, ...rest } = reflection as ReflectionDetail;
   return rest;
 }
 
 function summary(detail: FrameworkDetail): Framework {
-  const { id, fw_key, version, name, created_by, in_use } = detail;
-  return { id, fw_key, version, name, is_active: true, created_by, in_use };
+  const { id, fw_key, version, name, created_by, in_use, assigned } = detail;
+  return { id, fw_key, version, name, is_active: true, created_by, in_use, assigned };
 }
 
 function envelope(code: ErrorCode, message: string): components['schemas']['Error'] {

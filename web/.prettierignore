@@ -5,3 +5,4 @@ package-lock.json
 # Generated from docs/openapi.yaml by npm run gen:types. Never hand-edited,
 # so it is not hand-formatted either: regenerating must leave the tree clean.
 src/api/schema.ts
+src/api/ai-schema.ts

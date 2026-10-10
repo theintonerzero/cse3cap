@@ -24,8 +24,8 @@
  * reflects what the POST returns, including the flip to assessed, and
  * never triggers anything itself. It adds no styles of its own: every
  * class it uses already existed for CAP-11, so both modes look the same.
- * The one visual difference is the assessor's chips, which use Chip's
- * tone="counter" (the radar's counter-score green).
+ * The one visual difference is the assessor's scale, which uses
+ * LevelScale's tone="counter" (the radar's counter-score green).
  *
  * Evidence files are never given a link here. The contract's
  * /evidence/{evidence_id} only deletes -- there is no endpoint that serves
@@ -35,15 +35,16 @@
  * item gets an <a>, and it carries rel="noopener noreferrer" per the same
  * comment.
  */
-import { useCallback, useEffect, useState } from 'react';
-import type { ChangeEvent, FormEvent, ReactNode } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { ChangeEvent, FormEvent, ReactNode, SetStateAction } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router';
 
 import { api, ApiError } from '../api/client.ts';
 import {
   Badge,
+  BottomSheet,
   Button,
-  Chip,
+  LevelScale,
   ErrorNotice,
   ProgressBar,
   Skeleton,
@@ -53,7 +54,13 @@ import {
 // The design system's own text box, borrowed by class rather than by
 // component: TextArea autosaves, and a counter-score comment must travel
 // once, with its level, in the POST. Same look, no new styles.
+import button_styles from '../components/Button/Button.module.css';
 import text_area_styles from '../components/TextArea/TextArea.module.css';
+import { calibration_reviewer } from '../ai/calibration.ts';
+import { CalibrationPanel } from '../ai/CalibrationPanel.tsx';
+import { CoachPanel } from '../ai/CoachPanel.tsx';
+import { RelatedDisclosure } from '../ai/RelatedDisclosure.tsx';
+import { useAiStatus } from '../ai/useAiStatus.ts';
 import { useSession } from '../session/useSession.ts';
 import type { SessionUser } from '../session/useSession.ts';
 import {
@@ -61,6 +68,7 @@ import {
   comment_expected,
   counter_score_failure,
   counter_scores_of,
+  done_count,
   EMPTY_DRAFT,
   first_offending_index,
   first_unscored_index,
@@ -71,14 +79,24 @@ import {
   my_counter_score_of,
   scored_by_count,
   self_score_of,
+  type ReflectionScore,
 } from './entry-stepper-logic.ts';
+import {
+  kept_as_drafts,
+  read_kept,
+  settle_kept,
+  write_kept,
+  type KeptDraft,
+} from './counter-drafts.ts';
 import type {
   CounterDraft,
+  SaveAllGap,
   FrameworkDetail,
   ReflectionDetail,
   ReflectionEntry,
   ReflectionStatus,
 } from './entry-stepper-logic.ts';
+import { sprint_dates, type DatedSprint } from './gig-timing.ts';
 import styles from './EntryStepper.module.css';
 
 /**
@@ -89,6 +107,16 @@ import styles from './EntryStepper.module.css';
  *          read-only; the level picker is the scorer's own.
  */
 type StepperMode = 'student' | 'assessor';
+
+/** How long the arrow keys must rest on a level before it is saved (CAP-66). */
+const KEY_SETTLE_MS = 500;
+
+/** "A and B", "A, B and C": names a shared scale by who is on it. */
+function list_of(parts: string[]): string {
+  return parts.length < 2
+    ? (parts[0] ?? '')
+    : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+}
 
 type Load =
   | { status: 'loading' }
@@ -112,9 +140,34 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
   const navigate = useNavigate();
   const { me } = useSession();
   const me_id = me?.id ?? null;
+  // ADR #64: which AI features this deployment serves, asked once per session.
+  // Null (off, unreachable, or this build has no sidecar) renders no AI element.
+  const ai_features = useAiStatus();
   const [load, setLoad] = useState<Load>({ status: 'loading' });
   const [reload_key, setReloadKey] = useState(0);
   const [step, setStep] = useState(0);
+  const [search_params] = useSearchParams();
+  const wanted_entry = search_params.get('entry');
+
+  // Back and Next move to another competency, and two
+  // competencies' chips can look nearly the same. So a move goes to the
+  // top and puts focus on the new competency's name, which a screen reader
+  // then reads out (round 2b). Opening the page or saving does not.
+  // A count of moves rather than a flag: a flag left set would make a
+  // later save's step change move focus.
+  const [moves, setMoves] = useState(0);
+  const go_to_step = useCallback((next: SetStateAction<number>) => {
+    setStep(next);
+    setMoves((count) => count + 1);
+  }, []);
+  useEffect(() => {
+    if (moves === 0) return;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
+    document
+      .querySelector<HTMLElement>('[data-competency-name]')
+      ?.focus({ preventScroll: true });
+  }, [moves]);
   const [offending, setOffending] = useState<readonly string[] | null>(null);
   const [submit_error, setSubmitError] = useState<ApiError | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -127,28 +180,18 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
   // The assessor's unsaved picks, per entry id (see CounterDraft). Held
   // here, not in the panel, so skipping a step does not throw them away.
   const [drafts, setDrafts] = useState<Record<string, CounterDraft>>({});
-  // Set once "Save all scores" has been pressed: from then the list of what
-  // is still missing shows, and stays current as the assessor fills it in.
-  const [save_all_tried, setSaveAllTried] = useState(false);
-  const heading = mode === 'assessor' ? 'Score reflection' : 'Reflection';
-
-  // An obvious way out of the assessor screen from any step, and from its
-  // error and empty states, without saving or stepping back through every
-  // competency (Patrick, PR #56). Held while a save is in flight, so that
-  // save's error is not lost with the screen.
-  const exit_to_queue =
-    mode === 'assessor' ? (
-      <div className={styles.status_row}>
-        <Button
-          variant="secondary"
-          full_width={false}
-          disabled={counter_saving}
-          on_click={() => navigate('/review-queue')}
-        >
-          ← Back to the review queue
-        </Button>
-      </div>
-    ) : null;
+  // Whose kept work has been read back (`${me_id}:${reflection_id}`), so
+  // nothing is written over it before it has been (round 3, ADR #57).
+  const restored = useRef<string | null>(null);
+  // What "Submit scores" found missing, shown in a pop-up until "Okay",
+  // which goes to the first of them (round 3, Patrick 2026-10-05).
+  const [missing, setMissing] = useState<SaveAllGap[] | null>(null);
+  // The gig, for the heading: its title, and its sprints, because the
+  // reflection detail leaves sprint_ordinal out (the API loads the sprint
+  // only for lists). A second, optional read; the screen works without it.
+  const [gig, setGig] = useState<HeadingGig | null>(null);
+  const heading = stepper_heading(mode, load, gig);
+  const dates = sprint_window(load, gig);
 
   useEffect(() => {
     if (!reflection_id) return;
@@ -167,10 +210,33 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
           })
           .then((framework) => {
             setLoad({ status: 'loaded', reflection, framework });
+            if (reflection.gig_id) {
+              api
+                .get('/gigs/{gig_id}', {
+                  path: { gig_id: reflection.gig_id },
+                  signal: controller.signal,
+                })
+                .then((detail) => setGig({ title: detail.title, sprints: detail.sprints }))
+                // Without the title the heading still names the sprint.
+                .catch(() => undefined);
+            }
             // An assessor lands on the first entry they still owe a score,
             // so a part-scored reflection does not reopen on finished work.
             if (mode === 'assessor' && me_id) {
-              setStep(first_unscored_index(reflection.entries, me_id));
+              // A search result names the competency it matched (ADR #64);
+              // otherwise the first one still owed.
+              const named = reflection.entries.findIndex((e) => e.id === wanted_entry);
+              setStep(named >= 0 ? named : first_unscored_index(reflection.entries, me_id));
+              // Unfinished work kept on this device comes back with the
+              // reflection (round 3, ADR #57). What's on screen wins.
+              const kept = kept_as_drafts(
+                reflection.entries,
+                framework,
+                read_kept(me_id, reflection.id),
+                me_id,
+              );
+              setDrafts((current) => ({ ...kept, ...current }));
+              restored.current = `${me_id}:${reflection.id}`;
             }
           }),
       )
@@ -183,7 +249,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
       });
 
     return () => controller.abort();
-  }, [reflection_id, reload_key, mode, me_id]);
+  }, [reflection_id, reload_key, mode, me_id, wanted_entry]);
 
   const retry = useCallback(() => {
     setLoad({ status: 'loading' });
@@ -251,8 +317,39 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
     }));
   }, []);
 
-  // One counter-score, POSTed. The single Save and "Save all scores" both
-  // come through here, so a score is sent from one place only. Resolves
+  // Every change is kept on this device, once the kept work has been read
+  // back. A score sent is dropped from drafts, so the last one sent clears
+  // the key.
+  useEffect(() => {
+    if (mode !== 'assessor' || !me_id || !reflection_id) return;
+    if (restored.current !== `${me_id}:${reflection_id}`) return;
+    // Which are ready to send, for the review queue's Entries bar.
+    const waiting = new Set(
+      load.status === 'loaded'
+        ? missing_before_save_all(
+            load.reflection.entries,
+            load.framework,
+            drafts,
+            me_id,
+          ).map((gap) => gap.entry.id)
+        : [],
+    );
+    const kept: Record<string, KeptDraft> = {};
+    for (const [entry_id, draft] of Object.entries(drafts)) {
+      if (draft.level_id !== null || draft.comment.trim() !== '') {
+        kept[entry_id] = {
+          level_id: draft.level_id,
+          comment: draft.comment,
+          // A score the server refused isn't ready, until it is sent again.
+          done: load.status === 'loaded' && !waiting.has(entry_id) && draft.error === null,
+        };
+      }
+    }
+    write_kept(me_id, reflection_id, kept);
+  }, [mode, me_id, reflection_id, drafts, load]);
+
+  // One counter-score, POSTed. "Submit scores" sends each through here, so
+  // a score is sent from one place only. Resolves
   // true when the server took it; on failure the message goes into that
   // entry's draft, where the panel shows it.
   const save_entry = async (
@@ -286,6 +383,9 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
         reflection_status,
         completed_the_reflection,
       );
+      // Kept work says so now, not from the effect below, which stops
+      // running if the reviewer has left mid-way through Submit scores.
+      if (reflection_id) settle_kept(me.id, reflection_id, entry.id, true);
       setDrafts((current) => {
         const next = { ...current };
         delete next[entry.id];
@@ -295,6 +395,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
     } catch (caught) {
       const api_error = as_api_error(caught, 'Could not save that score.');
       const failure = counter_score_failure(api_error.code);
+      if (reflection_id) settle_kept(me.id, reflection_id, entry.id, false);
       update_draft(entry.id, {
         error: api_error.message,
         comment_forced: draft.comment_forced || failure === 'comment',
@@ -304,16 +405,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
     }
   };
 
-  const save_one = async (entry: ReflectionEntry) => {
-    setCounterSaving(true);
-    try {
-      await save_entry(entry, drafts[entry.id] ?? EMPTY_DRAFT);
-    } finally {
-      setCounterSaving(false);
-    }
-  };
-
-  // "Save all scores": nothing is sent until every competency the caller
+  // "Submit scores": nothing is sent until every competency the caller
   // has not scored has what it needs (missing_before_save_all). Then each
   // is POSTed in rubric order, one at a time. The first failure stops the
   // run on that competency, with its message. Scores already sent stay
@@ -321,11 +413,14 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
   const save_all = async () => {
     if (load.status !== 'loaded' || !me) return;
     const { reflection: current_reflection, framework } = load;
-    setSaveAllTried(true);
-    if (
-      missing_before_save_all(current_reflection.entries, framework, drafts, me.id).length >
-      0
-    ) {
+    const gaps = missing_before_save_all(
+      current_reflection.entries,
+      framework,
+      drafts,
+      me.id,
+    );
+    if (gaps.length > 0) {
+      setMissing(gaps);
       return;
     }
 
@@ -372,8 +467,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
 
   if (load.status === 'loading') {
     return (
-      <section>
-        {exit_to_queue}
+      <section className={styles.page}>
         <h1 className={styles.heading}>{heading}</h1>
         <LoadingState />
       </section>
@@ -382,8 +476,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
 
   if (load.status === 'error') {
     return (
-      <section>
-        {exit_to_queue}
+      <section className={styles.page}>
         <h1 className={styles.heading}>{heading}</h1>
         <ErrorNotice error={load.error} on_retry={retry} />
       </section>
@@ -399,8 +492,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
     // itself has none -- a broken rubric, not a normal path. Still one of
     // this screen's four states rather than a blank crash.
     return (
-      <section>
-        {exit_to_queue}
+      <section className={styles.page}>
         <h1 className={styles.heading}>{heading}</h1>
         <div className={styles.empty}>
           <p className={styles.empty_title}>Nothing to reflect on.</p>
@@ -424,15 +516,11 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
   const current = entries[current_index];
   const scoring_open = mode === 'assessor' && reflection.status === 'submitted';
   const left_to_score = me_id ? entries.length - scored_by_count(entries, me_id) : 0;
-  const save_all_gaps =
-    scoring_open && save_all_tried && me_id
-      ? missing_before_save_all(entries, load.framework, drafts, me_id)
-      : [];
 
   return (
-    <section>
-      {exit_to_queue}
+    <section className={styles.page}>
       <h1 className={styles.heading}>{heading}</h1>
+      {dates && <p className={styles.sprint_dates}>{dates}</p>}
       <div className={styles.status_row}>
         {/* The student's status matters to the student. An assessor only
             ever scores submitted work, so on their screen the badge would
@@ -445,8 +533,8 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
             {me_id && (
               <>
                 {' '}
-                &middot; you have scored {scored_by_count(entries, me_id)} of{' '}
-                {entries.length}
+                &middot; you have scored{' '}
+                {done_count(entries, load.framework, drafts, me_id)} of {entries.length}
               </>
             )}
           </p>
@@ -491,7 +579,14 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
         </div>
       )}
 
-      <ProgressBar current={current_index + 1} total={entries.length} label="Competency" />
+      {/* Its own space below, as every block on this page has (CAP-61). */}
+      <div className={styles.progress}>
+        <ProgressBar
+          current={current_index + 1}
+          total={entries.length}
+          label="Competency"
+        />
+      </div>
 
       <EntryCard
         key={current.id}
@@ -503,6 +598,19 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
         mode={mode}
         owner_name={reflection.owner.display_name}
         viewer_id={me_id}
+        viewer_is_owner={is_owner}
+        coach_reflection_id={!read_only && ai_features?.has('coach') ? reflection.id : null}
+        related_reflection_id={
+          !read_only && ai_features?.has('related') ? reflection.id : null
+        }
+        calibration_reflection_id={
+          mode !== 'assessor' &&
+          is_owner &&
+          reflection.status === 'assessed' &&
+          ai_features?.has('calibration')
+            ? reflection.id
+            : null
+        }
       >
         {mode === 'assessor' && me && (
           <CounterScorePanel
@@ -514,7 +622,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
             draft={drafts[current.id] ?? EMPTY_DRAFT}
             saving={counter_saving}
             on_draft={(patch) => update_draft(current.id, patch)}
-            on_save={() => void save_one(current)}
+            owner_name={reflection.owner.display_name}
           />
         )}
       </EntryCard>
@@ -525,42 +633,6 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
         </p>
       )}
 
-      {/* What "Save all scores" is still waiting on, next to the button
-          that asked, in the screen's own notice block. It stays current as
-          the assessor fills things in, and disappears once nothing is
-          missing. */}
-      {save_all_gaps.length > 0 && (
-        <div className={styles.evidence_add}>
-          <div className={styles.empty} role="alert">
-            <p className={styles.empty_title}>Nearly there.</p>
-            <p className={styles.empty_body}>
-              {save_all_gaps.length === 1
-                ? 'Save all is waiting on one competency, so nothing was sent:'
-                : `Save all is waiting on ${save_all_gaps.length} competencies, so nothing was sent:`}
-            </p>
-            <ul className={styles.evidence_list}>
-              {save_all_gaps.map((gap) => (
-                <li key={gap.entry.id} className={styles.evidence_row}>
-                  <span>
-                    {gap.entry.competency_name} ({gap.index + 1} of {entries.length}){' '}
-                    {gap.needs === 'score'
-                      ? 'still needs a score.'
-                      : 'needs a comment to go with its score.'}
-                  </span>
-                  <Button
-                    variant="secondary"
-                    full_width={false}
-                    on_click={() => setStep(gap.index)}
-                  >
-                    Go to {gap.entry.competency_name}
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      )}
-
       {/* Navigation waits for an in-flight counter-score: stepping away
           would unmount the panel and lose the error it is about to show. */}
       <div className={styles.nav}>
@@ -568,7 +640,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
           variant="secondary"
           full_width={false}
           disabled={current_index === 0 || counter_saving}
-          on_click={() => setStep((s) => Math.max(0, s - 1))}
+          on_click={() => go_to_step((s) => Math.max(0, s - 1))}
         >
           Back
         </Button>
@@ -577,7 +649,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
           <Button
             full_width={false}
             disabled={counter_saving}
-            on_click={() => setStep((s) => s + 1)}
+            on_click={() => go_to_step((s) => s + 1)}
           >
             Next
           </Button>
@@ -587,7 +659,7 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
             disabled={counter_saving}
             on_click={() => void save_all()}
           >
-            {saving_all ? 'Saving all…' : 'Save all scores'}
+            {saving_all ? 'Submitting…' : 'Submit scores'}
           </Button>
         ) : mode === 'assessor' ? (
           <Button
@@ -605,6 +677,38 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
           )
         )}
       </div>
+
+      {/* What "Submit scores" is still waiting on, as a pop-up rather than a
+          card under the button, which on a phone is off-screen (round 3,
+          Patrick 2026-10-05). Nothing was sent. "Okay" goes to the first
+          gap in rubric order, at its top with focus on its name, the way
+          Back and Next arrive. Any other close just closes. */}
+      <BottomSheet
+        open={missing !== null}
+        title="Some scores are missing"
+        onClose={() => setMissing(null)}
+      >
+        <p className={styles.missing_lead}>Nothing was sent. Still to do:</p>
+        <ul className={styles.missing_list}>
+          {missing?.map((gap) => (
+            <li key={gap.entry.id}>
+              {gap.entry.competency_name} ({gap.index + 1} of {entries.length}){' '}
+              {gap.needs === 'score'
+                ? 'still needs a score.'
+                : 'needs a comment to go with its score.'}
+            </li>
+          ))}
+        </ul>
+        <Button
+          on_click={() => {
+            const first = missing?.[0]?.index ?? current_index;
+            setMissing(null);
+            go_to_step(first);
+          }}
+        >
+          Okay
+        </Button>
+      </BottomSheet>
     </section>
   );
 }
@@ -613,8 +717,10 @@ export function EntryStepper({ mode = 'student' }: { mode?: StepperMode }) {
 function LoadingState() {
   return (
     <SkeletonGroup label="Loading this reflection">
-      <Skeleton variant="block" width="100%" height="var(--space-32)" />
-      <Skeleton variant="block" width="100%" height="12rem" />
+      <div className={styles.loading}>
+        <Skeleton variant="block" width="100%" height="var(--space-32)" />
+        <Skeleton variant="block" width="100%" height="12rem" />
+      </div>
     </SkeletonGroup>
   );
 }
@@ -635,6 +741,10 @@ function EntryCard({
   mode,
   owner_name,
   viewer_id = null,
+  coach_reflection_id = null,
+  viewer_is_owner = true,
+  related_reflection_id = null,
+  calibration_reflection_id = null,
   children,
 }: {
   entry: ReflectionEntry;
@@ -646,12 +756,25 @@ function EntryCard({
   owner_name: string;
   /** Who is looking, so assessor mode can leave their own score to the panel. */
   viewer_id?: string | null;
+  /** Whether the person reading is the student whose card this is. */
+  viewer_is_owner?: boolean;
+  /** ADR #64: the reflection to coach on, when this card may show the coach. */
+  coach_reflection_id?: string | null;
+  /** ADR #64: the reflection to find earlier, similar entries for, when shown. */
+  related_reflection_id?: string | null;
+  /** ADR #64: the assessed reflection to ask calibration questions about, when shown. */
+  calibration_reflection_id?: string | null;
   /** The assessor's own score, last in the card so it reads after the evidence. */
   children?: ReactNode;
 }) {
   const self_label = mode === 'assessor' ? `${owner_name}'s self-score` : 'Self-score';
   const [narrative_error, setNarrativeError] = useState<string | null>(null);
   const [score_error, setScoreError] = useState<string | null>(null);
+  // What Laravel holds, which is what the sidecar reads: the coach waits for
+  // it to match the screen, and similar reflections are looked up again when
+  // it changes, not on every keystroke.
+  const [saved_narrative, setSavedNarrative] = useState(entry.narrative ?? '');
+  const calibration_with = calibration_reflection_id ? calibration_reviewer(entry) : null;
   const levels = levels_for(framework, entry.competency_id);
   const self_score = self_score_of(entry);
 
@@ -667,6 +790,7 @@ function EntryCard({
           path: { entry_id: entry.id },
           body: { narrative: value },
         });
+        setSavedNarrative(value);
       } catch (error) {
         const api_error = as_api_error(error, 'Could not save that.');
         setNarrativeError(api_error.message);
@@ -676,21 +800,65 @@ function EntryCard({
     [entry.id],
   );
 
-  const choose_level = useCallback(
+  // CAP-66: the scale shows a choice at once. A tap saves at once; arrow keys
+  // save once they stop, so stepping from 1 to 4 sends one save, not three.
+  const [pending_level, setPendingLevel] = useState<string | null>(null);
+  const settle = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // A keyboard choice not yet sent. Leaving the scale or the card sends it
+  // now rather than dropping it: a student who arrows to a level and presses
+  // Next or Submit at once still has that level saved.
+  const waiting = useRef<string | null>(null);
+  // Only the latest save's answer counts: two answered out of order must not
+  // leave the scale, or an error, showing the earlier one.
+  const save_seq = useRef(0);
+  const save_level = useCallback(
     async (level_id: string) => {
+      const seq = ++save_seq.current;
       setScoreError(null);
       try {
         const score = await api.put('/entries/{entry_id}/scores/self', {
           path: { entry_id: entry.id },
           body: { level_id },
         });
+        if (seq !== save_seq.current) return;
         const others = entry.scores.filter((existing) => existing.scorer_class !== 'self');
         on_change({ ...entry, scores: [...others, score] });
       } catch (error) {
+        if (seq !== save_seq.current) return;
         setScoreError(as_api_error(error, 'Could not save that score.').message);
+      } finally {
+        // The scale shows what was saved from here on, or what was there before.
+        setPendingLevel((pending) => (pending === level_id ? null : pending));
       }
     },
     [entry, on_change],
+  );
+
+  const flush = useCallback(() => {
+    clearTimeout(settle.current);
+    const level_id = waiting.current;
+    waiting.current = null;
+    if (level_id) void save_level(level_id);
+  }, [save_level]);
+  const flush_latest = useRef(flush);
+  useEffect(() => {
+    flush_latest.current = flush;
+  }, [flush]);
+  useEffect(() => () => flush_latest.current(), []);
+
+  const choose_level = useCallback(
+    (level_id: string, how: 'pointer' | 'key') => {
+      clearTimeout(settle.current);
+      setPendingLevel(level_id);
+      if (how === 'pointer') {
+        waiting.current = null;
+        void save_level(level_id);
+      } else {
+        waiting.current = level_id;
+        settle.current = setTimeout(flush, KEY_SETTLE_MS);
+      }
+    },
+    [save_level, flush],
   );
 
   const narrative = (
@@ -711,58 +879,149 @@ function EntryCard({
     </>
   );
 
+  // Everyone else's score on this entry, oldest first. In assessor mode the
+  // viewer's own is shown by the panel instead, so it is left out here.
+  const counters = read_only
+    ? counter_scores_of(entry)
+        .filter((score) => mode !== 'assessor' || score.scorer?.id !== viewer_id)
+        .sort((a, b) => a.scored_at.localeCompare(b.scored_at))
+    : [];
+  // CAP-66: on the student's own read-only card, their score and the
+  // reviewers' share one scale (ADR #65), where they used to be two lists.
+  const shared = mode !== 'assessor' && counters.length > 0;
+  const name_of = (score: ReflectionScore) => score.scorer?.display_name ?? 'Counter-score';
+
   const self_score_row = (
     <div className={styles.levels}>
-      <p className={styles.field_label}>{self_label}</p>
-      <div className={styles.level_row} role="group" aria-label={self_label}>
-        {levels.map((level) => (
-          <Chip
-            key={level.id}
-            selected={self_score?.level_id === level.id}
-            disabled={read_only}
-            on_click={() => choose_level(level.id)}
-          >
-            {level.level_value} &middot; {level.descriptor}
-          </Chip>
-        ))}
-      </div>
+      {shared ? (
+        <LevelScale
+          label={list_of([
+            viewer_is_owner ? 'Your score' : `${owner_name}'s score`,
+            ...counters.map((score) => `${name_of(score)}'s`),
+          ])}
+          levels={levels}
+          marks={[
+            ...(self_score
+              ? [
+                  {
+                    level_id: self_score.level_id,
+                    // Someone else reading the student's card is not "you".
+                    who: viewer_is_owner ? 'You' : owner_name,
+                    tone: 'primary' as const,
+                  },
+                ]
+              : []),
+            ...counters.map((score) => ({
+              level_id: score.level_id,
+              who: name_of(score),
+              tone: 'counter' as const,
+            })),
+          ]}
+        />
+      ) : (
+        <LevelScale
+          label={self_label}
+          levels={levels}
+          value={pending_level ?? self_score?.level_id ?? null}
+          on_change={read_only ? undefined : choose_level}
+          on_leave={flush}
+        />
+      )}
       {score_error && (
         <p className={styles.field_error} role="alert">
           {score_error}
         </p>
       )}
-      {read_only &&
-        counter_scores_of(entry)
-          // In assessor mode the viewer's own score is shown by the panel
-          // as greyed chips, so it is not repeated here as a text line.
-          .filter((score) => mode !== 'assessor' || score.scorer?.id !== viewer_id)
-          .map((score) => (
-            <p key={score.id} className={styles.counter_score}>
-              {score.scorer?.display_name ?? 'Counter-score'}: level {score.level_value}
-              {score.comment && <> &mdash; &ldquo;{score.comment}&rdquo;</>}
-            </p>
-          ))}
     </div>
+  );
+
+  // The counter-scores, each with its comment, read-only. Their own block
+  // now, after the narrative, so each person's score sits beside their own
+  // words (round 2b).
+  const comment_of = (score: ReflectionScore) => {
+    if (!score.comment) return null;
+    const comment_id = `counter-comment-${score.id}`;
+    return (
+      <div key={comment_id} className={text_area_styles.field}>
+        <label className={text_area_styles.label} htmlFor={comment_id}>
+          {name_of(score)}'s comment
+        </label>
+        <textarea
+          id={comment_id}
+          className={text_area_styles.textarea}
+          value={score.comment}
+          disabled
+          readOnly
+        />
+      </div>
+    );
+  };
+
+  const counter_scores = shared ? (
+    // The scores are on the shared scale above; what follows the reflection
+    // is each reviewer's comment, the words behind their score.
+    counters.some((score) => score.comment) && (
+      <div className={styles.counter_block}>{counters.map(comment_of)}</div>
+    )
+  ) : (
+    <>
+      {counters.map((score) => {
+        // The way the assessor sees another reviewer's saved score (Patrick,
+        // PR #56): the score on its own scale in the counter-score green, and
+        // the comment in its box, read-only (CAP-38, CAP-66).
+        const who = `${name_of(score)}'s`;
+        return (
+          <div key={score.id} className={styles.counter_block}>
+            <LevelScale
+              label={`${who} score`}
+              levels={levels}
+              tone="counter"
+              value={score.level_id}
+            />
+            {comment_of(score)}
+          </div>
+        );
+      })}
+    </>
   );
 
   return (
     <div className={offending ? `${styles.card} ${styles.card_offending}` : styles.card}>
-      <p className={styles.competency_name}>{entry.competency_name}</p>
+      {/* Focus lands here after Back or Next (tabIndex -1: focusable by
+          script, not a Tab stop). */}
+      <p className={styles.competency_name} data-competency-name tabIndex={-1}>
+        {entry.competency_name}
+      </p>
 
-      {/* A student writes before they score, so their own screen leads with
-          the narrative (CAP-11). An assessor reads both answers the same
-          way -- score chips, then the words behind them -- so the student's
-          half matches the assessor's half below it (Patrick, PR #56). */}
-      {mode === 'assessor' ? (
-        <>
-          {self_score_row}
-          {narrative}
-        </>
-      ) : (
-        <>
-          {narrative}
-          {self_score_row}
-        </>
+      {/* Score first, then the words behind it, for both people and in
+          both views: self-score, reflection, then the counter-score and its
+          comment below. Patrick, round 2b, extending PR #56's assessor order
+          to the student, whose screen used to lead with the narrative
+          (CAP-11): the score is the first choice either of them makes. */}
+      {self_score_row}
+      {narrative}
+      {coach_reflection_id && (
+        <CoachPanel
+          reflection_id={coach_reflection_id}
+          entry_id={entry.id}
+          narrative={entry.narrative ?? ''}
+          saved_narrative={saved_narrative}
+        />
+      )}
+      {related_reflection_id && (
+        <RelatedDisclosure
+          reflection_id={related_reflection_id}
+          entry_id={entry.id}
+          saved_narrative={saved_narrative}
+        />
+      )}
+      {counter_scores}
+      {calibration_reflection_id && calibration_with && (
+        <CalibrationPanel
+          reflection_id={calibration_reflection_id}
+          entry_id={entry.id}
+          reviewer_name={calibration_with}
+        />
       )}
 
       <EvidenceList
@@ -775,6 +1034,15 @@ function EntryCard({
       {children}
     </div>
   );
+}
+
+/** The site a link goes to, for the line under its label. */
+function host_of(uri: string): string {
+  try {
+    return new URL(uri).hostname.replace(/^www\./, '');
+  } catch {
+    return '';
+  }
 }
 
 /**
@@ -863,16 +1131,30 @@ function EvidenceList({
     <div className={styles.evidence}>
       <p className={styles.field_label}>Evidence</p>
 
+      {read_only && entry.evidence.length === 0 && (
+        <p className={styles.evidence_hint}>No evidence attached.</p>
+      )}
+
       {entry.evidence.length > 0 && (
         <ul className={styles.evidence_list}>
           {entry.evidence.map((item) => (
-            <li key={item.id} className={styles.evidence_row}>
+            <li key={item.id} className={`${styles.evidence_row} ${styles.evidence_item}`}>
               {item.kind === 'link' && HREF_SCHEME.test(item.uri) ? (
-                <a href={item.uri} target="_blank" rel="noopener noreferrer">
-                  {item.label}
-                </a>
+                <>
+                  <span className={styles.evidence_icon} aria-hidden="true">
+                    ↗
+                  </span>
+                  {/* The site name sits beside the link, not in it, so the
+                      link's name is still just its label (CAP-38). */}
+                  <span className={styles.evidence_text}>
+                    <a href={item.uri} target="_blank" rel="noopener noreferrer">
+                      {item.label}
+                    </a>
+                    <span className={styles.evidence_host}>{host_of(item.uri)}</span>
+                  </span>
+                </>
               ) : (
-                <span>{item.label}</span>
+                <span className={styles.evidence_text}>{item.label}</span>
               )}
               {item.size_bytes !== null && (
                 <span className={styles.evidence_size}>
@@ -925,7 +1207,11 @@ function EvidenceList({
               >
                 Add a link
               </Button>
-              <label className={styles.file_button}>
+              {/* A label, so the file picker opens from it, with Button's own
+                  look: the same control as "Add a link" beside it (CAP-63). */}
+              <label
+                className={`${button_styles.button} ${button_styles.secondary} ${styles.file_button}`}
+              >
                 Attach a file
                 <input
                   type="file"
@@ -972,8 +1258,8 @@ function EvidenceList({
  * rule is Scoring.php's, and a 400 COMMENT_REQUIRED marks the box required
  * whatever the hint said.
  *
- * Chips use tone="counter", the radar's counter-score green, so the
- * assessor's row reads apart from the student's purple one above it.
+ * The scale uses tone="counter", the radar's counter-score green, so the
+ * assessor's choice reads apart from the student's purple one above it.
  */
 function CounterScorePanel({
   entry,
@@ -984,7 +1270,7 @@ function CounterScorePanel({
   draft,
   saving,
   on_draft,
-  on_save,
+  owner_name,
 }: {
   entry: ReflectionEntry;
   framework: FrameworkDetail;
@@ -993,10 +1279,11 @@ function CounterScorePanel({
   /** This session's own save just flipped the reflection to assessed. */
   completed: boolean;
   draft: CounterDraft;
-  /** A counter-score is in flight, from this Save or from Save all. */
+  /** "Submit scores" is sending. */
   saving: boolean;
   on_draft: (patch: Partial<CounterDraft>) => void;
-  on_save: () => void;
+  /** The student, whose own level is marked on the assessor's scale (CAP-66). */
+  owner_name: string;
 }) {
   const levels = levels_for(framework, entry.competency_id);
   const self_score = self_score_of(entry);
@@ -1010,8 +1297,6 @@ function CounterScorePanel({
       self_score?.level_value ?? null,
       chosen?.level_value ?? null,
     );
-  const has_comment = draft.comment.trim() !== '';
-  const can_save = chosen !== null && !saving && (!comment_required || has_comment);
   const comment_id = `comment-${entry.id}`;
 
   // Closed, not ours, nothing to say: render nothing at all, so the card's
@@ -1019,25 +1304,18 @@ function CounterScorePanel({
   if (!mine && !open && !draft.error) return null;
 
   return (
-    <div className={styles.levels}>
+    <div className={`${styles.levels} ${styles.counter_block}`}>
       {mine ? (
         <>
           {/* Presented exactly as the student's self-score row above: the
               same chips, greyed, with the chosen level selected, and the
               comment kept in its box, read-only. */}
-          <p className={styles.field_label}>Your score</p>
-          <div className={styles.level_row} role="group" aria-label="Your score">
-            {levels.map((level) => (
-              <Chip
-                key={level.id}
-                tone="counter"
-                selected={mine.level_id === level.id}
-                disabled
-              >
-                {level.level_value} &middot; {level.descriptor}
-              </Chip>
-            ))}
-          </div>
+          <LevelScale
+            label="Your score"
+            levels={levels}
+            tone="counter"
+            value={mine.level_id}
+          />
           {mine.comment && (
             <div className={text_area_styles.field}>
               <label className={text_area_styles.label} htmlFor={comment_id}>
@@ -1065,27 +1343,22 @@ function CounterScorePanel({
         </>
       ) : (
         open && (
-          <form
-            className={styles.levels}
-            onSubmit={(event: FormEvent) => {
-              event.preventDefault();
-              on_save();
-            }}
-          >
-            <p className={styles.field_label}>Your score</p>
-            <div className={styles.level_row} role="group" aria-label="Your score">
-              {levels.map((level) => (
-                <Chip
-                  key={level.id}
-                  tone="counter"
-                  selected={draft.level_id === level.id}
-                  disabled={saving}
-                  on_click={() => on_draft({ level_id: level.id })}
-                >
-                  {level.level_value} &middot; {level.descriptor}
-                </Chip>
-              ))}
-            </div>
+          // No Save here (round 3, ADR #57): the pick and the comment stay
+          // open until "Submit scores" sends every competency at once.
+          <div className={styles.levels}>
+            {/* Kept on this device until "Submit scores" (ADR #57), so a
+                keyboard choice needs no settling: nothing is sent. */}
+            <LevelScale
+              label="Your score"
+              levels={levels}
+              tone="counter"
+              value={draft.level_id}
+              on_change={(level_id) => on_draft({ level_id })}
+              disabled={saving}
+              marker={
+                self_score ? { level_id: self_score.level_id, who: owner_name } : null
+              }
+            />
 
             <div className={text_area_styles.field}>
               <label className={text_area_styles.label} htmlFor={comment_id}>
@@ -1101,13 +1374,7 @@ function CounterScorePanel({
                 onChange={(event) => on_draft({ comment: event.target.value })}
               />
             </div>
-
-            <div className={styles.evidence_actions}>
-              <Button type="submit" full_width={false} disabled={!can_save}>
-                {saving ? 'Saving…' : 'Save score'}
-              </Button>
-            </div>
-          </form>
+          </div>
         )
       )}
 
@@ -1118,4 +1385,46 @@ function CounterScorePanel({
       )}
     </div>
   );
+}
+
+/** What the heading and the line under it need from GET /gigs/{gig_id}. */
+interface HeadingGig {
+  title: string;
+  sprints: (DatedSprint & { id: string; ordinal: number })[];
+}
+
+/**
+ * "15 Aug – 28 Aug" under the heading (round 2c, Patrick): which stretch
+ * of the gig this reflection covers. From the gig's sprints, the same way
+ * the gig page words it (sprint_dates); null until the gig has loaded, or
+ * for a whole-gig reflection or an undated sprint.
+ */
+function sprint_window(load: Load, gig: HeadingGig | null): string | null {
+  if (load.status !== 'loaded' || !gig) return null;
+  const sprint = gig.sprints.find(
+    (candidate) => candidate.id === load.reflection.sprint_id,
+  );
+  return sprint ? sprint_dates(sprint) : null;
+}
+
+/**
+ * "<Gig> · Sprint N" once both are known (round 2b, Patrick): the page says
+ * which piece of work it is. The sprint's number comes from the reflection
+ * when it carries one and from the gig's sprints otherwise; GET
+ * /reflections/{id} leaves sprint_ordinal out today. Until the number is
+ * known the heading does not guess: the gig's title alone, or the screen's
+ * plain name. A reflection with no sprint is a whole-gig one.
+ */
+function stepper_heading(mode: StepperMode, load: Load, gig: HeadingGig | null): string {
+  const plain = mode === 'assessor' ? 'Score reflection' : 'Reflection';
+  if (load.status !== 'loaded') return plain;
+  const { sprint_id, sprint_ordinal } = load.reflection;
+  if (!sprint_id) return gig?.title ?? 'Whole gig';
+
+  const ordinal =
+    sprint_ordinal ??
+    gig?.sprints.find((sprint) => sprint.id === sprint_id)?.ordinal ??
+    null;
+  if (ordinal === null) return gig?.title ?? plain;
+  return gig ? `${gig.title} · Sprint ${ordinal}` : `Sprint ${ordinal}`;
 }

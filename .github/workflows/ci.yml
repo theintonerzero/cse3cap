@@ -29,6 +29,9 @@ jobs:
       - name: Lint the OpenAPI contract
         run: npx -y @redocly/cli@latest lint docs/openapi.yaml
 
+      - name: Lint the AI sidecar's contract (ADR #64)
+        run: npx -y @redocly/cli@latest lint docs/ai-openapi.yaml
+
       # CAP-25. Both halves of the seam against the contract, in one job:
       # web/src/api/schema.ts must be what the contract generates, and
       # Laravel's routes must be its operations. Each drifts silently
@@ -88,6 +91,16 @@ jobs:
       - name: Check the token reader and that every script uses it
         run: python3 scripts/token-for.test.py
 
+      # ./run demo's preflight (CAP-51): it refuses an unreachable database,
+      # writes the demo people from the tokens file, and never prints a token.
+      - name: Check the demo preflight
+        run: python3 scripts/demo-preflight.test.py
+
+      # The live demo's personas.json is built from db:seed output with the
+      # same people table as the preflight (CAP-54).
+      - name: Check the live demo's personas from seed output
+        run: python3 scripts/demo-personas.test.py
+
       # The docs still describe the repository: relative links resolve,
       # ./run commands exist, docs/ is in the README table, the ADR index
       # matches the records, and the dependency register matches the
@@ -104,6 +117,12 @@ jobs:
       # deploy proves.
       - name: Check the deploy scripts
         run: python3 scripts/deploy.test.py
+
+      # The live demo (CAP-54): deploy-demo.sh and demo-reset.sh against
+      # stubs, and the gate's Caddy config in a real caddy:2 container. The
+      # gate checks are what keep /gate from issuing its cookie unasked.
+      - name: Check the live demo's deploy and gate
+        run: python3 scripts/deploy-demo.test.py
 
       # Nobody on the team runs Windows day to day, so the PowerShell
       # installer is the one file that can rot unnoticed until a new
@@ -134,7 +153,10 @@ jobs:
     # window functions behave the same.
     services:
       mysql:
-        image: mysql:9.7
+        # Docker's official image, from AWS's public mirror of it: GitHub's
+        # shared runners hit Docker Hub's anonymous pull limit (toomanyrequests,
+        # 2026-10-10), and the mirror does not throttle them.
+        image: public.ecr.aws/docker/library/mysql:9.7
         env:
           MYSQL_ROOT_PASSWORD: ci
           MYSQL_DATABASE: reflection_diary_test_ci
@@ -237,9 +259,84 @@ jobs:
           done
           bash scripts/smoke.sh
 
+      # The typed client against the same seeded server, and against prism
+      # (CAP-50). ./run verify used to run only by hand, and its live half
+      # skips rather than fails when nothing is serving, so
+      # VERIFY_REQUIRE_LIVE turns any skip into a failure here: green has to
+      # mean it was really driven against the API. The server smoke.sh
+      # started is normally still up; the step checks rather than assumes.
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install the frontend for the client check
+        working-directory: web
+        run: npm ci
+
+      - name: Typed API client against the real API and prism
+        shell: bash
+        env:
+          DB_CONNECTION: mysql_test
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_USERNAME: root
+          DB_PASSWORD: ci
+          DB_TEST_DATABASE: reflection_diary_test_ci
+          MYSQL_ATTR_SSL_CA: ''
+          TOKENS: ${{ runner.temp }}/seed.txt
+          API_ORIGIN: http://127.0.0.1:8000
+          VERIFY_REQUIRE_LIVE: '1'
+        run: |
+          if ! curl -fsS -o /dev/null http://127.0.0.1:8000/up; then
+            (cd api && php artisan serve --host=127.0.0.1 --port=8000 >> "$RUNNER_TEMP/serve.log" 2>&1 &)
+            for _ in $(seq 1 30); do
+              curl -fsS -o /dev/null http://127.0.0.1:8000/up && break
+              sleep 1
+            done
+          fi
+          bash scripts/verify-client.sh
+
       - name: Show the API log if the smoke run failed
         if: failure()
         run: cat "$RUNNER_TEMP/serve.log" || true
+
+  ai:
+    name: AI sidecar
+    runs-on: ubuntu-latest
+    # ADR #64. The store tests get a throwaway MySQL of their own, never the
+    # shared server: they drop and recreate every table.
+    services:
+      mysql:
+        # Docker's official image, from AWS's public mirror of it: GitHub's
+        # shared runners hit Docker Hub's anonymous pull limit (toomanyrequests,
+        # 2026-10-10), and the mirror does not throttle them.
+        image: public.ecr.aws/docker/library/mysql:9.7
+        env:
+          MYSQL_ROOT_PASSWORD: test
+          MYSQL_DATABASE: diary_ai_test
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -ptest"
+          --health-interval=5s --health-timeout=5s --health-retries=30
+    defaults:
+      run:
+        working-directory: ai
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10.2.0
+
+      - name: Install
+        run: uv sync --locked
+
+      # The test that loads the real embedding model is marked slow and left
+      # out here, as it is locally by default.
+      - name: Tests
+        env:
+          AI_TEST_DATABASE_URL: mysql://root:test@127.0.0.1:3306/diary_ai_test
+        run: uv run pytest -v
 
   frontend:
     name: Frontend
@@ -315,10 +412,11 @@ jobs:
       # ADR #42. Browser checks against a fake API: no backend, no database
       # and no token, so they run here exactly as they run locally. The
       # browser comes from the pinned @playwright/test, not from latest.
-      - name: Install Chromium for the browser checks
+      # Firefox runs one file, e2e/firefox.spec.ts (ADR #51).
+      - name: Install Chromium and Firefox for the browser checks
         if: steps.web.outputs.exists == 'true'
         working-directory: web
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium firefox
 
       - name: Browser checks
         if: steps.web.outputs.exists == 'true'

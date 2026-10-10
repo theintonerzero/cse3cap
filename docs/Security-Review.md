@@ -10,6 +10,263 @@ fixes what it finds leaves no record that the class of problem existed.
 
 ---
 
+## 2026-10-10 · CAP-69, the AI sidecar on the live demo
+
+**Reviewer:** Claude Code, at Jesse's request, on its own build. A self-review: the whole
+branch also goes to a fresh reviewer before merge. · **Ticket:** CAP-69 (COA4-139), HO-9 ·
+**Branch:** `feat/CAP-69-ai-deploy`
+
+### Scope
+
+What running the AI sidecar (ADR #64) on `diary.darkovski.dev` adds:
+- the `diary-ai` container and its image (`deploy/demo/ai.Dockerfile`);
+- its settings on the box (`shared/ai.env`), which hold the Anthropic key and the `diary_ai` password;
+- the `/ai/*` route in `site.caddy`;
+- the bundle's `VITE_AI_BASE_URL`;
+- the reset of `diary_ai`;
+- the evals, which call real Claude from a laptop.
+
+The sidecar's code was reviewed in its own three branches (#134, #135, #136) and their
+follow-up (#138); this covers putting it on the box.
+
+### Method
+
+- **The gate.** Run in a real Caddy with a generated gate file. `/ai/v1/status` was probed
+  without the cookie and with it, against a stand-in for the sidecar
+  (`scripts/deploy-demo.test.py`).
+- **The image.** Built and run with no settings file, then probed: it answered
+  `404 AI_DISABLED` and ran as a non-root user.
+- **The bundle.** It went through `./run bundle-secrets` with the AI base set.
+- **Secrets.** The settings example and the image were searched for key shapes.
+- **The live site.** The smoke check was run against it.
+
+### Findings
+
+None. Three properties were checked rather than assumed:
+- `/ai/*` without the gate cookie is the gate's 401 JSON, live and in CI. The sidecar never
+  sees an ungated request.
+- With no settings file the sidecar starts switched off. So the auto-deploy shipping it
+  before the box is ready exposes nothing: no key, no database, no Claude call.
+- The image holds no secret and runs as user `sidecar`. The key reaches it only from
+  `shared/ai.env`, mode 0600, on the box.
+
+### What stays exposed, on purpose
+
+- **Bearer tokens pass through the sidecar.** It forwards each caller's token to the diary's
+  API, unchanged, to read what that person may read. It never stores one: rate limits key on
+  a SHA-256 of the token. A compromised sidecar could read tokens in flight; it is no more
+  trusted than the API's own front door, and it sits behind the same gate.
+- **Narratives, rubric text and reviewers' comments go to Anthropic.** That is the feature.
+  No names, emails or ids are sent, prompts treat all of it as data, and replies are filtered
+  to questions before anyone sees them. Under the API's terms the content is not used to
+  train models.
+- **Spend is capped, not prevented.**
+  - Every call reserves its worst case against US$5 a UTC day before it is made, and a
+    timed-out call counts that worst case.
+  - Rate limits are 20 a minute and 200 a day per token.
+  - A monthly limit on the key in the Anthropic Console is the second guard, set by a person.
+- **`diary_ai` holds vectors derived from narratives.** They are personal data in the same
+  sense (Retention-and-Erasure.md). Its user has grants on `diary_ai` only, and the demo
+  reset empties it.
+
+### Sign-off
+
+No findings. Guarded in CI by `scripts/deploy-demo.test.py` (gate, route, env file
+optional, no secret) and live by `scripts/smoke-demo.sh`.
+
+---
+
+## 2026-10-09 · CAP-54, the live demo
+
+**Reviewer:** Claude Code, at Jesse's request, on its own build. A self-review: the whole
+branch also goes to a fresh reviewer before merge. · **Ticket:** CAP-54 (COA4-124) ·
+**Branch:** `feat/CAP-54-live-demo`
+
+### Scope
+
+What the live demo at `diary.darkovski.dev` exposes that a laptop demo does not: the
+password gate in `server-caddy-1` (`deploy/demo/site.caddy`, `scripts/demo-gate.sh`), the
+persona file it protects (`/demo/personas.json`), the build that turns the picker on in
+production (`VITE_DEMO_PERSONAS_URL`), and the demo database and its user. Nothing under
+`api/` or `docs/openapi.yaml` changed. ADR #62.
+
+### Method
+
+The gate was run in a real `caddy:2` container with a generated gate file and probed over
+HTTP: no cookie, a wrong cookie, `/api` without the cookie, `/gate` with no, a wrong and the
+right password. The live build went through `./run bundle-secrets` with the personas URL set
+beside the canary persona, and the built images were searched for token shapes. The deploy
+and reset scripts ran against stubs with the shared database's name in their settings.
+
+### Findings
+
+#### F16 · The gate issued its cookie without the password: High, fixed
+
+The first `/gate` handler put `basic_auth`, the `Set-Cookie` header and the redirect side by
+side inside `handle /gate`. Caddy sorts directives inside a `handle` into its own order,
+which runs `header` and `redir` before `basic_auth`. A request with no credentials got a 303
+and the gate cookie, so the password protected nothing. **Never shipped.** It was found
+while writing the plan, by running the config rather than reading it, before any of it
+reached the box.
+
+**Fix.** The handler's body sits in a `route` block, which keeps the order as written.
+`scripts/deploy-demo.test.py` checks that `/gate` with no password and with a wrong one is a
+401 with no `Set-Cookie`. Those two checks fail when the `route` is taken out and pass with it.
+`scripts/smoke-demo.sh` repeats the no-password check against the live site.
+
+### What stays exposed, on purpose
+
+- Anyone given the demo password can sign in as any persona and write to
+  `reflection_diary_demo`. That is the demo. A reset undoes it, and the shared database is
+  out of reach: the demo user has grants on its own database only, and the deploy and reset
+  refuse any database whose name does not end in `_demo`.
+- The persona file holds real, 60-day, full-ability tokens for the demo database. It is
+  served only behind the gate, never cached (`no-store`), and rewritten by every reset,
+  which revokes the previous tokens. No token is in the bundle (F15 stays closed): the
+  build carries only the file's path.
+- The cookie is one shared secret, not a session per person. Changing it with
+  `demo-gate.sh` signs everyone out.
+
+### Sign-off
+
+F16 fixed and guarded in CI by `scripts/deploy-demo.test.py` and live by
+`scripts/smoke-demo.sh`. No other finding.
+
+---
+
+## 2026-10-07 · CAP-51, the Alumable demo shell
+
+**Reviewer:** Tony To, via Claude Code · **Ticket:** CAP-51 · **Commit reviewed:** `d3adb06`
+(`dev` after #114 and #115)
+
+### Scope
+
+The demo shell's one new input, the `VITE_DEMO_SHELL` flag and the `VITE_DEMO_TOKENS`
+personas in `web/src/demo/demoMode.ts`, against the rule F1 set: a seeded token never
+reaches public JavaScript. Nothing under `api/`, `db/` or `docs/openapi.yaml` changed.
+
+### Method
+
+A production build (`npm run build`) on a machine set up the way `docs/Demo-Script.md`
+said to set it up, with four real seeded tokens in `web/.env.local`, then the built
+`dist/assets/*.js` searched for token shapes. Only counts were printed, never a match.
+
+### Findings
+
+#### F15 · Demo persona tokens compiled into a production build: High, fixed
+
+Vite reads `web/.env.local` in every mode, `vite build` included, and inlines each
+`import.meta.env.VITE_*` it meets as a string literal. `demoPersonas()` read
+`VITE_DEMO_TOKENS` with no `import.meta.env.DEV` gate, so the build carried **three
+Sanctum-shaped tokens and four persona entries** into `main-*.js`, and `demoMode()` turned
+the shell on in production. That is F1's class exactly: 60-day, full-ability bearer tokens
+in public JavaScript.
+
+**Never shipped.** No deploy has run (CAP-26), and CI builds without a `.env.local`. It
+was found by checking CAP-51's acceptance criterion "no tokens in … the production
+build", not by an incident. It's fixed inside CAP-51 rather than raised as a separate
+ticket because it was found before any build left a laptop, and this entry is the record
+that the class of problem existed.
+
+**Fix.** `demoMode()` and `demoPersonas()` read their env only behind
+`import.meta.env.DEV`, which is statically false in a production build, so the literal is
+folded away and the shell is off in every production build. The demo docs now keep the
+personas in `web/.env.development.local`, which `vite build` never reads.
+`scripts/check-bundle-secrets.sh` plants a canary persona beside its canary token and
+fails if it survives. It failed on the unfixed code and passes on the fix. A rebuild with
+the real file: 0 tokens, 0 personas, and the served build shows the diary's own token
+entry at `/`, `/welcome` and `/home`.
+
+### Sign-off
+
+F15 fixed and guarded by `./run bundle-secrets` in CI. No other finding.
+
+---
+
+## 2026-10-06 · CAP-38, the UI update branch
+
+**Reviewer:** Patrick Anley, via Claude Code · **Ticket:** CAP-38 · **Commit reviewed:**
+`346e49c` (with `dev` at `fd19f32` merged in)
+
+### Scope
+
+Everything CAP-38 changed, which is `web/` only: the shell, every screen's layout, two new
+route guards, and two new things kept in the browser. Nothing under `api/`, `db/` or
+`docs/openapi.yaml` changed, so the server's authorisation is what the 2026-10-03 entries
+reviewed. CAP-31's pentest was run again anyway, because the screens now send different
+requests.
+
+### Method
+
+- **`./run pentest`** against a local `php artisan serve` on the shared database, with the
+  three seeded tokens: **37 probes, 37 hold, 0 break**, the same as after #99.
+- **Every `scripts/verify-*.sh` with its live half**, against the same server: 0 failed.
+- **A source review of the branch diff** for rendering sinks, storage, URL-derived navigation
+  and client-side role reads, by an agent that had not written the code, then re-read by hand.
+- **`npm audit` and `composer audit`:** no advisories. The one new package is
+  `@fontsource-variable/inter` (font files and CSS, OFL-1.1).
+- **Every line the branch adds** (93 commits) grepped for the secret shapes the CAP-32 entry
+  lists: none.
+- **`web/e2e/injection.spec.ts`** still passes with its payload in the new places: the
+  counter-score chip group and comment box, and the editor's cards, now headed by the
+  competency's name.
+
+### Findings
+
+None. Three claims in earlier entries are no longer true, all because of this branch, and
+are corrected here rather than in place.
+
+1. **"Every route stays reachable by URL, by design"** (the 2026-09-19 table of client-side
+   role reads). Two guards now draw Page not found instead: `SupervisorOnly` on
+   `/frameworks` and its editor (CAP-46, ADR #48), and `ReviewerOnly` on `/review-queue` and
+   `/review-queue/reflections/:id` for someone who reviews nothing (ADR #55). The table gains
+   these rows. Each reads the `participations` that `/auth/me` resolves through
+   `RoleResolver`, and each only decides what is drawn:
+
+   | Client | Decides | Server enforcement |
+   | --- | --- | --- |
+   | `routes.tsx` `SupervisorOnly` | Frameworks and the editor, or Page not found | `FrameworkPolicy`, `GigPolicy::assignFramework` (pentest rows 4 and 5) |
+   | `routes.tsx` `ReviewerOnly` | the review queue and scoring, or Page not found | the queue is a query scoped to the caller; `ReflectionPolicy::counterScore` (pentest row 3) |
+   | `AppShell` `supervises` / `reviews` | the bar's title, back arrow and tint (`sections.ts`) | none needed: no request depends on it |
+   | `ReviewQueue` `supervises` | whether the Frameworks row shows | as `SupervisorOnly` |
+
+2. **"`localStorage` holds only the theme"** (the 2026-09-08, 2026-09-19 and 2026-09-24
+   entries). It now also holds a reviewer's unsent counter-scores (ADR #57), under
+   `reflection-diary-counter-drafts:<user id>:<reflection id>`: a level id, the comment and a
+   ready flag, never a token. Read back type-checked; restored only for entries the caller
+   has not scored, and only a level from that entry's competency; sent only when the
+   reviewer presses Submit scores, through the same POST and policy as before. Keyed by
+   person, so switching user on one device shows no one another's work.
+3. **"Every link is built from server-issued UUIDs"** (2026-09-19). One is not: the bar's
+   way back to the diary is `/?` plus the diary's last query string, kept in `sessionStorage`
+   under `reflection-diary-diary-scope:<user id>`. It is always a same-origin path, and the
+   diary re-checks it against the caller's own gigs (`scope_from_params`).
+
+### Hardening notes
+
+- **Unsent counter-scores outlive the tab.** Unlike tokens, they stay in `localStorage`
+  until sent or emptied, and neither a 401 nor Leave clears them. On a shared device the
+  next person can read a reviewer's unsent comments in the browser's tools. That is the
+  cost ADR #57 accepted. A server-side draft would remove it; CAP-38's pull request lists
+  that as a backend follow-up.
+
+### What is already right
+
+- No `dangerouslySetInnerHTML`, `innerHTML`, `eval`, `new Function`, `window.open` or
+  `console` anywhere in `web/src`. Tokens are in `sessionStorage`, per tab, as before.
+- Every new link is a fixed path or a server-issued UUID, apart from the one above.
+- The screens still treat the server's refusals as the rule: `COMMENT_REQUIRED`,
+  `ALREADY_SCORED`, `NOT_SUBMITTED` and the one-framework-per-gig 409 are each handled from
+  the response, and the screens' own hints only decide what is shown first.
+
+### Sign-off
+
+CAP-38 adds no way in. The pentest and the injection checks hold, and the three stale claims
+above are corrected. The unsent-counter-score note stays open as a backend follow-up, not a
+finding.
+
+---
+
 ## 2026-10-03 · Every finding re-verified, by reviewers who did not write them
 
 **Reviewer:** Tony To, via Claude Code · **Tickets raised:** CAP-42, CAP-43, CAP-44 ·
@@ -827,8 +1084,9 @@ looks wrong, and no error is raised, so this fails silently and indefinitely.
 
 #### F2 · Tokens never expire — Medium
 
-> **Raised as CAP-32 (COA4-90), decided 2026-10-03 (ADR #46, Proposed).** Seeded tokens now
-> expire 60 days after issue; the global setting stays null. Live once the tokens are reissued.
+> **Raised as CAP-32 (COA4-90), decided 2026-10-03 (ADR #46, Accepted).** Seeded tokens now
+> expire 60 days after issue; the global setting stays null. Live once the tokens are
+> reissued, which moved to the CAP-26 deploy on 2026-10-04.
 >
 > **Re-rated 2026-10-03: a hardening note.** No expiry matters only after a leak. See the
 > re-verification entry.
@@ -844,7 +1102,7 @@ which is CAP-26. Worth an explicit decision rather than a default.
 
 #### F3 · Tokens carry every ability — Medium
 
-> **Raised as CAP-32 (COA4-90), decided 2026-10-03 (ADR #46, Proposed).** Kept `['*']` on
+> **Raised as CAP-32 (COA4-90), decided 2026-10-03 (ADR #46, Accepted).** Kept `['*']` on
 > purpose: an ability check would be a second place authorisation lives.
 >
 > **Re-rated 2026-10-03: informational.** See the re-verification entry.

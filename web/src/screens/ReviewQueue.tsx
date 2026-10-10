@@ -12,6 +12,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { api, ApiError } from '../api/client.ts';
 import type { paths } from '../api/schema.ts';
+import { CohortSearch } from '../ai/CohortSearch.tsx';
+import { reviewed_gigs } from '../ai/reviewed-gigs.ts';
+import { useAiStatus } from '../ai/useAiStatus.ts';
+import { useSession } from '../session/useSession.ts';
+import { kept_done_count } from './counter-drafts.ts';
 import { ErrorNotice, ProgressBar, Skeleton, SkeletonGroup } from '../components/index.ts';
 import styles from './ReviewQueue.module.css';
 
@@ -53,21 +58,98 @@ export function ReviewQueue() {
     setReloadKey((key) => key + 1);
   }, []);
 
+  // Same test as routes.tsx's SupervisorOnly, written inline as B1's
+  // ReviewerOnly is: Frameworks is a supervisor's (ADR #17).
+  const { me } = useSession();
+  const supervises = me?.participations.some((p) => p.role === 'supervisor') ?? false;
+  const ai_features = useAiStatus();
+
   return (
     <section>
+      {/* Frameworks' way in, now the bar has no pills (round 3 D2): a
+          whole-row card like the queue's own, above the queue so it is
+          always in reach (Patrick, 2026-10-05). */}
+      {supervises && (
+        <Link
+          className={styles.wayIn}
+          to="/frameworks"
+          aria-label="Frameworks, copy a framework or assign one to a gig"
+        >
+          <span className={styles.wayInMain}>
+            <span className={styles.wayInTitle}>Frameworks</span>
+            <span className={styles.wayInMeta}>
+              Copy a framework, or assign one to a gig
+            </span>
+          </span>
+          <span className={styles.wayInChevron} aria-hidden="true">
+            {'›'}
+          </span>
+        </Link>
+      )}
+
       <h1 className={styles.heading}>Review queue</h1>
+
+      {/* ADR #64: above the queue, when the sidecar serves search and this
+          person assesses or supervises a gig. An employer reaches the queue
+          too, and the sidecar would refuse them. */}
+      {ai_features?.has('search') && reviewed_gigs(me).length > 0 && (
+        <CohortSearch themes={ai_features.has('themes')} />
+      )}
 
       {state.status === 'loading' && <LoadingState />}
       {state.status === 'error' && <ErrorNotice error={state.error} on_retry={retry} />}
       {state.status === 'loaded' && state.entries.length === 0 && <EmptyState />}
       {state.status === 'loaded' && state.entries.length > 0 && (
-        <ul className={styles.list}>
-          {state.entries.map((entry) => (
-            <ReviewQueueRow key={entry.reflection_id} entry={entry} />
-          ))}
-        </ul>
+        <QueueList entries={state.entries} />
       )}
     </section>
+  );
+}
+
+interface GigGroup {
+  key: string;
+  title: string;
+  entries: ReviewQueueEntry[];
+}
+
+/** Each gig's rows together, gigs in the order their first row arrived. */
+function groups_of(entries: ReviewQueueEntry[]): GigGroup[] {
+  const groups: GigGroup[] = [];
+  for (const entry of entries) {
+    const key = entry.gig_id ?? 'none';
+    let group = groups.find((candidate) => candidate.key === key);
+    if (!group) {
+      group = { key, title: entry.gig_title ?? 'Unknown gig', entries: [] };
+      groups.push(group);
+    }
+    group.entries.push(entry);
+  }
+  return groups;
+}
+
+/**
+ * The queue listed by gig, each under its name, the way Frameworks lists
+ * its groups (Patrick, 2026-10-05: a reviewer has a few gigs at most, so all
+ * of them fit on one screen). One gig gets its label too: the row no longer
+ * names the gig, and Sam's queue is set up like Dr Lee's. The rows are the
+ * ones already loaded; nothing is re-fetched.
+ */
+function QueueList({ entries }: { entries: ReviewQueueEntry[] }) {
+  return (
+    <div className={styles.groups}>
+      {groups_of(entries).map((group) => (
+        <section key={group.key} aria-labelledby={`queue-gig-${group.key}`}>
+          <h2 id={`queue-gig-${group.key}`} className={styles.groupLabel}>
+            {group.title}
+          </h2>
+          <ul className={styles.list}>
+            {group.entries.map((entry) => (
+              <ReviewQueueRow key={entry.reflection_id} entry={entry} />
+            ))}
+          </ul>
+        </section>
+      ))}
+    </div>
   );
 }
 
@@ -107,29 +189,49 @@ function EmptyState() {
 
 function ReviewQueueRow({ entry }: { entry: ReviewQueueEntry }) {
   const { student, gig_title, sprint_ordinal, progress } = entry;
+  // Sent scores, plus finished ones still waiting on this device for
+  // "Submit scores" (ADR #57), so the bar moves as the scoring screen's
+  // count does. Never past the total.
+  const { me } = useSession();
+  const done = Math.min(
+    progress.entries,
+    progress.scored_by_me + (me ? kept_done_count(me.id, entry.reflection_id) : 0),
+  );
 
+  // One link per row, the whole card the target, read like the diary's and
+  // the gig page's rows (CAP-38 round 3 Q3): name, a muted meta line, then
+  // the progress bar and a chevron at the right edge.
   return (
-    <li className={styles.row}>
-      <div className={styles.rowMain}>
-        <span className={styles.studentName}>{student.display_name}</span>
-        <span className={styles.rowMeta}>
-          {gig_title ?? 'Unknown gig'}
-          {sprint_ordinal != null ? ` · Sprint ${sprint_ordinal}` : ''}
-        </span>
-      </div>
-
-      <ProgressBar
-        current={progress.scored_by_me}
-        total={progress.entries}
-        label="Entries"
-      />
-
+    <li>
       {/* The assessor stepper (CAP-13), by reflection: the queue has nothing finer. */}
+      {/* Named once, plainly: read from its contents the card's name would
+          also pick up the progress bar's own value ("of 6 0"). It starts
+          with the student's name, the first words on the card (WCAG 2.5.3). */}
       <Link
-        className={styles.scoreLink}
+        className={styles.row}
         to={`/review-queue/reflections/${entry.reflection_id}`}
+        aria-label={`${student.display_name}, ${gig_title ?? 'Unknown gig'}${
+          sprint_ordinal != null ? `, Sprint ${sprint_ordinal}` : ''
+        }: ${done} of ${progress.entries} entries scored`}
       >
-        Score this →
+        {/* "Jane N · Sprint 2" on one line (Patrick, 2026-10-05): the row
+            uses its width, and the gig is the label above it. */}
+        <span className={styles.rowMain}>
+          <span className={styles.studentName}>{student.display_name}</span>
+          {sprint_ordinal != null && (
+            <span className={styles.rowSprint}> · Sprint {sprint_ordinal}</span>
+          )}
+        </span>
+
+        <span className={styles.rowProgress}>
+          <ProgressBar current={done} total={progress.entries} label="Entries" />
+        </span>
+
+        {/* The character itself, as DiaryHome does: check-tokens.sh reads a
+            numeric entity as a raw hex colour. */}
+        <span className={styles.chevron} aria-hidden="true">
+          {'›'}
+        </span>
       </Link>
     </li>
   );

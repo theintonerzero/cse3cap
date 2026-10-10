@@ -93,7 +93,11 @@ export interface paths {
         get: operations["getFramework"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete your own copy, until it is assigned to a gig
+         * @description A copy made by mistake can be removed, with its competencies and levels, for as long as no gig has it as its rubric (ADR #59). Once a framework is assigned it is kept for good: assignments are permanent, and a reflection takes its framework from the gig's assignment, so a framework never assigned has never scored anyone. A seeded base template can never be deleted.
+         */
+        delete: operations["deleteFramework"];
         options?: never;
         head?: never;
         /** Rename or adjust policy, on your own unused copy */
@@ -502,7 +506,7 @@ export interface components {
                  * @description The full enumeration for the product, not only the codes these five endpoints can raise. A response carrying a code outside this list is a bug in the endpoint.
                  * @enum {string}
                  */
-                code: "VALIDATION_FAILED" | "CONTEXT_REQUIRED" | "DUPLICATE_REFLECTION" | "DUPLICATE_ASSIGNMENT" | "NOT_DRAFT" | "NOT_SUBMITTED" | "COMMENT_REQUIRED" | "LEVEL_NOT_IN_COMPETENCY" | "EVIDENCE_REQUIRED" | "NARRATIVE_REQUIRED" | "SELF_SCORE_MISSING" | "FILE_TYPE_NOT_ACCEPTED" | "FILE_TOO_LARGE" | "FRAMEWORK_NOT_ASSIGNED" | "FRAMEWORK_IN_USE" | "ALREADY_SCORED" | "ROLE_FORBIDDEN" | "UNAUTHENTICATED" | "NOT_FOUND";
+                code: "VALIDATION_FAILED" | "CONTEXT_REQUIRED" | "DUPLICATE_REFLECTION" | "DUPLICATE_ASSIGNMENT" | "NOT_DRAFT" | "NOT_SUBMITTED" | "COMMENT_REQUIRED" | "LEVEL_NOT_IN_COMPETENCY" | "EVIDENCE_REQUIRED" | "NARRATIVE_REQUIRED" | "SELF_SCORE_MISSING" | "FILE_TYPE_NOT_ACCEPTED" | "FILE_TOO_LARGE" | "FRAMEWORK_NOT_ASSIGNED" | "FRAMEWORK_IN_USE" | "FRAMEWORK_ASSIGNED" | "ALREADY_SCORED" | "ROLE_FORBIDDEN" | "UNAUTHENTICATED" | "NOT_FOUND";
                 /** @description Human readable. Never switch on this. */
                 message: string;
                 details: {
@@ -706,6 +710,8 @@ export interface components {
             created_by: string | null;
             /** @description True when at least one reflection references it, which makes it permanently read-only. Derived, never stored. */
             in_use: boolean;
+            /** @description True when a gig has it as its rubric, which means it can never be deleted (ADR #59). Derived, never stored. */
+            assigned: boolean;
         };
         Level: {
             /** Format: uuid */
@@ -739,6 +745,7 @@ export interface components {
             /** Format: uuid */
             created_by: string | null;
             in_use: boolean;
+            assigned: boolean;
             comment_required: boolean;
             evidence_required: boolean;
             accepted_file_types: string[] | null;
@@ -804,6 +811,26 @@ export interface components {
                  *       "error": {
                  *         "code": "FRAMEWORK_IN_USE",
                  *         "message": "This framework has been used to score a reflection and can no longer be changed.",
+                 *         "details": {
+                 *           "framework_id": "aaaa1111-0000-4aaa-8aaa-aaaaaaaaaaaa"
+                 *         }
+                 *       }
+                 *     }
+                 */
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description A gig has this framework as its rubric, so it is kept for good and cannot be deleted. Also the answer when an assignment lands while the delete is under way. */
+        FrameworkAssigned: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                /**
+                 * @example {
+                 *       "error": {
+                 *         "code": "FRAMEWORK_ASSIGNED",
+                 *         "message": "This framework is assigned to a gig, so it can't be deleted. Frameworks assigned to a gig are kept so every score stays readable.",
                  *         "details": {
                  *           "framework_id": "aaaa1111-0000-4aaa-8aaa-aaaaaaaaaaaa"
                  *         }
@@ -1000,7 +1027,8 @@ export interface operations {
                      *         "name": "La Trobe six-competency",
                      *         "is_active": true,
                      *         "created_by": null,
-                     *         "in_use": true
+                     *         "in_use": true,
+                     *         "assigned": true
                      *       },
                      *       {
                      *         "id": "bbbb2222-0000-4bbb-8bbb-bbbbbbbbbbbb",
@@ -1009,7 +1037,8 @@ export interface operations {
                      *         "name": "SFIA 9",
                      *         "is_active": true,
                      *         "created_by": null,
-                     *         "in_use": false
+                     *         "in_use": false,
+                     *         "assigned": false
                      *       }
                      *     ]
                      */
@@ -1075,6 +1104,7 @@ export interface operations {
                      *       "name": "La Trobe six-competency",
                      *       "created_by": null,
                      *       "in_use": true,
+                     *       "assigned": true,
                      *       "comment_required": true,
                      *       "evidence_required": false,
                      *       "accepted_file_types": [
@@ -1116,6 +1146,32 @@ export interface operations {
             };
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    deleteFramework: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                framework_id: components["parameters"]["FrameworkId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["NoContent"];
+            401: components["responses"]["Unauthenticated"];
+            /** @description Not your copy, a seeded base template, or the caller supervises no gig. Only the supervisor who made a copy can delete it. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["FrameworkAssigned"];
         };
     };
     updateFramework: {

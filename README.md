@@ -19,7 +19,7 @@ after the subject closes and after they graduate.
 | Part | State |
 | --- | --- |
 | Database | Applied and verified on the shared instance. 14 tables, 5 views |
-| Backend | **Complete.** 30 endpoints, all seven business rules, 156 feature tests and 6 unit tests |
+| Backend | **Complete.** 31 endpoints, all eight business rules, 167 feature tests and 6 unit tests |
 | Contract | `docs/openapi.yaml` matches the served routes, checked mechanically |
 | Frontend | **Complete.** Design tokens, the ten core components, the typed client, the app shell and every screen in the build scope, with 53 Playwright browser checks |
 | Release | v1.0.0 planned for 11 October 2026, after a cut-off at the end of 10 October. Changes are in [`docs/CHANGELOG.md`](docs/CHANGELOG.md) |
@@ -445,7 +445,7 @@ set to null rather than deleted.
 
 ### What the API serves
 
-All thirty endpoints are live: identity, gigs, frameworks, the reflection write path,
+All thirty-one endpoints are live: identity, gigs, frameworks, the reflection write path,
 scoring, analytics and export. Run `php artisan serve` in `api/` and call
 `http://localhost:8000/api/v1`.
 
@@ -471,9 +471,9 @@ in the repository is the copy that everyone can read, and the one to edit.
 ### Testing it
 
 ```bash
-./run test                          # 156 feature and 6 unit tests, against real MySQL
-./run smoke                         # 67 checks, over HTTP, with the three real tokens (CI runs it too)
-./run verify                        # 28 checks on the typed API client, both servers
+./run test                          # 167 feature and 6 unit tests, against real MySQL
+./run smoke                         # 71 checks, over HTTP, with the three real tokens (CI runs it too)
+./run verify                        # 28 checks on the typed API client, both servers (CI runs it too)
 ./run e2e                           # 53 browser checks, Playwright against a fake API
 ./run check                         # the suite, lint, contract, guards, build and browser checks
 ```
@@ -488,7 +488,8 @@ rather than dropping the shared schema.
 the token, resolves the base URL, unwraps the error envelope and refuses off-contract calls
 at compile time, against the real API and against the prism mock. It has no test suite
 behind it and every screen is built on it, so it is checked directly. `--static` skips the
-parts that need servers.
+parts that need servers. CI runs it after the smoke test against the same seeded API, with
+`VERIFY_REQUIRE_LIVE=1` so a skipped live half fails rather than passing quietly.
 
 The suite proves the rules in isolation. The smoke script drives the whole product through
 a running server, which is where wiring bugs live: it writes a reflection as Jane, submits
@@ -599,6 +600,7 @@ and the reasoning behind the unusual decisions.
 | [`docs/Retention-and-Erasure.md`](docs/Retention-and-Erasure.md) | What is kept, what can be deleted, and what cannot            |
 | [`docs/Framework-Swap-Verification.md`](docs/Framework-Swap-Verification.md) | Proof the rubric is data, and what the seed cannot prove |
 | [`docs/openapi.yaml`](docs/openapi.yaml)                         | Machine-readable contract, source of truth                    |
+| [`docs/ai-openapi.yaml`](docs/ai-openapi.yaml)                   | The AI sidecar's contract, `/ai/v1` (ADR #64)                 |
 | [`docs/Stack-and-Build-Scope.md`](docs/Stack-and-Build-Scope.md) | What is being built, and the definition of done               |
 | [`docs/adr/`](docs/adr/)                                         | Architecture decision records                                 |
 | [`docs/Security-Review.md`](docs/Security-Review.md)             | Security reviews, appended per change                         |

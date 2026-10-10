@@ -190,6 +190,29 @@ export function by_ordinal<T extends { ordinal: number }>(sprints: readonly T[])
 }
 
 /**
+ * The sprints a student could have written for and has not (CAP-53): the
+ * diary hub frame's "2 sprints need your reflection" (Figma 66:34).
+ *
+ * "Could have" is sprint_timing's: anything but not_open, so a sprint that
+ * opens today counts and one with no dates counts, as chippable_sprints
+ * treats them. due_on is never consulted. Past its window is named the
+ * same as open, because the product makes no judgement about lateness
+ * (see this file's header).
+ *
+ * Who wrote what is the caller's: it passes the sprint ids of the
+ * student's own reflections, already filtered by diary-scope.ts.
+ */
+export function sprints_needing_reflection<
+  S extends DatedSprint & { id: string; ordinal: number },
+>(sprints: readonly S[], written_sprint_ids: ReadonlySet<string>, today: Date): S[] {
+  return by_ordinal(sprints).filter(
+    (sprint) =>
+      !written_sprint_ids.has(sprint.id) &&
+      sprint_timing(sprint, today).state !== 'not_open',
+  );
+}
+
+/**
  * A reflection's status, structurally. The contract's ReflectionStatus is
  * this exact union; it is spelled out rather than imported for the reason
  * in the header -- this module imports nothing so the check can compile it.

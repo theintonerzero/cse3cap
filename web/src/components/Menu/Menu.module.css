@@ -1,0 +1,100 @@
+.wrapper {
+  position: relative;
+  flex: none;
+}
+
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* 2.75rem = 44 device pixels, the same tap floor as Button and Chip. */
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  color: var(--color-text);
+  background: none;
+  border: none;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+}
+
+.trigger:hover,
+.trigger[aria-expanded='true'] {
+  background: var(--color-surface-alt);
+}
+
+.trigger:focus-visible,
+.item:focus-visible {
+  outline: 0.125rem solid var(--color-focus-ring);
+  outline-offset: 0.0625rem;
+}
+
+/* Anchored under the trigger and growing leftwards: the trigger sits at the
+   right edge of the bar, so this keeps it on a 360 screen. Inside the
+   sticky header's stacking context, so it needs no z-index token. */
+.menu {
+  position: absolute;
+  top: calc(100% + var(--space-4));
+  right: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 12rem;
+  max-width: calc(100vw - 2 * var(--space-16));
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: var(--border-width-sm) solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sheet);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+  min-height: 2.75rem;
+  padding: var(--space-8) var(--space-12);
+  font: inherit;
+  font-size: var(--font-size-base);
+  color: var(--color-text);
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.item:hover {
+  background: var(--color-surface-alt);
+}
+
+/* A small switch drawn in tokens, so "Dark mode" reads as on or off. The
+   state itself is aria-checked on the item; this is only its picture. */
+.switch {
+  position: relative;
+  flex: none;
+  width: 2.25rem;
+  height: 1.25rem;
+  border-radius: var(--radius-full);
+  background: var(--color-border);
+}
+
+.switch::after {
+  content: '';
+  position: absolute;
+  top: 0.125rem;
+  left: 0.125rem;
+  width: 1rem;
+  height: 1rem;
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+}
+
+.on {
+  background: var(--color-primary);
+}
+
+.on::after {
+  left: 1.125rem;
+}

@@ -4,12 +4,89 @@
 }
 
 .header {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-12);
-  padding: var(--space-16);
+  position: sticky;
+  top: 0;
+  z-index: var(--z-header);
+  padding: var(--space-12) var(--space-16);
   background: var(--color-surface);
   border-bottom: var(--border-width-sm) solid var(--color-border);
+  box-shadow: var(--shadow-card);
+}
+
+/* CAP-38 R3: back | section title | who you are. Equal side columns keep
+   the title centred whatever each side holds, and minmax(0, ...) lets a
+   long name shrink instead of pushing the title. The nav pills, when
+   shown, take the row underneath. */
+.bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-areas:
+    'back title id'
+    'nav nav nav';
+  align-items: center;
+  gap: var(--space-8) var(--space-12);
+  max-width: var(--content-width-list);
+  margin: 0 auto;
+}
+
+/* No pills, no second row: an empty row would still take the row gap and
+   leave more space under the bar than over it (round 2b). */
+.single_row {
+  grid-template-areas: 'back title id';
+}
+
+.back_slot {
+  grid-area: back;
+  justify-self: start;
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  color: var(--color-text);
+  background: none;
+  border: none;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+}
+
+.back:hover {
+  background: var(--color-surface-alt);
+}
+
+.title {
+  grid-area: title;
+  margin: 0;
+  font-size: var(--font-size-title);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+  color: var(--color-text);
+  white-space: nowrap;
+}
+
+/* A phone has about 21rem for three columns. Centring the title gave each
+   side the same width, which left the identity side about 2rem for a name
+   beside the ⋮ button: "Jane…", "stu…" (CAP-57). So on a phone the bar is
+   Android's: the title sits by the back arrow, the identity takes the room
+   its name needs, up to half the bar, so a very long name shortens itself
+   and the title stays on screen. */
+@media (max-width: 40rem) {
+  .bar {
+    column-gap: var(--space-8);
+    grid-template-columns: auto minmax(0, 1fr) fit-content(50%);
+  }
+
+  .title {
+    justify-self: start;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
 
 .header_skeleton {
@@ -19,32 +96,24 @@
 }
 
 .identity {
+  grid-area: id;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-8);
+  gap: var(--space-4);
 }
 
+/* Who you are, as text. Switch user and the theme are in the ⋮ menu beside
+   it since CAP-38 R4, so this is no longer a hidden button. */
 .who {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: flex-end;
   gap: var(--space-4);
-  padding: var(--space-8);
-  background: none;
-  border: none;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  font-family: var(--font-family-base);
-  text-align: left;
+  text-align: right;
 }
 
-.who:hover {
-  background: var(--color-surface-alt);
-}
-
-.who:focus-visible,
-.theme:focus-visible,
+.back:focus-visible,
 .link:focus-visible {
   outline: var(--border-width-sm) solid var(--color-focus-ring);
   outline-offset: var(--space-4);
@@ -61,20 +130,11 @@
   color: var(--color-text-muted);
 }
 
-.theme {
-  padding: var(--space-8) var(--space-12);
-  font-family: var(--font-family-base);
-  font-size: var(--font-size-sm);
-  color: var(--color-text);
-  background: var(--color-surface-alt);
-  border: var(--border-width-sm) solid var(--color-border);
-  border-radius: var(--radius-full);
-  cursor: pointer;
-}
-
 .nav {
+  grid-area: nav;
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: var(--space-8);
 }
 
@@ -98,7 +158,9 @@
 }
 
 .main {
-  padding: var(--space-16);
+  max-width: var(--content-width-list);
+  margin: 0 auto;
+  padding: var(--space-24) var(--space-16) var(--space-64);
 }
 
 .centred {
@@ -109,4 +171,67 @@
   max-width: 32rem;
   margin: 0 auto;
   padding: var(--space-24) var(--space-16);
+}
+
+/* A long name truncates inside the header instead of pushing it off a
+   phone screen or into the centred title (CAP-38). */
+.identity {
+  justify-self: end;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.who {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.name,
+.roles {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Round 3 L1 (Patrick): the line sits up under the sheet's title, as a
+   pair, and the buttons keep the room it gave up, so the sheet stays
+   balanced. The Leave sheet only; BottomSheet's title is shared. */
+.leave_body {
+  margin: calc(-1 * var(--space-8)) 0 var(--space-24);
+  color: var(--color-text);
+}
+
+.leave_actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+/* After .name's own rule, so it wins on a phone (see .bar's media query). */
+@media (max-width: 40rem) {
+  .name {
+    font-size: var(--font-size-sm);
+  }
+}
+
+/* CAP-38 R8 (ADR #52): a top screen's tint, fading into the page over the
+   first 20rem. Deeper screens and sheets stay plain. The sticky header
+   takes the tint's top colour so it blends rather than reading as a slab. */
+.shell[data-section='diary'] {
+  --section-tint: var(--section-tint-diary);
+}
+
+.shell[data-section='review'] {
+  --section-tint: var(--section-tint-review);
+}
+
+.shell[data-section] {
+  background:
+    linear-gradient(to bottom, var(--section-tint) 0, var(--color-bg) 20rem) no-repeat,
+    var(--color-bg);
+}
+
+.shell[data-section] .header {
+  background: var(--section-tint);
 }

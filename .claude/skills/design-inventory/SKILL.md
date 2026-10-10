@@ -86,7 +86,7 @@ Build the list of everything a user can see, from these sources only:
 - `web/src/app/routes.tsx`: every route and its component
 - `web/src/screens/`: includes the two sheets with no route (`HistorySheet`, `ExportSheet`)
 - `web/src/session/TokenGate.tsx`: the sign-in screen AppShell renders with no token
-- `docs/Stack-and-Build-Scope.md` §4.3: the ten screens and §5, what is out of scope
+- `docs/Stack-and-Build-Scope.md` §4.3: the eleven screens and §5, what is out of scope
 - `web/e2e/shots/manifest.ts`: the HO-6 screenshot ids for each screen, which the report
   pairs with the frames
 

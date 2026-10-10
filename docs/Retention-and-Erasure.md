@@ -47,6 +47,12 @@ Uploaded evidence is a third category. `evidence` stores a URI rather than a blo
 deleting a row here leaves the file wherever it was put. Any erasure procedure has to
 reach the storage as well as the database.
 
+The AI sidecar (ADR #64) keeps a fourth, in its own database `diary_ai`. `entry_vectors`
+holds 384 numbers per narrative, derived from the text but not the text. They are personal
+data in the same sense as the narrative they came from, so erasing a person means deleting
+their entries' rows there too, by entry id. `diary_ai` holds no names, emails or narrative
+text, and the demo's reset empties every table in it.
+
 ## What the constraints do
 
 Deletion behaviour is not uniform, and the differences are deliberate.

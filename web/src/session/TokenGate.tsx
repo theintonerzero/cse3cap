@@ -33,9 +33,17 @@ export interface TokenGateProps {
   mode: TokenGateMode;
   /** Called after a slot is chosen, so the sheet can close itself. */
   on_done?: () => void;
+  /**
+   * Screen mode's heading and opening line, for a host that frames the gate
+   * in its own words: the Alumable demo shell (CAP-51), whose sign-in would
+   * otherwise sit above "Reflection Diary / This demo has no login screen".
+   * Unset, the gate reads exactly as the product's always has.
+   */
+  heading?: string;
+  intro?: string;
 }
 
-export function TokenGate({ mode, on_done }: TokenGateProps) {
+export function TokenGate({ mode, on_done, heading, intro }: TokenGateProps) {
   const { slots, active_slot, last_sign_in_rejected, sign_in_with, switch_to } =
     useSession();
   const [pasting_into, setPastingInto] = useState<SlotId | null>(null);
@@ -65,7 +73,8 @@ export function TokenGate({ mode, on_done }: TokenGateProps) {
     <div className={styles.gate}>
       <p className={styles.intro}>
         {mode === 'screen'
-          ? 'This demo has no login screen. Paste one of the three seeded tokens to begin.'
+          ? (intro ??
+            'This demo has no login screen. Paste one of the three seeded tokens to begin.')
           : 'Act as a different seeded user.'}
       </p>
 
@@ -116,7 +125,7 @@ export function TokenGate({ mode, on_done }: TokenGateProps) {
   // would be a box in a box.
   return mode === 'screen' ? (
     <main className={styles.screen}>
-      <h1 className={styles.heading}>Reflection Diary</h1>
+      <h1 className={styles.heading}>{heading ?? 'Reflection Diary'}</h1>
       <Card>{body}</Card>
     </main>
   ) : (

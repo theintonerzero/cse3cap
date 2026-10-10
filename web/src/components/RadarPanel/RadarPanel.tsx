@@ -26,6 +26,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
+import type { BaseTickContentProps } from 'recharts';
 
 import { ApiError } from '../../api/client.ts';
 import { ErrorNotice } from '../ErrorNotice/ErrorNotice.tsx';
@@ -49,6 +50,8 @@ export type RadarPanelProps =
   | { state: 'loading' }
   | { state: 'error'; error: ApiError; on_retry?: () => void }
   | { state: 'empty' }
+  /** A radar that waits for a choice (CAP-38): a greyed outline and why. */
+  | { state: 'prompt'; message: string }
   | { state: 'loaded'; scale: RadarScale; axes: RadarAxis[] };
 
 // "Insufficient" only means genuinely nothing to plot on either series --
@@ -63,6 +66,16 @@ export type RadarPanelProps =
 // exist once every entry already has a self score, so "counter present,
 // self entirely absent" is not reachable in practice -- the caption
 // logic still covers it defensively, not because it is expected.
+/** One number on the radar's scale: upright, clear of a data dot on the spoke
+ * and just below its ring's corner, so the top one clears the axis label. */
+function ScaleTick({ x, y, payload }: BaseTickContentProps) {
+  return (
+    <text x={x} y={y} dx={8} dy={12} fill="var(--color-text-muted)" fontSize={11}>
+      {payload.value}
+    </text>
+  );
+}
+
 function has_nothing_to_draw(axes: RadarAxis[]): boolean {
   if (axes.length === 0) return true;
   const self_has_data = axes.some((a) => a.self !== null);
@@ -72,6 +85,7 @@ function has_nothing_to_draw(axes: RadarAxis[]): boolean {
 
 export function RadarPanel(props: RadarPanelProps) {
   if (props.state === 'loading') return <LoadingRadar />;
+  if (props.state === 'prompt') return <PromptRadar message={props.message} />;
   if (props.state === 'error') {
     return <ErrorNotice error={props.error} on_retry={props.on_retry} />;
   }
@@ -109,9 +123,16 @@ function LoadedRadar({ scale, axes }: { scale: RadarScale; axes: RadarAxis[] }) 
             dataKey="label"
             tick={{ fill: 'var(--color-text)', fontSize: 12 }}
           />
+          {/* The scale runs up the first spoke, which is always at the top,
+              so each number sits on its own ring (CAP-63). Recharts' default
+              lays it between spokes, where a polygon's rings are not, and
+              turns the numbers on their side, where they read as marks on
+              the data. ScaleTick draws them upright, clear of the label. */}
           <PolarRadiusAxis
+            angle={90}
+            axisLine={false}
             domain={[scale.min, scale.max]}
-            tick={{ fill: 'var(--color-text-muted)', fontSize: 11 }}
+            tick={ScaleTick}
           />
           {self_has_data && (
             <Radar
@@ -144,28 +165,33 @@ function LoadedRadar({ scale, axes }: { scale: RadarScale; axes: RadarAxis[] }) 
           <Legend />
         </RadarChart>
       </ResponsiveContainer>
-      <table className={styles.sr_only}>
-        <caption>
-          {`The radar above, as numbers: self-score and counter-score per competency, ` +
-            `on a ${scale.min} to ${scale.max} scale.`}
-        </caption>
-        <thead>
-          <tr>
-            <th scope="col">Competency</th>
-            <th scope="col">Self</th>
-            <th scope="col">Counter-score</th>
-          </tr>
-        </thead>
-        <tbody>
-          {sorted.map((axis) => (
-            <tr key={axis.code}>
-              <th scope="row">{axis.short_label ?? axis.code}</th>
-              <td>{axis.self ?? 'Not yet scored'}</td>
-              <td>{axis.counter ?? 'Not yet scored'}</td>
+      {/* The hiding sits on a wrapper, not the table: Firefox lays a
+          <caption> outside the table's own box, so a clip on the table
+          left the caption painted over the chart (CAP-38 R1). */}
+      <div className={styles.sr_only}>
+        <table>
+          <caption>
+            {`The radar above, as numbers: self-score and counter-score per competency, ` +
+              `on a ${scale.min} to ${scale.max} scale.`}
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Competency</th>
+              <th scope="col">Self</th>
+              <th scope="col">Counter-score</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {sorted.map((axis) => (
+              <tr key={axis.code}>
+                <th scope="row">{axis.short_label ?? axis.code}</th>
+                <td>{axis.self ?? 'Not yet scored'}</td>
+                <td>{axis.counter ?? 'Not yet scored'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -176,6 +202,22 @@ function LoadingRadar() {
       <SkeletonGroup label="Loading radar">
         <Skeleton variant="circle" width="20rem" height="20rem" />
       </SkeletonGroup>
+    </div>
+  );
+}
+
+/**
+ * The chart's shape with nothing on it, greyed, and the message saying what
+ * would fill it. Decorative outline only: the message is the content.
+ */
+function PromptRadar({ message }: { message: string }) {
+  return (
+    <div className={`${styles.placeholder} ${styles.prompt}`}>
+      <svg className={styles.prompt_shape} viewBox="0 0 100 100" aria-hidden="true">
+        <polygon points="50,6 88,28 88,72 50,94 12,72 12,28" />
+        <polygon points="50,28 69,39 69,61 50,72 31,61 31,39" />
+      </svg>
+      <p>{message}</p>
     </div>
   );
 }

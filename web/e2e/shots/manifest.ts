@@ -218,13 +218,13 @@ export const SHOTS: Shot[] = [
     route: '/',
     viewport: 'desktop',
     state: 'loaded',
-    // Not the "Your diary" h1: that heading renders in the loading branch
-    // too (same <section> wrapper for both), so waiting on it would resolve
-    // the instant the page mounts, before gigs/reflections actually load,
-    // and could screenshot the skeleton under a "loaded" name. This Button
-    // label only renders once `load.status === 'loaded'` and the caller is
+    // Not the page's h1: the shell's bar renders it in the loading branch
+    // too, so waiting on it would resolve the instant the page mounts,
+    // before gigs/reflections actually load, and could screenshot the
+    // skeleton under a "loaded" name. The floating Export record button
+    // only renders once `load.status === 'loaded'` and the caller is
     // a student on at least one gig.
-    ready: 'Export your record',
+    ready: 'Export record',
     scenario: { source: 'real', slot: 'student' },
   },
   {
@@ -233,7 +233,7 @@ export const SHOTS: Shot[] = [
     route: '/',
     viewport: 'mobile',
     state: 'loaded',
-    ready: 'Export your record',
+    ready: 'Export record',
     scenario: { source: 'real', slot: 'student' },
   },
   {
@@ -299,9 +299,9 @@ export const SHOTS: Shot[] = [
   // -- Gig detail (CAP-8) -------------------------------------------------
   // GET /gigs/{gig_id} (key `GET /gigs/:id`), plus GET /reflections?gig_id=
   // for a student. The `loaded` shots below are real-sourced; the other
-  // three states further down are fake (CAP-21). "Reflection diary" is the
-  // DiaryCard's own heading, present once the gig has loaded and absent
-  // from the skeleton.
+  // three states further down are fake (CAP-21). "Sprints" is the
+  // DiaryCard's own heading (CAP-38 round 2e; it was "Reflection diary"),
+  // present once the gig has loaded and absent from the skeleton.
   //
   // Needs SHOTS_GIG_ID (see SHOTS_GIG_ID above) alongside SHOTS_STUDENT_TOKEN
   // -- skips cleanly with either unset.
@@ -311,7 +311,7 @@ export const SHOTS: Shot[] = [
     route: `/gigs/${SHOTS_GIG_ID}`,
     viewport: 'desktop',
     state: 'loaded',
-    ready: 'Reflection diary',
+    ready: 'Sprints',
     scenario: { source: 'real', slot: 'student', requires_env: ['SHOTS_GIG_ID'] },
   },
   {
@@ -320,7 +320,7 @@ export const SHOTS: Shot[] = [
     route: `/gigs/${SHOTS_GIG_ID}`,
     viewport: 'mobile',
     state: 'loaded',
-    ready: 'Reflection diary',
+    ready: 'Sprints',
     scenario: { source: 'real', slot: 'student', requires_env: ['SHOTS_GIG_ID'] },
   },
   // Loading/empty/error are fake-sourced (Global Constraints), unlike the
@@ -608,10 +608,10 @@ export const SHOTS: Shot[] = [
   // (CAP-21; no loading entry at all -- see that state's own comment below
   // for why). Not a route of its own either -- a BottomSheet
   // over Diary Home (Stack-and-Build-Scope.md: Diary Home's "export link...
-  // opens the sheet CAP-18 fills in"), opened by DiaryHome's "Export your
-  // record" Button. `route` is Diary Home's own route and `open` is that
-  // button's exact visible text. `ready` is "Request a PDF export" (the
-  // idle-state Button inside the sheet itself), not "Export your record"
+  // opens the sheet CAP-18 fills in"), opened by DiaryHome's floating
+  // "Export record" button. `route` is Diary Home's own route and `open` is
+  // that button's exact visible text (its full label, at the top of the page). `ready` is "Request a PDF export" (the
+  // idle-state Button inside the sheet itself), not "Export record"
   // again -- that text is also the trigger, so it is already visible before
   // the click and would make the wait resolve immediately regardless of
   // whether the sheet actually opened.
@@ -619,7 +619,7 @@ export const SHOTS: Shot[] = [
     id: 'export-sheet-loaded',
     screen: 'Export sheet',
     route: '/',
-    open: 'Export your record',
+    open: 'Export record',
     viewport: 'desktop',
     state: 'loaded',
     ready: 'Request a PDF export',
@@ -635,7 +635,7 @@ export const SHOTS: Shot[] = [
     id: 'export-sheet-loaded-mobile',
     screen: 'Export sheet',
     route: '/',
-    open: 'Export your record',
+    open: 'Export record',
     viewport: 'mobile',
     state: 'loaded',
     ready: 'Request a PDF export',
@@ -659,7 +659,7 @@ export const SHOTS: Shot[] = [
     id: 'export-sheet-empty',
     screen: 'Export sheet',
     route: '/',
-    open: 'Export your record',
+    open: 'Export record',
     viewport: 'desktop',
     state: 'empty',
     ready: 'Nothing to export yet.',
@@ -682,7 +682,7 @@ export const SHOTS: Shot[] = [
     id: 'export-sheet-error',
     screen: 'Export sheet',
     route: '/',
-    open: ['Export your record', 'Request a PDF export'],
+    open: ['Export record', 'Request a PDF export'],
     viewport: 'desktop',
     state: 'error',
     ready: 'Something went wrong.',
@@ -708,15 +708,16 @@ export const SHOTS: Shot[] = [
   // GET /review-queue (ReviewQueueController::index), scoped to the caller's
   // own role server-side -- nothing in the route or the fixture asserts
   // that. Loaded shots are real-sourced; the other states below are fake
-  // (CAP-21). "Score this →" is ReviewQueueRow's own link into the assessor
-  // stepper (CAP-13), present only once state.status === 'loaded' with at
+  // (CAP-21). "Entries" is the progress bar's label inside ReviewQueueRow,
+  // the link into the assessor stepper (CAP-13), present only once
+  // state.status === 'loaded' with at
   // least one entry -- the "Review queue" h1 above it renders in every
   // status, so it cannot be the wait target (same trap as Diary Home's own
   // h1; see that entry's comment).
   //
   // CONCERN: inert today, same as every other real-sourced entry in this
   // file -- no SHOTS_ASSESSOR_TOKEN is set, so capture.spec.ts skips before
-  // page.goto ever fires, and "Score this →" assumes the real seeded
+  // page.goto ever fires, and "Entries" assumes the real seeded
   // assessor has at least one submission waiting, which Task 4 confirms.
   {
     id: 'review-queue-loaded',
@@ -724,7 +725,7 @@ export const SHOTS: Shot[] = [
     route: '/review-queue',
     viewport: 'desktop',
     state: 'loaded',
-    ready: 'Score this →',
+    ready: 'Entries',
     scenario: { source: 'real', slot: 'assessor' },
   },
   {
@@ -733,7 +734,7 @@ export const SHOTS: Shot[] = [
     route: '/review-queue',
     viewport: 'mobile',
     state: 'loaded',
-    ready: 'Score this →',
+    ready: 'Entries',
     scenario: { source: 'real', slot: 'assessor' },
   },
   // Loading/empty/error are fake-sourced. fake-api.ts has no populated
@@ -850,7 +851,7 @@ export const SHOTS: Shot[] = [
   },
   // Empty is `templates.length === 0 && copies.length === 0`
   // (SelectFramework.tsx's own LoadedState, around line 110) ->
-  // "No rubrics yet." -- the whole list empty, not either group, per that
+  // "No frameworks yet." -- the whole list empty, not either group, per that
   // function's own comment. Only reachable with an unseeded-shaped fixture
   // (the audit's own finding: a seeded database always has templates).
   {
@@ -859,7 +860,7 @@ export const SHOTS: Shot[] = [
     route: '/frameworks',
     viewport: 'desktop',
     state: 'empty',
-    ready: 'No rubrics yet.',
+    ready: 'No frameworks yet.',
     scenario: {
       source: 'fake',
       me: DR_LEE,
@@ -897,7 +898,7 @@ export const SHOTS: Shot[] = [
   // Promise.all), the latter keyed by the route param. Loaded-only for the
   // real shot; "Based on" is the base-picker's own label, rendered only once
   // load.status === 'loaded', regardless of whether the base framework turns
-  // out to have competencies to rename -- the "Copy and edit a rubric" h1
+  // out to have competencies to rename -- the "Edit a copy of a framework" h1
   // above it renders in every status (same trap as the other screens' own
   // h1s in this file), so it cannot be the wait target.
   //

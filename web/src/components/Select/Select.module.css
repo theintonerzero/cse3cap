@@ -1,0 +1,132 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+/* Round 2b (Patrick): the label reads as the control's name and the value
+   steps down beside it, so a long gig title does not out-shout the page. */
+.label {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+/* The same visually-hidden recipe as Skeleton's .sr_only. */
+.hidden_label {
+  position: absolute;
+  width: 0.0625rem;
+  height: 0.0625rem;
+  padding: 0;
+  margin: -0.0625rem;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.wrap {
+  position: relative;
+}
+
+.select {
+  appearance: none;
+  width: 100%;
+  min-height: 2.75rem;
+  box-sizing: border-box;
+  padding: var(--space-8) var(--space-48) var(--space-8) var(--space-16);
+  border: var(--border-width-sm) solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.select:hover:not(:disabled) {
+  background: var(--color-surface-alt);
+}
+
+.select:focus-visible {
+  outline: 0.125rem solid var(--color-focus-ring);
+  outline-offset: 0.0625rem;
+}
+
+.select:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Drawn, in the app bar chevron's stroke, rather than a typed glyph. */
+.chevron {
+  position: absolute;
+  top: 50%;
+  right: var(--space-16);
+  width: 1.125rem;
+  height: 1.125rem;
+  transform: translateY(-50%);
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+/* The open list in the product's own look (CAP-63), where the browser lets
+   a page style it (Chromium's customizable select). Elsewhere the list stays
+   the system's, in the right theme through color-scheme. Same control, same
+   keyboard, same screen-reader semantics either way: it is still a select. */
+@supports (appearance: base-select) {
+  .select,
+  .select::picker(select) {
+    appearance: base-select;
+  }
+
+  /* A customizable select lays its value out as a block; centre it in the
+     pill as the native one did. */
+  .select {
+    display: flex;
+    align-items: center;
+  }
+
+  .select::picker-icon {
+    display: none;
+  }
+
+  .select::picker(select) {
+    margin-block: var(--space-4);
+    padding: var(--space-4);
+    border: var(--border-width-sm) solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    color: var(--color-text);
+    box-shadow: var(--shadow-card);
+  }
+
+  /* 2.75rem is the tap floor Button and Chip use; it is the row's height. */
+  .select option {
+    box-sizing: border-box;
+    min-height: 2.75rem;
+    padding: 0 var(--space-12);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-regular);
+    cursor: pointer;
+  }
+
+  .select option:hover,
+  .select option:focus-visible {
+    background: var(--color-surface-alt);
+    outline: none;
+  }
+
+  .select option:checked {
+    background: var(--color-accent-lavender);
+    font-weight: var(--font-weight-medium);
+  }
+
+  .select option::checkmark {
+    color: var(--color-primary);
+  }
+}

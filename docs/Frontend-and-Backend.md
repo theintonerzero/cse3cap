@@ -40,6 +40,31 @@ that is on one side only. Path parameters compare by position, so Laravel's `{re
 and the contract's `{reflection_id}` are the same route. Run it with `./run contract-drift`.
 CI runs it in the Contract job, and `./run check` runs it too (CAP-25).
 
+## The second contract: the AI sidecar
+
+`docs/ai-openapi.yaml` describes `/ai/v1`, the AI sidecar in `ai/` (ADR #64). It works like
+this contract: the sidecar implements it, and `ai/tests/test_contract.py` fails when a route
+is on one side only. Redocly lints it in the Contract job.
+
+`web/` reaches it the same way it reaches Laravel. `npm run gen:types` writes
+`web/src/api/ai-schema.ts` from it beside `schema.ts`, generated and never edited, and
+`./run contract-drift` checks both files. `client.ts` exports `ai` beside `api`, with the
+same error envelope and the same `ApiError`; `ApiErrorCode` is the union of both contracts'
+codes. Its base URL is `VITE_AI_BASE_URL`: `/ai/v1` in a production build, beside
+`/api/v1` on the same origin (`web/.env.production`, the demo's `web.Dockerfile`). Unset, as on
+a laptop unless you set it, the app never calls the sidecar at all.
+
+A screen does not ask the sidecar what it serves. `web/src/ai/useAiStatus.ts` calls
+`GET /status` once per session, by whichever screen mounts first, and every later screen
+reads the same answer: a set of feature names, or `null` while unknown, off or unreachable.
+A feature renders only when its name is in the set, so a sidecar that is down, switched
+off or serving a subset leaves the rest of the product exactly as it is without AI.
+
+Laravel never reads it and never changes for it. The sidecar reads Laravel's API with the
+caller's own token, so `docs/openapi.yaml` stays the contract it depends on. With
+`AI_ENABLED` off, which is the default, every `/ai/v1` route answers `404 AI_DISABLED` and
+the frontend shows no AI element.
+
 ## What crosses the seam
 
 **Nothing but JSON over HTTP.** No shared package, no code generation into `api/`, no
@@ -143,7 +168,7 @@ The counter-score comment rule is the clearest example. `Scoring.php` refuses a 
 counter-score without a comment and returns `400 COMMENT_REQUIRED`. The frontend should
 absolutely disable the submit button and show the comment field, because making a user
 submit to discover a requirement is bad design. But that button state is a *convenience*.
-The rule is the 409. Never move the rule into the component, and never assume the backend
+The rule is the 400. Never move the rule into the component, and never assume the backend
 will not send that error because the UI prevents it.
 
 The same holds for the submit gate, the level-in-competency check and the framework-in-use

@@ -20,15 +20,29 @@
  * competency renamed without it keeps its old name on every chart.
  *
  * The base comes from the route, so the page is linkable and the selector is
- * just navigation. Select framework links every row here as "Copy and edit";
+ * just navigation. Select framework links every row here as "Edit a copy";
  * in_use does not gate that, because the base is only ever read.
+ *
+ * The one thing this screen deletes is the framework it opened, and only
+ * when the viewer made that copy and no gig has it as its rubric (CAP-50,
+ * ADR #59). Never a competency or a level: that would change the shape.
  */
-import { useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useNavigate, useParams } from 'react-router';
 
 import { api, ApiError } from '../api/client.ts';
-import { Button, Card, ErrorNotice, Skeleton, SkeletonGroup } from '../components/index.ts';
+import {
+  BottomSheet,
+  Button,
+  Card,
+  ErrorNotice,
+  Select,
+  Skeleton,
+  SkeletonGroup,
+} from '../components/index.ts';
+import { useSession } from '../session/useSession.ts';
 import { group_frameworks, type Framework } from './framework-groups.ts';
+import { display_names, free_name } from './framework-names.ts';
 import {
   NAME_MAX,
   SHORT_LABEL_MAX,
@@ -77,7 +91,7 @@ export function EditFramework() {
           error:
             error instanceof ApiError
               ? error
-              : new ApiError(0, null, 'Something went wrong loading this rubric.'),
+              : new ApiError(0, null, 'Something went wrong loading this framework.'),
         });
       });
 
@@ -88,6 +102,26 @@ export function EditFramework() {
     setLoad({ status: 'loading' });
     setReloadKey((key) => key + 1);
   }, []);
+
+  // A refused delete reads the framework again, so `assigned` is what the
+  // server holds. In place rather than through the skeletons, so the editor
+  // and any unsaved edits stay mounted. If the read fails there is nothing
+  // to undo: the refusal is already on screen and the button already gone.
+  const refresh_base = useCallback(() => {
+    if (!framework_id) return;
+    api
+      .get('/frameworks/{framework_id}', { path: { framework_id } })
+      .then((base) =>
+        setLoad((current) =>
+          current.status === 'loaded' && current.base.id === base.id
+            ? { ...current, base }
+            : current,
+        ),
+      )
+      .catch(() => {});
+  }, [framework_id]);
+
+  const fail = useCallback((error: ApiError) => setLoad({ status: 'error', error }), []);
 
   // Back to the skeletons here, in the event, rather than in the effect:
   // a synchronous setState inside an effect is a cascading render.
@@ -101,13 +135,9 @@ export function EditFramework() {
 
   return (
     <section>
-      <Link className={styles.back} to="/frameworks">
-        {'‹'} Frameworks
-      </Link>
-      <h1 className={styles.heading}>Copy and edit a rubric</h1>
+      <h1 className={styles.heading}>Edit a copy of a framework</h1>
       <p className={styles.sub}>
-        Saving makes a new rubric of your own. The one it is based on does not change, and
-        nothing already scored against it moves.
+        Saving makes a new framework of your own. The original never changes.
       </p>
 
       {load.status === 'loading' && <LoadingState />}
@@ -122,6 +152,8 @@ export function EditFramework() {
           base={load.base}
           frameworks={load.frameworks}
           on_choose_base={choose_base}
+          on_delete_refused={refresh_base}
+          on_delete_failed={fail}
         />
       )}
     </section>
@@ -141,16 +173,41 @@ function Editor({
   base,
   frameworks,
   on_choose_base,
+  on_delete_refused,
+  on_delete_failed,
 }: {
   base: FrameworkDetail;
   frameworks: Framework[];
   on_choose_base: (id: string) => void;
+  on_delete_refused: () => void;
+  on_delete_failed: (error: ApiError) => void;
 }) {
-  const [draft, setDraft] = useState<FrameworkDraft>(() => draft_from(base));
+  // The copy's starting name, worked out once per base (the screen remounts
+  // on a new base): "<base> (2)", the first number free (round 3 E12).
+  const [start_name] = useState(() => free_name(base.name, frameworks, NAME_MAX));
+  const [draft, setDraft] = useState<FrameworkDraft>(() => draft_from(base, start_name));
   // The copy as the server holds it, once there is one. Every landed PATCH
   // is folded in, so pending_edits against it is exactly what is still owed.
   const [copy, setCopy] = useState<FrameworkDetail | null>(null);
   const [save, setSave] = useState<Save>({ status: 'idle' });
+
+  // On a phone the Save bar is fixed to the bottom edge and grows with its
+  // hint or outcome, so the form keeps room under its last field equal to
+  // the bar's height (round 3 E17). The CSS only reads it on a phone.
+  const form_ref = useRef<HTMLDivElement>(null);
+  const footer_ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const form = form_ref.current;
+    const footer = footer_ref.current;
+    if (!form || !footer) return;
+
+    const observer = new ResizeObserver(() => {
+      form.style.setProperty('--footer-height', `${footer.offsetHeight}px`);
+    });
+    observer.observe(footer);
+    return () => observer.disconnect();
+  }, []);
 
   const edit = (next: FrameworkDraft) => {
     setDraft(next);
@@ -249,26 +306,28 @@ function Editor({
   }
 
   const { templates, copies } = group_frameworks(frameworks);
-  const dirty = is_dirty(base, draft);
+  const base_name = (code: string) =>
+    base.competencies.find((c) => c.code === code)?.name ?? code;
+  // Same-named rubrics read "(2)", "(3)" … as on Frameworks (round 3 E7),
+  // which is what told them apart here before, in place of the key.
+  const names = display_names(frameworks);
+  const dirty = is_dirty(base, draft, start_name);
   const empty = base.competencies.length === 0;
 
   return (
-    <div className={styles.form}>
+    <div className={styles.form} ref={form_ref}>
       <div className={styles.field}>
-        <label className={styles.label} htmlFor="based-on">
-          Based on
-        </label>
-        <select
+        <Select
           id="based-on"
-          className={styles.control}
+          label="Based on"
           value={base.id}
           disabled={copy !== null || saving}
-          onChange={(event) => on_choose_base(event.target.value)}
+          on_change={on_choose_base}
         >
           <optgroup label="Templates">
             {templates.map((f) => (
               <option key={f.id} value={f.id}>
-                {f.name}
+                {names.get(f.id)}
               </option>
             ))}
           </optgroup>
@@ -276,21 +335,33 @@ function Editor({
             <optgroup label="Saved copies">
               {copies.map((f) => (
                 <option key={f.id} value={f.id}>
-                  {f.name} ({f.fw_key})
+                  {names.get(f.id)}
                 </option>
               ))}
             </optgroup>
           )}
-        </select>
+        </Select>
         {copy !== null ? (
           <p className={styles.hint}>
-            Your copy already exists, so its base is fixed. To start from another rubric, go
-            back to Frameworks.
+            Your copy already exists, so its base is fixed. To start from another framework,
+            go back to Frameworks.
           </p>
         ) : (
           dirty && (
-            <p className={styles.hint}>Choosing a different rubric discards your edits.</p>
+            <p className={styles.hint}>
+              Choosing a different framework discards your edits.
+            </p>
           )
+        )}
+        {/* Once a copy exists the page is about that copy, and a delete
+            here would be ambiguous about which framework it meant. */}
+        {copy === null && (
+          <DeleteFramework
+            framework={base}
+            disabled={saving}
+            on_refused={on_delete_refused}
+            on_failed={on_delete_failed}
+          />
         )}
       </div>
 
@@ -299,7 +370,7 @@ function Editor({
           <p className={styles.empty_title}>Nothing to rename.</p>
           <p className={styles.empty_body}>
             {base.name} has no competencies, so a copy of it would have nothing to edit.
-            Choose another rubric above to base your copy on.
+            Choose another framework above to base your copy on.
           </p>
         </div>
       ) : (
@@ -321,8 +392,8 @@ function Editor({
           <p className={styles.shape}>
             {draft.competencies.length}{' '}
             {draft.competencies.length === 1 ? 'competency' : 'competencies'}, scored{' '}
-            {base.scale.min} to {base.scale.max}. The number of competencies and levels
-            stays as it is: a rubric with a different shape is a different rubric.
+            {base.scale.min} to {base.scale.max}. Names and wording can change; the shape
+            can&rsquo;t.
           </p>
 
           <ol className={styles.competencies}>
@@ -330,10 +401,16 @@ function Editor({
               <li key={competency.code}>
                 <Card>
                   <fieldset className={styles.fieldset} disabled={saving}>
+                    {/* Headed by the name as it is being typed (round 3 E18),
+                        not the code; a blank name shows the one it started
+                        with. SFIA's category sits under it, outside the
+                        legend, so the group is named by the name alone. */}
                     <legend className={styles.legend}>
-                      {competency.code}
-                      {competency.category && ` · ${competency.category}`}
+                      {competency.name.trim() || base_name(competency.code)}
                     </legend>
+                    {competency.category && (
+                      <p className={styles.category}>{competency.category}</p>
+                    )}
 
                     <div className={styles.pair}>
                       <div className={styles.field}>
@@ -378,38 +455,43 @@ function Editor({
                       </div>
                     </div>
 
-                    {competency.levels.map((level) => {
-                      const id = `level-${competency.code}-${level.level_value}`;
-                      return (
-                        <div key={level.level_value} className={styles.field}>
-                          <label className={styles.label} htmlFor={id}>
-                            Level {level.level_value}
-                          </label>
-                          <textarea
-                            id={id}
-                            className={`${styles.control} ${styles.descriptor}`}
-                            value={level.descriptor}
-                            onChange={(event) =>
-                              edit(
-                                set_level(
-                                  draft,
-                                  competency.code,
-                                  level.level_value,
-                                  event.target.value,
-                                ),
-                              )
-                            }
-                          />
-                        </div>
-                      );
-                    })}
+                    <div className={styles.levels}>
+                      {competency.levels.map((level) => {
+                        const id = `level-${competency.code}-${level.level_value}`;
+                        return (
+                          <div key={level.level_value} className={styles.field}>
+                            <label
+                              className={`${styles.label} ${styles.level_label}`}
+                              htmlFor={id}
+                            >
+                              Level {level.level_value}
+                            </label>
+                            <textarea
+                              id={id}
+                              className={`${styles.control} ${styles.descriptor}`}
+                              value={level.descriptor}
+                              onChange={(event) =>
+                                edit(
+                                  set_level(
+                                    draft,
+                                    competency.code,
+                                    level.level_value,
+                                    event.target.value,
+                                  ),
+                                )
+                              }
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
                   </fieldset>
                 </Card>
               </li>
             ))}
           </ol>
 
-          <div className={styles.footer}>
+          <div className={styles.footer} ref={footer_ref}>
             <SaveOutcome
               save={save}
               copy={copy}
@@ -457,7 +539,7 @@ function SaveOutcome({
   if (save.status === 'saved' && copy !== null) {
     return (
       <p className={styles.saved} role="status">
-        Saved as {copy.name}. It is listed under <Link to="/frameworks">Saved copies</Link>.
+        Saved as {copy.name}. It is listed under Saved copies.
       </p>
     );
   }
@@ -483,7 +565,7 @@ function SaveOutcome({
           {copy === null
             ? 'Nothing was saved.'
             : owed === null
-              ? `A copy, ${copy.name}, was made, but it does not have the competencies of the rubric it was copied from, so your edits cannot be put on it.`
+              ? `A copy, ${copy.name}, was made, but it does not have the competencies of the framework it was copied from, so your edits cannot be put on it.`
               : `Your copy, ${copy.name}, exists, but ${owed.length} of your edits have not reached it yet. Saving again finishes them on the same copy rather than making another.`}
         </p>
         {save.error && <ErrorNotice error={save.error} />}
@@ -494,10 +576,125 @@ function SaveOutcome({
   return null;
 }
 
+/**
+ * CAP-50, ADR #59. Offered to the viewer who made this copy while no gig has
+ * it as its rubric. That is the server's rule (FrameworkPolicy::delete,
+ * FrameworkEditing::assertDeletable); this only decides whether to offer it,
+ * and a refusal from the server is shown rather than second-guessed.
+ */
+function DeleteFramework({
+  framework,
+  disabled,
+  on_refused,
+  on_failed,
+}: {
+  framework: FrameworkDetail;
+  disabled: boolean;
+  on_refused: () => void;
+  on_failed: (error: ApiError) => void;
+}) {
+  const { me } = useSession();
+  const navigate = useNavigate();
+  const [confirming, setConfirming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [refusal, setRefusal] = useState<string | null>(null);
+  const refusal_ref = useRef<HTMLParagraphElement>(null);
+  const warning_id = useId();
+
+  // The button the refusal answers is gone by now, so focus would fall to
+  // the page. It goes to the refusal instead, which is also read out.
+  useEffect(() => {
+    if (refusal !== null) refusal_ref.current?.focus();
+  }, [refusal]);
+
+  if (me === null || framework.created_by !== me.id) return null;
+
+  async function confirm() {
+    setDeleting(true);
+    try {
+      await api.delete('/frameworks/{framework_id}', {
+        path: { framework_id: framework.id },
+      });
+      // Replace, so Back does not return to a framework that is gone.
+      void navigate('/frameworks', { replace: true, state: { deleted: framework.name } });
+    } catch (error: unknown) {
+      setDeleting(false);
+      setConfirming(false);
+
+      // A gig took it as its rubric since this page loaded. Kept for good,
+      // so the button goes now rather than after the refresh lands.
+      if (error instanceof ApiError && error.code === 'FRAMEWORK_ASSIGNED') {
+        setRefusal(error.message);
+        on_refused();
+        return;
+      }
+
+      on_failed(
+        error instanceof ApiError
+          ? error
+          : new ApiError(0, null, 'Something went wrong deleting this framework.'),
+      );
+    }
+  }
+
+  return (
+    <>
+      {/* One child of the field, so an empty status adds no gap. */}
+      <div className={styles.delete}>
+        {refusal === null && !framework.assigned && (
+          <Button
+            variant="secondary"
+            size="sm"
+            full_width={false}
+            disabled={disabled}
+            on_click={() => setConfirming(true)}
+          >
+            Delete framework
+          </Button>
+        )}
+        {/* Always in the page, so the refusal is an update a screen reader
+            announces rather than a region that arrived already full. */}
+        <p ref={refusal_ref} className={styles.refused} role="status" tabIndex={-1}>
+          {refusal}
+        </p>
+      </div>
+
+      <BottomSheet
+        open={confirming}
+        title={`Delete ${framework.name}?`}
+        describedBy={warning_id}
+        onClose={() => {
+          if (!deleting) setConfirming(false);
+        }}
+      >
+        <p id={warning_id} className={styles.confirm_body}>
+          This removes {framework.name} and its competencies and descriptors. It can&rsquo;t
+          be undone.
+        </p>
+        {/* Keep it first: the sheet focuses its first control, and an
+            Enter held down on the trigger must land on the answer that
+            loses nothing. */}
+        <div className={styles.confirm_actions}>
+          <Button
+            variant="secondary"
+            disabled={deleting}
+            on_click={() => setConfirming(false)}
+          >
+            Keep it
+          </Button>
+          <Button disabled={deleting} on_click={() => void confirm()}>
+            {deleting ? 'Deleting…' : 'Delete framework'}
+          </Button>
+        </div>
+      </BottomSheet>
+    </>
+  );
+}
+
 /** Shaped like the form: the two fields, then a few competency cards. */
 function LoadingState() {
   return (
-    <SkeletonGroup label="Loading rubric">
+    <SkeletonGroup label="Loading framework">
       <div className={styles.form}>
         <Skeleton variant="block" height="var(--space-48)" />
         <Skeleton variant="block" height="var(--space-48)" />

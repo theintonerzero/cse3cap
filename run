@@ -4,6 +4,7 @@
 #
 #   ./run            what you can do
 #   ./run dev        both servers, one Ctrl-C stops both
+#   ./run demo       the client demo: checks the database and the demo people, then dev
 #   ./run check      everything CI runs
 #
 # api/ and web/ are separate applications with separate toolchains. This
@@ -130,6 +131,11 @@ dev() {
 case "${1:-help}" in
     dev)   dev ;;
 
+    # The client demo on this laptop (CAP-51): the shared database must
+    # answer (a hotspot if the wifi blocks 3306), and the demo sign-in's
+    # people come from the team's tokens file. Then both servers, as dev.
+    demo)  need_api; need_web_deps; php scripts/demo-preflight.php || exit 1; dev ;;
+
     api)   need_api; in_dir api php artisan serve --port=8000 ;;
     web)   need_web_deps; in_dir web npm run dev ;;
 
@@ -152,6 +158,10 @@ case "${1:-help}" in
     docs) step python3 scripts/check-docs.py ;;
 
     test)  need_api; in_dir api php artisan test ;;
+
+    # The AI sidecar's tests (ADR #64). Store tests need AI_TEST_DATABASE_URL,
+    # a throwaway MySQL, never the shared one; without it they skip.
+    ai-test) in_dir ai uv run pytest ;;
 
     # The frontend client against real servers, plus the compile-time
     # checks the generated types exist for. Starts prism itself; needs
@@ -274,6 +284,10 @@ case "${1:-help}" in
     # carries the shared database. A check, like verify and smoke.
     check-host) step ./scripts/check-deploy-host.sh "${2:-}" ;;
 
+    # The live demo's scripts and deploy/demo, against stubs and a local
+    # Caddy (CAP-54). Writes nothing outside a temporary directory.
+    deploy-demo-test) step python3 scripts/deploy-demo.test.py ;;
+
     # Proves your api/ reaches the database over TLS: Ssl_cipher non-empty
     # on a connection Laravel made itself. Read-only. After any change to
     # Caddy on the database box, this is how you know the certificate
@@ -353,6 +367,7 @@ case "${1:-help}" in
     check)
         say "Contract"
         step npx -y @redocly/cli@latest lint docs/openapi.yaml
+        step npx -y @redocly/cli@latest lint docs/ai-openapi.yaml
         step python3 scripts/contract-routes.test.py
         step python3 scripts/dependency-register.test.py
         need_api
@@ -361,15 +376,21 @@ case "${1:-help}" in
         step python3 scripts/guard-shared-db.test.py
         step python3 scripts/guard-docs-location.test.py
         step python3 scripts/deploy.test.py
+        step python3 scripts/deploy-demo.test.py
         step ./scripts/check-one-rule.sh
         step python3 scripts/check-tokens.test.py
         step python3 scripts/token-for.test.py
+        step python3 scripts/demo-personas.test.py
         step python3 scripts/check-docs.test.py
         step python3 scripts/check-docs.py
         say "Backend"
         need_api
         in_dir api ./vendor/bin/pint --test
         in_dir api php artisan test
+        say "AI sidecar"
+        # Its database tests run when AI_TEST_DATABASE_URL names a _test database
+        # (ai/README.md), and are skipped otherwise.
+        in_dir ai uv run pytest
         if [ -f web/package.json ]; then
             say "Frontend"
             need_web_deps
@@ -396,10 +417,12 @@ case "${1:-help}" in
 ${BLUE}Alumable Reflection Diary${RESET}
 
   ${GREEN}./run dev${RESET}      both servers. api on :8000, web on :5173. Ctrl-C stops both
+  ${GREEN}./run demo${RESET}     the client demo: database check, demo people from your tokens file, then dev
   ${GREEN}./run api${RESET}      backend only
   ${GREEN}./run web${RESET}      frontend only
   ${GREEN}./run mock${RESET}     mock the contract on :4010, so web needs no backend
   ${GREEN}./run contract-drift${RESET}  schema.ts and Laravel's routes, both against the contract
+  ${GREEN}./run ai-test${RESET}  the AI sidecar's tests (database tests need AI_TEST_DATABASE_URL)
   ${GREEN}./run docs${RESET}     the docs still describe the repo: links, commands, ADR index, register
   ${GREEN}./run deps${RESET}     regenerate docs/Dependency-Register.md: licences and advisories
 
@@ -427,6 +450,7 @@ ${BLUE}Alumable Reflection Diary${RESET}
 
   ${GREEN}./run setup${RESET}    first-time setup. Writes env files, installs dependencies
   ${GREEN}./run check-host${RESET} [user@vps]  read the deploy host. Writes nothing
+  ${GREEN}./run deploy-demo-test${RESET}  the live demo's deploy and gate rules
   ${GREEN}./run db-tls${RESET}   prove your database session is encrypted
   ${GREEN}./run jira${RESET}     check your Jira API access, and how to get it
 

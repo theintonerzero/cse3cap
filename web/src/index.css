@@ -10,4 +10,51 @@ body {
   font-family: var(--font-family-base);
   background: var(--color-bg);
   color: var(--color-text);
+  line-height: var(--line-height-normal);
+}
+
+/* CAP-38: phone screens carry a sticky action bar at the bottom (the
+   stepper's Back/Next, Edit Framework's save). Scrolling a focused field
+   into view would otherwise park it underneath that bar. */
+@media (max-width: 40rem) {
+  html {
+    scroll-padding-bottom: 8rem;
+  }
+}
+
+/* And the sticky header at the top (two rows on a phone, one above): a
+   field focused while moving up the page clears it rather than landing
+   underneath. */
+html {
+  scroll-padding-top: 6rem;
+}
+
+@media (max-width: 40rem) {
+  html {
+    scroll-padding-top: 9rem;
+  }
+}
+
+/* The browser's own surfaces in the product's colours (CAP-63): selected
+   text on the diary's lavender, and the caret in the primary purple. */
+::selection {
+  background: var(--color-accent-lavender);
+  color: var(--color-text);
+}
+
+input,
+textarea {
+  caret-color: var(--color-primary);
+}
+
+/* Hint text at the muted colour, which clears AA; browsers otherwise pick
+   their own grey, and Firefox fades it further. */
+::placeholder {
+  color: var(--color-text-muted);
+  opacity: 1;
+}
+
+/* Scrollbars in the border grey on no track, in both themes. */
+:root {
+  scrollbar-color: var(--color-border) transparent;
 }

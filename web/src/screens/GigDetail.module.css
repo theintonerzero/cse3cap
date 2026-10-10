@@ -1,6 +1,7 @@
 .heading {
   margin: 0 0 var(--space-4);
   font-size: var(--font-size-xl);
+  line-height: var(--line-height-tight);
   font-weight: var(--font-weight-bold);
   color: var(--color-text);
 }
@@ -12,16 +13,48 @@
   margin-bottom: var(--space-24);
 }
 
+.title_row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-16);
+}
+
+.title_row .heading {
+  margin: 0;
+}
+
+/* Round 2d: History's centre on the centre of the title's first line. The
+   button (2.75rem tall, the tap floor) is taller than that line, so it
+   reaches equally above and below it, and the negative bottom margin keeps
+   the overhang from pushing the line under the title down. */
+.title_action {
+  flex-shrink: 0;
+  display: flex;
+  margin-block: calc((var(--font-size-xl) * var(--line-height-tight) - 2.75rem) / 2);
+}
+
 .sub {
   margin: 0;
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
 }
 
+/* Round 2e (Patrick): "Scored against" is the card heading's subheading,
+   set like the page's own sub line under the gig title: close under the
+   heading (which always precedes it), muted, and clear of the rows below.
+   The rubric's name keeps --color-text so it still reads at a glance.
+   Muted on --color-surface is already a measured pair in
+   check-contrast.mjs. */
 .framework {
-  margin: 0;
+  margin: 0 0 var(--space-16);
   font-size: var(--font-size-sm);
   line-height: var(--line-height-relaxed);
+  color: var(--color-text-muted);
+}
+
+.framework strong {
+  font-weight: var(--font-weight-medium);
   color: var(--color-text);
 }
 
@@ -40,20 +73,24 @@
    bordered chips ran to three rows of card and made the roster look like
    the subject of the screen, which it is not -- the sprints are. */
 .people {
-  display: block;
-  margin: var(--space-4) 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+  margin: var(--space-8) 0 0;
   padding: 0;
   font-size: var(--font-size-sm);
   list-style: none;
 }
 
+/* CAP-38: one pill per person, so seven names read as seven people rather
+   than one run-on sentence. Same text, same order. */
 .person {
-  display: inline;
-}
-
-.person:not(:last-child)::after {
-  content: ' · ';
-  color: var(--color-text-muted);
+  display: inline-flex;
+  align-items: baseline;
+  padding: var(--space-4) var(--space-12);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
 }
 
 .person_name {
@@ -76,34 +113,70 @@
   margin-top: var(--space-24);
 }
 
-/* The heading inside one of the frame's three cards. Sits on an accent
-   tint, so it is --color-text rather than anything muted. */
+/* The diary card's heading. Round 2c: on a plain surface card now, not
+   the frame's accent tint. Round 2e: tight leading, so its letters start
+   as far below the card's top as the rows sit from its sides. */
 .card_heading {
-  margin: 0 0 var(--space-12);
+  margin: 0 0 var(--space-4);
   font-size: var(--font-size-lg);
+  line-height: var(--line-height-tight);
   font-weight: var(--font-weight-medium);
   color: var(--color-text);
 }
 
+/* Round 2c: a muted label over its value, the way Alumable's gig page
+   sets out Start, End and Duration. The section label above carries the
+   uppercase. */
 .fact_label {
   margin: 0;
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
-  text-transform: uppercase;
-  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
 }
 
-/* START | END | DURATION. Wraps rather than squeezing three dates across
-   the width of a narrow phone. */
+/* TIMELINE: a quiet uppercase section label, Alumable's GIG DETAILS and
+   TIMELINE style, on the page background with no card. */
+.section_label {
+  margin: 0 0 var(--space-12);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--letter-spacing-label);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+/* The diary card: the same plain surface, hairline and soft shadow as the
+   radar's card on the diary home, so the two screens read as one app. */
+.diary_card {
+  /* 12 on top (round 2e): the heading's own ascent supplies the rest of
+     the 16 the sides and bottom have. */
+  padding: var(--space-12) var(--space-16) var(--space-16);
+  border: var(--border-width-sm) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+/* START | END | DURATION, with a hairline between them (round 2e,
+   Patrick). One line always: on a phone too narrow for three dates a date
+   wraps inside its own column, so a divider never starts a line. 12 either
+   side of a divider is the 24 the gap used to be. */
 .timeline {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-16) var(--space-24);
   margin: 0;
 }
 
 .timeline_cell {
-  min-width: var(--space-64);
+  min-width: 0;
+  padding-right: var(--space-12);
+}
+
+.timeline_cell + .timeline_cell {
+  padding-left: var(--space-12);
+  border-left: var(--border-width-sm) solid var(--color-border);
+}
+
+.timeline_cell:last-child {
+  padding-right: 0;
 }
 
 .timeline_value {
@@ -126,16 +199,27 @@
   margin-bottom: var(--space-16);
 }
 
+/* Round 2d: with the diary link gone the rows are a student's last block,
+   and the card's own padding is the space under them. */
+.rows:last-child {
+  margin-bottom: 0;
+}
+
 .rows_head,
 .row,
 .row_flat {
   display: grid;
-  grid-template-columns: 1fr auto auto var(--space-16);
+  /* Fixed status columns (CAP-38): with auto, every row and the heading
+     line sized their own, so the headings never sat over their words. */
+  grid-template-columns: minmax(0, 1fr) 8.5rem 8.5rem var(--space-16);
   align-items: center;
   gap: var(--space-12);
 }
 
 .rows_head {
+  /* Bottom-aligned (CAP-38): a two-line heading and a one-line one share a
+     baseline rather than centring against each other. */
+  align-items: end;
   margin: 0;
   padding: 0 var(--space-16);
   font-size: var(--font-size-xs);
@@ -188,6 +272,15 @@
   color: var(--color-text);
 }
 
+/* A reviewer's sprint calendar has two cells, not four: its dates span the
+   status columns and sit at the right edge, where they were before the
+   columns got fixed widths (CAP-38). Only the calendar's meta is a direct
+   child of a row; the student rows keep theirs inside .row_sprint. */
+.row_flat > .row_meta {
+  grid-column: 2 / -1;
+  justify-self: end;
+}
+
 .chevron {
   font-size: var(--font-size-lg);
   color: var(--color-text-muted);
@@ -214,22 +307,6 @@
   font-size: var(--font-size-sm);
   line-height: var(--line-height-relaxed);
   color: var(--color-text);
-}
-
-/* Matches .empty_link on the diary home: a link in this product is
-   --color-primary. This card is accent="pink" (Card.module.css); the
-   CAP-8 plan already measured and recorded --color-primary at 3.79:1 on
-   this exact tint (as .sprint_link, this element's earlier name) and left
-   it unfixed, the same deferred-finding pattern as the 3.93:1 lavender
-   pairing elsewhere in the product. --color-primary is darkened in
-   tokens.css specifically because it is rendered as normal link text on
-   --color-bg, --color-surface-alt and this --color-accent-pink tint, and
-   clears 4.5:1 on all three -- see check-contrast.mjs's --color-primary
-   entries. */
-.diary_link {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-primary);
 }
 
 .empty {
@@ -261,12 +338,52 @@
   color: var(--color-text);
 }
 
-/* The History button (CAP-14), at the right of its own line above the
-   title, where the frame draws it beside the status pill this build does
-   not have. */
-.header_actions {
-  display: flex;
-  justify-content: flex-end;
+/* On a phone the two status columns leave the sprint itself no room, so
+   each row stacks: the sprint, then one line per status, with the column
+   names that screen readers already hear made visible in place of the
+   heading line (CAP-38). */
+@media (max-width: 40rem) {
+  .rows_head {
+    display: none;
+  }
+
+  .row,
+  .row_flat {
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: var(--space-4);
+  }
+
+  .row_sprint,
+  .row_state {
+    grid-column: 1;
+  }
+
+  .row_sprint {
+    margin-bottom: var(--space-4);
+  }
+
+  .chevron {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    align-self: center;
+  }
+
+  .row_state .sr_only {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    overflow: visible;
+    clip-path: none;
+    white-space: normal;
+    color: var(--color-text-muted);
+  }
+
+  /* The dash is a column's picture of "none"; with the label showing,
+     the word says it. */
+  .row_state > [aria-hidden='true'] {
+    display: none;
+  }
 }
 
 /* CAP-39: a sprint with no reflection, its row plus the way to start one. */
@@ -277,15 +394,5 @@
 }
 
 .row_start {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-12);
   padding: 0 var(--space-16);
-}
-
-.row_error {
-  margin: 0;
-  font-size: var(--font-size-sm);
-  color: var(--color-danger);
 }

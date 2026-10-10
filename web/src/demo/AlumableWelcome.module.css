@@ -1,0 +1,96 @@
+.screen {
+  min-height: 100vh;
+  /* The diary home's look (AppShell.module.css, ADR #52): the section tint
+     fading into the page over the first 20rem. */
+  background:
+    linear-gradient(to bottom, var(--section-tint-diary) 0, var(--color-bg) 20rem) no-repeat,
+    var(--color-bg);
+  color: var(--color-text);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-32);
+  padding: var(--space-48) var(--space-16);
+}
+
+.header {
+  display: flex;
+  justify-content: center;
+}
+
+.logo {
+  height: auto;
+  max-width: 14rem;
+  width: 60%;
+}
+
+.panel {
+  width: 100%;
+  max-width: 24rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  text-align: center;
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+}
+
+.intro {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-base);
+}
+
+.personas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+.persona {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-16);
+  border: var(--border-width-sm) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+  color: var(--color-text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.persona:hover {
+  border-color: var(--color-primary);
+}
+
+.persona:focus-visible {
+  outline: 0.125rem solid var(--color-focus-ring);
+  outline-offset: 0.125rem;
+}
+
+.personaName {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-medium);
+}
+
+.personaRole {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.rejected {
+  margin: 0;
+  color: var(--color-danger);
+  font-size: var(--font-size-sm);
+}

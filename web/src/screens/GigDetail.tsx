@@ -28,15 +28,14 @@
  * can compile it and call it with dates the seed does not contain. Every
  * seeded sprint is already past due.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { useCallback, useEffect, useState } from 'react';
+import { Link, useParams } from 'react-router';
 
 import { api, ApiError } from '../api/client.ts';
 import type { components } from '../api/schema.ts';
 import {
   BottomSheet,
   Button,
-  Card,
   ErrorNotice,
   Skeleton,
   SkeletonGroup,
@@ -52,6 +51,7 @@ import {
 } from './gig-timing.ts';
 import styles from './GigDetail.module.css';
 import { HistorySheet } from './HistorySheet.tsx';
+import { StartReflection } from './StartReflection.tsx';
 
 type Gig = components['schemas']['GigDetail'];
 type Sprint = Gig['sprints'][number];
@@ -219,14 +219,21 @@ function GigHeader({ gig, me_id, on_history }: GigHeaderProps) {
 
   return (
     <header className={styles.header}>
-      {on_history && (
-        <div className={styles.header_actions}>
-          <Button variant="secondary" full_width={false} on_click={on_history}>
-            History
-          </Button>
-        </div>
-      )}
-      <h1 className={styles.heading}>{gig.title}</h1>
+      {/* Title and its one action on a line (CAP-38), as the frame draws
+          the pill and History together, rather than History floating
+          above the title on a line of its own. Small, and centred on the
+          title's first line (round 2d, Patrick): a long title wraps
+          downward and History stays where it is. */}
+      <div className={styles.title_row}>
+        <h1 className={styles.heading}>{gig.title}</h1>
+        {on_history && (
+          <span className={styles.title_action}>
+            <Button variant="secondary" size="sm" full_width={false} on_click={on_history}>
+              History
+            </Button>
+          </span>
+        )}
+      </div>
       {meta.length > 0 && <p className={styles.sub}>{meta.join(' \u00b7 ')}</p>}
       <ParticipantList participants={gig.participants} me_id={me_id} />
     </header>
@@ -287,9 +294,13 @@ function TimelineCard({ gig }: { gig: Gig }) {
   if (!gig.starts_on || !gig.ends_on) return null;
 
   return (
+    // No card (round 2c, Patrick): the frame's blue Timeline card read as a
+    // different app beside the rest of the diary, worst in dark mode. A
+    // quiet section label and label-over-value facts, as Alumable's own
+    // gig page sets out GIG DETAILS and TIMELINE.
     <section className={styles.block}>
-      <Card accent="evidence">
-        <h2 className={styles.card_heading}>Timeline</h2>
+      <div>
+        <h2 className={styles.section_label}>Timeline</h2>
         <dl className={styles.timeline}>
           <div className={styles.timeline_cell}>
             <dt className={styles.fact_label}>Start</dt>
@@ -308,14 +319,16 @@ function TimelineCard({ gig }: { gig: Gig }) {
             </div>
           )}
         </dl>
-      </Card>
+      </div>
     </section>
   );
 }
 
 /**
- * The frame's third card, and criterion 3's way into the diary scoped to
- * this gig.
+ * The frame's third card. It used to end in criterion 3's link into the
+ * diary scoped to this gig; round 2d dropped it (Patrick, CAP-8's owner):
+ * this page is only reached from the diary, and the bar's back arrow
+ * returns to the diary as it was left (diary-return.ts), which is this gig.
  *
  * For a student it is the frame's SPRINT / SELF REFLECTION / ASSESSOR
  * REFLECTION rows, the two columns being the reflection states split
@@ -346,9 +359,13 @@ function DiaryCard({
   const is_student = gig.my_role === 'student';
 
   return (
+    // A plain card, as the radar sits in on the diary home, not the frame's
+    // pink one (round 2c, Patrick).
     <section className={styles.block}>
-      <Card accent="pink">
-        <h2 className={styles.card_heading}>Reflection diary</h2>
+      <div className={styles.diary_card}>
+        {/* "Sprints", not "Reflection diary" (round 2e, Patrick): the page
+            and the bar already say diary, and this card holds the sprints. */}
+        <h2 className={styles.card_heading}>Sprints</h2>
 
         <p className={styles.framework}>
           {gig.framework ? (
@@ -380,13 +397,7 @@ function DiaryCard({
         )}
 
         {!is_student && <p className={styles.diary_body}>{NOT_YOUR_DIARY}</p>}
-
-        {is_student && (
-          <Link className={styles.diary_link} to={`/?gig_id=${gig.id}`}>
-            Open your diary for this gig
-          </Link>
-        )}
-      </Card>
+      </div>
     </section>
   );
 }
@@ -491,78 +502,15 @@ function SprintRows({
               ) : (
                 <div className={styles.row_unstarted}>
                   <div className={styles.row_flat}>{body}</div>
-                  <StartReflection sprint_id={sprint.id} on_refresh={on_refresh} />
+                  <div className={styles.row_start}>
+                    <StartReflection sprint_id={sprint.id} on_refresh={on_refresh} />
+                  </div>
                 </div>
               )}
             </li>
           );
         })}
       </ul>
-    </div>
-  );
-}
-
-const NO_RUBRIC = 'This gig has no rubric yet. Ask your supervisor to assign one.';
-
-/**
- * Starts a reflection on one sprint and opens it in the stepper (CAP-39).
- *
- * Offered on every sprint without a reflection. Which sprints may be
- * started is not decided here: the server allows any, and
- * GigPolicy::createReflection decides who. The ref, not just the disabled
- * state, stops a double press sending twice, because two clicks can land
- * before React re-renders the button disabled.
- */
-function StartReflection({
-  sprint_id,
-  on_refresh,
-}: {
-  sprint_id: string;
-  on_refresh: () => void;
-}) {
-  const navigate = useNavigate();
-  const in_flight = useRef(false);
-  const [starting, setStarting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function start() {
-    if (in_flight.current) return;
-    in_flight.current = true;
-    setStarting(true);
-    setError(null);
-    try {
-      const reflection = await api.post('/reflections', { body: { sprint_id } });
-      navigate(`/reflections/${reflection.id}`);
-    } catch (caught) {
-      if (!(caught instanceof ApiError)) throw caught;
-      switch (caught.code) {
-        case 'DUPLICATE_REFLECTION':
-          // Started somewhere else since this page loaded. Re-reading turns
-          // this row into the link to it, which is the useful answer.
-          on_refresh();
-          break;
-        case 'FRAMEWORK_NOT_ASSIGNED':
-          setError(NO_RUBRIC);
-          break;
-        default:
-          setError(caught.message);
-      }
-    } finally {
-      in_flight.current = false;
-      setStarting(false);
-    }
-  }
-
-  return (
-    <div className={styles.row_start}>
-      <Button variant="secondary" full_width={false} disabled={starting} on_click={start}>
-        {starting ? 'Starting\u2026' : 'Start reflection'}
-      </Button>
-      {error && (
-        <p className={styles.row_error} role="alert">
-          {error}
-        </p>
-      )}
     </div>
   );
 }

@@ -10,8 +10,11 @@ import type { Page } from '@playwright/test';
 
 import { EMPTY, LATROBE, NOWHERE, SFIA, expect, test } from './fixtures.ts';
 
+// By the code in its name field's id, not its heading: a card is headed by
+// the competency's name as it is typed (round 3 E18), so a renamed card
+// changes its accessible name mid-test.
 function competency(page: Page, code: string) {
-  return page.getByRole('group', { name: code });
+  return page.getByRole('group').filter({ has: page.locator(`#name-${code}`) });
 }
 
 async function open(page: Page, framework_id: string) {
@@ -28,21 +31,29 @@ test('every rubric, in use or not, can be copied and edited', async ({ page, api
     .getByRole('listitem')
     .filter({ hasText: 'La Trobe six-competency' });
   await expect(la_trobe.getByText('In use')).toBeVisible();
-  await la_trobe.getByRole('button', { name: 'Copy and edit' }).click();
+  // The row opens its sheet (round 3 E6), and "Edit a copy" is in there.
+  await la_trobe.getByRole('button').click();
+  const sheet = page.getByRole('dialog', { name: 'La Trobe six-competency' });
+  // One link, not a button nested in a link (CAP-38): two interactive
+  // elements for one action is invalid HTML and two tab stops.
+  await expect(sheet.getByRole('button', { name: 'Edit a copy' })).toHaveCount(0);
+  await sheet.getByRole('link', { name: 'Edit a copy' }).click();
 
   await expect(page).toHaveURL(`/frameworks/${LATROBE}/edit`);
-  await expect(page.getByRole('heading', { name: 'Copy and edit a rubric' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Edit a copy of a framework' }),
+  ).toBeVisible();
   expect(api.writes()).toEqual([]);
 });
 
-test('loaded: the base, a name that says copy, every field, and nothing that changes shape', async ({
+test('loaded: the base, a name with the next free number, every field, and nothing that changes shape', async ({
   page,
 }) => {
   await open(page, LATROBE);
 
   await expect(page.getByLabel('Based on')).toHaveValue(LATROBE);
   await expect(page.getByLabel('Name of your copy')).toHaveValue(
-    'Copy of La Trobe six-competency',
+    'La Trobe six-competency (2)',
   );
   await expect(page.getByText('2 competencies, scored 1 to 4.')).toBeVisible();
 
@@ -79,6 +90,8 @@ test('save: one copy, then only the fields that changed, trimmed', async ({
   await save_as_copy(page).click();
 
   await expect(page.getByText('Saved as Our rubric.')).toBeVisible();
+  // No text links (round 3): the bar's back arrow is the way to the list.
+  await expect(page.getByRole('link', { name: 'Saved copies' })).toHaveCount(0);
 
   const [copy] = api.copies();
   const teamwork = copy.competencies.find((c) => c.code === 'collaboration')!;
@@ -138,7 +151,7 @@ test('a save that fails partway finishes the same copy, not a second one', async
   await expect(page.getByText('Cannot reach the server')).toBeVisible();
 
   await page.getByRole('button', { name: 'Save changes to your copy' }).click();
-  await expect(page.getByText('Saved as Copy of La Trobe six-competency.')).toBeVisible();
+  await expect(page.getByText('Saved as La Trobe six-competency (2).')).toBeVisible();
 
   const [copy] = api.copies();
   const level_2 = copy.competencies[0].levels.find((l) => l.level_value === 2)!;
@@ -214,7 +227,9 @@ test('a refused copy saves nothing and says so', async ({ page, api }) => {
 test('error: a rubric that does not exist', async ({ page }) => {
   await open(page, NOWHERE);
 
-  await expect(page.getByRole('heading', { name: 'Copy and edit a rubric' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Edit a copy of a framework' }),
+  ).toBeVisible();
   await expect(page.getByRole('alert')).toContainText('Not found');
   await expect(page.getByRole('link', { name: /Frameworks/ }).first()).toBeVisible();
 });
@@ -232,7 +247,7 @@ test('loading: skeletons shaped like the form, not a spinner', async ({ page, ap
   await open(page, LATROBE);
 
   await expect(
-    page.getByRole('status').filter({ hasText: 'Loading rubric' }),
+    page.getByRole('status').filter({ hasText: 'Loading framework' }),
   ).toBeVisible();
   await expect(page.getByLabel('Name of your copy')).toHaveCount(0);
 
@@ -255,20 +270,20 @@ test('a blank field blocks the save and is named', async ({ page, api }) => {
 test('choosing another base warns first, then starts from it', async ({ page }) => {
   await open(page, LATROBE);
   await expect(
-    page.getByText('Choosing a different rubric discards your edits.'),
+    page.getByText('Choosing a different framework discards your edits.'),
   ).toHaveCount(0);
 
   await competency(page, 'collaboration').getByLabel('Competency name').fill('Teamwork');
   await expect(
-    page.getByText('Choosing a different rubric discards your edits.'),
+    page.getByText('Choosing a different framework discards your edits.'),
   ).toBeVisible();
 
   await page.getByLabel('Based on').selectOption(SFIA);
 
   await expect(page).toHaveURL(`/frameworks/${SFIA}/edit`);
-  await expect(page.getByLabel('Name of your copy')).toHaveValue('Copy of SFIA 9');
+  await expect(page.getByLabel('Name of your copy')).toHaveValue('SFIA 9 (2)');
   // SFIA's skills carry a category and start part-way up the scale.
-  const prog = page.getByRole('group', { name: 'PROG · Development and implementation' });
+  const prog = page.getByRole('group', { name: 'Programming/software development' });
   await expect(prog.getByLabel('Level 2')).toBeVisible();
   await expect(prog.getByLabel('Level 1')).toHaveCount(0);
 });
