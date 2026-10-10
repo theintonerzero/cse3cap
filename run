@@ -256,6 +256,15 @@ case "${1:-help}" in
     # see web/e2e/shots/README.md for what those ids mean and when to run
     # this for real (after the UI freeze on 7 Oct, then again before
     # submission).
+    # Redraws docs/erd.png from docs/erd.mmd, legend included (CAP-27). Needs
+    # the network: Mermaid loads from a pinned CDN version. Run it after any
+    # change to db/01-schema.sql, with erd.mmd brought up to date first.
+    erd)
+        need_web_deps
+        in_dir web npx playwright install chromium
+        in_dir web node ../scripts/render-erd.mjs
+        ;;
+
     shots)
         need_web_deps
         in_dir web node --experimental-strip-types e2e/shots/manifest.test.ts

@@ -225,8 +225,12 @@ four-states evidence is CAP-21 (#74)
 - [~] Security review on every PR touching scoring, submit, or framework mutation. Done
       once, on the backend PR, which touches all three: it found a counter-score accepted
       after a reflection was assessed, a gig able to hold two rubrics, and three analytics
-      endpoints returning a 500 outside the error envelope. ADRs #33, #34, #35. Stays open
-      because the commitment is per PR, not once
+      endpoints returning a 500 outside the error envelope. ADRs #33, #34, #35. Reviewed
+      again since: both steppers (2026-09-24), injection on every screen (2026-09-29), the
+      permission matrix probed over HTTP (`scripts/pentest.sh`, #92) and a re-verification
+      that found the counter-score findings F12 and F13, fixed in #99 (all in
+      `docs/Security-Review.md`). Stays open because the commitment is per PR, and not
+      every such PR has its own review
 - [x] Retention and erasure note for the report (the `RESTRICT` constraints make deletion
       deliberate rather than cascading)
 
