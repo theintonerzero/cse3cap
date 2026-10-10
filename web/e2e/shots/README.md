@@ -41,7 +41,8 @@ message, same as a missing token.
 Every screen now has all four states: `loaded`, `loading`, `empty` and
 `error` (CAP-21 extended HO-6's original two worked examples, Diary Home and
 Entry Stepper, to the remaining seven screens, proving the fake-API
-techniques — `hold()`, empty arrays, `fail()` — generalise). Two documented,
+techniques — `hold()`, empty arrays, `fail()` — generalise; CAP-53 added the
+learning record's four). Two documented,
 deliberate exceptions: Export Sheet has no `loading` entry, because it takes
 `reflections` as a prop already loaded by its parent and never fetches on
 its own mount (see its manifest entry); and assessor-mode Entry Stepper has

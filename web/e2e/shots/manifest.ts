@@ -296,6 +296,74 @@ export const SHOTS: Shot[] = [
     },
   },
 
+  // -- Learning record (CAP-53) -----------------------------------------
+  // LearningRecord.tsx reads GET /gigs and GET /reflections, then per gig
+  // GET /me/progress and GET /frameworks/{id}. "Yours to keep" renders only
+  // in the loaded state, so it is the ready marker. Empty and error never
+  // reach /me/progress, which the fake does not serve.
+  {
+    id: 'learning-record-loaded',
+    screen: 'Learning record',
+    route: '/record',
+    viewport: 'desktop',
+    state: 'loaded',
+    ready: 'Yours to keep. Export it whenever you like.',
+    scenario: { source: 'real', slot: 'student' },
+  },
+  {
+    id: 'learning-record-loaded-mobile',
+    screen: 'Learning record',
+    route: '/record',
+    viewport: 'mobile',
+    state: 'loaded',
+    ready: 'Yours to keep. Export it whenever you like.',
+    scenario: { source: 'real', slot: 'student' },
+  },
+  {
+    id: 'learning-record-loading',
+    screen: 'Learning record',
+    route: '/record',
+    viewport: 'desktop',
+    state: 'loading',
+    scenario: {
+      source: 'fake',
+      me: JANE,
+      frameworks: [LA_TROBE_FRAMEWORK],
+      gigs: [GIG],
+      hold: 'GET /gigs',
+    },
+  },
+  {
+    id: 'learning-record-empty',
+    screen: 'Learning record',
+    route: '/record',
+    viewport: 'desktop',
+    state: 'empty',
+    ready: 'Your record starts with your first reflection.',
+    scenario: {
+      source: 'fake',
+      me: JANE,
+      frameworks: [LA_TROBE_FRAMEWORK],
+      gigs: [GIG],
+      reflections: [],
+    },
+  },
+  {
+    id: 'learning-record-error',
+    screen: 'Learning record',
+    route: '/record',
+    viewport: 'desktop',
+    state: 'error',
+    ready: 'Cannot reach the server',
+    scenario: {
+      source: 'fake',
+      me: JANE,
+      frameworks: [LA_TROBE_FRAMEWORK],
+      gigs: [GIG],
+      fault: { route: 'GET /reflections', fault: { kind: 'network' }, times: 2 },
+    },
+  },
+
   // -- Gig detail (CAP-8) -------------------------------------------------
   // GET /gigs/{gig_id} (key `GET /gigs/:id`), plus GET /reflections?gig_id=
   // for a student. The `loaded` shots below are real-sourced; the other
