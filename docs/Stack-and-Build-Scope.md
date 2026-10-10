@@ -35,8 +35,8 @@ and the student keeps and exports the record.
 
 **Not using, deliberately:** Next.js (no need for SSR or API routes when Laravel is the
 backend), Tailwind (tokens are already CSS variables), axios (one typed fetch wrapper is
-enough), pagination libraries (result sets are small), any vector database or AI service
-(cut from scope).
+enough), pagination libraries (result sets are small), any vector database (the optional AI
+sidecar keeps its vectors in MySQL and ranks them in its own process, ADR #64).
 
 ### Database access
 
@@ -254,8 +254,9 @@ four-states evidence is CAP-21 (#74)
 
 Recorded so nobody builds them by accident.
 
-- **AI features.** Cut. No suggestion tables, no embeddings, nothing writes scores but a
-  human.
+- **AI that writes.** Cut. No AI drafts a narrative, suggests a score or writes a reviewer's
+  comment, and nothing writes scores but a human. The optional sidecar only asks and finds
+  (ADR #64).
 - **Framework creation from scratch.** Copy-then-edit only, from a seeded base.
 - **Adding or removing competencies, changing level counts.** Renaming competencies and
   rewording descriptors only.
