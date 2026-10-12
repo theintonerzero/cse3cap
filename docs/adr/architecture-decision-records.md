@@ -75,6 +75,7 @@ Index
 #63 The learning record adds no endpoint ........ Proposed
 #64 An AI sidecar that asks, never writes ....... Proposed
 #65 One row of levels, not a stack of pills ..... Proposed
+#66 Export starts on the learning record ....... Proposed
 
 ===============================================================
 
@@ -3874,3 +3875,70 @@ Keep the pills and shorten the descriptors. No code change, but the descriptors 
 rubric. Shortening them changes what students are scored against, which #16's copy-then-edit
 rule exists to prevent.
 
+===============================================================
+
+ADR #66: Export starts on the learning record, and the diary's floating button opens it
+
+Status: Proposed
+Date: 2026-10-12
+
+Context:
+Since CAP-38 the diary home's floating button exported the whole record. The learning record
+(CAP-53) had a second Export record button at its foot, and the diary's only way to the
+record was a link under every sprint's reflection. For Jane, the seeded student on two gigs,
+that link sat about two phone screens down.
+
+The export is always the whole record (CAP-18), and the learning record is the whole record
+shown as one table per gig. So the button that exports the record lived on the screen that
+doesn't show it, and the screen that does show it was the hardest one to reach.
+
+Patrick proposed on 12 October 2026 that the floating button open the learning record
+instead, so the record is the only place an export can start. The team approved it from a
+mockup the same day. It was built after the v1.0.0 code freeze, and its pull request is held
+until Assessment 3 is submitted.
+
+Decision:
+The diary home's floating button is a link to `/record` named "Your learning record". The
+diary home has no export, and the link at its foot goes.
+
+The learning record opens with a "Yours to keep" panel under its heading. The panel holds
+"Export your record", the only control in the app that opens the export sheet.
+
+The export itself doesn't change: the same endpoints, the same whole-record payload, PDF or
+JSON. In the sheet the two formats become a radio group, each saying what it's for, and the
+button names the format. The record's tables show each sprint's status in its column
+heading.
+
+Consequences:
+Positive:
+The record is one tap from the diary on every screen size, rather than below every sprint.
+
+An export starts beside what it exports, so a student sees the record before they take a
+copy of it.
+
+There's one export control to find, test and document, not two.
+
+Negative:
+Exporting from the diary is now two taps, the button and then Export your record, where it
+was one.
+
+The floating button stops being an action and becomes navigation. CAP-38 R5 built it as "a
+page's one primary action", and a floating link is a less common pattern. A student who
+learned that it exports will find it opens a page.
+
+The export sheet's own empty state can no longer be reached. A record with nothing written
+shows the record's empty state, which has no export button. The branch stays in
+`ExportSheet.tsx`, and its screenshot entry is gone.
+
+Six browser spec files, the screenshot manifest and `verify-export-sheet.sh` changed to
+open the sheet from the record. The shared fake API now answers `GET /me/progress` with
+nothing scored.
+
+Alternatives:
+Keep the floating button exporting, and move the record link to the top of the diary. This
+fixes the scroll with less change, and export stays one tap away. But the export stays
+apart from the record it exports, and there are still two export buttons to keep in step.
+
+Put the learning record in the app bar's menu. The diary keeps its layout and export stays
+where it was. But a menu item is the least visible place in the app, and the record is the
+thing the product promises the student owns.
