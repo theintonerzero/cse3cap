@@ -359,11 +359,50 @@ cmd_smoke() {
     [ "$fails" = 0 ] || die "Smoke failed (above)."
 }
 
+cmd_test() {
+    need_docker
+    ensure_secrets
+    write_api_env
+    ensure_ai_env
+    ensure_personas
+    local suites=(api ai web) results=() failed=0 s line="" r
+    if [ -n "${1:-}" ]; then
+        case "$1" in
+            api|ai|web) suites=("$1") ;;
+            *) die "./assess test takes api, ai or web, or nothing for all three." ;;
+        esac
+    fi
+    compose up -d mysql >/dev/null || die "MySQL did not start (above)."
+    for s in "${suites[@]}"; do
+        say "Tests: $s"
+        if compose --profile test run --rm --build "$s-test"; then results+=("$s passed")
+        else results+=("$s FAILED"); failed=1; fi
+    done
+    say "Summary"
+    for r in "${results[@]}"; do line="${line:+$line · }$r"; done
+    printf '    %s\n' "$line"
+    [ "$failed" = 0 ] || exit 1
+}
+
+cmd_reset() {
+    need_docker
+    ensure_secrets
+    write_api_env
+    ensure_ai_env
+    ensure_personas
+    compose up -d mysql >/dev/null || die "MySQL did not start (above)."
+    seed
+    compose up -d >/dev/null || die "The stack did not start (above)."
+    ok "reset: everyone signed in must reload the page"
+}
+
 case "${1:-up}" in
     up)     cmd_up ;;
     status) cmd_status ;;
     smoke)  cmd_smoke ;;
     ai)     shift; cmd_ai "$@" ;;
+    test)   shift; cmd_test "${1:-}" ;;
+    reset)  cmd_reset ;;
     down)   shift; cmd_down "${1:-}" ;;
     -h|--help|help) sed -n '3,16p' "$0" | sed 's/^# \{0,1\}//' ;;
     *) die "Unknown command '$1'. ./assess help lists them." ;;

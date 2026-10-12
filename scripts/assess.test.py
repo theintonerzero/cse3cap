@@ -238,6 +238,29 @@ check("--cap refuses a non-number", r.returncode != 0 and "a number" in r.stderr
 r = run_assess(d, "ai", stdin="1\n\n")
 check("an empty paste skips, and saves nothing", "skipped" in r.stdout and "AI_ENABLED=false" in read(d / "repo" / ".assess" / "ai.env"), r.stdout)
 
+d = sandbox('case "$*" in *"run --rm --build ai-test"*) exit 1 ;; *) exit 0 ;; esac', "exit 7")
+r = run_assess(d, "test")
+calls = read(d / "calls.log")
+check("test runs all three suites", all(f"run --rm --build {s}-test" in calls for s in ("api", "ai", "web")), calls)
+check(
+    "test reports each suite and exits non-zero on a failure",
+    r.returncode != 0 and "api passed · ai FAILED · web passed" in r.stdout,
+    r.stdout + r.stderr,
+)
+d = sandbox("exit 0", "exit 7")
+r = run_assess(d, "test", "web")
+calls = read(d / "calls.log")
+check(
+    "test web runs only the browser suite",
+    r.returncode == 0 and "web-test" in calls and "api-test" not in calls and "ai-test" not in calls,
+    calls,
+)
+r = run_assess(d, "test", "everything")
+check("test refuses an unknown suite", r.returncode != 0 and "api, ai or web" in r.stderr, r.stderr)
+d = sandbox(UP_DOCKER.replace("$USERS", "6"), UP_CURL)
+r = run_assess(d, "reset")
+check("reset reseeds even when the demo is already seeded", r.returncode == 0 and "migrate:fresh" in read(d / "calls.log"), r.stdout + r.stderr)
+
 # ---------------------------------------------------------------------------
 print()
 if failures:
