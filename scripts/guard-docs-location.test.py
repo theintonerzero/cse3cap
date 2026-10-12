@@ -57,6 +57,18 @@ CASES = [
     (ALLOW, "CLAUDE.md"),
     (ALLOW, "CONTRIBUTING.md"),
 
+    # The repository's community files, at the root where readers and GitHub
+    # look for them (ADR #68). At the root only.
+    (ALLOW, "SECURITY.md"),
+    (ALLOW, "PRIVACY.md"),
+    (ALLOW, "PRODUCT.md"),
+    (ALLOW, "CHANGELOG.md"),
+    (ALLOW, "CODE_OF_CONDUCT.md"),
+    (ALLOW, "SUPPORT.md"),
+    (DENY, "api/SECURITY.md"),
+    (DENY, "web/CHANGELOG.md"),
+    (DENY, "SUMMARY.md"),
+
     # Not documentation.
     (ALLOW, "api/app/Services/Scoring.php"),
     (ALLOW, "db/01-schema.sql"),

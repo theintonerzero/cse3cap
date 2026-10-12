@@ -2,7 +2,7 @@ import { useEffect, useId, useState } from 'react';
 
 import { ai, api } from '../api/client.ts';
 import type { components as aiComponents } from '../api/ai-schema.ts';
-import { BottomSheet, Skeleton, SkeletonGroup } from '../components/index.ts';
+import { Badge, BottomSheet, Skeleton, SkeletonGroup } from '../components/index.ts';
 import styles from './RelatedDisclosure.module.css';
 
 type Related = aiComponents['schemas']['RelatedEntries']['entries'][number];
@@ -127,7 +127,7 @@ export function RelatedDisclosure({
         >
           <path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" strokeWidth="1.75" />
         </svg>
-        From your earlier sprints ({rows.length})
+        From your earlier sprints ({rows.length}) <Badge kind="ai" inline />
       </button>
       <ul className={styles.rows} id={list_id} hidden={!open}>
         {rows.map((row) => (

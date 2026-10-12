@@ -141,19 +141,23 @@ const test = base.extend<{ gigs: GigDetail[] }>({
   },
 });
 
-test.describe('Export record button', () => {
+// CAP-70: the floating button opens the learning record, the one place an
+// export starts. It used to export from here.
+test.describe('The learning record button', () => {
   test.use({ gigs: [MANY] });
+
+  const button = (page: Page) => page.getByRole('link', { name: 'Your learning record' });
 
   test('full label at the top, narrower once scrolled, same name', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/');
-    const fab = page.getByRole('button', { name: 'Export record' });
+    const fab = button(page);
     await expect(fab).toBeVisible();
-    await expect(fab).toContainText('Export record');
+    await expect(fab).toContainText('Your learning record');
     const wide = (await fab.boundingBox())!.width;
     await page.mouse.wheel(0, 400);
     await expect.poll(async () => (await fab.boundingBox())!.width).toBeLessThan(wide);
-    await expect(page.getByRole('button', { name: 'Export record' })).toBeVisible();
+    await expect(button(page)).toBeVisible();
     await page.evaluate(() => window.scrollTo(0, 0));
     await expect.poll(async () => (await fab.boundingBox())!.width).toBeCloseTo(wide, 0);
   });
@@ -161,48 +165,30 @@ test.describe('Export record button', () => {
   test('at the end of the page the last row sits above the button', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/');
-    await expect(page.getByRole('button', { name: 'Export record' })).toBeVisible();
+    await expect(button(page)).toBeVisible();
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-    const fab = page.getByRole('button', { name: 'Export record' });
+    const fab = button(page);
     await expect.poll(async () => (await fab.boundingBox())!.width).toBeLessThan(80);
     const last = (await page.getByRole('listitem').last().boundingBox())!;
-    const button = (await fab.boundingBox())!;
-    expect(last.y + last.height, 'last row bottom above button top').toBeLessThanOrEqual(
-      button.y,
-    );
-  });
-
-  test('opens the Export record sheet and gets focus back on close', async ({ page }) => {
-    await page.goto('/');
-    const fab = page.getByRole('button', { name: 'Export record' });
-    await fab.click();
-    const sheet = page.getByRole('dialog', { name: 'Export record' });
-    await expect(sheet).toBeVisible();
-    await page.keyboard.press('Escape');
-    await expect(sheet).toHaveCount(0);
-    await expect(fab).toBeFocused();
-  });
-
-  test('an open sheet covers the floating button', async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto('/');
-    const fab = page.getByRole('button', { name: 'Export record' });
     const box = (await fab.boundingBox())!;
-    await fab.click();
-    await expect(page.getByRole('dialog', { name: 'Export record' })).toBeVisible();
-    const covered = await fab.evaluate(
-      (node, [x, y]) => !node.contains(document.elementFromPoint(x, y)),
-      [box.x + box.width / 2, box.y + box.height / 2],
+    expect(last.y + last.height, 'last row bottom above button top').toBeLessThanOrEqual(
+      box.y,
     );
-    expect(covered, 'the floating button is clickable through the sheet').toBe(true);
   });
 
-  test('no old page-head Export button', async ({ page }) => {
+  test('is a link to the learning record', async ({ page }) => {
+    await page.goto('/');
+    await expect(button(page)).toHaveAttribute('href', '/record');
+  });
+
+  test('the diary has no export, and no second way to the record', async ({ page }) => {
     await page.goto('/');
     // Wait for the loaded screen first: a count of 0 is also true while the
     // skeleton is up, which would make this pass before it checks anything.
     await expect(page.getByRole('link', { name: /Sprint 1/ })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Export your record' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /export/i })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: /export/i })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: /learning record/i })).toHaveCount(1);
   });
 });
 

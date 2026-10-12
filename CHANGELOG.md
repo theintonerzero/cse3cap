@@ -1,12 +1,68 @@
 # Changelog
 
-Notable changes to the Alumable Reflection Diary. The format follows
+All notable changes to the Alumable Reflection Diary are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
-v1.0.0 is the first tagged release. Nothing was tagged before it, so the history leading up to
+v1.0.0 was the first tagged release. Nothing was tagged before it, so the history leading up to
 it is grouped by sprint instead of by version, with the pull request for each change. Ticket
 keys are the repository's `CAP-n`; Jira holds the same tickets as `COA4-n` (ADR #38).
+
+Each pull request adds its line under `[Unreleased]`, in the section its Conventional Commits
+type maps to (`CONTRIBUTING.md`). A release renames `[Unreleased]` to the new version and
+date, and opens a fresh one.
+
+## [Unreleased]
+
+## [1.1.0] - 2026-10-12
+
+`dev` merged to `main` and tagged `v1.1.0`. What changed after 1.0.0, while the live demo
+was switched on for the AI and an assessor's path was added.
+
+### Added
+
+- An assessor runs the whole product with one command (CAP-71, #152, ADR #67). `./assess`,
+  or `.\assess.ps1` in PowerShell 7, builds the live demo's own images beside a local
+  MySQL, seeds the demo and signs in by persona. `./assess ai` turns the AI on with the
+  assessor's own Anthropic key, checked before it is saved and capped at US$1 a day.
+  `./assess test` runs the backend, AI sidecar and browser suites in containers. Guide:
+  `docs/Assessor-Guide.md`.
+- Every control that asks the AI carries an AI mark, so a person knows before they press it
+  (CAP-69, #148).
+- The repository's community files: an MIT `LICENSE`, `SECURITY.md`, `PRIVACY.md`,
+  `PRODUCT.md` and `CODE_OF_CONDUCT.md`, with issue and pull request templates. They and this
+  changelog live at the root (ADR #68).
+- `CONTRIBUTING.md` sets out Conventional Commits 1.0.0, how each type maps to this changelog,
+  and the release process.
+
+### Changed
+
+- The learning record is the one place an export starts (CAP-70, #151, ADR #66). The diary's
+  floating button opens the record instead of exporting. The record opens with a "Yours to
+  keep" panel that holds the export, shows each sprint's status over its column, and reads
+  each score aloud as a sentence. The export sheet says what it holds and offers PDF and
+  JSON as two choices that say what each is for.
+- The live demo runs with the AI sidecar on.
+
+### Fixed
+
+- PDF export failed on the deployed image with "a response we could not read". dompdf wrote
+  the Inter font's metrics into `vendor/`, which the PHP user cannot write (CAP-65, #150).
+- The coach, the calibration coach and recurring themes answered every request with an
+  error, because the structured-output schema carried array limits the API rejects
+  (CAP-69, #147).
+- The AI sidecar could not read its database certificate, and then could not enter the
+  folder it sits in, so it did not start with the AI on (CAP-69, #147, #149).
+- "From your earlier sprints" never folded (#148).
+- The export's ready state counted "1 reflections" (#151).
+
+### Known limitations at 1.1.0
+
+Those listed for 1.0.0 still hold, plus:
+
+- `assess.ps1` has run under PowerShell 7 on macOS, not on Windows itself.
+- On a Docker with fewer than 4 CPUs, a few browser checks that time gestures and layout can
+  fail under load and pass when run again (`docs/Assessor-Guide.md`).
 
 ## [1.0.0] - 2026-10-10
 
@@ -225,3 +281,7 @@ No sprint was open on the board for these three weeks. The backend was built in 
 Discovery, design and the technical foundation: the brief, personas, the ERD, the
 architecture decision records from ADR #1, and the repository itself (#1, #2). Tracked in
 Jira as COA4-1 to COA4-52.
+
+[Unreleased]: https://github.com/theintonerzero/cse3cap/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/theintonerzero/cse3cap/compare/v1.0.0...v1.1.0
+[1.0.0]: https://github.com/theintonerzero/cse3cap/releases/tag/v1.0.0

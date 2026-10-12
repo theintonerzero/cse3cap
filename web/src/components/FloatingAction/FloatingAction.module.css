@@ -16,6 +16,7 @@
   border: none;
   border-radius: var(--radius-full);
   box-shadow: var(--shadow-sheet);
+  text-decoration: none;
   cursor: pointer;
   transition: padding var(--duration-quick) ease-out;
 }

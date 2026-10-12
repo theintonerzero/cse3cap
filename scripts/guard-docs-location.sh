@@ -128,6 +128,16 @@ def verdict(path):
     if os.path.basename(rel).lower().startswith("readme."):
         return None
 
+    # The community files, at the repository root where readers and GitHub
+    # look for them (ADR #68). At the root only: the same name anywhere else
+    # is still a stray note.
+    community = {
+        "SECURITY.md", "PRIVACY.md", "PRODUCT.md", "CHANGELOG.md",
+        "CODE_OF_CONDUCT.md", "SUPPORT.md",
+    }
+    if rel.replace(os.sep, "/") in community:
+        return None
+
     allowed = (
         "docs/",            # every document this project keeps
         ".claude/",         # agent and skill definitions, which are configuration

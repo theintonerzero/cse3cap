@@ -258,8 +258,9 @@ test('the summary, one section per written gig, and the grid of self/assessor', 
   await page.goto('/record');
 
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Your learning record');
-  await expect(page.getByText('3 reflections · 2 gigs')).toBeVisible();
-  await expect(page.getByText(/^2 rubrics · since .*2026$/)).toBeVisible();
+  await expect(
+    page.getByText(/^3 reflections · 2 gigs · 2 rubrics · since .*2026$/),
+  ).toBeVisible();
   await expect(page.getByText('Yours to keep. Export it whenever you like.')).toBeVisible();
 
   // Two tables: the unwritten gig, the gig with no rubric and the reviewed
@@ -271,9 +272,22 @@ test('the summary, one section per written gig, and the grid of self/assessor', 
   // A set: in development StrictMode mounts the effect twice.
   expect([...new Set(progress_calls)].sort()).toEqual([GIG_A, GIG_B].sort());
 
+  // Each gig is a heading, named over its rubric and scale (CAP-70).
+  await expect(page.getByRole('heading', { level: 2 })).toHaveText([
+    'Develop AI use cases',
+    'Data migration audit',
+  ]);
+  await expect(page.getByText('Alumable sprint 1 template · levels 1–4')).toBeVisible();
+
   // Develop AI use cases: three sprints, three competencies in rubric order.
+  // Each sprint's status sits under its number; S3 has no reflection.
   const a = section(page, 'Develop AI use cases');
-  await expect(a.getByRole('columnheader')).toHaveText(['Competency', 'S1', 'S2', 'S3']);
+  await expect(a.getByRole('columnheader')).toHaveText([
+    'Competency',
+    /^S1\s*Assessed$/,
+    /^S2\s*Submitted$/,
+    'S3',
+  ]);
   await expect(a.getByRole('rowheader')).toHaveText([
     'Contribution',
     'Communication',
@@ -297,16 +311,20 @@ test('the summary, one section per written gig, and the grid of self/assessor', 
     /^–not yet$/,
   ]);
 
-  await expect(page.getByText('Alumable sprint 1 template', { exact: true })).toBeVisible();
-  await expect(page.getByText('3 sprints')).toBeVisible();
-  await expect(page.getByText('levels 1–4 · – not yet')).toBeVisible();
+  // Read aloud as a sentence, not as "3 slash 4".
+  await expect(cells(page, 'Develop AI use cases', 'Contribution').first()).toContainText(
+    'You: level 3, assessor: level 4',
+  );
+  await expect(cells(page, 'Develop AI use cases', 'Contribution').nth(1)).toContainText(
+    'You: level 4, assessor: not yet',
+  );
 
   // Data migration audit: its own rubric and its own scale.
   await expect(cells(page, 'Data migration audit', 'DATM')).toHaveText([
     /^5\/6/,
     /^–not yet$/,
   ]);
-  await expect(page.getByText('levels 1–7 · – not yet')).toBeVisible();
+  await expect(page.getByText(/· levels 1–7$/)).toBeVisible();
 
   await expect(
     page.getByText(
@@ -317,8 +335,13 @@ test('the summary, one section per written gig, and the grid of self/assessor', 
 
 test('notes read as notes, not as empty fields (CAP-63)', async ({ page }) => {
   await page.goto('/record');
-  for (const text of ['Yours to keep', 'aren’t compared']) {
-    const note = page.getByText(text);
+  // "Yours to keep" reads from the panel it sits in, which holds the export
+  // (CAP-70); the rubric note is a note of its own.
+  const notes = {
+    'Yours to keep': page.getByRole('region', { name: 'Keep your record' }),
+    'aren’t compared': page.getByText('aren’t compared'),
+  };
+  for (const [text, note] of Object.entries(notes)) {
     await expect(note).toBeVisible();
     const look = await note.evaluate((el) => {
       const s = getComputedStyle(el);
@@ -345,10 +368,10 @@ test('each table can be reached from the keyboard and names its sprints in full'
 
   // "S1" is read aloud as "S one"; the header's name is the word.
   const headers = section(page, 'Develop AI use cases').getByRole('columnheader');
-  await expect(headers.nth(1)).toHaveAccessibleName('Sprint 1');
+  await expect(headers.nth(1)).toHaveAccessibleName('Sprint 1, assessed');
   await expect(headers.nth(3)).toHaveAccessibleName('Sprint 3');
   // The visible text stays short, as the frame draws it.
-  await expect(headers.nth(1)).toHaveText('S1');
+  await expect(headers.nth(1)).toContainText('S1');
 });
 
 test('each section opens the diary scoped to its gig', async ({ page }) => {
@@ -365,7 +388,8 @@ test('each section opens the diary scoped to its gig', async ({ page }) => {
 
 test('the diary links in, and back returns to the diary', async ({ page }) => {
   await page.goto(`/?gig_id=${GIG_A}`);
-  await page.getByRole('link', { name: 'Your learning record ›' }).click();
+  // The diary's floating button (CAP-70).
+  await page.getByRole('link', { name: 'Your learning record', exact: true }).click();
 
   await expect(page).toHaveURL('/record');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Your learning record');
@@ -374,11 +398,100 @@ test('the diary links in, and back returns to the diary', async ({ page }) => {
   await expect(page).toHaveURL(/\/(\?.*)?$/);
 });
 
-test('Export record opens the export sheet', async ({ page }) => {
+// CAP-70: the record is the one place an export starts, at the top of it.
+test('Yours to keep holds the export, above the first gig, and nothing else exports', async ({
+  page,
+}) => {
   await page.goto('/record');
-  await page.getByRole('button', { name: 'Export record' }).click();
+  const panel = page.getByRole('region', { name: 'Keep your record' });
+  await expect(panel).toContainText('Yours to keep. Export it whenever you like.');
+  await expect(panel.getByRole('button', { name: 'Export your record' })).toBeVisible();
 
-  await expect(page.getByRole('dialog', { name: 'Export record' })).toBeVisible();
+  const panel_top = (await panel.boundingBox())!.y;
+  const first_gig = (await page.getByRole('heading', { level: 2 }).first().boundingBox())!
+    .y;
+  expect(panel_top, 'the panel sits above the first gig').toBeLessThan(first_gig);
+
+  await expect(page.getByRole('button', { name: /export/i })).toHaveCount(1);
+});
+
+test('Export your record opens the sheet, and Escape gives focus back', async ({
+  page,
+}) => {
+  await page.goto('/record');
+  const trigger = page.getByRole('button', { name: 'Export your record' });
+  await trigger.click();
+
+  const sheet = page.getByRole('dialog', { name: 'Export your record' });
+  await expect(sheet).toBeVisible();
+  // What the export holds: the whole record, which is what the server
+  // exports, so the no-rubric gig's draft is in it although the page has no
+  // section for that gig.
+  await expect(sheet.getByText('4 reflections across 3 gigs')).toBeVisible();
+  await expect(sheet.getByRole('listitem')).toHaveText([
+    '2 assessed',
+    '1 submitted',
+    '1 draft',
+  ]);
+
+  await page.keyboard.press('Escape');
+  await expect(sheet).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+});
+
+test.describe('a record with no drafts', () => {
+  test.use({
+    reflections: [REFLECTIONS.filter((r) => r.status !== 'draft'), { scope: 'test' }],
+  });
+
+  test('the sheet lists only the statuses the record has', async ({ page }) => {
+    await page.goto('/record');
+    await page.getByRole('button', { name: 'Export your record' }).click();
+    const sheet = page.getByRole('dialog', { name: 'Export your record' });
+    await expect(sheet.getByRole('listitem')).toHaveText(['2 assessed', '1 submitted']);
+    await expect(sheet.getByText(/draft/i)).toHaveCount(0);
+  });
+});
+
+test('the format is a radio group the button names, and Tab stays in the sheet', async ({
+  page,
+}) => {
+  await page.goto('/record');
+  await page.getByRole('button', { name: 'Export your record' }).click();
+  const sheet = page.getByRole('dialog', { name: 'Export your record' });
+
+  const pdf = sheet.getByRole('radio', { name: /PDF/ });
+  const json = sheet.getByRole('radio', { name: /JSON/ });
+  const go = sheet.getByRole('button', { name: 'Export as PDF' });
+  await expect(pdf).toBeChecked();
+  // ExportSheet moves focus to its current action once it renders.
+  await expect(go).toBeFocused();
+
+  // The radios are one stop: back from the button lands on the checked one,
+  // and back again wraps to the button rather than leaving the sheet.
+  await page.keyboard.press('Shift+Tab');
+  await expect(pdf).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(sheet.getByRole('button', { name: 'Export as PDF' })).toBeFocused();
+
+  // Arrows choose, and the button follows the choice.
+  await page.keyboard.press('Shift+Tab');
+  await page.keyboard.press('ArrowDown');
+  await expect(json).toBeChecked();
+  await expect(sheet.getByRole('button', { name: 'Export as JSON' })).toBeVisible();
+  await page.keyboard.press('Tab');
+  await expect(sheet.getByRole('button', { name: 'Export as JSON' })).toBeFocused();
+});
+
+test('the sheet fits a 360px phone', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 800 });
+  await page.goto('/record');
+  await page.getByRole('button', { name: 'Export your record' }).click();
+  await expect(page.getByRole('dialog', { name: 'Export your record' })).toBeVisible();
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow, 'horizontal overflow at 360px').toBeLessThanOrEqual(0);
 });
 
 test('loading shows skeletons, not a spinner', async ({ page, api }) => {

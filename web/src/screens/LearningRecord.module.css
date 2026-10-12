@@ -7,14 +7,51 @@
   padding-bottom: var(--space-32);
 }
 
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
 .heading {
   margin: 0;
-  font-size: var(--font-size-xl);
+  font-size: var(--font-size-2xl);
+  line-height: var(--line-height-tight);
   font-weight: var(--font-weight-bold);
   color: var(--color-text);
 }
 
-.summary,
+.summary {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+/* CAP-70: the one place an export starts. A tinted fill, not a card: it is
+   the page's action, not one more section. */
+.keep {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  padding: var(--space-20);
+  border-radius: var(--radius-lg);
+  background: var(--color-accent-lavender);
+}
+
+.keep_text {
+  margin: 0;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.keep_hint {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
 .card {
   display: flex;
   flex-direction: column;
@@ -25,65 +62,66 @@
   box-shadow: var(--shadow-card);
 }
 
-.summary_title,
-.summary_meta,
-.summary_note {
-  margin: 0;
-}
-
-.summary_title {
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text);
-}
-
-.summary_meta {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-}
-
-/* Notes take the app's quiet fill, not a border (CAP-63): a bordered
-   rounded box is what this app's text fields look like. */
-.summary_note {
-  padding: var(--space-8) var(--space-12);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-alt);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-}
-
 .section {
   display: flex;
   flex-direction: column;
-  gap: var(--space-8);
+  gap: var(--space-12);
+}
+
+.section_head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: 0 var(--space-4);
+}
+
+.gig_title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-tight);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
 }
 
 .rubric {
   margin: 0;
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
-  letter-spacing: var(--letter-spacing-label);
-  text-transform: uppercase;
+  font-size: var(--font-size-sm);
   color: var(--color-text-muted);
 }
 
-.card_head {
+.legend {
   display: flex;
-  align-items: baseline;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: space-between;
+  gap: var(--space-8);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.keys {
+  display: flex;
   gap: var(--space-12);
 }
 
-.gig_title {
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text);
+.key {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
 }
 
-.sprint_count {
-  flex-shrink: 0;
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
+.dot {
+  width: var(--space-8);
+  height: var(--space-8);
+  border-radius: var(--radius-full);
+}
+
+.dot_self {
+  background: var(--color-primary);
+}
+
+.dot_counter {
+  background: var(--color-success);
 }
 
 /* A gig with more sprints than fit scrolls here, never the page. Positioned
@@ -116,6 +154,7 @@
 }
 
 .table thead th {
+  vertical-align: top;
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-muted);
@@ -127,13 +166,53 @@
   white-space: normal;
 }
 
+.sprint_head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.sprint_no {
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+}
+
+/* Where each sprint's reflection stands, in the fills the diary's status
+   badges use, with a --color-text label. */
+.status {
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.assessed {
+  background: var(--color-success-bg);
+}
+
+.submitted {
+  background: var(--color-danger-bg);
+}
+
+.draft {
+  background: var(--color-surface-alt);
+}
+
 .row_label {
   font-weight: var(--font-weight-medium);
   color: var(--color-text);
 }
 
 .cell {
+  font-size: var(--font-size-base);
   color: var(--color-text-muted);
+}
+
+.self,
+.counter {
+  font-weight: var(--font-weight-bold);
 }
 
 .self {
@@ -144,16 +223,13 @@
   color: var(--color-success);
 }
 
-.legend {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: var(--space-8);
-  font-size: var(--font-size-xs);
+.missing {
+  color: var(--color-text-muted);
 }
 
-.scale {
-  color: var(--color-text-muted);
+.slash {
+  margin: 0 var(--space-4);
+  color: var(--color-border);
 }
 
 .open_link,

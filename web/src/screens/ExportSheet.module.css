@@ -10,22 +10,51 @@
   color: var(--color-text-muted);
 }
 
-.counts {
+/* What the export holds (CAP-70): one line, then a chip per status. */
+.holds {
   display: flex;
   flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-12) var(--space-16);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+}
+
+.holds_title {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+}
+
+.counts {
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--space-8);
   margin: 0;
   padding: 0;
   list-style: none;
-  font-size: var(--font-size-sm);
+}
+
+/* The fills the diary's status badges use, with a --color-text label. */
+.count {
+  padding: var(--space-4) var(--space-12);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
   color: var(--color-text);
 }
 
-.counts li {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-8);
+.assessed {
+  background: var(--color-success-bg);
+}
+
+.submitted {
+  background: var(--color-danger-bg);
+}
+
+.draft {
+  background: var(--color-surface-alt);
 }
 
 .empty {
@@ -37,14 +66,110 @@
   color: var(--color-text-muted);
 }
 
+/* The format, as two choices that say what each is for. A real radio
+   group: one Tab stop, arrows to choose. The card is the label, so all of
+   it chooses. */
 .formats {
   display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.formats:disabled {
+  opacity: 0.6;
+}
+
+.formats_legend {
+  padding: 0 0 var(--space-4);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--letter-spacing-label);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.format {
+  display: flex;
+  gap: var(--space-12);
+  padding: var(--space-16);
+  border-radius: var(--radius-lg);
+  background: var(--color-control);
+  box-shadow: var(--shadow-control);
+  cursor: pointer;
+}
+
+.format:has(.format_input:checked) {
+  background: var(--color-accent-lavender);
+  box-shadow: inset 0 0 0 0.125rem var(--color-primary);
+}
+
+.format:has(.format_input:focus-visible) {
+  outline: 0.125rem solid var(--color-focus-ring);
+  outline-offset: 0.125rem;
+}
+
+.formats:disabled .format {
+  cursor: default;
+}
+
+/* Visually hidden, still focusable and announced: the card shows the choice. */
+.format_input {
+  position: absolute;
+  width: 0.0625rem;
+  height: 0.0625rem;
+  margin: -0.0625rem;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.format_icon {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-control);
+  color: var(--color-primary);
+}
+
+.format_text {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.format_head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
   gap: var(--space-8);
 }
 
+.format_label {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+}
+
+.format_use {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
 .format_copy {
-  margin: 0;
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
   color: var(--color-text-muted);
 }
 

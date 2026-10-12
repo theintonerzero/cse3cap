@@ -114,12 +114,12 @@ for (const width of [360, 384]) {
       expect(box.height).toBeGreaterThanOrEqual(44);
     });
 
-    test('scrolled to the end, the last row clears the floating Export button', async ({
+    test('scrolled to the end, the last row clears the floating button', async ({
       page,
     }) => {
       await install(page, 'Jane N', 'student');
       await page.goto('/');
-      const fab = page.getByRole('button', { name: 'Export record' });
+      const fab = page.getByRole('link', { name: 'Your learning record' });
       await expect(fab).toBeVisible();
       await page.evaluate(() =>
         window.scrollTo(0, document.scrollingElement!.scrollHeight),

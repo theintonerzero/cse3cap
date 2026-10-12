@@ -75,6 +75,9 @@ Index
 #63 The learning record adds no endpoint ........ Proposed
 #64 An AI sidecar that asks, never writes ....... Proposed
 #65 One row of levels, not a stack of pills ..... Proposed
+#66 Export starts on the learning record ....... Proposed
+#67 An assessor's stack with its own database .. Proposed
+#68 Community files at the repository root ..... Proposed
 
 ===============================================================
 
@@ -3874,3 +3877,197 @@ Keep the pills and shorten the descriptors. No code change, but the descriptors 
 rubric. Shortening them changes what students are scored against, which #16's copy-then-edit
 rule exists to prevent.
 
+===============================================================
+
+ADR #66: Export starts on the learning record, and the diary's floating button opens it
+
+Status: Proposed
+Date: 2026-10-12
+
+Context:
+Since CAP-38 the diary home's floating button exported the whole record. The learning record
+(CAP-53) had a second Export record button at its foot, and the diary's only way to the
+record was a link under every sprint's reflection. For Jane, the seeded student on two gigs,
+that link sat about two phone screens down.
+
+The export is always the whole record (CAP-18), and the learning record is the whole record
+shown as one table per gig. So the button that exports the record lived on the screen that
+doesn't show it, and the screen that does show it was the hardest one to reach.
+
+Patrick proposed on 12 October 2026 that the floating button open the learning record
+instead, so the record is the only place an export can start. The team approved it from a
+mockup the same day. It was built after the v1.0.0 code freeze, and its pull request is held
+until Assessment 3 is submitted.
+
+Decision:
+The diary home's floating button is a link to `/record` named "Your learning record". The
+diary home has no export, and the link at its foot goes.
+
+The learning record opens with a "Yours to keep" panel under its heading. The panel holds
+"Export your record", the only control in the app that opens the export sheet.
+
+The export itself doesn't change: the same endpoints, the same whole-record payload, PDF or
+JSON. In the sheet the two formats become a radio group, each saying what it's for, and the
+button names the format. The record's tables show each sprint's status in its column
+heading.
+
+Consequences:
+Positive:
+The record is one tap from the diary on every screen size, rather than below every sprint.
+
+An export starts beside what it exports, so a student sees the record before they take a
+copy of it.
+
+There's one export control to find, test and document, not two.
+
+Negative:
+Exporting from the diary is now two taps, the button and then Export your record, where it
+was one.
+
+The floating button stops being an action and becomes navigation. CAP-38 R5 built it as "a
+page's one primary action", and a floating link is a less common pattern. A student who
+learned that it exports will find it opens a page.
+
+The export sheet's own empty state can no longer be reached. A record with nothing written
+shows the record's empty state, which has no export button. The branch stays in
+`ExportSheet.tsx`, and its screenshot entry is gone.
+
+Six browser spec files, the screenshot manifest and `verify-export-sheet.sh` changed to
+open the sheet from the record. The shared fake API now answers `GET /me/progress` with
+nothing scored.
+
+Alternatives:
+Keep the floating button exporting, and move the record link to the top of the diary. This
+fixes the scroll with less change, and export stays one tap away. But the export stays
+apart from the record it exports, and there are still two export buttons to keep in step.
+
+Put the learning record in the app bar's menu. The diary keeps its layout and export stays
+where it was. But a menu item is the least visible place in the app, and the record is the
+thing the product promises the student owns.
+
+===============================================================
+
+ADR #67: An assessor runs the whole product in Docker, with its own database
+
+Status: Proposed
+Date: 2026-10-12
+
+Context:
+An assessor, the unit's marker and possibly the client, clones the public repository onto
+their own laptop. Until now they couldn't run it. Setup expected the team's shared MySQL on
+the VPS and two passwords pinned in the team channel, and the AI sidecar needed the team's
+Anthropic key. The live demo is behind a password gate, and it shows the product but not
+its tests.
+
+The pieces existed already. The live demo builds the API, web and AI images from three
+Dockerfiles, and `scripts/demo-reset.sh` builds a demo database from nothing. What was
+missing was a way to run them on one machine against a local database.
+
+Decision:
+A Compose project, `diary-assess` in `deploy/assess/`, runs `mysql:9.7.2` beside the live
+demo's own three Dockerfiles. Only the web container is published, on `127.0.0.1:8080`.
+`./assess`, with a PowerShell twin `assess.ps1`, checks Docker, generates the database
+passwords and Laravel's key into a git-ignored `.assess/`, seeds the way the demo's reset
+does, and prints where to sign in. Sign-in is the demo's persona picker.
+
+The AI runs on the assessor's own key, offered once at setup and changed with
+`./assess ai`. The key is checked with Anthropic before it's saved, and capped at US$1 a
+day. `./assess test` runs the backend, sidecar and browser suites in containers. The API
+and AI Dockerfiles gain a `test` stage for that, and their default stage is still the
+runtime, so the live demo builds exactly what it did. `web.Caddyfile` gains an `/ai/*`
+route, which the live demo never reaches because the VPS's Caddy routes `/ai` first.
+
+Consequences:
+Positive:
+Clone to signed in, on the seeded demo, takes one command and a few minutes, with nothing
+installed but Docker and git.
+
+What an assessor runs is built from the same Dockerfiles as the live demo, so a fix to one
+is a fix to both.
+
+Every suite runs, including the sidecar's database tests, which skip on a laptop without
+one.
+
+Nothing an assessor does reaches the team's VPS, database or live demo.
+
+Negative:
+It's a second way of running the product, and it has to be kept working. The static checks
+and stub tests in `scripts/assess.test.py` run in CI, but the real run needs Docker and is
+done by hand.
+
+The first run downloads several gigabytes, and the browser suite's image alone is about
+2 GB.
+
+The shared-database rule in CLAUDE.md doesn't apply to this database. A reader must not
+take that as licence to run migrations or seeders against the shared one.
+
+`assess.ps1` has run under PowerShell 7 on macOS, not on real Windows. It needs
+PowerShell 7 and refuses to run under the older Windows PowerShell, which turns Docker's
+progress output into errors. Shell scripts are pinned to LF line endings in
+`.gitattributes`, because Git for Windows' default CRLF checkout would break them inside
+the containers.
+
+`web.Caddyfile` carries a route the live demo never uses, which a reader of that file has
+to be told about. Its comment does.
+
+Alternatives:
+One all-in-one image, with MySQL, PHP-FPM, Caddy and Python under a process supervisor and
+started with one `docker run`. It's the simplest for an assessor to picture. But it's a
+second, different way of running the product that nothing else uses, so it would drift
+from the real deployment, and a failure inside it is hard to read.
+
+The live demo's compose file with an override. It's the least new YAML. But that file is
+written for the VPS, with an external network, `rddb.darkovski.dev` links and env files
+under `/home/ubuntu`, and overriding all of it is fragile. A change for the VPS could
+silently break the assessor's path.
+
+Published images in a registry, so nothing is built on the assessor's machine. That's
+faster for them. But it means a registry to run and images to keep in step with every
+commit, for a handful of assessors.
+
+===============================================================
+
+ADR #68: The repository's community files live at its root
+
+Status: Proposed
+Date: 2026-10-12
+
+Context:
+Since the start, CLAUDE.md has said every document lives in `docs/`, and
+`scripts/guard-docs-location.sh` refuses a new one anywhere else. The rule exists because
+agents write notes constantly, and without it the root fills with files nobody asked for.
+Only README, CLAUDE.md and CONTRIBUTING.md sat at the root, because they were there first.
+
+At v1.1.0 the repository gained the files a public project is expected to have: a licence, a
+security policy, a privacy page, a product description and a code of conduct. Readers look for
+them at the root, and GitHub shows several of them from there. The changelog, kept in
+`docs/CHANGELOG.md`, is conventionally at the root too.
+
+Decision:
+`LICENSE`, `SECURITY.md`, `PRIVACY.md`, `PRODUCT.md`, `CHANGELOG.md`, `CODE_OF_CONDUCT.md` and
+`SUPPORT.md` live at the repository root, beside README, CLAUDE.md and CONTRIBUTING.md. The
+changelog moves there from `docs/`. The guard allows exactly these names, at the root only, and
+everything else keeps the rule: a document lives in `docs/` and is listed in the README.
+
+Consequences:
+Positive:
+The files are where readers, and GitHub, look for them.
+
+The guard still refuses an agent's stray note at the root. Its allowlist is seven fixed names,
+and the same names anywhere else are still refused.
+
+Negative:
+CLAUDE.md's rule is no longer "every document lives in `docs/`" without exception, so a reader
+has to know the list. CLAUDE.md names it.
+
+Links to `docs/CHANGELOG.md` in older plans and specs now point at a file that moved. They are
+history and stay as written.
+
+Alternatives:
+Keep them all in `docs/`. GitHub still finds a security policy and a code of conduct there,
+and the rule stays absolute. But a licence must be at the root for GitHub to detect it, and a
+reader browsing the repository expects the others beside the README.
+
+Put them in `.github/`. GitHub reads several from there, but a reader browsing the repository
+rarely opens that folder, and a changelog, a privacy page or a product description is not
+GitHub configuration.

@@ -65,6 +65,7 @@ const PAIRS = [
   ['--color-text-muted', '--color-surface-alt', 'normal'], // Submitted/DiaryHome/ReviewQueue .empty_body; AppShell .roles on .who:hover
   ['--color-text-muted', '--color-success-bg', 'normal'], // ExportSheet .job_summary (inside .ready)
   ['--color-text-muted', '--color-accent-lavender', 'normal'], // ExportSheet .building_detail (inside .building)
+  ['--color-text-muted', '--color-control', 'normal'], // Badge .ai_inline, the AI mark inside a secondary Button
   ['--color-text-muted', '--color-danger-bg', 'normal'], // EntryStepper .evidence_hint/.evidence_size/.counter_score and TextArea's own .status, inside .card_offending
   // A status colour rendered on its own tinted fill, or on the other status's fill.
   ['--color-danger', '--color-danger-bg', 'normal'], // ExportSheet .failed_message; EntryStepper .field_error inside .card_offending

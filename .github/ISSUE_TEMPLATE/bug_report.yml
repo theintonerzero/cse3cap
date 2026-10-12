@@ -1,0 +1,50 @@
+name: Bug report
+description: Something in the Reflection Diary doesn't work as it should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting it. A security problem goes through private reporting instead, as SECURITY.md describes, not here.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Sign in as Jane N
+        2. Open the learning record
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      placeholder: v1.1.0, or a commit hash
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      options:
+        - ./assess on my machine
+        - The live demo
+        - A team development setup
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and device
+      placeholder: Safari on an iPhone, Chrome on Windows
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Anything the terminal or the browser console printed. Remove any tokens or keys first.

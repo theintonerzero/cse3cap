@@ -170,24 +170,32 @@ export function LearningRecord() {
 
   return (
     <section className={styles.page}>
-      <h1 className={styles.heading}>Your learning record</h1>
-
-      <Summary sections={load.sections} />
-
+      <div className={styles.head}>
+        <h1 className={styles.heading}>Your learning record</h1>
+        <Summary sections={load.sections} />
+      </div>
+      {/* CAP-70: the one place an export starts, at the top rather than
+          under every gig. */}
+      <section className={styles.keep} aria-label="Keep your record">
+        <p className={styles.keep_text}>Yours to keep. Export it whenever you like.</p>
+        <Button on_click={() => setExportOpen(true)}>
+          <DownloadIcon />
+          Export your record
+        </Button>
+        <p className={styles.keep_hint}>
+          A PDF to read and share, or JSON for another system.
+        </p>
+      </section>
       {load.sections.map((section) => (
         <RecordTable key={section.gig.id} section={section} />
       ))}
-
       <p className={styles.note}>
         Scores from different rubrics aren&rsquo;t compared. Each section uses its own
         scale.
       </p>
-
-      <Button on_click={() => setExportOpen(true)}>Export record</Button>
-
       <BottomSheet
         open={export_open}
-        title="Export record"
+        title="Export your record"
         onClose={() => setExportOpen(false)}
       >
         <ExportSheet reflections={load.record} />
@@ -201,7 +209,7 @@ function plural(count: number, one: string, many: string): string {
 }
 
 /**
- * "3 reflections · 2 gigs", "2 rubrics · since 3 August 2026". Counted from
+ * "3 reflections · 2 gigs · 2 rubrics · since 3 August 2026". Counted from
  * the sections, so the numbers describe what is on the page (CAP-62).
  */
 function Summary({ sections }: { sections: RecordSection[] }) {
@@ -216,49 +224,64 @@ function Summary({ sections }: { sections: RecordSection[] }) {
     .sort();
 
   return (
-    <div className={styles.summary}>
-      <p className={styles.summary_title}>
-        {plural(reflections, 'reflection', 'reflections')} ·{' '}
-        {plural(sections.length, 'gig', 'gigs')}
-      </p>
-      <p className={styles.summary_meta}>
-        {plural(rubrics, 'rubric', 'rubrics')}
-        {starts.length > 0 && ` · since ${format_full_date(starts[0])}`}
-      </p>
-      <p className={styles.summary_note}>Yours to keep. Export it whenever you like.</p>
-    </div>
+    <p className={styles.summary}>
+      {plural(reflections, 'reflection', 'reflections')} ·{' '}
+      {plural(sections.length, 'gig', 'gigs')} · {plural(rubrics, 'rubric', 'rubrics')}
+      {starts.length > 0 && ` · since ${format_full_date(starts[0])}`}
+    </p>
   );
 }
 
+const STATUS_LABEL: Record<ReflectionSummary['status'], string> = {
+  draft: 'Draft',
+  submitted: 'Submitted',
+  assessed: 'Assessed',
+};
+
 /**
- * One gig: its rubric's name, then the table. A cell is "self/assessor"
- * from progress, "–" for a missing half, and "–" alone for a sprint with
- * no reflection. A real table, so a screen reader can move by row and
- * column; the visible "3/4" is hidden from it in favour of words.
+ * One gig: a heading over its rubric and scale, then the table. Each sprint's
+ * column says where that sprint's reflection stands (CAP-70); a cell is the
+ * student's level beside the assessor's, from progress, "–" for a missing
+ * half and "–" alone for a sprint with no reflection. A real table, so a
+ * screen reader can move by row and column, and each cell is read as a
+ * sentence rather than "3 slash 4".
  */
 function RecordTable({ section }: { section: RecordSection }) {
   const { gig, framework, progress, reflections } = section;
   const sprints = by_ordinal(gig.sprints);
   const competencies = [...framework.competencies].sort((a, b) => a.position - b.position);
   const series = new Map(progress.competencies.map((row) => [row.code, row.series]));
+  const status_of = new Map(reflections.map((r) => [r.sprint_ordinal, r.status]));
+  const heading_id = `record-${gig.id}`;
   const opens =
     reflections.length === 1
       ? 'Open the reflection ›'
       : `Open the ${reflections.length} reflections ›`;
 
   return (
-    <div className={styles.section}>
-      <p className={styles.rubric}>{framework.name}</p>
+    <section className={styles.section} aria-labelledby={heading_id}>
+      <div className={styles.section_head}>
+        <h2 id={heading_id} className={styles.gig_title}>
+          {gig.title}
+        </h2>
+        <p className={styles.rubric}>
+          {framework.name} · levels {framework.scale.min}–{framework.scale.max}
+        </p>
+      </div>
       <div className={styles.card}>
-        <div className={styles.card_head}>
-          <span className={styles.gig_title} aria-hidden="true">
-            {gig.title}
+        <div className={styles.legend}>
+          <span className={styles.keys}>
+            <span className={styles.key}>
+              <span className={`${styles.dot} ${styles.dot_self}`} aria-hidden="true" />
+              You
+            </span>
+            <span className={styles.key}>
+              <span className={`${styles.dot} ${styles.dot_counter}`} aria-hidden="true" />
+              Assessor
+            </span>
           </span>
-          <span className={styles.sprint_count}>
-            {plural(sprints.length, 'sprint', 'sprints')}
-          </span>
+          <span className={styles.scale}>– not yet</span>
         </div>
-
         {/* Focusable and named (CAP-62): Safari does not focus a scroll box
             on its own, so without this a wide table cannot be scrolled from
             the keyboard. */}
@@ -275,11 +298,29 @@ function RecordTable({ section }: { section: RecordSection }) {
                 <th scope="col" className={styles.col_competency}>
                   Competency
                 </th>
-                {sprints.map((sprint) => (
-                  <th key={sprint.id} scope="col" aria-label={`Sprint ${sprint.ordinal}`}>
-                    S{sprint.ordinal}
-                  </th>
-                ))}
+                {sprints.map((sprint) => {
+                  const status = status_of.get(sprint.ordinal);
+                  return (
+                    <th
+                      key={sprint.id}
+                      scope="col"
+                      aria-label={
+                        status
+                          ? `Sprint ${sprint.ordinal}, ${status}`
+                          : `Sprint ${sprint.ordinal}`
+                      }
+                    >
+                      <span className={styles.sprint_head}>
+                        <span className={styles.sprint_no}>S{sprint.ordinal}</span>
+                        {status && (
+                          <span className={`${styles.status} ${styles[status]}`}>
+                            {STATUS_LABEL[status]}
+                          </span>
+                        )}
+                      </span>
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>
@@ -308,22 +349,11 @@ function RecordTable({ section }: { section: RecordSection }) {
             </tbody>
           </table>
         </div>
-
-        <div className={styles.legend}>
-          <span>
-            <span className={styles.self}>self</span> /{' '}
-            <span className={styles.counter}>assessor</span>
-          </span>
-          <span className={styles.scale}>
-            levels {framework.scale.min}–{framework.scale.max} · – not yet
-          </span>
-        </div>
-
         <Link className={styles.open_link} to={`/?gig_id=${gig.id}`}>
           {opens}
         </Link>
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -347,24 +377,49 @@ function Cell({
   return (
     <>
       <span aria-hidden="true">
-        <span className={styles.self}>{self ?? '–'}</span>/
-        <span className={styles.counter}>{counter ?? '–'}</span>
+        <span className={self === null ? styles.missing : styles.self}>{self ?? '–'}</span>
+        <span className={styles.slash}>/</span>
+        <span className={counter === null ? styles.missing : styles.counter}>
+          {counter ?? '–'}
+        </span>
       </span>
       <span className={styles.sr_only}>
-        {`self ${self ?? 'not yet'}, assessor ${counter ?? 'not yet'}`}
+        {`You: ${self === null ? 'not yet' : `level ${self}`}, assessor: ${
+          counter === null ? 'not yet' : `level ${counter}`
+        }`}
       </span>
     </>
   );
 }
 
-/** Shaped like the loaded screen: the summary and two sections. */
+/** An arrow into a tray. */
+function DownloadIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="1.25rem" height="1.25rem" aria-hidden="true">
+      <path
+        d="M12 4v11m0 0l-4-4m4 4l4-4M5 19h14"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+/** Shaped like the loaded screen: the heading, the keep panel and two sections. */
 function LoadingState() {
   return (
     <section className={styles.page}>
       <SkeletonGroup label="Loading your learning record">
-        <Skeleton variant="text" width="60%" />
-        <div className={styles.summary}>
-          <Skeleton variant="text" lines={3} />
+        <div className={styles.head}>
+          <Skeleton variant="text" width="60%" />
+          <Skeleton variant="text" width="80%" />
+        </div>
+        <div className={styles.keep}>
+          <Skeleton variant="text" lines={1} />
+          <Skeleton variant="block" height="var(--size-fab)" />
         </div>
         {[0, 1].map((n) => (
           <div key={n} className={styles.card}>
