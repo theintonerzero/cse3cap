@@ -39,3 +39,24 @@
   background: var(--color-control);
   box-shadow: var(--shadow-control);
 }
+
+/* Inside a control that asks the AI (the coach, the calibration coach, the
+   earlier-sprints and themes toggles). A filled pill inside a filled button
+   is a pill in a pill, so this one is only an outline around small tracked
+   capitals in the muted text colour. The outline comes from that colour,
+   not --color-border: on dark's control fill the border token all but
+   vanished, and the mark read as stray text. */
+.ai_inline {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-sm);
+  box-shadow: inset 0 0 0 var(--border-width-sm)
+    color-mix(in srgb, currentColor 55%, transparent);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--letter-spacing-label);
+  line-height: var(--line-height-normal);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}

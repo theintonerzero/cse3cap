@@ -2,6 +2,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* Between a label and anything beside it inside, e.g. the AI mark. */
+  gap: var(--space-8);
   /* 2.75rem = 44 device pixels, the same tap floor as Chip. */
   min-height: 2.75rem;
   padding: var(--space-12) var(--space-20);
