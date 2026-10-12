@@ -391,6 +391,8 @@ check("ai.env.example starts with AI off and holds no key and no database",
       re.search(r"^AI_ENABLED=false$", ai_env, re.M) is not None
       and re.search(r"^ANTHROPIC_API_KEY=$", ai_env, re.M) is not None
       and re.search(r"^DATABASE_URL=$", ai_env, re.M) is not None, ai_env)
+check("the roots are copied readable by the sidecar's user, whatever mode the checkout gives them",
+      re.search(r"^COPY --chmod=0?644 db/letsencrypt-roots\.pem ", ai_df, re.M) is not None, ai_df)
 check("ai.env.example verifies the database name over TLS with the repo's roots",
       "DATABASE_CA=" in ai_env and "letsencrypt-roots.pem" in ai_env, ai_env)
 for f in ("ai.Dockerfile", "ai.env.example"):

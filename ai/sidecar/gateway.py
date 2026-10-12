@@ -46,6 +46,21 @@ def _valid(value: object, schema: dict) -> bool:
     return False
 
 
+# Structured outputs reject array counts (400: "property 'maxItems' is not
+# supported"), so the API is sent the schema without them, and _valid holds the
+# reply to the whole schema, counts included.
+UNSENT = {"minItems", "maxItems"}
+
+
+def _wire(schema: object) -> object:
+    """The schema as the API accepts it."""
+    if isinstance(schema, dict):
+        return {key: _wire(value) for key, value in schema.items() if key not in UNSENT}
+    if isinstance(schema, list):
+        return [_wire(item) for item in schema]
+    return schema
+
+
 class ClaudeGateway:
     """The only code that calls Claude: the spend cap, the timeout and retry,
     refusals, and what each call cost."""
@@ -55,7 +70,7 @@ class ClaudeGateway:
 
     async def ask(self, feature: str, system: str, data: str, schema: dict, max_tokens: int = 2048) -> dict:
         messages = [{"role": "user", "content": data}]
-        output_config = {"effort": "medium", "format": {"type": "json_schema", "schema": schema}}
+        output_config = {"effort": "medium", "format": {"type": "json_schema", "schema": _wire(schema)}}
         try:
             counted = await self._client.messages.count_tokens(
                 model=self._model, system=system, messages=messages, output_config=output_config
