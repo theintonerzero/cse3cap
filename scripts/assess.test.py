@@ -56,6 +56,44 @@ for name in ("api.Dockerfile", "ai.Dockerfile"):
     )
 
 # ---------------------------------------------------------------------------
+print("deploy/assess: the stack")
+compose = read(ASSESS_DIR / "compose.yml")
+check("compose.yml exists", compose != "")
+check("the project is named diary-assess", re.search(r"^name:\s*diary-assess\s*$", compose, re.M) is not None)
+mysql_block = re.search(r"\n  mysql:\n((?:    .*\n|\s*\n)+)", compose)
+check(
+    "MySQL is never published",
+    mysql_block is not None and "ports:" not in mysql_block.group(1),
+    mysql_block.group(1) if mysql_block else compose,
+)
+ports = re.findall(r"^\s+- \"?([^\"\n]+:80)\"?\s*$", compose, re.M)
+check("the one published port is bound to 127.0.0.1", ports == ["127.0.0.1:${ASSESS_PORT:-8080}:80"], ports)
+for svc in ("mysql", "diary-api", "diary-web", "diary-ai", "api-test", "ai-test", "web-test"):
+    check(f"service {svc}", re.search(rf"^  {svc}:\s*$", compose, re.M) is not None)
+check(
+    "it builds the demo's own Dockerfiles",
+    all(f"dockerfile: deploy/demo/{d}" in compose for d in ("api.Dockerfile", "web.Dockerfile", "ai.Dockerfile")),
+)
+check(
+    "the browser image matches web/package.json's Playwright",
+    "mcr.microsoft.com/playwright:v1.63.0-noble" in compose
+    and '"@playwright/test": "1.63.0"' in read(ROOT / "web" / "package.json"),
+)
+check(
+    "no password or key is written into deploy/assess",
+    re.search(
+        r"(sk-ant-[A-Za-z0-9_-]{10,}|PASSWORD[:=]\s*['\"]?[A-Za-z0-9]{8,})",
+        "".join(read(p) for p in ASSESS_DIR.rglob("*") if p.is_file()),
+    )
+    is None,
+)
+check(".assess/ is git-ignored", re.search(r"^/\.assess/\s*$", read(ROOT / ".gitignore"), re.M) is not None)
+check(
+    "web.Caddyfile sends /ai to the sidecar",
+    re.search(r"handle /ai/\*\s*\{\s*reverse_proxy diary-ai:8000\s*\}", read(DEMO / "web.Caddyfile")) is not None,
+)
+
+# ---------------------------------------------------------------------------
 print()
 if failures:
     print(f"{failures} failed.")

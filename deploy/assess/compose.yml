@@ -1,0 +1,110 @@
+# An assessor's machine (CAP-71, ADR #67): the whole product with its own MySQL,
+# built from the live demo's own Dockerfiles. Driven by ./assess, which exports
+# the ASSESS_* variables from .assess/env; nothing secret is written here.
+name: diary-assess
+
+services:
+  mysql:
+    image: mysql:9.7.2
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${ASSESS_DB_ROOT_PASSWORD:?run ./assess}
+      ASSESS_DB_APP_PASSWORD: ${ASSESS_DB_APP_PASSWORD:?run ./assess}
+      ASSESS_DB_AI_PASSWORD: ${ASSESS_DB_AI_PASSWORD:?run ./assess}
+      ASSESS_DB_TEST_PASSWORD: ${ASSESS_DB_TEST_PASSWORD:?run ./assess}
+    volumes:
+      - mysql:/var/lib/mysql
+      - ./mysql-init:/docker-entrypoint-initdb.d:ro
+      - ../../ai/db/01-schema.sql:/ai-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$$MYSQL_ROOT_PASSWORD\" mysqladmin ping -h 127.0.0.1 -u root --silent"]
+      interval: 3s
+      timeout: 5s
+      retries: 60
+
+  diary-api:
+    build:
+      context: ../..
+      dockerfile: deploy/demo/api.Dockerfile
+    image: diary-assess-api:local
+    restart: unless-stopped
+    env_file: ../../.assess/api.env
+    volumes:
+      - storage:/app/api/storage
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  diary-web:
+    build:
+      context: ../..
+      dockerfile: deploy/demo/web.Dockerfile
+    image: diary-assess-web:local
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${ASSESS_PORT:-8080}:80"
+    volumes:
+      - ../../.assess/personas.json:/srv/demo/personas.json:ro
+    depends_on:
+      - diary-api
+
+  diary-ai:
+    build:
+      context: ../..
+      dockerfile: deploy/demo/ai.Dockerfile
+    image: diary-assess-ai:local
+    restart: unless-stopped
+    env_file: ../../.assess/ai.env
+    mem_limit: 2g
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  api-test:
+    profiles: [test]
+    build:
+      context: ../..
+      dockerfile: deploy/demo/api.Dockerfile
+      target: test
+    image: diary-assess-api-test:local
+    environment:
+      APP_KEY: ${ASSESS_APP_KEY:?run ./assess}
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_USERNAME: diary_test
+      DB_PASSWORD: ${ASSESS_DB_TEST_PASSWORD:?run ./assess}
+      DB_TEST_DATABASE: reflection_diary_test
+      DB_COLLATION: utf8mb4_0900_ai_ci
+      MYSQL_ATTR_SSL_CA: ""
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  ai-test:
+    profiles: [test]
+    build:
+      context: ../..
+      dockerfile: deploy/demo/ai.Dockerfile
+      target: test
+    image: diary-assess-ai-test:local
+    environment:
+      AI_TEST_DATABASE_URL: mysql://diary_test:${ASSESS_DB_TEST_PASSWORD:?run ./assess}@mysql:3306/diary_ai_test
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  web-test:
+    profiles: [test]
+    image: mcr.microsoft.com/playwright:v1.63.0-noble
+    working_dir: /repo/web
+    environment:
+      CI: "1"
+    volumes:
+      - ../..:/repo
+      - web_modules:/repo/web/node_modules
+    command: ["sh", "-c", "npm ci --no-audit --no-fund && npx playwright test"]
+
+volumes:
+  mysql:
+  storage:
+  web_modules:
