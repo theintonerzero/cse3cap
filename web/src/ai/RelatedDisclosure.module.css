@@ -45,6 +45,12 @@
   gap: var(--space-4);
 }
 
+/* display: flex above would otherwise beat the hidden attribute, and the
+   collapsed list showed anyway (as CohortSearch's .theme_rows). */
+.rows[hidden] {
+  display: none;
+}
+
 .row {
   display: flex;
   flex-direction: column;
