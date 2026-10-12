@@ -1,12 +1,18 @@
 # Changelog
 
-Notable changes to the Alumable Reflection Diary. The format follows
+All notable changes to the Alumable Reflection Diary are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
 v1.0.0 was the first tagged release. Nothing was tagged before it, so the history leading up to
 it is grouped by sprint instead of by version, with the pull request for each change. Ticket
 keys are the repository's `CAP-n`; Jira holds the same tickets as `COA4-n` (ADR #38).
+
+Each pull request adds its line under `[Unreleased]`, in the section its Conventional Commits
+type maps to (`CONTRIBUTING.md`). A release renames `[Unreleased]` to the new version and
+date, and opens a fresh one.
+
+## [Unreleased]
 
 ## [1.1.0] - 2026-10-12
 
@@ -23,6 +29,11 @@ was switched on for the AI and an assessor's path was added.
   `docs/Assessor-Guide.md`.
 - Every control that asks the AI carries an AI mark, so a person knows before they press it
   (CAP-69, #148).
+- The repository's community files: an MIT `LICENSE`, `SECURITY.md`, `PRIVACY.md`,
+  `PRODUCT.md` and `CODE_OF_CONDUCT.md`, with issue and pull request templates. They and this
+  changelog live at the root (ADR #68).
+- `CONTRIBUTING.md` sets out Conventional Commits 1.0.0, how each type maps to this changelog,
+  and the release process.
 
 ### Changed
 
@@ -270,3 +281,7 @@ No sprint was open on the board for these three weeks. The backend was built in 
 Discovery, design and the technical foundation: the brief, personas, the ERD, the
 architecture decision records from ADR #1, and the repository itself (#1, #2). Tracked in
 Jira as COA4-1 to COA4-52.
+
+[Unreleased]: https://github.com/theintonerzero/cse3cap/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/theintonerzero/cse3cap/compare/v1.0.0...v1.1.0
+[1.0.0]: https://github.com/theintonerzero/cse3cap/releases/tag/v1.0.0

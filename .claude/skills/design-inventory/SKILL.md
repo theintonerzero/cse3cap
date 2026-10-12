@@ -33,7 +33,7 @@ plan in `docs/superpowers/plans/`, or a Jira key. If you cannot find evidence, w
 and compare what each shows.
 
 **Do not touch screens, plans or ADRs.** This work edits `docs/Design-Inventory.md`, the
-README documents table, the CLAUDE.md skills table, `docs/CHANGELOG.md` and this skill's
+README documents table, the CLAUDE.md skills table, `CHANGELOG.md` and this skill's
 snapshot. Plans are history as executed and are never rewritten. If the inventory shows a
 decision with no ADR, report it; `/write-adr` is a separate change.
 
@@ -171,7 +171,7 @@ Then, in the same change:
   inventory.
 - Add a row to the CLAUDE.md skills table: "Any question about the design or a prototype
   frame" → `/design-inventory`.
-- Add a line under the current sprint's `### Added` in `docs/CHANGELOG.md`. `[Unreleased]`
+- Add a line under the current sprint's `### Added` in `CHANGELOG.md`. `[Unreleased]`
   is the release summary, not a list of changes.
 
 ## Phase 6: verify and hand over

@@ -12,15 +12,19 @@ Setup for the app itself, the shared database and Claude Code is in the
 
 | Branch                                                                     | From   | Into   | Notes                                   |
 | -------------------------------------------------------------------------- | ------ | ------ | --------------------------------------- |
-| `main`                                                                     |        |        | Release. Protected.                     |
+| `main`                                                                     |        |        | Releases only, each one tagged. Protected. |
 | `dev`                                                                      | `main` | `main` | Integration. Protected. Default branch. |
-| `feat/*` `fix/*` `refactor/*` `chore/*` `style/*` `docs/*` `test/*` `ci/*` | `dev`  | `dev`  | One Jira ticket each.                   |
+| `feat/*` `fix/*` `refactor/*` `perf/*` `docs/*` `test/*` `build/*` `ci/*` `chore/*` `style/*` | `dev`  | `dev`  | One Jira ticket each.                   |
+| `release/vX.Y.Z`                                                           | `dev`  | `dev`  | The changelog and version bump for a release. |
 
-Name them as `<type>/<JIRA-KEY>-<description>`. Capitalise the Jira key.
+Name a branch `<type>/<JIRA-KEY>-<description>`, with the Jira key in capitals and the type from
+the commit types below.
 
 Example: `feat/CAP-39-start-reflection`
 
 ## Commits
+
+Commits follow [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/):
 
 ```text
 <type>(<scope>): <description>
@@ -30,15 +34,43 @@ Example: `feat/CAP-39-start-reflection`
 [optional footer(s)]
 ```
 
-Types: `feat` `fix` `refactor` `chore` `style` `docs` `test` `ci`
+| Type | For | Changelog section |
+| --- | --- | --- |
+| `feat` | A new capability for a user | Added (or Changed, if it alters one) |
+| `fix` | A bug fix | Fixed |
+| `perf` | Faster, with no change in behaviour | Changed |
+| `refactor` | Restructured, with no change in behaviour | none |
+| `docs` | Documentation only | none, unless it changes what users are told |
+| `test` | Tests only | none |
+| `build` | Images, dependencies, the build | none, or Security for a security update |
+| `ci` | CI configuration | none |
+| `chore` | Anything else that touches no product code | none |
+| `style` | Formatting only | none |
+| `revert` | Reverting an earlier commit | whatever the reverted change was under |
+| `release` | The changelog and version bump for a release | none |
+
+**Scopes** name the part of the product: `api`, `web`, `ai`, `db`, `deploy`, `docs`, `scripts`.
+Leave the scope out when a change spans several.
+
+**The description** is imperative or a plain statement, lower case, with no full stop:
+`fix(api): pdf exports render again`.
+
+**Breaking changes** add `!` after the type or scope, and a `BREAKING CHANGE:` footer saying
+what breaks and how to move to the new behaviour:
 
 ```text
-feat(auth): add login form
+feat(api)!: return scores as rows, not columns
+
+BREAKING CHANGE: GET /reflections/{id} returns scores[] instead of self_score and
+assessor_score. Read the row whose scorer_class is "self" for the old self_score.
 ```
+
+**Attribution.** A commit an agent helped write ends with a `Co-Authored-By:` footer.
 
 ## Pull requests
 
-`<type>(<scope>): <description> (<JIRA-KEY>)`
+The title is a Conventional Commit with the ticket key on the end, because a squash merge makes
+it the commit on `dev`:
 
 ```text
 feat(web): start a reflection from the gig page (CAP-39)
@@ -48,7 +80,24 @@ feat(web): start a reflection from the gig page (CAP-39)
 - CI passes.
 - Link the Jira ticket.
 - **Does one thing.** If the title needs an "and", split the ticket.
+- Adds its line to `[Unreleased]` in [`CHANGELOG.md`](CHANGELOG.md) when users would notice the
+  change, under the section its type maps to.
 - No secrets, no leftover debug.
+
+## Releases
+
+The project uses [semantic versioning](https://semver.org/spec/v2.0.0.html). A `fix` makes a
+patch release, a `feat` a minor one, and a breaking change a major one.
+
+1. Branch `release/vX.Y.Z` from `dev`. In `CHANGELOG.md`, rename `[Unreleased]` to the version
+   and date, open a new empty `[Unreleased]`, and update the comparison links at the bottom.
+   Bump `web/package.json` and `ai/pyproject.toml`, and their lockfiles, to the version.
+   Regenerate the dependency register with `./run deps`.
+2. Pull request `release: vX.Y.Z` into `dev`, and merge it once CI passes.
+3. Pull request `dev` into `main`, titled `release: vX.Y.Z`. Merge it with a merge commit, not a
+   squash, so `main` keeps `dev`'s history.
+4. Tag the merge commit on `main` as `vX.Y.Z`, and publish a GitHub release whose notes are that
+   version's changelog entry.
 
 ## Review
 

@@ -1,6 +1,7 @@
 # Alumable Reflection Diary
 
 ![Release](https://img.shields.io/github/v/release/theintonerzero/cse3cap)
+![Licence](https://img.shields.io/github/license/theintonerzero/cse3cap)
 ![Subject](https://img.shields.io/badge/subject-CSE3CAP-blue)
 ![University](https://img.shields.io/badge/university-La%20Trobe-red)
 ![Team](https://img.shields.io/badge/team-404%20Not%20Found-6f4fa1)
@@ -42,7 +43,7 @@ A live demo also runs at <https://diary.darkovski.dev>, behind a password the te
 | Frontend | **Complete.** Every screen in the build scope, with 453 Playwright browser checks in 64 spec files |
 | AI sidecar | **Built, off unless enabled.** Asks questions and finds related reflections, never writes ([ADR #64](docs/adr/architecture-decision-records.md)). 131 tests. On in the live demo |
 | Assessor setup | One command, in Docker ([ADR #67](docs/adr/architecture-decision-records.md)) |
-| Release | **v1.1.0**, 12 October 2026. Changes are in [`docs/CHANGELOG.md`](docs/CHANGELOG.md) |
+| Release | **v1.1.0**, 12 October 2026. Changes are in [`CHANGELOG.md`](CHANGELOG.md) |
 
 The item-by-item checklist is [`docs/Stack-and-Build-Scope.md`](docs/Stack-and-Build-Scope.md).
 
@@ -60,6 +61,7 @@ The item-by-item checklist is [`docs/Stack-and-Build-Scope.md`](docs/Stack-and-B
 - [Documentation](#documentation)
 - [Team](#team)
 - [Client](#client)
+- [Licence](#licence)
 
 ---
 
@@ -240,11 +242,10 @@ update that file and redraw after any schema change. Schema with inline reasonin
 ├── docs/           # Every document: brief, ERD, API spec, ADRs, guides
 ├── scripts/        # Setup, smoke, the client and per-screen checks, CI checks, the guards, the deploy
 ├── assess          # The assessor's one command (assess.ps1 on Windows)
+├── *.md, LICENSE   # README, PRODUCT, CHANGELOG, CONTRIBUTING, SECURITY, PRIVACY, CODE_OF_CONDUCT, CLAUDE
 ├── run             # The team's task runner. ./run dev starts everything (run.ps1 on Windows)
 ├── .claude/        # Shared agent configuration: agents, skills, permissions
-├── .github/        # CI, and Dependabot's weekly dependency pass
-├── CLAUDE.md       # Rules for agents working in this repo
-└── README.md
+└── .github/        # CI, Dependabot, and the issue and pull request templates
 ```
 
 ## Getting started
@@ -433,7 +434,8 @@ already recorded gets a new record in [`docs/adr/`](docs/adr/). Supersede, never
 **Naming is snake_case everywhere:** database, JSON, frontend types. There is no mapping
 layer between them.
 
-**Every document lives in `docs/`** and is listed in the table below.
+**Every document lives in `docs/`** and is listed in the table below, apart from the
+community files at the root (ADR #68).
 
 Branching, commits, pull requests and review are in [CONTRIBUTING.md](CONTRIBUTING.md). The
 team builds with Claude Code; its shared configuration, the read-only database and Jira
@@ -442,6 +444,21 @@ connections, the subagents and the guards are in
 [`CLAUDE.md`](CLAUDE.md).
 
 ## Documentation
+
+At the root, beside this README:
+
+| File | What it covers |
+| --- | --- |
+| [`PRODUCT.md`](PRODUCT.md) | What the product is for, who it serves, its principles, and where it stops |
+| [`CHANGELOG.md`](CHANGELOG.md) | Every release, in Keep a Changelog form with semantic versioning, and the sprints before v1.0.0 |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Branches, Conventional Commits, pull requests, review and releases |
+| [`SECURITY.md`](SECURITY.md) | Supported versions, reporting a vulnerability, and how the product is protected |
+| [`PRIVACY.md`](PRIVACY.md) | The personal data the product handles, where it goes, and what can be deleted |
+| [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) | What we expect of everyone taking part |
+| [`LICENSE`](LICENSE) | MIT |
+| [`CLAUDE.md`](CLAUDE.md) | Rules for agents working in this repository |
+
+In [`docs/`](docs/):
 
 | Document                                                         | What it covers                                                |
 | ---------------------------------------------------------------- | ------------------------------------------------------------- |
@@ -464,7 +481,6 @@ connections, the subagents and the guards are in
 | [`docs/Demo-Script.md`](docs/Demo-Script.md)                     | The client demo, step by step, for someone new to the product |
 | [`docs/Design-Inventory.md`](docs/Design-Inventory.md)           | Every Figma frame and what the build did with it              |
 | [`docs/Agent-Tooling.md`](docs/Agent-Tooling.md)                 | Claude Code setup, the database and Jira connections, the agents and the guards |
-| [`docs/CHANGELOG.md`](docs/CHANGELOG.md)                         | What changed, by release, and by sprint before v1.0.0         |
 | [`docs/erd.png`](docs/erd.png)                                   | Entity relationship diagram, with a legend of hidden constraints |
 | [`docs/superpowers/specs/`](docs/superpowers/specs/)             | Design specs for each build slice                             |
 | [`docs/superpowers/plans/`](docs/superpowers/plans/)             | Implementation plans as executed. History: the code wins where they differ |
@@ -494,4 +510,9 @@ Project owner: David Yip, Founder & CEO. Contact details are held by the team an
 published here.
 
 The engagement included a week-2 meet and greet, a mid-semester design checkpoint and a final
-handover. Intellectual property in the delivered solution is assigned to Alumable.
+handover.
+
+## Licence
+
+[MIT](LICENSE), copyright the team. Built as a La Trobe University capstone project for
+CSE3CAP.
