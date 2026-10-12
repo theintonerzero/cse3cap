@@ -96,7 +96,10 @@ it; the same applies to the people building it.
 ## Conventions
 
 **Documentation:** every document this project keeps lives in `docs/` and is listed in the
-README table. Do not create a markdown or HTML file anywhere else. A plan, a summary or a
+README table. The exceptions are the community files at the root beside README, CLAUDE.md and
+CONTRIBUTING.md: `LICENSE`, `SECURITY.md`, `PRIVACY.md`, `PRODUCT.md`, `CHANGELOG.md`,
+`CODE_OF_CONDUCT.md` and `SUPPORT.md` (ADR #68). Do not create a markdown or HTML file
+anywhere else. A plan, a summary or a
 note to yourself either belongs in `docs/` or belongs in your scratchpad outside the
 repository, never at the repository root. `scripts/guard-docs-location.sh` refuses it,
 whether you reach for the Write tool or for `cat >`. Agent and skill definitions under

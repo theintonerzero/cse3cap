@@ -7,10 +7,10 @@ rebuilds this file from `composer licenses`, `composer audit`, `web/package-lock
 
 | | |
 | --- | --- |
-| Generated | 2026-10-07 10:24 UTC |
-| Commit | `9575857` |
-| Lockfiles | `api/composer.lock` sha256 `4c8be6e73f61d8df8a0bf537f8dd7f9a5e0c882db2dffbe84505c158de5ac79b`, `web/package-lock.json` sha256 `b1a28b09c866b4cfca18789ce819b227c99f6f4a40e379863f2c088a5914fe7f` |
-| Tools | PHP 8.5.9, Composer version 2.10.2, Node v26.7.0, npm 11.19.0 |
+| Generated | 2026-10-12 09:04 UTC |
+| Commit | `2af7ead` |
+| Lockfiles | `api/composer.lock` sha256 `4c8be6e73f61d8df8a0bf537f8dd7f9a5e0c882db2dffbe84505c158de5ac79b`, `web/package-lock.json` sha256 `1fd892be6280c7c5625dcd7c1cffa33b3d14de44a1759c1cc246a43175b619d3` |
+| Tools | PHP 8.5.10, Composer version 2.10.3, Node v24.15.0, npm 11.12.1 |
 | Packages | 117 Composer (12 direct), 117 npm (14 direct) |
 | Advisories | none |
 

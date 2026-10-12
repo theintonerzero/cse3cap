@@ -77,6 +77,7 @@ Index
 #65 One row of levels, not a stack of pills ..... Proposed
 #66 Export starts on the learning record ....... Proposed
 #67 An assessor's stack with its own database .. Proposed
+#68 Community files at the repository root ..... Proposed
 
 ===============================================================
 
@@ -4023,3 +4024,50 @@ silently break the assessor's path.
 Published images in a registry, so nothing is built on the assessor's machine. That's
 faster for them. But it means a registry to run and images to keep in step with every
 commit, for a handful of assessors.
+
+===============================================================
+
+ADR #68: The repository's community files live at its root
+
+Status: Proposed
+Date: 2026-10-12
+
+Context:
+Since the start, CLAUDE.md has said every document lives in `docs/`, and
+`scripts/guard-docs-location.sh` refuses a new one anywhere else. The rule exists because
+agents write notes constantly, and without it the root fills with files nobody asked for.
+Only README, CLAUDE.md and CONTRIBUTING.md sat at the root, because they were there first.
+
+At v1.1.0 the repository gained the files a public project is expected to have: a licence, a
+security policy, a privacy page, a product description and a code of conduct. Readers look for
+them at the root, and GitHub shows several of them from there. The changelog, kept in
+`docs/CHANGELOG.md`, is conventionally at the root too.
+
+Decision:
+`LICENSE`, `SECURITY.md`, `PRIVACY.md`, `PRODUCT.md`, `CHANGELOG.md`, `CODE_OF_CONDUCT.md` and
+`SUPPORT.md` live at the repository root, beside README, CLAUDE.md and CONTRIBUTING.md. The
+changelog moves there from `docs/`. The guard allows exactly these names, at the root only, and
+everything else keeps the rule: a document lives in `docs/` and is listed in the README.
+
+Consequences:
+Positive:
+The files are where readers, and GitHub, look for them.
+
+The guard still refuses an agent's stray note at the root. Its allowlist is seven fixed names,
+and the same names anywhere else are still refused.
+
+Negative:
+CLAUDE.md's rule is no longer "every document lives in `docs/`" without exception, so a reader
+has to know the list. CLAUDE.md names it.
+
+Links to `docs/CHANGELOG.md` in older plans and specs now point at a file that moved. They are
+history and stay as written.
+
+Alternatives:
+Keep them all in `docs/`. GitHub still finds a security policy and a code of conduct there,
+and the rule stays absolute. But a licence must be at the root for GitHub to detect it, and a
+reader browsing the repository expects the others beside the README.
+
+Put them in `.github/`. GitHub reads several from there, but a reader browsing the repository
+rarely opens that folder, and a changelog, a privacy page or a product description is not
+GitHub configuration.
