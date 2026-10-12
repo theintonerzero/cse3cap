@@ -14,6 +14,13 @@ date, and opens a fresh one.
 
 ## [Unreleased]
 
+### Added
+
+- Three decision records for where the build departs from the brief (HO-8): ADR #69, the
+  withdrawn sandbox, APIs and dummy data; ADR #70, hosting on a team VPS rather than AWS, with
+  the client's position unconfirmed; and ADR #71, no microservice in the core build, with the
+  AI sidecar as the one Python service beside it.
+
 ## [1.1.0] - 2026-10-12
 
 `dev` merged to `main` and tagged `v1.1.0`. What changed after 1.0.0, while the live demo
