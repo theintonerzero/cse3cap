@@ -11,7 +11,8 @@ test suite. Nothing here touches the team's servers. CAP-71, [ADR #67](adr/archi
   suite.
 - **git.**
 - About **6 GB of disk** for the images, and a network connection for the first run.
-- On Windows, PowerShell 7 or Windows PowerShell 5.1.
+- On Windows, PowerShell 7 (`pwsh`, from <https://aka.ms/powershell>). The Windows
+  PowerShell built into Windows is too old, and the script says so.
 
 Nothing else: no PHP, Composer, Node, Python or MySQL.
 
@@ -20,8 +21,11 @@ Nothing else: no PHP, Composer, Node, Python or MySQL.
 ```bash
 git clone https://github.com/theintonerzero/cse3cap.git
 cd cse3cap
-./assess              # Windows: .\assess.ps1
+./assess              # Windows, in PowerShell 7: .\assess.ps1
 ```
+
+On Windows, if PowerShell refuses to run the script, run it as
+`pwsh -ExecutionPolicy Bypass -File .\assess.ps1`, adding the command after it.
 
 The first run builds the images and seeds the demo, which takes 5 to 10 minutes. Later
 runs start in seconds and keep your data. When it says **Ready**, open
@@ -135,5 +139,6 @@ On Windows, `.\assess.ps1` takes the same commands.
 
 The API, web and AI images are built from the same Dockerfiles as the live demo, so what
 you run is what we deploy. `.assess/` holds the database passwords and Laravel key, made at
-random on the first run, plus your Anthropic key if you gave one. Every file there is
-readable only by you, and none of it is ever committed.
+random on the first run, plus your Anthropic key if you gave one. None of it is ever
+committed. On macOS and Linux every file there is readable only by you. On Windows the
+files take the folder's permissions, so clone the repository into your own user folder.

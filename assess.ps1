@@ -11,12 +11,18 @@ The same commands as ./assess; docs/Assessor-Guide.md explains them.
   .\assess.ps1 down       stop it (down --wipe also deletes its data and images)
 
 Generated passwords, Laravel's key and your Anthropic key live in .assess\,
-which git ignores. Works in PowerShell 7 and Windows PowerShell 5.1.
+which git ignores. Needs PowerShell 7 (pwsh), not Windows PowerShell 5.1.
 #>
 param(
     [Parameter(Position = 0)][string]$Command = 'up',
     [Parameter(ValueFromRemainingArguments)][string[]]$Rest = @()
 )
+# Windows PowerShell 5.1 turns a native command's stderr into a terminating error
+# when output is redirected, which docker compose trips on every run.
+if ($PSVersionTable.PSVersion.Major -lt 7) {
+    Write-Host 'assess.ps1 needs PowerShell 7. Install it from https://aka.ms/powershell, then run: pwsh .\assess.ps1'
+    exit 1
+}
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
 $State = Join-Path $PSScriptRoot '.assess'
@@ -120,7 +126,13 @@ function Ensure-Personas { # the web container serves this directory (compose.ym
 function Ensure-State { Ensure-Secrets; Write-ApiEnv; Ensure-AiEnv; Ensure-Personas }
 function Compose { Load-Secrets; docker compose -f $ComposeFile @args }
 
-# The status code, in PowerShell 7 and 5.1 alike: 5.1 throws on any non-2xx.
+# Taken when anything accepts a TCP connection, HTTP or not.
+function Port-Taken {
+    $client = New-Object Net.Sockets.TcpClient
+    try { $client.ConnectAsync('127.0.0.1', [int](Port)).Wait(2000) -and $client.Connected } catch { $false } finally { $client.Dispose() }
+}
+
+# The status code: Invoke-WebRequest throws on a non-2xx, carrying the response.
 function Code($Uri, $Headers = @{}) {
     try { (Invoke-WebRequest -Uri $Uri -Headers $Headers -TimeoutSec 5 -UseBasicParsing).StatusCode }
     catch { if ($_.Exception.Response) { [int]$_.Exception.Response.StatusCode } else { 0 } }
@@ -130,6 +142,9 @@ function Code($Uri, $Headers = @{}) {
 # Seeding: scripts/demo-reset.sh's steps, against this project only
 # ---------------------------------------------------------------------------
 function Seeded {
+    # Users in the database and someone to sign in as: a seed whose persona step
+    # failed is not finished, so up runs it again.
+    if (-not (Select-String -Quiet -Pattern '"token"' -Path "$State/public/personas.json" -ErrorAction SilentlyContinue)) { return $false }
     # Only the marker counts: an empty database's error text carries digits too.
     $out = (Compose run --rm -T diary-api php artisan tinker --execute 'echo "users=".App\Models\User::count();' 2>$null) -join ''
     if ($out -match 'users=(\d+)') { [int]$Matches[1] -gt 0 } else { $false }
@@ -144,9 +159,12 @@ function Seed {
         if ($LASTEXITCODE -ne 0) { Die 'Seeding failed. Run .\assess.ps1 reset to try again, or .\assess.ps1 down --wipe for a clean start.' }
         $php = 'require "/app/scripts/lib/demo-people.php"; foreach (DEMO_PEOPLE as [$id, $name]) { $user = App\Models\User::where("display_name", $name)->first(); if ($user === null || $user->tokens()->exists()) { continue; } $token = $user->createToken("demo", ["*"], now()->addDays(Database\Seeders\DemoSeeder::TOKEN_LIFETIME_DAYS)); echo $name, " ", $token->plainTextToken, PHP_EOL; }'
         Compose run --rm -T diary-api php artisan tinker --execute $php | Add-Content "$work/seed.txt"
+        if ($LASTEXITCODE -ne 0) { Warn 'Tokens for the rest of the demo people were not issued; fewer people will be listed.' }
         # On stdin, not a bind mount: a host temp dir is not shared into every Docker VM.
         $json = Get-Content "$work/seed.txt" | Compose run --rm -T diary-api sh -c 'cat >/tmp/seed.txt && exec php /app/scripts/demo-personas.php /tmp/seed.txt'
-        Write-Private "$State/public/personas.json" (($json -join "`n") + "`n")
+        $text = ($json -join "`n") + "`n"
+        if ($LASTEXITCODE -ne 0 -or $text -notmatch '"token"') { Die 'The demo was seeded, but there is nobody to sign in as (above). Run .\assess.ps1 reset to try again.' }
+        Write-Private "$State/public/personas.json" $text
         Compose run --rm -T diary-ai python -m sidecar.reset *> $null
         if ($LASTEXITCODE -ne 0) { Warn "The AI's tables were not emptied; they fill again as the AI is used." }
         Ok "seeded: $(([regex]::Matches((Get-Content "$State/public/personas.json" -Raw), '"token"')).Count) people to sign in as"
@@ -230,7 +248,7 @@ function Print-Ready {
 switch ($Command) {
     'up' {
         Need-Docker; Ensure-State
-        if (-not (Compose ps -q diary-web 2>$null) -and (Code "http://127.0.0.1:$(Port)/") -ne 0) {
+        if (-not (Compose ps -q diary-web 2>$null) -and (Port-Taken)) {
             Die "Port $(Port) is in use. Free it, or choose another: `$env:ASSESS_PORT=8090; .\assess.ps1"
         }
         Say 'Building and starting (the first run takes 5-10 minutes)'
@@ -321,6 +339,8 @@ switch ($Command) {
         Need-Docker; Ensure-State
         if ($Rest.Count -gt 0 -and $Rest[0] -eq '--wipe') {
             Compose --profile test down --volumes --rmi local
+            # --rmi local skips tagged images, and every image this project builds is tagged.
+            docker image rm -f diary-assess-api:local diary-assess-web:local diary-assess-ai:local diary-assess-api-test:local diary-assess-ai-test:local *> $null
             Remove-Item -Recurse -Force $State
             Ok 'stopped, and its database, images and .assess deleted'
         }

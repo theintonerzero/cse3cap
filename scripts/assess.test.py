@@ -174,6 +174,8 @@ esac"""
 UP_CURL = 'case "$*" in *"/up"*) exit 0 ;; *) exit 7 ;; esac'
 for users, should_seed in (("0", True), ("6", False)):
     d = sandbox(UP_DOCKER.replace("$USERS", users), UP_CURL)
+    (d / "repo" / ".assess" / "public").mkdir(parents=True)
+    (d / "repo" / ".assess" / "public" / "personas.json").write_text('[{"token":"x"}]\n')
     r = run_assess(d, "up", stdin="\n")
     seeded_now = "migrate:fresh" in read(d / "calls.log")
     check(
@@ -299,6 +301,51 @@ for driver in ("assess", "assess.ps1"):
 check("diary-web mounts .assess/public as a directory, not personas.json as a file",
       "../../.assess/public:/srv/demo:ro" in compose and "personas.json:/srv" not in compose,
       re.findall(r".*/srv/demo.*", compose))
+
+# ---------------------------------------------------------------------------
+print("Final review fixes")
+attrs = read(ROOT / ".gitattributes")
+check("C1: shell scripts and the driver check out with LF on Windows too",
+      re.search(r"^\*\.sh\s+text\s+eol=lf\s*$", attrs, re.M) is not None
+      and re.search(r"^/assess\s+text\s+eol=lf\s*$", attrs, re.M) is not None, attrs)
+
+d = sandbox("""
+case "$*" in
+  *"User::count"*) echo "users=0" ;;
+  *"demo-personas.php"*) echo "Error: no demo person's token" >&2; exit 1 ;;
+  *) exit 0 ;;
+esac""", UP_CURL)
+r = run_assess(d, "up", stdin="\n")
+check("I2: a failed persona step stops up with a message, not a silent exit",
+      r.returncode != 0 and "nobody to sign in as" in r.stderr, r.stdout[-300:] + r.stderr[-300:])
+d = sandbox("""
+case "$*" in
+  *"User::count"*) echo "users=6" ;;
+  *"demo-personas.php"*) echo '[{"token":"a"}]' ;;
+  *) exit 0 ;;
+esac""", UP_CURL)
+(d / "repo" / ".assess" / "public").mkdir(parents=True)
+(d / "repo" / ".assess" / "public" / "personas.json").write_text("[]\n")
+r = run_assess(d, "up", stdin="\n")
+check("I2: users but no personas counts as not seeded, so up seeds again",
+      r.returncode == 0 and "migrate:fresh" in read(d / "calls.log"), r.stdout[-300:] + r.stderr[-300:])
+
+d = sandbox("exit 0", 'case "$*" in *"/up"*) exit 0 ;; *) exit 52 ;; esac')
+r = run_assess(d, "up")
+check("I3: a non-HTTP listener on the port counts as in use",
+      r.returncode != 0 and "ASSESS_PORT" in r.stderr, r.stderr)
+
+d = sandbox("exit 0", "exit 7")
+run_assess(d, "down", "--wipe")
+calls = read(d / "calls.log")
+check("I4: down --wipe deletes the five images it built",
+      all(f"diary-assess-{n}:local" in calls for n in ("api", "web", "ai", "api-test", "ai-test")), calls)
+
+ps = read(ROOT / "assess.ps1")
+check("I1: assess.ps1 stops on Windows PowerShell 5.1 with a PowerShell 7 hint",
+      re.search(r"PSVersion\.Major\s+-lt\s+7", ps) is not None and "PowerShell 7" in ps)
+check("I1/I5: neither the guide nor assess.ps1 promises 5.1",
+      "5.1" not in read(ROOT / "docs" / "Assessor-Guide.md") and "Works in PowerShell 7 and Windows PowerShell 5.1" not in ps)
 
 # ---------------------------------------------------------------------------
 print()

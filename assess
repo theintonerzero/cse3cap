@@ -47,11 +47,11 @@ need_docker() {
 }
 
 port_free() {
-    # Something already answering on the port means ours would fail to bind.
-    if curl -s -o /dev/null --max-time 2 "http://127.0.0.1:$(port)/" 2>/dev/null; then
-        return 1
-    fi
-    return 0
+    # Free only when the connection is refused (curl's 7). Anything else, an HTTP
+    # answer, a non-HTTP listener or a slow one, means something holds the port.
+    local rc=0
+    curl -s -o /dev/null --max-time 2 "http://127.0.0.1:$(port)/" 2>/dev/null || rc=$?
+    [ "$rc" = 7 ]
 }
 
 # ---------------------------------------------------------------------------
@@ -133,6 +133,9 @@ compose() { load_secrets; docker compose -f "$COMPOSE_FILE" "$@"; }
 # Seeding: scripts/demo-reset.sh's steps, against this project only
 # ---------------------------------------------------------------------------
 seeded() {
+    # Seeded means users in the database and someone to sign in as: a seed whose
+    # persona step failed is not finished, so up runs it again.
+    grep -q '"token"' "$STATE/public/personas.json" 2>/dev/null || return 1
     # Only the marker counts: on an empty database the probe prints an error whose
     # digits (SQLSTATE, error code, port) would otherwise read as a user count.
     local n
@@ -158,11 +161,13 @@ seed() {
             if ($user === null || $user->tokens()->exists()) { continue; }
             $token = $user->createToken("demo", ["*"], now()->addDays(Database\Seeders\DemoSeeder::TOKEN_LIFETIME_DAYS));
             echo $name, " ", $token->plainTextToken, PHP_EOL;
-        }' >>"$work/seed.txt"
+        }' >>"$work/seed.txt" || warn "Tokens for the rest of the demo people were not issued; fewer people will be listed."
     # The seed's output goes in on stdin, not a bind mount: a host temp dir is not
     # shared into the Docker VM on every runtime (Colima, some Linux setups).
     compose run --rm -T diary-api sh -c 'cat >/tmp/seed.txt && exec php /app/scripts/demo-personas.php /tmp/seed.txt' \
-        <"$work/seed.txt" | write_private "$STATE/public/personas.json"
+        <"$work/seed.txt" >"$work/personas.json" && grep -q '"token"' "$work/personas.json" \
+        || die "The demo was seeded, but there is nobody to sign in as (above). Run ./assess reset to try again."
+    write_private "$STATE/public/personas.json" <"$work/personas.json"
     compose run --rm -T diary-ai python -m sidecar.reset >/dev/null 2>&1 \
         || warn "The AI's tables were not emptied; they fill again as the AI is used."
     ok "seeded: $(grep -c '"token"' "$STATE/public/personas.json") people to sign in as"
@@ -226,6 +231,9 @@ cmd_down() {
     ensure_personas
     if [ "${1:-}" = "--wipe" ]; then
         compose --profile test down --volumes --rmi local
+        # --rmi local skips tagged images, and every image this project builds is tagged.
+        docker image rm -f diary-assess-api:local diary-assess-web:local diary-assess-ai:local \
+            diary-assess-api-test:local diary-assess-ai-test:local >/dev/null 2>&1 || true
         rm -rf "$STATE"
         ok "stopped, and its database, images and .assess/ deleted"
     else

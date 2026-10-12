@@ -4000,8 +4000,11 @@ The first run downloads several gigabytes, and the browser suite's image alone i
 The shared-database rule in CLAUDE.md doesn't apply to this database. A reader must not
 take that as licence to run migrations or seeders against the shared one.
 
-`assess.ps1` has run under PowerShell 7 on macOS, not on real Windows. It's written for
-Windows PowerShell 5.1 too, and nobody has run it there yet.
+`assess.ps1` has run under PowerShell 7 on macOS, not on real Windows. It needs
+PowerShell 7 and refuses to run under the older Windows PowerShell, which turns Docker's
+progress output into errors. Shell scripts are pinned to LF line endings in
+`.gitattributes`, because Git for Windows' default CRLF checkout would break them inside
+the containers.
 
 `web.Caddyfile` carries a route the live demo never uses, which a reader of that file has
 to be told about. Its comment does.
