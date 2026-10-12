@@ -393,6 +393,11 @@ check("ai.env.example starts with AI off and holds no key and no database",
       and re.search(r"^DATABASE_URL=$", ai_env, re.M) is not None, ai_env)
 check("the roots are copied readable by the sidecar's user, whatever mode the checkout gives them",
       re.search(r"^COPY --chmod=0?644 db/letsencrypt-roots\.pem ", ai_df, re.M) is not None, ai_df)
+# --chmod also sets the mode of any directory the COPY creates: 644 on /app/db
+# took its execute bit, so the sidecar could not reach the file inside it.
+made = re.search(r"^RUN .*mkdir -p [^\n]*/app/db\b", ai_df, re.M)
+check("/app/db is made as an ordinary directory, as root, before the roots are copied into it",
+      made is not None and made.start() < ai_df.find("USER sidecar") < ai_df.find("COPY --chmod=644 db/"), ai_df)
 check("ai.env.example verifies the database name over TLS with the repo's roots",
       "DATABASE_CA=" in ai_env and "letsencrypt-roots.pem" in ai_env, ai_env)
 for f in ("ai.Dockerfile", "ai.env.example"):
