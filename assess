@@ -1,0 +1,237 @@
+#!/usr/bin/env bash
+#
+# The Reflection Diary on an assessor's machine (CAP-71, ADR #67): the whole
+# product in Docker with its own MySQL, the seeded demo, an optional AI on your
+# own Anthropic key, and every test suite. docs/Assessor-Guide.md explains it.
+#
+#   ./assess            build, start and seed, then print the address
+#   ./assess ai         add, replace or remove your Anthropic key, or change the cap
+#   ./assess test       the backend, AI and browser suites (or: test api|ai|web)
+#   ./assess reset      reseed the demo and empty the AI's tables
+#   ./assess smoke      check the running stack from outside
+#   ./assess status     what is running
+#   ./assess down       stop it (down --wipe also deletes its data and images)
+#
+# Generated passwords, Laravel's key and your Anthropic key live in .assess/,
+# which git ignores. None is ever put on a command line.
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$ROOT"
+STATE="$ROOT/.assess"
+COMPOSE_FILE="$ROOT/deploy/assess/compose.yml"
+[ -f db/01-schema.sql ] && [ -f "$COMPOSE_FILE" ] || { echo "Run this from the cse3cap repository." >&2; exit 1; }
+
+say()  { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
+ok()   { printf '    \033[32mok\033[0m    %s\n' "$*"; }
+warn() { printf '    \033[33m!!\033[0m    %s\n' "$*" >&2; }
+die()  { printf '\n\033[31mError:\033[0m %s\n' "$*" >&2; exit 1; }
+
+port() { printf '%s' "${ASSESS_PORT:-8080}"; }
+url()  { printf 'http://localhost:%s' "$(port)"; }
+
+# ---------------------------------------------------------------------------
+# Prerequisites
+# ---------------------------------------------------------------------------
+need_docker() {
+    command -v docker >/dev/null 2>&1 \
+        || die "Docker is not installed. Install Docker Desktop (https://docs.docker.com/get-docker/), start it, and run ./assess again."
+    docker info >/dev/null 2>&1 \
+        || die "Docker is installed but not running. Start Docker Desktop (or the docker service), then run ./assess again."
+    docker compose version >/dev/null 2>&1 \
+        || die "Docker Compose v2 is missing ('docker compose' is not a command here). Install Docker Desktop, or the docker-compose plugin, then run ./assess again."
+    # The images use BuildKit features (COPY --chmod), and Compose builds with Buildx.
+    docker buildx version >/dev/null 2>&1 \
+        || die "Docker Buildx is missing. Install Docker Desktop, or the docker-buildx plugin, then run ./assess again."
+}
+
+port_free() {
+    # Something already answering on the port means ours would fail to bind.
+    if curl -s -o /dev/null --max-time 2 "http://127.0.0.1:$(port)/" 2>/dev/null; then
+        return 1
+    fi
+    return 0
+}
+
+# ---------------------------------------------------------------------------
+# State: .assess/
+# ---------------------------------------------------------------------------
+secret() { LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 32; }
+
+write_private() { # write_private FILE: stdin to FILE, mode 600 from the start
+    local tmp
+    umask 077
+    tmp="$(mktemp "$1.XXXXXX")"
+    cat >"$tmp"
+    chmod 600 "$tmp"
+    mv "$tmp" "$1"
+}
+
+ensure_secrets() {
+    mkdir -p "$STATE"
+    chmod 700 "$STATE"
+    [ -f "$STATE/env" ] && return 0
+    {
+        printf 'ASSESS_DB_ROOT_PASSWORD=%s\n' "$(secret)"
+        printf 'ASSESS_DB_APP_PASSWORD=%s\n' "$(secret)"
+        printf 'ASSESS_DB_AI_PASSWORD=%s\n' "$(secret)"
+        printf 'ASSESS_DB_TEST_PASSWORD=%s\n' "$(secret)"
+        printf 'ASSESS_APP_KEY=base64:%s\n' "$(head -c 32 /dev/urandom | base64 | tr -d '\n')"
+    } | write_private "$STATE/env"
+}
+
+load_secrets() { set -a; . "$STATE/env"; set +a; }
+
+write_api_env() {
+    load_secrets
+    write_private "$STATE/api.env" <<EOF
+APP_NAME="Reflection Diary"
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=$(url)
+FRONTEND_URL=$(url)
+APP_KEY=$ASSESS_APP_KEY
+LOG_CHANNEL=stderr
+LOG_LEVEL=warning
+DB_CONNECTION=mysql
+DB_HOST=mysql
+DB_PORT=3306
+DB_DATABASE=reflection_diary_assess
+DB_USERNAME=diary_app
+DB_PASSWORD=$ASSESS_DB_APP_PASSWORD
+DB_COLLATION=utf8mb4_0900_ai_ci
+MYSQL_ATTR_SSL_CA=
+CACHE_STORE=file
+SESSION_DRIVER=file
+QUEUE_CONNECTION=sync
+EOF
+}
+
+ensure_ai_env() { # AI off until a key is given; the database URL is always there
+    load_secrets
+    [ -f "$STATE/ai.env" ] && return 0
+    write_private "$STATE/ai.env" <<EOF
+AI_ENABLED=false
+DIARY_API_BASE=http://diary-web/api/v1
+DATABASE_URL=mysql://diary_ai:$ASSESS_DB_AI_PASSWORD@mysql:3306/diary_ai
+DAILY_CAP_USD=1
+ANTHROPIC_API_KEY=
+EOF
+}
+
+ensure_personas() { [ -f "$STATE/personas.json" ] || printf '[]\n' | write_private "$STATE/personas.json"; }
+
+ai_on() { grep -qx 'AI_ENABLED=true' "$STATE/ai.env" 2>/dev/null; }
+
+compose() { load_secrets; docker compose -f "$COMPOSE_FILE" "$@"; }
+
+# ---------------------------------------------------------------------------
+# Seeding: scripts/demo-reset.sh's steps, against this project only
+# ---------------------------------------------------------------------------
+seeded() {
+    local n
+    n="$(compose run --rm -T diary-api php artisan tinker --execute 'echo App\Models\User::count();' 2>/dev/null | tr -dc '0-9')"
+    [ -n "$n" ] && [ "$n" -gt 0 ]
+}
+
+seed() {
+    local work
+    work="$(mktemp -d)"
+    chmod 700 "$work"
+    # EXIT, with the path expanded now: seed.txt holds tokens, and it must go on
+    # die too. A RETURN trap would fire on every later function's return.
+    trap "rm -rf '$work'" EXIT
+    say "Seeding the demo"
+    compose run --rm -T diary-api php artisan migrate:fresh --drop-views --seed --force --no-interaction --no-ansi \
+        >"$work/seed.txt" || die "Seeding failed. Run ./assess reset to try again, or ./assess down --wipe for a clean start."
+    compose run --rm -T diary-api php artisan tinker --execute '
+        require "/app/scripts/lib/demo-people.php";
+        foreach (DEMO_PEOPLE as [$id, $name]) {
+            $user = App\Models\User::where("display_name", $name)->first();
+            if ($user === null || $user->tokens()->exists()) { continue; }
+            $token = $user->createToken("demo", ["*"], now()->addDays(Database\Seeders\DemoSeeder::TOKEN_LIFETIME_DAYS));
+            echo $name, " ", $token->plainTextToken, PHP_EOL;
+        }' >>"$work/seed.txt"
+    compose run --rm -T -v "$work:/seed:ro" diary-api php /app/scripts/demo-personas.php /seed/seed.txt \
+        | write_private "$STATE/personas.json"
+    compose run --rm -T diary-ai python -m sidecar.reset >/dev/null 2>&1 \
+        || warn "The AI's tables were not emptied; they fill again as the AI is used."
+    ok "seeded: $(grep -c '"token"' "$STATE/personas.json") people to sign in as"
+}
+
+wait_for_web() {
+    for _ in $(seq 1 60); do
+        curl -s -o /dev/null --max-time 2 "http://127.0.0.1:$(port)/up" && return 0
+        sleep 2
+    done
+    die "The app did not answer on $(url). See the logs: docker compose -f deploy/assess/compose.yml logs"
+}
+
+# ---------------------------------------------------------------------------
+# Commands
+# ---------------------------------------------------------------------------
+cmd_up() {
+    need_docker
+    ensure_secrets
+    write_api_env
+    ensure_ai_env
+    ensure_personas
+    if [ -z "$(compose ps -q diary-web 2>/dev/null)" ] && ! port_free; then
+        die "Port $(port) is in use. Free it, or choose another: ASSESS_PORT=8090 ./assess"
+    fi
+    say "Building and starting (the first run takes 5-10 minutes)"
+    compose build || die "A build failed (above). Check Docker has 4 GB of memory and a network, then run ./assess again."
+    compose up -d mysql || die "MySQL did not start (above)."
+    seeded || seed
+    compose up -d || die "The stack did not start (above)."
+    wait_for_web
+    ai_offer
+    print_ready
+}
+
+print_ready() {
+    say "Ready"
+    printf '    Open %s and pick a person to sign in as.\n' "$(url)"
+    printf '    Jane N is a student on both gigs; Sam O assesses; Dr Lee supervises.\n'
+    if ai_on; then
+        printf '    AI: on, your key, capped at US$%s a day.\n' "$(sed -n 's/^DAILY_CAP_USD=//p' "$STATE/ai.env")"
+    else
+        printf '    AI: off. ./assess ai turns it on with your own Anthropic key.\n'
+    fi
+    printf '    Tests: ./assess test    Stop: ./assess down\n'
+}
+
+cmd_status() {
+    ensure_secrets
+    ensure_ai_env
+    ensure_personas
+    say "Status"
+    if [ -n "$(compose ps -q diary-web 2>/dev/null)" ]; then ok "running at $(url)"; else warn "not running: ./assess"; fi
+    if ai_on; then ok "AI on"; else ok "AI off"; fi
+}
+
+cmd_down() {
+    need_docker
+    ensure_secrets
+    ensure_ai_env
+    ensure_personas
+    if [ "${1:-}" = "--wipe" ]; then
+        compose --profile test down --volumes --rmi local
+        rm -rf "$STATE"
+        ok "stopped, and its database, images and .assess/ deleted"
+    else
+        compose --profile test down
+        ok "stopped. ./assess starts it again with the same data"
+    fi
+}
+
+ai_offer() { :; } # Task 5 replaces this with the key prompt
+
+case "${1:-up}" in
+    up)     cmd_up ;;
+    status) cmd_status ;;
+    down)   shift; cmd_down "${1:-}" ;;
+    -h|--help|help) sed -n '3,16p' "$0" | sed 's/^# \{0,1\}//' ;;
+    *) die "Unknown command '$1'. ./assess help lists them." ;;
+esac

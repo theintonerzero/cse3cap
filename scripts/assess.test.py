@@ -94,6 +94,96 @@ check(
 )
 
 # ---------------------------------------------------------------------------
+print("./assess against stubs")
+TOOLS = ("bash", "sed", "grep", "tr", "head", "cat", "mkdir", "chmod", "rm", "mv", "date", "sleep",
+         "env", "awk", "base64", "mktemp", "uname", "cut", "wc", "ls", "dirname", "basename", "seq")
+
+
+def sandbox(docker_script, curl_script="exit 0"):
+    """A copy of the driver and the compose file, with stub docker and curl that
+    log their arguments, and only the system tools the driver should need."""
+    d = pathlib.Path(tempfile.mkdtemp())
+    (d / "bin").mkdir()
+    (d / "repo" / "deploy" / "assess").mkdir(parents=True)
+    (d / "repo" / "db").mkdir()
+    (d / "repo" / "db" / "01-schema.sql").write_text("-- stub")
+    (d / "repo" / "assess").write_text(read(ROOT / "assess"))
+    (d / "repo" / "deploy" / "assess" / "compose.yml").write_text(read(ASSESS_DIR / "compose.yml"))
+    for name, body in (("docker", docker_script), ("curl", curl_script)):
+        p = d / "bin" / name
+        p.write_text(f'#!/bin/bash\necho "$0 $*" >> {d}/calls.log\n{body}\n')
+        p.chmod(0o755)
+    for tool in TOOLS:
+        found = subprocess.run(["bash", "-c", f"command -v {tool}"], capture_output=True, text=True).stdout.strip()
+        if found.startswith("/"):
+            os.symlink(found, d / "bin" / tool)
+    return d
+
+
+def run_assess(d, *args, stdin=""):
+    env = {"PATH": str(d / "bin"), "HOME": str(d), "TERM": "dumb", "ASSESS_NO_TTY": "1"}
+    return subprocess.run(["bash", str(d / "repo" / "assess"), *args], cwd=d / "repo", input=stdin,
+                          capture_output=True, text=True, env=env, timeout=120)
+
+
+d = sandbox('if [ "$1" = compose ]; then echo "docker: unknown command: docker compose" >&2; exit 1; fi\nexit 0')
+r = run_assess(d, "up")
+check("no Compose v2: says so and stops", r.returncode != 0 and "Compose v2" in r.stderr, r.stderr)
+
+d = sandbox('if [ "$1" = buildx ]; then exit 1; fi\nexit 0')
+r = run_assess(d, "up")
+check("no Buildx: says so and stops", r.returncode != 0 and "Buildx" in r.stderr, r.stderr)
+
+d = sandbox('if [ "$1" = info ]; then exit 1; fi\nexit 0')
+r = run_assess(d, "up")
+check("Docker not running: says to start it", r.returncode != 0 and "Start Docker" in r.stderr, r.stderr)
+
+d = sandbox("exit 0", "exit 0")
+r = run_assess(d, "up")
+check(
+    "port in use: names ASSESS_PORT and builds nothing",
+    r.returncode != 0 and "ASSESS_PORT" in r.stderr
+    and re.search(r"compose -f \S+ build\b", read(d / "calls.log")) is None,
+    r.stderr,
+)
+
+d = sandbox("exit 0", "exit 7")
+run_assess(d, "status")
+env_file = d / "repo" / ".assess" / "env"
+env1 = read(env_file)
+mode = stat.S_IMODE(env_file.stat().st_mode) if env1 else 0
+pw = re.findall(r"^ASSESS_DB_\w+_PASSWORD=([A-Za-z0-9]+)$", env1, re.M)
+check(
+    "secrets are generated: four passwords of 32 alphanumerics",
+    len(pw) == 4 and all(len(p) == 32 for p in pw),
+    env1,
+)
+check("APP_KEY is base64 of 32 bytes", re.search(r"^ASSESS_APP_KEY=base64:[A-Za-z0-9+/]{43}=$", env1, re.M) is not None, env1)
+check(".assess/env is mode 600", mode == 0o600, oct(mode))
+run_assess(d, "status")
+check("a re-run keeps the same secrets", read(env_file) == env1)
+check("no secret reached a command line", not any(p in read(d / "calls.log") for p in pw))
+
+# seeded or not is the database's answer, not a marker file (Review Focus 2)
+UP_DOCKER = """
+case "$*" in
+  *"User::count"*) echo "$USERS" ;;
+  *"demo-personas.php"*) echo '[{"token":"a"},{"token":"b"}]' ;;
+  *) exit 0 ;;
+esac"""
+UP_CURL = 'case "$*" in *"/up"*) exit 0 ;; *) exit 7 ;; esac'
+for users, should_seed in (("0", True), ("6", False)):
+    d = sandbox(UP_DOCKER.replace("$USERS", users), UP_CURL)
+    r = run_assess(d, "up", stdin="\n")
+    seeded_now = "migrate:fresh" in read(d / "calls.log")
+    check(
+        f"up with {users} users {'seeds' if should_seed else 'does not reseed'}",
+        r.returncode == 0 and seeded_now == should_seed,
+        r.stdout[-400:] + r.stderr[-400:],
+    )
+check("up prints where to open it", "http://localhost:8080" in r.stdout, r.stdout[-300:])
+
+# ---------------------------------------------------------------------------
 print()
 if failures:
     print(f"{failures} failed.")
