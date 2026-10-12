@@ -169,6 +169,10 @@ test('themes: a chip row per reviewed gig, by gig, and none for a gig Sam studie
   api,
 }) => {
   await page.goto('/review-queue');
+  // The model wrote these: the toggle says so.
+  await expect(page.getByRole('button', { name: 'Recurring themes' })).toHaveAccessibleName(
+    'Recurring themes AI',
+  );
   await expect(
     page.getByRole('group', { name: 'Recurring themes, Develop AI use cases' }),
   ).toBeVisible();

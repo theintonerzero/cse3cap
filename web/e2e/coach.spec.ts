@@ -28,6 +28,13 @@ test.describe('the coach on the owner’s draft', () => {
     expect(api.ai_calls.map((c) => c.route)).toEqual(['GET /status']);
   });
 
+  test('the button says it is AI before it is pressed', async ({ page }) => {
+    await page.goto(`/reflections/${DRAFT}`);
+    await expect(page.getByRole('button', { name: 'Ask me questions' })).toHaveAccessibleName(
+      'Ask me questions AI',
+    );
+  });
+
   test('loading, then the questions as plain text with the AI badge', async ({
     page,
     api,

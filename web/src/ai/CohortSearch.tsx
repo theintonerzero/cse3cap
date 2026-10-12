@@ -257,7 +257,7 @@ function ThemesBlock({
         >
           <path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" strokeWidth="1.75" />
         </svg>
-        Recurring themes
+        Recurring themes <Badge kind="ai" inline />
       </button>
       <div className={styles.theme_rows} id={list_id} hidden={!open}>
         {with_themes.map(({ gig, themes }) => (
