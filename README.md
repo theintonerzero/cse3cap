@@ -45,9 +45,24 @@ checklist.
 
 ---
 
+## For assessors
+
+Docker and git are all you need. Everything runs in containers with its own database and the
+seeded demo, and nothing touches the team's servers.
+
+```bash
+git clone https://github.com/theintonerzero/cse3cap.git && cd cse3cap
+./assess            # Windows: .\assess.ps1
+```
+
+Then open http://localhost:8080 and pick a person to sign in as. `./assess ai` turns the AI
+on with your own Anthropic key, and `./assess test` runs every test suite. The whole guide
+is [`docs/Assessor-Guide.md`](docs/Assessor-Guide.md).
+
 ## Table of contents
 
 - [Where this is up to](#where-this-is-up-to)
+- [For assessors](#for-assessors)
 - [The problem](#the-problem)
 - [The solution](#the-solution)
 - [Objectives](#objectives)
@@ -611,6 +626,7 @@ and the reasoning behind the unusual decisions.
 | [`docs/Runbook.md`](docs/Runbook.md)                             | Start, stop, the shared database, reseeding, tokens, and handing over: who holds what, backups, rotating credentials, CI |
 | [`docs/Deployment.md`](docs/Deployment.md)                       | The demo on the VPS: setup, deploy, rollback, and changing Caddy safely |
 | [`docs/Demo-Script.md`](docs/Demo-Script.md)                     | The client demo, step by step, for someone new to the product |
+| [`docs/Assessor-Guide.md`](docs/Assessor-Guide.md)               | Run the whole product, the AI and the tests with one command  |
 | [`docs/Design-Inventory.md`](docs/Design-Inventory.md)           | Every Figma frame and what the build did with it              |
 | [`docs/CHANGELOG.md`](docs/CHANGELOG.md)                         | What changed, by release, and by sprint before v1.0.0          |
 | [`.claude/skills/jira-tickets/`](.claude/skills/jira-tickets/)   | How agents read and move COA4 tickets (ADR #38)               |
