@@ -7,9 +7,9 @@ rebuilds this file from `composer licenses`, `composer audit`, `web/package-lock
 
 | | |
 | --- | --- |
-| Generated | 2026-10-12 09:04 UTC |
-| Commit | `2af7ead` |
-| Lockfiles | `api/composer.lock` sha256 `4c8be6e73f61d8df8a0bf537f8dd7f9a5e0c882db2dffbe84505c158de5ac79b`, `web/package-lock.json` sha256 `1fd892be6280c7c5625dcd7c1cffa33b3d14de44a1759c1cc246a43175b619d3` |
+| Generated | 2026-10-12 10:14 UTC |
+| Commit | `cd5cc0d` |
+| Lockfiles | `api/composer.lock` sha256 `4f5198d1e8588ff8ce9588f9a4545291872822d12858b7e5929066d98b3b726e`, `web/package-lock.json` sha256 `1fd892be6280c7c5625dcd7c1cffa33b3d14de44a1759c1cc246a43175b619d3` |
 | Tools | PHP 8.5.10, Composer version 2.10.3, Node v24.15.0, npm 11.12.1 |
 | Packages | 117 Composer (12 direct), 117 npm (14 direct) |
 | Advisories | none |
@@ -66,7 +66,7 @@ The permissive list is in `scripts/dependency-register.py`: 0BSD, Apache-2.0, BS
 | --- | --- | --- | --- | --- |
 | `dompdf/dompdf` | `^3.1` | v3.1.6 | LGPL-2.1 | no |
 | `fakerphp/faker` | `^1.23` | v1.24.1 | MIT | yes |
-| `laravel/framework` | `^13.17` | v13.34.0 | MIT | no |
+| `laravel/framework` | `^13.17` | v13.35.0 | MIT | no |
 | `laravel/pail` | `^1.2.5` | v1.2.7 | MIT | yes |
 | `laravel/pao` | `^1.0.6` | v1.1.5 | MIT | yes |
 | `laravel/pint` | `^1.27` | v1.32.1 | MIT | yes |
