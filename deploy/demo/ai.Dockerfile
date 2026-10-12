@@ -1,7 +1,7 @@
 # The AI sidecar (CAP-69, ADR #64), built from the repository at the deployed
 # SHA like the API and the web image. With no ai.env it starts with AI off and
 # answers 404 AI_DISABLED, so shipping it changes nothing until it is switched on.
-FROM python:3.12-slim
+FROM python:3.12-slim AS runtime
 
 COPY --from=ghcr.io/astral-sh/uv:0.12.18 /uv /usr/local/bin/uv
 
@@ -39,3 +39,15 @@ COPY --chmod=644 db/letsencrypt-roots.pem /app/db/letsencrypt-roots.pem
 
 EXPOSE 8000
 CMD ["uvicorn", "sidecar.app:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
+
+# The assessor's sidecar suite (CAP-71, ./assess test ai), with the database tests
+# that need AI_TEST_DATABASE_URL. Root, because the venv was made as root.
+FROM runtime AS test
+USER root
+RUN uv sync --frozen --no-install-project --group dev
+COPY ai/tests ./tests
+COPY ai/db ./db
+CMD ["pytest", "-q"]
+
+# The default target: the runtime image, unchanged.
+FROM runtime

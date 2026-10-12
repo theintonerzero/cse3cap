@@ -1,6 +1,6 @@
 # The demo API (CAP-54, ADR #62): Laravel on PHP 8.5-FPM. Built on the box
 # from the repository at one commit; nothing secret is copied in.
-FROM php:8.5-fpm
+FROM php:8.5-fpm AS runtime
 
 COPY --from=mlocati/php-extension-installer /usr/bin/install-php-extensions /usr/local/bin/
 RUN install-php-extensions pdo_mysql intl zip opcache
@@ -34,3 +34,15 @@ RUN chmod 755 /usr/local/bin/diary-api-entrypoint
 
 ENTRYPOINT ["diary-api-entrypoint"]
 CMD ["php-fpm"]
+
+# The assessor's backend suite (CAP-71, ./assess test api). The runtime above with
+# Composer's dev dependencies; never the default target, so the live demo builds
+# exactly what it built before.
+FROM runtime AS test
+RUN composer install --no-interaction --no-progress --prefer-dist \
+ && rm -f .env
+ENTRYPOINT []
+CMD ["php", "artisan", "test"]
+
+# The default target: the runtime image, unchanged.
+FROM runtime
