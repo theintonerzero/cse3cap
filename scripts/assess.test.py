@@ -183,6 +183,22 @@ for users, should_seed in (("0", True), ("6", False)):
     )
 check("up prints where to open it", "http://localhost:8080" in r.stdout, r.stdout[-300:])
 
+SMOKE_CURL = """
+case "$*" in
+  *"/demo/personas.json"*) echo '[{"token":"t1"},{"token":"t2"},{"token":"t3"},{"token":"t4"},{"token":"t5"},{"token":"t6"}]' ;;
+  *"/ai/v1/status"*) echo 404 ;;
+  *) echo 200 ;;
+esac"""
+d = sandbox("exit 0", SMOKE_CURL)
+(d / "repo" / ".assess").mkdir()
+(d / "repo" / ".assess" / "personas.json").write_text('[\n    {\n        "name": "Jane N",\n        "token": "1|smokeTOKENsecret"\n    }\n]\n')
+r = run_assess(d, "smoke")
+check("smoke: passes when the stack answers as expected", r.returncode == 0 and "6 people" in r.stdout, r.stdout + r.stderr)
+check("smoke: a persona's token never reaches a command line", "smokeTOKENsecret" not in read(d / "calls.log"))
+d = sandbox("exit 0", SMOKE_CURL.replace("echo 404", "echo 502"))
+r = run_assess(d, "smoke")
+check("smoke: fails, naming the check, when the AI answers wrongly", r.returncode != 0 and "wanted 404" in r.stderr, r.stderr)
+
 # ---------------------------------------------------------------------------
 print()
 if failures:

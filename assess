@@ -228,9 +228,40 @@ cmd_down() {
 
 ai_offer() { :; } # Task 5 replaces this with the key prompt
 
+http_code() { curl -s -o /dev/null -w '%{http_code}' --max-time 5 "$@"; }
+
+cmd_smoke() {
+    ensure_secrets
+    ensure_ai_env
+    ensure_personas
+    local base fails=0 people token hdr code want
+    base="http://127.0.0.1:$(port)"
+    say "Smoke"
+    if [ "$(http_code "$base/")" = 200 ]; then ok "the page loads"; else warn "the page does not load"; fails=1; fi
+    if [ "$(http_code "$base/up")" = 200 ]; then ok "/up answers"; else warn "/up does not answer"; fails=1; fi
+    people="$(curl -s --max-time 5 "$base/demo/personas.json" | grep -o '"token"' | wc -l | tr -d ' ')"
+    if [ "$people" = 6 ]; then ok "personas.json lists $people people"
+    else warn "personas.json lists ${people:-0} people, not 6"; fails=1; fi
+    # The token goes in a header read from a 0600 file, never on the command line.
+    token="$(sed -n 's/.*"token": *"\([^"]*\)".*/\1/p' "$STATE/personas.json" | head -n 1)"
+    hdr="$(mktemp)"
+    chmod 600 "$hdr"
+    printf 'Authorization: Bearer %s\n' "$token" >"$hdr"
+    code="$(http_code -H @"$hdr" "$base/api/v1/auth/me")"
+    rm -f "$hdr"
+    if [ "$code" = 200 ]; then ok "a persona's token reads /api/v1/auth/me"
+    else warn "/api/v1/auth/me answered $code to a persona"; fails=1; fi
+    code="$(http_code "$base/ai/v1/status")"
+    if ai_on; then want=401; else want=404; fi
+    if [ "$code" = "$want" ]; then ok "/ai/v1/status answers $code (AI $(ai_on && echo on || echo off))"
+    else warn "/ai/v1/status answered $code, wanted $want"; fails=1; fi
+    [ "$fails" = 0 ] || die "Smoke failed (above)."
+}
+
 case "${1:-up}" in
     up)     cmd_up ;;
     status) cmd_status ;;
+    smoke)  cmd_smoke ;;
     down)   shift; cmd_down "${1:-}" ;;
     -h|--help|help) sed -n '3,16p' "$0" | sed 's/^# \{0,1\}//' ;;
     *) die "Unknown command '$1'. ./assess help lists them." ;;
