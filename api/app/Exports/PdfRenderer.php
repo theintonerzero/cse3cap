@@ -50,15 +50,19 @@ class PdfRenderer
         $options->setChroot([resource_path('fonts')]);
         $options->set('isFontSubsettingEnabled', true);
 
-        // dompdf caches parsed font metrics next to the fonts, which is
-        // inside vendor/ by default. A deploy that ships vendor/ read-only
-        // would fail the first render, so the cache lives under storage/.
+        // dompdf writes into two places that default to inside vendor/,
+        // which the deployed image's PHP user cannot write: fontCache, its
+        // parsed metrics, and fontDir, where a font the template registers
+        // (Inter, CAP-65) is copied with its .ufm. Both live under storage/;
+        // with only fontCache moved, every PDF failed once Inter arrived.
+        // dompdf still reads its bundled DejaVu from its own lib/fonts.
         // ensureDirectoryExists rather than a bare mkdir: two workers
         // rendering their first pdf at once would both see no directory,
         // and the loser's mkdir warning would mark its export failed.
         $cache = storage_path('app/dompdf');
         File::ensureDirectoryExists($cache);
         $options->set('fontCache', $cache);
+        $options->set('fontDir', $cache);
 
         $dompdf = new Dompdf($options);
         $dompdf->setPaper('A4', 'portrait');
