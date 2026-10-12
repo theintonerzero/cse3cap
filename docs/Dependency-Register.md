@@ -7,9 +7,9 @@ rebuilds this file from `composer licenses`, `composer audit`, `web/package-lock
 
 | | |
 | --- | --- |
-| Generated | 2026-10-12 10:14 UTC |
-| Commit | `cd5cc0d` |
-| Lockfiles | `api/composer.lock` sha256 `4f5198d1e8588ff8ce9588f9a4545291872822d12858b7e5929066d98b3b726e`, `web/package-lock.json` sha256 `1fd892be6280c7c5625dcd7c1cffa33b3d14de44a1759c1cc246a43175b619d3` |
+| Generated | 2026-10-12 10:39 UTC |
+| Commit | `0f3243c` |
+| Lockfiles | `api/composer.lock` sha256 `4f5198d1e8588ff8ce9588f9a4545291872822d12858b7e5929066d98b3b726e`, `web/package-lock.json` sha256 `26691dea3efc0fac50ae0e0597ed56a2745566672e7ea5e15a55c7746b67ed60` |
 | Tools | PHP 8.5.10, Composer version 2.10.3, Node v24.15.0, npm 11.12.1 |
 | Packages | 117 Composer (12 direct), 117 npm (14 direct) |
 | Advisories | none |
@@ -82,19 +82,19 @@ The permissive list is in `scripts/dependency-register.py`: 0BSD, Apache-2.0, BS
 | Package | Constraint | Installed | Licence | Dev only |
 | --- | --- | --- | --- | --- |
 | `@fontsource-variable/inter` | `^5.3.0` | 5.3.0 | OFL-1.1 | no |
-| `@playwright/test` | `1.63.0` | 1.63.0 | Apache-2.0 | yes |
+| `@playwright/test` | `1.64.0` | 1.64.0 | Apache-2.0 | yes |
 | `@types/node` | `^24.19.1` | 24.19.1 | MIT | yes |
 | `@types/react` | `^19.3.0` | 19.3.0 | MIT | yes |
 | `@types/react-dom` | `^19.3.0` | 19.3.0 | MIT | yes |
-| `@vitejs/plugin-react` | `^6.1.1` | 6.1.1 | MIT | yes |
-| `oxlint` | `^1.86.0` | 1.86.0 | MIT | yes |
+| `@vitejs/plugin-react` | `^6.1.2` | 6.1.2 | MIT | yes |
+| `oxlint` | `^1.87.0` | 1.87.0 | MIT | yes |
 | `prettier` | `^3.9.9` | 3.9.9 | MIT | yes |
 | `react` | `^19.3.0` | 19.3.0 | MIT | no |
 | `react-dom` | `^19.3.0` | 19.3.0 | MIT | no |
 | `react-router` | `8.4.0` | 8.4.0 | MIT | no |
 | `recharts` | `^3.10.1` | 3.10.1 | MIT | no |
 | `typescript` | `~6.0.2` | 6.0.3 | Apache-2.0 | yes |
-| `vite` | `^8.3.2` | 8.3.2 | MIT | yes |
+| `vite` | `^8.3.4` | 8.3.4 | MIT | yes |
 
 Transitive packages are counted above and listed in `api/composer.lock` and
 `web/package-lock.json`, which are the record of exactly what is installed.

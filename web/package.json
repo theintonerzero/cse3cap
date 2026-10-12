@@ -20,14 +20,14 @@
     "recharts": "^3.10.1"
   },
   "devDependencies": {
-    "@playwright/test": "1.63.0",
+    "@playwright/test": "1.64.0",
     "@types/node": "^24.19.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "@vitejs/plugin-react": "^6.1.1",
-    "oxlint": "^1.86.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "oxlint": "^1.87.0",
     "prettier": "^3.9.9",
     "typescript": "~6.0.2",
-    "vite": "^8.3.2"
+    "vite": "^8.3.4"
   }
 }
