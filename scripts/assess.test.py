@@ -262,6 +262,16 @@ r = run_assess(d, "reset")
 check("reset reseeds even when the demo is already seeded", r.returncode == 0 and "migrate:fresh" in read(d / "calls.log"), r.stdout + r.stderr)
 
 # ---------------------------------------------------------------------------
+print("assess.ps1: the same commands")
+bash_cmds = set(re.findall(r"^\s+(up|ai|test|reset|smoke|status|down)\)", read(ROOT / "assess"), re.M))
+ps_cmds = set(re.findall(r"^\s+'(up|ai|test|reset|smoke|status|down)'\s*\{", read(ROOT / "assess.ps1"), re.M))
+check(
+    "assess and assess.ps1 offer the same commands",
+    bash_cmds == ps_cmds and len(bash_cmds) == 7,
+    f"bash {sorted(bash_cmds)} ps1 {sorted(ps_cmds)}",
+)
+
+# ---------------------------------------------------------------------------
 print()
 if failures:
     print(f"{failures} failed.")
