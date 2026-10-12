@@ -1,7 +1,7 @@
 # Privacy
 
 What personal data the Reflection Diary handles, where it goes, how long it stays, and what
-can be removed. This describes the software as built at v1.1.0. It is not a privacy notice
+can be removed. This describes the software as built at v1.1.1. It is not a privacy notice
 for any deployment: whoever runs the product, Alumable or a university, owes its own users
 that.
 
