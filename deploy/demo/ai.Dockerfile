@@ -47,6 +47,9 @@ USER root
 RUN uv sync --frozen --no-install-project --group dev
 COPY ai/tests ./tests
 COPY ai/db ./db
+COPY ai/evals ./evals
+# The contract test reads the sidecar's OpenAPI file from docs/, beside ai/.
+COPY docs/ai-openapi.yaml /app/docs/ai-openapi.yaml
 CMD ["pytest", "-q"]
 
 # The default target: the runtime image, unchanged.

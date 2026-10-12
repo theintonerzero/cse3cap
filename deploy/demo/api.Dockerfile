@@ -39,10 +39,16 @@ CMD ["php-fpm"]
 # Composer's dev dependencies; never the default target, so the live demo builds
 # exactly what it built before.
 FROM runtime AS test
-RUN composer install --no-interaction --no-progress --prefer-dist \
- && rm -f .env
+# GD: the upload tests make fake images. Test-only, so not in the runtime image.
+# An empty .env: settings come from compose's environment, and artisan test warns
+# on every test when the file is missing.
+RUN install-php-extensions gd \
+ && composer install --no-interaction --no-progress --prefer-dist \
+ && : > .env
 ENTRYPOINT []
-CMD ["php", "artisan", "test"]
+# .dockerignore leaves api/storage out and the runtime makes it in its entrypoint,
+# which this stage skips, so the suite makes the folders Blade and uploads need.
+CMD ["sh", "-c", "mkdir -p storage/app/private storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache && exec php artisan test"]
 
 # The default target: the runtime image, unchanged.
 FROM runtime

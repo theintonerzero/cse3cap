@@ -298,9 +298,11 @@ switch ($Command) {
         Say 'Smoke'
         if ((Code "$base/") -eq 200) { Ok 'the page loads' } else { Warn 'the page does not load'; $fails++ }
         if ((Code "$base/up") -eq 200) { Ok '/up answers' } else { Warn '/up does not answer'; $fails++ }
-        $people = try { @(Invoke-RestMethod "$base/demo/personas.json" -TimeoutSec 5).Count } catch { 0 }
+        # Counted in the raw text, as ./assess does: Invoke-RestMethod hands a JSON
+        # array back as one object, so @(...).Count would say 1.
+        $people = try { ([regex]::Matches((Invoke-WebRequest "$base/demo/personas.json" -TimeoutSec 5 -UseBasicParsing).Content, '"token"')).Count } catch { 0 }
         if ($people -eq 6) { Ok "personas.json lists $people people" } else { Warn "personas.json lists $people people, not 6"; $fails++ }
-        $personas = @(Get-Content "$State/public/personas.json" -Raw | ConvertFrom-Json)
+        $personas = @(Get-Content "$State/public/personas.json" -Raw | ConvertFrom-Json | ForEach-Object { $_ })
         $token = if ($personas.Count -gt 0) { $personas[0].token } else { '' }
         $code = Code "$base/api/v1/auth/me" @{ Authorization = "Bearer $token" }
         if ($code -eq 200) { Ok "a persona's token reads /api/v1/auth/me" } else { Warn "/api/v1/auth/me answered $code to a persona"; $fails++ }

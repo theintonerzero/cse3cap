@@ -7,7 +7,8 @@ test suite. Nothing here touches the team's servers. CAP-71, [ADR #67](adr/archi
 ## What you need
 
 - **Docker.** Docker Desktop on macOS or Windows, or Docker Engine with the Compose v2 and
-  Buildx plugins on Linux. Give it at least 4 GB of memory.
+  Buildx plugins on Linux. Give it at least 4 GB of memory, and 4 CPUs for the browser
+  suite.
 - **git.**
 - About **6 GB of disk** for the images, and a network connection for the first run.
 - On Windows, PowerShell 7 or Windows PowerShell 5.1.
@@ -89,6 +90,11 @@ everything else works.
 
 The first run downloads the browser image, about 2 GB. The command ends with one line per
 suite and exits non-zero if any failed.
+
+The browser suite has no retries, on purpose: a check that passes on its second try is a
+flaky check. A few of its checks time gestures and layout, so with fewer than 4 CPUs for
+Docker they can fail under load. On a 2-CPU Docker, 4 of 453 failed in a full run and all 4
+passed when run again with `./assess test web`.
 
 ## Commands
 

@@ -104,7 +104,8 @@ services:
     volumes:
       - ../..:/repo
       - web_modules:/repo/web/node_modules
-    command: ["sh", "-c", "npm ci --no-audit --no-fund && npx playwright test"]
+    # line, not the github reporter CI=1 picks: this prints to a terminal.
+    command: ["sh", "-c", "npm ci --no-audit --no-fund && npx playwright test --reporter=line"]
 
 volumes:
   mysql:
