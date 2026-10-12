@@ -78,6 +78,9 @@ Index
 #66 Export starts on the learning record ....... Proposed
 #67 An assessor's stack with its own database .. Proposed
 #68 Community files at the repository root ..... Proposed
+#69 No sandbox: Alumable is mirrored, not called .. Proposed
+#70 A team VPS instead of AWS .................. Proposed
+#71 No microservice in the core build .......... Proposed
 
 ===============================================================
 
@@ -4071,3 +4074,169 @@ reader browsing the repository expects the others beside the README.
 Put them in `.github/`. GitHub reads several from there, but a reader browsing the repository
 rarely opens that folder, and a changelog, a privacy page or a product description is not
 GitHub configuration.
+
+===============================================================
+
+ADR #69: Alumable's sandbox, APIs and dummy data were withdrawn, so the diary mirrors it locally
+
+Status: Proposed
+Date: 2026-10-12
+
+Context:
+The brief planned for Alumable to give the team a sandbox, APIs into the platform and dummy
+data to build against. ADR #1 already recorded that the team would not have access to
+Alumable's production db. None of the three arrived, and the team never had access to the
+platform at all.
+
+In late September 2026 the client emailed the students about it. In paraphrase: Alumable's
+engineering team had advised that the sandbox, APIs and dummy data were no longer needed,
+because students can use AI in their own environments to stand in for them, study Alumable's
+apps for what they need, and build prototypes. The same email said the client cares more
+about the team's thinking than the code: the trade-offs, assumptions, architecture decisions,
+design and user research, and novel use of AI and tools.
+
+By then the design already assumed the diary would run without a live connection. `users`
+and `gigs` were thin local mirrors with an `external_ref` for Alumable's id, ADR #15 left
+sign in to Alumable with seeded tokens standing in, and ADR #37 put the demo record in a
+seeder of the team's own.
+
+Decision:
+No integration with Alumable is built or attempted. The diary keeps its own local mirror of
+the people and gigs it needs. `users.external_ref` and `gigs.external_ref` stay nullable and
+are unset in every seeded row. They are the seam a live connection would use, and building
+that connection is future work.
+
+All data is the team's own. `ReflectionSeeder` builds the demo record through
+`ReflectionCreator`, `SubmitGate` and `Scoring` (ADR #37), so the dummy data obeys the same
+rules a real reflection does. Nothing pretends to be Alumable's data.
+
+Consequences:
+Positive:
+Nothing in the build depends on a system the team can't reach, so no week was lost waiting
+for access. The demo data is shaped to show every state a screen has, with four students at
+different stages, which a sandbox's data would not have been. The time went into the product
+and into recording decisions, which the client said is what they want to see.
+
+Negative:
+Nothing has been checked against Alumable's real data. The shape of `external_ref`, unique
+where set, assumes Alumable has one stable id per person and per gig. That's a guess. Sign in
+through Alumable is designed and not built. The seeded reflections are the team's idea of what
+students write, not a sample of what they do write. Whoever connects the diary to the platform
+will be the first to find out where the guesses were wrong.
+
+Alternatives:
+Keep asking for the sandbox and hold the integration work until it came. That was the plan of
+record, and building against the real thing is always better. But the client withdrew it, and
+waiting would have stalled the parts of the product that never needed it.
+
+Build a fake Alumable API and an adapter that calls it. That would exercise a real code path
+for the connection. But the fake's contract would be the team's invention, so the adapter
+would only prove that it matches the team's guess. The `external_ref` seam keeps the option
+open at no cost.
+
+
+===============================================================
+
+ADR #70: The product is hosted on a team VPS, not AWS
+
+Status: Proposed
+Date: 2026-10-12
+
+Context:
+The brief names AWS for hosting. In practice the team already had a VPS. ADR #14 put the
+shared MySQL there in August, ADR #21 opened it to the team over mandatory TLS, and ADR #45
+and later ADR #62 put the live demo on the same box at `diary.darkovski.dev`. The VPS is an
+Oracle Cloud instance on a team member's own account (`docs/Runbook.md`, Who holds what).
+
+The team chose to stay on it because it costs less and is more flexible than AWS: one box the
+team controls completely, with no per-service billing and no account that anyone else has to
+own or approve. The client has not said whether they accept this. Their position is
+unconfirmed.
+
+Decision:
+Everything the product runs on is one team VPS. MySQL, the Laravel API, the web build and the
+AI sidecar run there as containers behind Caddy (ADR #62), and deploys come from `dev` on a
+timer. No AWS account and no managed AWS service is used for hosting.
+
+Every service is a container image built from the repository, so the stack isn't tied to the
+box. The assessor's stack (ADR #67) builds from the same Dockerfiles on any machine with
+Docker.
+
+Consequences:
+Positive:
+A fixed, small cost for the whole semester, with no bill that grows with use. The team has
+root, so it could require TLS on MySQL, put a password gate in front of the demo, and run its
+own deploy timer without asking anyone. Because the services are containers, moving to AWS
+later (EC2, or ECS with RDS) is a hosting change, not a rewrite.
+
+Negative:
+One box, with no replication and no backups (`docs/Runbook.md`, Backups and monitoring). If it
+goes, the database and the evidence files go with it. One team member holds the account and
+the domain, which is a single point of failure for access and has to be transferred at
+handover. The team does the operations work that managed services would do: patching, TLS
+renewal and MySQL upgrades. If Alumable runs on AWS, the product has to be re-hosted before it
+lives anywhere near their platform. And the client hasn't confirmed this departure from the
+brief, so they may yet object to it.
+
+Alternatives:
+AWS, as the brief says. EC2 or ECS for the app, RDS for MySQL and S3 for evidence would give
+managed backups and match the client's expectation, and that's a real advantage. It lost on
+cost and on setup: a VPC, IAM roles and a billing account for five students over one semester
+is a lot of work spent on hosting rather than the product, and someone has to own an account
+that can be charged.
+
+A platform-as-a-service host, such as Render or Fly. Less operations work than either a VPS or
+raw AWS. But it doesn't fit a shared MySQL every developer connects to directly (ADR #14), and
+it still isn't AWS, so it would be a departure from the brief with less control.
+
+
+===============================================================
+
+ADR #71: The core build has no Node.js or Python microservice
+
+Status: Proposed
+Date: 2026-10-12
+
+Context:
+The brief's architecture includes a Node.js or Python microservice beside the main backend,
+and its job was the AI work. ADRs #1, #2, #4 and #7 planned that work: embeddings,
+retrieval and suggestions. ADR #10 then cut every AI feature at the August scope review, and the
+microservice lost the only job it had. Every business rule the product has (CLAUDE.md lists
+eight) went into Laravel's service classes, and PDF export and analytics run in-process too
+(ADR #39, and the SQL views).
+
+In late September the client's emphasis moved towards AI, and ADR #64 brought AI back as a
+Python sidecar. This record says where that leaves the brief's microservice.
+
+Decision:
+The core build is MySQL, the Laravel API and the React frontend, and nothing else. It has no
+microservice, in Node.js, Python or anything else, and it runs, passes its tests and serves
+the whole product without one.
+
+The brief's microservice exists as the AI sidecar (ADR #64): Python FastAPI in `ai/`, with its
+own contract and its own database, `diary_ai`. It sits beside the core, not inside it. It is
+off unless `AI_ENABLED` is set, and Laravel doesn't depend on it or change for it.
+
+Consequences:
+Positive:
+Business rules have one language and one home, so each still has exactly one implementation.
+Authorisation lives in one place, Laravel's policies, and the sidecar can only see what the
+API already shows the caller. If the sidecar fails or is switched off, the diary behaves
+exactly as it does without AI.
+
+Negative:
+For most of the semester this departed from the brief's architecture, and the report has to
+explain it. Since ADR #64 the repository holds a second language and runtime anyway: two
+toolchains, two contracts and an extra CI job. Because the sidecar reads through the REST API
+with the caller's token rather than from the database, it is slower than a direct read would
+be, and it can only use what the API exposes.
+
+Alternatives:
+Build the microservice as the brief describes from the start, with the AI inside it. That was
+the plan before ADR #10, and it would have matched the brief throughout. It lost when
+ADR #10 cut AI from scope, because a service with nothing to do is only cost.
+
+Give a microservice the work that stayed, such as PDF export or analytics. A Node service is a
+reasonable home for rendering. But dompdf (ADR #39) and the SQL views already do that work
+inside the stack, and a second service would add a network hop and a deploy with nothing that
+needed it.
