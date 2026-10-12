@@ -50,7 +50,9 @@ test.describe('similar past reflections on the owner’s draft', () => {
     await expect(toggle).toHaveAccessibleName('From your earlier sprints (2) AI');
     await expect(toggle).toHaveAttribute('aria-expanded', 'false');
     // Collapsed means collapsed: the rows are not on the page until it opens.
-    await expect(page.getByRole('button', { name: /Sprint 1 · Communication/ })).toBeHidden();
+    await expect(
+      page.getByRole('button', { name: /Sprint 1 · Communication/ }),
+    ).toBeHidden();
     await toggle.click();
     await expect(toggle).toHaveAttribute('aria-expanded', 'true');
     await expect(

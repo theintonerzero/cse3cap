@@ -30,9 +30,9 @@ test.describe('the coach on the owner’s draft', () => {
 
   test('the button says it is AI before it is pressed', async ({ page }) => {
     await page.goto(`/reflections/${DRAFT}`);
-    await expect(page.getByRole('button', { name: 'Ask me questions' })).toHaveAccessibleName(
-      'Ask me questions AI',
-    );
+    await expect(
+      page.getByRole('button', { name: 'Ask me questions' }),
+    ).toHaveAccessibleName('Ask me questions AI');
   });
 
   test('loading, then the questions as plain text with the AI badge', async ({
