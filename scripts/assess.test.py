@@ -74,10 +74,15 @@ check(
     "it builds the demo's own Dockerfiles",
     all(f"dockerfile: deploy/demo/{d}" in compose for d in ("api.Dockerfile", "web.Dockerfile", "ai.Dockerfile")),
 )
+# Compared, not pinned twice: a Dependabot bump to @playwright/test then fails here
+# until the image follows, rather than until someone also edits this file.
+playwright_pin = re.search(r'"@playwright/test": "([0-9.]+)"', read(ROOT / "web" / "package.json"))
+playwright_image = re.search(r"mcr\.microsoft\.com/playwright:v([0-9.]+)-noble", compose)
 check(
     "the browser image matches web/package.json's Playwright",
-    "mcr.microsoft.com/playwright:v1.63.0-noble" in compose
-    and '"@playwright/test": "1.63.0"' in read(ROOT / "web" / "package.json"),
+    playwright_pin is not None
+    and playwright_image is not None
+    and playwright_pin.group(1) == playwright_image.group(1),
 )
 check(
     "no password or key is written into deploy/assess",

@@ -14,6 +14,32 @@ date, and opens a fresh one.
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-10-12
+
+`dev` merged to `main` and tagged `v1.1.1`. A patch release: three decision records, two
+fixes to the assessor's path, and the week's dependency updates.
+
+### Added
+
+- Three decision records for where the build departs from the brief (HO-8, #156): ADR #69,
+  the withdrawn sandbox, APIs and dummy data; ADR #70, hosting on a team VPS rather than AWS,
+  with the client's position unconfirmed; and ADR #71, no microservice in the core build, with
+  the AI sidecar as the one Python service beside it.
+
+### Changed
+
+- Laravel 13.34.0 to 13.35.0 (#145).
+- Playwright 1.63.0 to 1.64.0, Vite 8.3.2 to 8.3.4, `@vitejs/plugin-react` 6.1.1 to 6.1.2 and
+  oxlint 1.86.0 to 1.87.0 (#146).
+
+### Fixed
+
+- `run` is checked out with LF line endings, like `assess` and every `*.sh` file, so it still
+  runs from a Windows checkout under WSL or Git Bash (CAP-71, #155).
+- The assessor's browser-test image follows the Playwright version in `web/package.json`.
+  `scripts/assess.test.py` now compares the two, so the next Playwright bump fails until the
+  image moves with it (#146).
+
 ## [1.1.0] - 2026-10-12
 
 `dev` merged to `main` and tagged `v1.1.0`. What changed after 1.0.0, while the live demo
@@ -282,6 +308,7 @@ Discovery, design and the technical foundation: the brief, personas, the ERD, th
 architecture decision records from ADR #1, and the repository itself (#1, #2). Tracked in
 Jira as COA4-1 to COA4-52.
 
-[Unreleased]: https://github.com/theintonerzero/cse3cap/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/theintonerzero/cse3cap/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/theintonerzero/cse3cap/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/theintonerzero/cse3cap/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/theintonerzero/cse3cap/releases/tag/v1.0.0

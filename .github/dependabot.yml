@@ -84,6 +84,8 @@ updates:
     # and TypeScript majors come alone. After merging any of these, rerun
     # ./run deps so docs/Dependency-Register.md matches (CAP-32). CI's
     # check-docs.py fails until the register's lockfile hashes match.
+    # A @playwright/test bump also moves the browser image in
+    # deploy/assess/compose.yml to the same version, or assess.test.py fails.
     groups:
       minor-and-patch:
         patterns:

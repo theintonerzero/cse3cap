@@ -1,5 +1,7 @@
 # Shell scripts run inside Linux containers and on macOS and Linux hosts. A CRLF
 # checkout (Git for Windows' default) breaks their shebangs and set lines, so the
 # demo's API entrypoint and the assessor's MySQL init would not run (CAP-71).
+# run and assess are bash scripts without the extension, so they are named here.
 *.sh text eol=lf
 /assess text eol=lf
+/run text eol=lf
