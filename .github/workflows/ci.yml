@@ -124,6 +124,11 @@ jobs:
       - name: Check the live demo's deploy and gate
         run: python3 scripts/deploy-demo.test.py
 
+      # The assessor's one-command path (CAP-71): the stack's shape, and ./assess
+      # against stub docker and curl. The real run needs Docker and is done by hand.
+      - name: Check the assessor's setup
+        run: python3 scripts/assess.test.py
+
       # Nobody on the team runs Windows day to day, so the PowerShell
       # installer is the one file that can rot unnoticed until a new
       # teammate cannot start. pwsh ships on the GitHub runners.

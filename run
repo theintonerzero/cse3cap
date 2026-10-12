@@ -287,6 +287,7 @@ case "${1:-help}" in
     # The live demo's scripts and deploy/demo, against stubs and a local
     # Caddy (CAP-54). Writes nothing outside a temporary directory.
     deploy-demo-test) step python3 scripts/deploy-demo.test.py ;;
+    assess-test) step python3 scripts/assess.test.py ;;
 
     # Proves your api/ reaches the database over TLS: Ssl_cipher non-empty
     # on a connection Laravel made itself. Read-only. After any change to
@@ -377,6 +378,7 @@ case "${1:-help}" in
         step python3 scripts/guard-docs-location.test.py
         step python3 scripts/deploy.test.py
         step python3 scripts/deploy-demo.test.py
+        step python3 scripts/assess.test.py
         step ./scripts/check-one-rule.sh
         step python3 scripts/check-tokens.test.py
         step python3 scripts/token-for.test.py
@@ -451,6 +453,7 @@ ${BLUE}Alumable Reflection Diary${RESET}
   ${GREEN}./run setup${RESET}    first-time setup. Writes env files, installs dependencies
   ${GREEN}./run check-host${RESET} [user@vps]  read the deploy host. Writes nothing
   ${GREEN}./run deploy-demo-test${RESET}  the live demo's deploy and gate rules
+  ${GREEN}./run assess-test${RESET}  the assessor's one-command setup (CAP-71)
   ${GREEN}./run db-tls${RESET}   prove your database session is encrypted
   ${GREEN}./run jira${RESET}     check your Jira API access, and how to get it
 

@@ -284,8 +284,8 @@ take_key() { # asks, checks and saves; returns 1 if skipped or refused
     set_ai_var ANTHROPIC_API_KEY "$key"
     set_ai_var AI_ENABLED true
     ok "key accepted and saved to .assess/ai.env"
-    printf '    Try it: Jane on a draft (Ask me questions), Tom on an assessed reflection with a gap,\n'
-    printf '    Sam in the review queue (search by meaning, recurring themes).\n'
+    printf '    Try it: Noor on her draft, or Jane starting sprint 3 (Ask me questions); Tom on an\n'
+    printf '    assessed reflection (Think about the difference); Sam in the review queue (search, themes).\n'
 }
 
 ai_offer() { # first run only

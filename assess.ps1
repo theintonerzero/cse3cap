@@ -196,8 +196,8 @@ function Take-Key {
     Set-AiVar 'ANTHROPIC_API_KEY' $key
     Set-AiVar 'AI_ENABLED' 'true'
     Ok 'key accepted and saved to .assess\ai.env'
-    Write-Host '    Try it: Jane on a draft (Ask me questions), Tom on an assessed reflection with a gap,'
-    Write-Host '    Sam in the review queue (search by meaning, recurring themes).'
+    Write-Host '    Try it: Noor on her draft, or Jane starting sprint 3 (Ask me questions); Tom on an'
+    Write-Host '    assessed reflection (Think about the difference); Sam in the review queue (search, themes).'
     return $true
 }
 

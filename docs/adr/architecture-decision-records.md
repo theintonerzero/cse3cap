@@ -76,6 +76,7 @@ Index
 #64 An AI sidecar that asks, never writes ....... Proposed
 #65 One row of levels, not a stack of pills ..... Proposed
 #66 Export starts on the learning record ....... Proposed
+#67 An assessor's stack with its own database .. Proposed
 
 ===============================================================
 
@@ -3942,3 +3943,80 @@ apart from the record it exports, and there are still two export buttons to keep
 Put the learning record in the app bar's menu. The diary keeps its layout and export stays
 where it was. But a menu item is the least visible place in the app, and the record is the
 thing the product promises the student owns.
+
+===============================================================
+
+ADR #67: An assessor runs the whole product in Docker, with its own database
+
+Status: Proposed
+Date: 2026-10-12
+
+Context:
+An assessor, the unit's marker and possibly the client, clones the public repository onto
+their own laptop. Until now they couldn't run it. Setup expected the team's shared MySQL on
+the VPS and two passwords pinned in the team channel, and the AI sidecar needed the team's
+Anthropic key. The live demo is behind a password gate, and it shows the product but not
+its tests.
+
+The pieces existed already. The live demo builds the API, web and AI images from three
+Dockerfiles, and `scripts/demo-reset.sh` builds a demo database from nothing. What was
+missing was a way to run them on one machine against a local database.
+
+Decision:
+A Compose project, `diary-assess` in `deploy/assess/`, runs `mysql:9.7.2` beside the live
+demo's own three Dockerfiles. Only the web container is published, on `127.0.0.1:8080`.
+`./assess`, with a PowerShell twin `assess.ps1`, checks Docker, generates the database
+passwords and Laravel's key into a git-ignored `.assess/`, seeds the way the demo's reset
+does, and prints where to sign in. Sign-in is the demo's persona picker.
+
+The AI runs on the assessor's own key, offered once at setup and changed with
+`./assess ai`. The key is checked with Anthropic before it's saved, and capped at US$1 a
+day. `./assess test` runs the backend, sidecar and browser suites in containers. The API
+and AI Dockerfiles gain a `test` stage for that, and their default stage is still the
+runtime, so the live demo builds exactly what it did. `web.Caddyfile` gains an `/ai/*`
+route, which the live demo never reaches because the VPS's Caddy routes `/ai` first.
+
+Consequences:
+Positive:
+Clone to signed in, on the seeded demo, takes one command and a few minutes, with nothing
+installed but Docker and git.
+
+What an assessor runs is built from the same Dockerfiles as the live demo, so a fix to one
+is a fix to both.
+
+Every suite runs, including the sidecar's database tests, which skip on a laptop without
+one.
+
+Nothing an assessor does reaches the team's VPS, database or live demo.
+
+Negative:
+It's a second way of running the product, and it has to be kept working. The static checks
+and stub tests in `scripts/assess.test.py` run in CI, but the real run needs Docker and is
+done by hand.
+
+The first run downloads several gigabytes, and the browser suite's image alone is about
+2 GB.
+
+The shared-database rule in CLAUDE.md doesn't apply to this database. A reader must not
+take that as licence to run migrations or seeders against the shared one.
+
+`assess.ps1` has run under PowerShell 7 on macOS, not on real Windows. It's written for
+Windows PowerShell 5.1 too, and nobody has run it there yet.
+
+`web.Caddyfile` carries a route the live demo never uses, which a reader of that file has
+to be told about. Its comment does.
+
+Alternatives:
+One all-in-one image, with MySQL, PHP-FPM, Caddy and Python under a process supervisor and
+started with one `docker run`. It's the simplest for an assessor to picture. But it's a
+second, different way of running the product that nothing else uses, so it would drift
+from the real deployment, and a failure inside it is hard to read.
+
+The live demo's compose file with an override. It's the least new YAML. But that file is
+written for the VPS, with an external network, `rddb.darkovski.dev` links and env files
+under `/home/ubuntu`, and overriding all of it is fragile. A change for the VPS could
+silently break the assessor's path.
+
+Published images in a registry, so nothing is built on the assessor's machine. That's
+faster for them. But it means a registry to run and images to keep in step with every
+commit, for a handful of assessors.
