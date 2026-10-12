@@ -148,60 +148,8 @@ async function expect_no_horizontal_overflow(page: Page) {
   expect(overflow, 'horizontal overflow at 360px').toBe(0);
 }
 
-test.describe('BottomSheet: keyboard focus trap', () => {
-  // Export Sheet over History Sheet: HistorySheet's own loaded and empty
-  // states (web/src/screens/HistorySheet.tsx) contain zero focusable
-  // elements, which would make Tab a no-op rather than a real trap to test.
-  // Export Sheet's idle state has three -- the PDF chip, the JSON chip and
-  // the request button -- which is what actually exercises the wrap.
-  test('traps Tab, wraps focus around, and returns it to the trigger on Escape', async ({
-    page,
-  }) => {
-    await page.goto('/');
-
-    const trigger = page.getByRole('button', { name: 'Export record' });
-    await expect(trigger).toBeVisible();
-    await trigger.click();
-
-    const dialog = page.getByRole('dialog', { name: 'Export record' });
-    await expect(dialog).toBeVisible();
-
-    const pdf_chip = dialog.getByRole('button', { name: 'PDF', exact: true });
-    const json_chip = dialog.getByRole('button', { name: 'JSON', exact: true });
-    const request_button = dialog.getByRole('button', { name: 'Request a PDF export' });
-
-    // ExportSheet's own mount effect ("every state names where focus
-    // lives", ExportSheet.tsx) moves focus to its current action -- the
-    // request button -- once it renders, overriding BottomSheet's generic
-    // first-focusable fallback (BottomSheet.tsx). Either way, focus moved
-    // into the sheet, which is what this assertion is actually for.
-    await expect(request_button).toBeFocused();
-
-    // Shift+Tab backward through every focusable element...
-    await page.keyboard.press('Shift+Tab');
-    await expect(json_chip).toBeFocused();
-    await page.keyboard.press('Shift+Tab');
-    await expect(pdf_chip).toBeFocused();
-
-    // ...off the first one wraps back to the last, rather than escaping
-    // into the page behind the sheet...
-    await page.keyboard.press('Shift+Tab');
-    await expect(request_button).toBeFocused();
-
-    // ...and forward Tab off the last wraps back to the first. Both
-    // directions round-trip, which is the actual trap being tested here,
-    // not just that focus happened to start inside.
-    await page.keyboard.press('Tab');
-    await expect(pdf_chip).toBeFocused();
-
-    await page.keyboard.press('Escape');
-    await expect(dialog).toHaveCount(0);
-
-    // BottomSheet.tsx's cleanup restores focus to whatever was focused
-    // before the sheet opened.
-    await expect(trigger).toBeFocused();
-  });
-});
+// The export sheet's focus trap and its 360px check open it where an export
+// starts, on the learning record (CAP-70): see learning-record.spec.ts.
 
 test.describe('360px: no horizontal overflow (student scenario)', () => {
   test('Diary Home, with a real radar, including the Task 1 table', async ({ page }) => {
@@ -214,7 +162,7 @@ test.describe('360px: no horizontal overflow (student scenario)', () => {
     await expect(
       page.getByRole('heading', { level: 1, name: 'Reflection Diary' }),
     ).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Export record' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Your learning record' })).toBeVisible();
 
     await expect(page.locator('table caption')).toHaveText(
       'The radar above, as numbers: self-score and counter-score per competency, ' +
@@ -251,15 +199,6 @@ test.describe('360px: no horizontal overflow (student scenario)', () => {
     await page.getByRole('button', { name: 'History' }).click();
 
     await expect(page.getByRole('dialog', { name: 'History' })).toBeVisible();
-    await expect_no_horizontal_overflow(page);
-  });
-
-  test('Export Sheet, opened from Diary Home', async ({ page }) => {
-    await page.setViewportSize({ width: 360, height: 800 });
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Export record' }).click();
-
-    await expect(page.getByRole('dialog', { name: 'Export record' })).toBeVisible();
     await expect_no_horizontal_overflow(page);
   });
 });

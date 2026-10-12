@@ -20,7 +20,6 @@ import { api, ApiError } from '../api/client.ts';
 import type { paths } from '../api/schema.ts';
 import {
   Badge,
-  BottomSheet,
   Button,
   Chip,
   ErrorNotice,
@@ -50,7 +49,6 @@ import {
   type Sprint,
 } from './diary-scope.ts';
 import styles from './DiaryHome.module.css';
-import { ExportSheet } from './ExportSheet.tsx';
 import { sprints_needing_reflection } from './gig-timing.ts';
 import { StartReflection } from './StartReflection.tsx';
 
@@ -77,7 +75,6 @@ export function DiaryHome() {
   const [params, setParams] = useSearchParams();
   const [load, setLoad] = useState<Load>({ status: 'loading' });
   const [reload_key, setReloadKey] = useState(0);
-  const [export_open, setExportOpen] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -225,43 +222,31 @@ export function DiaryHome() {
         </div>
       )}
 
-      {whole_record.length > 0 && (
-        <div className={styles.record_link}>
-          <LinkButton to="/record" variant="secondary" size="sm">
-            Your learning record ›
-          </LinkButton>
-        </div>
-      )}
-
-      <FloatingAction
-        label="Export record"
-        icon={<DownloadIcon />}
-        on_click={() => setExportOpen(true)}
-      />
-
-      <BottomSheet
-        open={export_open}
-        title="Export record"
-        onClose={() => setExportOpen(false)}
-      >
-        <ExportSheet reflections={whole_record} />
-      </BottomSheet>
+      {/*
+       * CAP-70: the way to the learning record, the one place an export
+       * starts. It was the export itself, and the record's link sat under
+       * every sprint's reflection.
+       */}
+      <FloatingAction label="Your learning record" icon={<RecordIcon />} to="/record" />
     </section>
   );
 }
 
-/** An arrow into a tray. */
-function DownloadIcon() {
+/** A table: the record is one competency by sprint grid per gig. */
+function RecordIcon() {
   return (
     <svg viewBox="0 0 24 24" width="1.5rem" height="1.5rem">
-      <path
-        d="M12 4v11m0 0l-4-4m4 4l4-4M5 19h14"
+      <rect
+        x="4"
+        y="4"
+        width="16"
+        height="16"
+        rx="3"
         fill="none"
         stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+        strokeWidth="1.8"
       />
+      <path d="M4 10h16M10 10v10" fill="none" stroke="currentColor" strokeWidth="1.8" />
     </svg>
   );
 }

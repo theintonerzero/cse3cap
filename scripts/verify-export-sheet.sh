@@ -33,6 +33,7 @@ TOKENS="${TOKENS:-$HOME/reflection-diary-tokens.txt}"
 SHEET="web/src/screens/ExportSheet.tsx"
 POLL="web/src/screens/export-poll.ts"
 DIARY="web/src/screens/DiaryHome.tsx"
+RECORD="web/src/screens/LearningRecord.tsx"
 
 if [ -t 1 ]; then
     blu=$'\033[1;34m'; grn=$'\033[1;32m'; red=$'\033[1;31m'
@@ -50,10 +51,16 @@ meh()  { skip=$((skip+1)); printf '  %sskip%s %-54s %s\n' "$ylw" "$off" "$1" "${
 # --------------------------------------------------------------------------
 say "1. The sheet is mounted"
 
-if grep -q "from './ExportSheet.tsx'" "$DIARY" && grep -q '<ExportSheet ' "$DIARY"; then
-    ok "DiaryHome renders ExportSheet from its own file"
+# CAP-70: the learning record is the one place an export starts.
+if grep -q "from './ExportSheet.tsx'" "$RECORD" && grep -q '<ExportSheet ' "$RECORD"; then
+    ok "LearningRecord renders ExportSheet from its own file"
 else
-    bad "DiaryHome renders ExportSheet from its own file"
+    bad "LearningRecord renders ExportSheet from its own file"
+fi
+if grep -q '<ExportSheet ' "$DIARY"; then
+    bad "the diary home starts no export" "CAP-70: export lives on the record"
+else
+    ok "the diary home starts no export"
 fi
 
 if grep -q 'CAP-18 wires this up' "$DIARY"; then
@@ -155,7 +162,8 @@ fi
 
 # Both selectable formats, and only those. The contract enumerates them, so
 # the compiler already refuses a third; this is about the UI offering both.
-if grep -q "setFormat('pdf')" "$SHEET" && grep -q "setFormat('json')" "$SHEET"; then
+if grep -q "value: 'pdf'" "$SHEET" && grep -q "value: 'json'" "$SHEET" \
+    && grep -q "setFormat(option.value)" "$SHEET"; then
     ok "PDF and JSON are both selectable" "criterion 1"
 else
     bad "PDF and JSON are both selectable" "criterion 1"

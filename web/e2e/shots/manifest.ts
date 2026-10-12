@@ -221,10 +221,10 @@ export const SHOTS: Shot[] = [
     // Not the page's h1: the shell's bar renders it in the loading branch
     // too, so waiting on it would resolve the instant the page mounts,
     // before gigs/reflections actually load, and could screenshot the
-    // skeleton under a "loaded" name. The floating Export record button
-    // only renders once `load.status === 'loaded'` and the caller is
-    // a student on at least one gig.
-    ready: 'Export record',
+    // skeleton under a "loaded" name. The floating "Your learning record"
+    // button (CAP-70) only renders once `load.status === 'loaded'` and the
+    // caller is a student on at least one gig.
+    ready: 'Your learning record',
     scenario: { source: 'real', slot: 'student' },
   },
   {
@@ -233,7 +233,7 @@ export const SHOTS: Shot[] = [
     route: '/',
     viewport: 'mobile',
     state: 'loaded',
-    ready: 'Export record',
+    ready: 'Your learning record',
     scenario: { source: 'real', slot: 'student' },
   },
   {
@@ -674,23 +674,21 @@ export const SHOTS: Shot[] = [
   // -- Export sheet (CAP-18) -----------------------------------------------
   // Loaded shots are real-sourced; the empty/error states below are fake
   // (CAP-21; no loading entry at all -- see that state's own comment below
-  // for why). Not a route of its own either -- a BottomSheet
-  // over Diary Home (Stack-and-Build-Scope.md: Diary Home's "export link...
-  // opens the sheet CAP-18 fills in"), opened by DiaryHome's floating
-  // "Export record" button. `route` is Diary Home's own route and `open` is
-  // that button's exact visible text (its full label, at the top of the page). `ready` is "Request a PDF export" (the
-  // idle-state Button inside the sheet itself), not "Export record"
-  // again -- that text is also the trigger, so it is already visible before
-  // the click and would make the wait resolve immediately regardless of
-  // whether the sheet actually opened.
+  // for why). Not a route of its own either -- a BottomSheet over the
+  // learning record, the one place an export starts (CAP-70), opened by its
+  // "Export your record" button. `route` is the record's own route and
+  // `open` is that button's exact visible text. `ready` is "Export as PDF"
+  // (the idle-state Button inside the sheet itself), not the trigger's text,
+  // which is already visible before the click and would make the wait
+  // resolve immediately regardless of whether the sheet actually opened.
   {
     id: 'export-sheet-loaded',
     screen: 'Export sheet',
-    route: '/',
-    open: 'Export record',
+    route: '/record',
+    open: 'Export your record',
     viewport: 'desktop',
     state: 'loaded',
-    ready: 'Request a PDF export',
+    ready: 'Export as PDF',
     scenario: {
       source: 'fake',
       me: JANE,
@@ -702,11 +700,11 @@ export const SHOTS: Shot[] = [
   {
     id: 'export-sheet-loaded-mobile',
     screen: 'Export sheet',
-    route: '/',
-    open: 'Export record',
+    route: '/record',
+    open: 'Export your record',
     viewport: 'mobile',
     state: 'loaded',
-    ready: 'Request a PDF export',
+    ready: 'Export as PDF',
     scenario: {
       source: 'fake',
       me: JANE,
@@ -716,31 +714,16 @@ export const SHOTS: Shot[] = [
     },
   },
   // No `export-sheet-loading` entry: confirmed by reading ExportSheet.tsx --
-  // it takes `reflections` as a prop the parent (Diary Home) already
+  // it takes `reflections` as a prop the parent (the learning record) already
   // loaded, and it never fetches anything on its own mount, so it has no
   // loading state to demonstrate (Task 1 Step 2's own instruction).
   //
-  // Empty is `reflections.length === 0` -> "Nothing to export yet." A whole
-  // record with nothing written yet, not a scope filter (the sheet counts
-  // the whole record -- see this file's ExportSheet.tsx header comment).
-  {
-    id: 'export-sheet-empty',
-    screen: 'Export sheet',
-    route: '/',
-    open: 'Export record',
-    viewport: 'desktop',
-    state: 'empty',
-    ready: 'Nothing to export yet.',
-    scenario: {
-      source: 'fake',
-      me: JANE,
-      frameworks: [LA_TROBE_FRAMEWORK],
-      gigs: [GIG],
-      reflections: [],
-    },
-  },
+  // No `export-sheet-empty` entry either, since CAP-70: the sheet opens only
+  // from the learning record, and a record with nothing written shows the
+  // record's own empty state with no export button (learning-record-empty).
+
   // The sheet's own `failed` job status (ExportSheet.tsx's Job type), not
-  // DiaryHome's error state: it is plain component state with no fetch on
+  // the learning record's error state: it is plain component state with no fetch on
   // mount, so it is reached by opening the sheet and then pressing Request,
   // which POST /exports here answers with a fault -- `open` as an array
   // (manifest.ts's own Shot.open doc) clicks both in order. No `times: 2`:
@@ -749,8 +732,8 @@ export const SHOTS: Shot[] = [
   {
     id: 'export-sheet-error',
     screen: 'Export sheet',
-    route: '/',
-    open: ['Export record', 'Request a PDF export'],
+    route: '/record',
+    open: ['Export your record', 'Export as PDF'],
     viewport: 'desktop',
     state: 'error',
     ready: 'Something went wrong.',

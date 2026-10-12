@@ -30,7 +30,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { api, ApiError } from '../api/client.ts';
 import type { paths } from '../api/schema.ts';
-import { Badge, Button, Chip, ErrorNotice, LinkButton } from '../components/index.ts';
+import { Button, ErrorNotice, LinkButton } from '../components/index.ts';
 import type { ReflectionSummary } from './diary-scope.ts';
 import {
   download_name,
@@ -55,10 +55,21 @@ export interface ExportSheetProps {
   reflections: ReflectionSummary[];
 }
 
-const FORMAT_COPY: Record<Format, string> = {
-  pdf: 'A PDF: every reflection on its own page, with both score sets, the framework version it was scored against, and the radar.',
-  json: 'JSON: the same record as data, for another system to read.',
-};
+/** Each format, as a choice that says what it is for (CAP-70). */
+const FORMATS: { value: Format; label: string; use: string; copy: string }[] = [
+  {
+    value: 'pdf',
+    label: 'PDF',
+    use: 'To read and share',
+    copy: 'Every reflection on its own page, with both score sets, the framework version it was scored against, and the radar.',
+  },
+  {
+    value: 'json',
+    label: 'JSON',
+    use: 'For another system',
+    copy: 'The same record as data, for another system to read.',
+  },
+];
 
 /** The shape every failed call in this sheet ends up in. */
 function as_api_error(error: unknown, fallback: string): ApiError {
@@ -239,30 +250,36 @@ export function ExportSheet({ reflections }: ExportSheetProps) {
       )}
 
       {!empty && job.status !== 'ready' && job.status !== 'failed' && (
-        <>
-          <div className={styles.formats} role="group" aria-label="Format">
-            <Chip
-              selected={format === 'pdf'}
-              disabled={busy}
-              on_click={() => setFormat('pdf')}
-            >
-              PDF
-            </Chip>
-            <Chip
-              selected={format === 'json'}
-              disabled={busy}
-              on_click={() => setFormat('json')}
-            >
-              JSON
-            </Chip>
-          </div>
-          <p className={styles.format_copy}>{FORMAT_COPY[format]}</p>
-        </>
+        <fieldset className={styles.formats} disabled={busy}>
+          <legend className={styles.formats_legend}>Format</legend>
+          {FORMATS.map((option) => (
+            <label key={option.value} className={styles.format}>
+              <input
+                className={styles.format_input}
+                type="radio"
+                name="export-format"
+                value={option.value}
+                checked={format === option.value}
+                onChange={() => setFormat(option.value)}
+              />
+              <span className={styles.format_icon} aria-hidden="true">
+                {option.value === 'pdf' ? <PageIcon /> : <BracesIcon />}
+              </span>
+              <span className={styles.format_text}>
+                <span className={styles.format_head}>
+                  <span className={styles.format_label}>{option.label}</span>
+                  <span className={styles.format_use}>{option.use}</span>
+                </span>
+                <span className={styles.format_copy}>{option.copy}</span>
+              </span>
+            </label>
+          ))}
+        </fieldset>
       )}
 
       {!empty && job.status === 'idle' && (
         <Button ref={request_button} on_click={request} disabled={job.requesting}>
-          {job.requesting ? 'Requesting' : `Request a ${format.toUpperCase()} export`}
+          {job.requesting ? 'Requesting' : `Export as ${format.toUpperCase()}`}
         </Button>
       )}
 
@@ -289,10 +306,11 @@ export function ExportSheet({ reflections }: ExportSheetProps) {
           {job.url ? (
             <LinkButton
               ref={download_link}
+              full_width
               to={job.url}
               download={download_name(job.job.id, job.job.format)}
             >
-              Download
+              Download {job.job.format.toUpperCase()}
             </LinkButton>
           ) : (
             <Button disabled>Preparing…</Button>
@@ -300,7 +318,7 @@ export function ExportSheet({ reflections }: ExportSheetProps) {
           {/* A button that looked like a link (CAP-38): it acts, so it
               looks like what it is. */}
           <Button variant="secondary" on_click={() => setJob(IDLE)}>
-            Request another
+            Export again
           </Button>
         </div>
       )}
@@ -323,46 +341,91 @@ export function ExportSheet({ reflections }: ExportSheetProps) {
   );
 }
 
-/** What the export will hold: the record's counts by status. */
+/**
+ * What the export will hold: how many reflections over how many gigs, then
+ * a chip per status the record has (CAP-70). A zero is left out rather than
+ * listed, so "0 draft" never reads as something to do.
+ */
 function Summary({ reflections }: { reflections: ReflectionSummary[] }) {
-  const counted = {
-    assessed: reflections.filter((row) => row.status === 'assessed').length,
-    submitted: reflections.filter((row) => row.status === 'submitted').length,
-    draft: reflections.filter((row) => row.status === 'draft').length,
-  };
+  const gigs = new Set(reflections.map((row) => row.gig_id)).size;
+  const counted = (['assessed', 'submitted', 'draft'] as const)
+    .map((status) => ({
+      status,
+      n: reflections.filter((row) => row.status === status).length,
+    }))
+    .filter(({ n }) => n > 0);
+
+  if (reflections.length === 0) return null;
 
   return (
-    <ul className={styles.counts}>
-      <li>
-        {counted.assessed} assessed
-        <Badge status="assessed" />
-      </li>
-      <li>
-        {counted.submitted} submitted
-        <Badge status="submitted" />
-      </li>
-      <li>
-        {counted.draft} draft
-        <Badge status="draft" />
-      </li>
-    </ul>
+    <div className={styles.holds}>
+      <p className={styles.holds_title}>
+        {reflections.length === 1 ? '1 reflection' : `${reflections.length} reflections`}{' '}
+        across {gigs === 1 ? '1 gig' : `${gigs} gigs`}
+      </p>
+      <ul className={styles.counts}>
+        {counted.map(({ status, n }) => (
+          <li key={status} className={`${styles.count} ${styles[status]}`}>
+            {n} {status}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** A page with its corner folded: a document to read. */
+function PageIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="1.375rem" height="1.375rem">
+      <path
+        d="M7 3h7l5 5v13H7z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M14 3v5h5M10 13h6M10 17h6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+/** Braces: structured data. */
+function BracesIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="1.375rem" height="1.375rem">
+      <path
+        d="M9 4c-2 0-3 1-3 3v2c0 1.5-1 2.5-2 3 1 .5 2 1.5 2 3v2c0 2 1 3 3 3M15 4c2 0 3 1 3 3v2c0 1.5 1 2.5 2 3-1 .5-2 1.5-2 3v2c0 2-1 3-3 3"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }
 
 /** What actually went into the file, as the server counted it. */
 function JobSummary({ job }: { job: Export }) {
+  // [count, one, many]: "1 reflection", never "1 reflections".
   const parts = [
-    [count(job.summary, 'reflections'), 'reflections'],
-    [count(job.summary, 'sprints'), 'sprints'],
-    [count(job.summary, 'scores'), 'scores'],
-    [count(job.summary, 'files'), 'evidence items'],
-  ].filter((pair): pair is [number, string] => pair[0] !== null);
+    [count(job.summary, 'reflections'), 'reflection', 'reflections'],
+    [count(job.summary, 'sprints'), 'sprint', 'sprints'],
+    [count(job.summary, 'scores'), 'score', 'scores'],
+    [count(job.summary, 'files'), 'evidence item', 'evidence items'],
+  ].filter((part): part is [number, string, string] => part[0] !== null);
 
   if (parts.length === 0) return null;
 
   return (
     <p className={styles.job_summary}>
-      {parts.map(([n, label]) => `${n} ${label}`).join(' · ')}
+      {parts.map(([n, one, many]) => `${n} ${n === 1 ? one : many}`).join(' · ')}
     </p>
   );
 }

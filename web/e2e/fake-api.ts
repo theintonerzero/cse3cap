@@ -267,6 +267,11 @@ export class FakeApi {
         : reply(route, 404, envelope('NOT_FOUND', 'That framework does not exist.'));
     }
 
+    // The learning record's per-gig read (CAP-53), now where an export starts
+    // (CAP-70). A valid shape with nothing scored yet; a spec that needs
+    // numbers routes its own, as learning-record.spec.ts does.
+    if (key === 'GET /me/progress') return reply(route, 200, { competencies: [] });
+
     // The list DiaryHome calls on mount (HO-6, shots Task 2): every gig the
     // fake's `me` participates in, in the list shape (Gig), not the detail
     // shape (GigDetail) GET /gigs/:id returns -- same relationship as

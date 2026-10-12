@@ -6,24 +6,30 @@
  *
  * A passive scroll listener rather than an IntersectionObserver: a fixed
  * element has no in-flow sentinel of its own.
+ *
+ * An action is a button (`on_click`); a destination is a link (`to`), so it
+ * is announced and opened as one (CAP-70: the diary's opens the record).
  */
 import { useEffect, useState } from 'react';
 import type { ReactNode, Ref } from 'react';
+import { Link } from 'react-router';
 import styles from './FloatingAction.module.css';
 
-export interface FloatingActionProps {
+export type FloatingActionProps = {
   label: string;
   icon: ReactNode;
-  on_click: () => void;
-  ref?: Ref<HTMLButtonElement>;
-}
+} & (
+  | { on_click: () => void; to?: never; ref?: Ref<HTMLButtonElement> }
+  | { to: string; on_click?: never; ref?: never }
+);
 
 function past_threshold(): boolean {
   const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
   return window.scrollY > rem * 4;
 }
 
-export function FloatingAction({ label, icon, on_click, ref }: FloatingActionProps) {
+export function FloatingAction(props: FloatingActionProps) {
+  const { label, icon } = props;
   const [compact, setCompact] = useState(past_threshold);
 
   useEffect(() => {
@@ -32,17 +38,26 @@ export function FloatingAction({ label, icon, on_click, ref }: FloatingActionPro
     return () => window.removeEventListener('scroll', update);
   }, []);
 
-  return (
-    <button
-      ref={ref}
-      type="button"
-      className={compact ? `${styles.fab} ${styles.compact}` : styles.fab}
-      onClick={on_click}
-    >
+  const class_name = compact ? `${styles.fab} ${styles.compact}` : styles.fab;
+  const content = (
+    <>
       <span className={styles.icon} aria-hidden="true">
         {icon}
       </span>
       <span className={styles.label}>{label}</span>
+    </>
+  );
+
+  if (props.to !== undefined) {
+    return (
+      <Link to={props.to} className={class_name}>
+        {content}
+      </Link>
+    );
+  }
+  return (
+    <button ref={props.ref} type="button" className={class_name} onClick={props.on_click}>
+      {content}
     </button>
   );
 }
