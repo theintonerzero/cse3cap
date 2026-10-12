@@ -226,7 +226,108 @@ cmd_down() {
     fi
 }
 
-ai_offer() { :; } # Task 5 replaces this with the key prompt
+set_ai_var() { # set_ai_var NAME VALUE: the value travels in the environment, never argv
+    local tmp
+    tmp="$(mktemp "$STATE/ai.env.XXXXXX")"
+    NAME="$1" VALUE="$2" awk 'BEGIN { n = ENVIRON["NAME"]; v = ENVIRON["VALUE"] }
+        index($0, n "=") == 1 { print n "=" v; done = 1; next } { print }
+        END { if (!done) print n "=" v }' "$STATE/ai.env" >"$tmp"
+    chmod 600 "$tmp"
+    mv "$tmp" "$STATE/ai.env"
+}
+
+check_key() { # check_key KEY: asks Anthropic, never puts the key on a command line
+    local hdr body code
+    hdr="$(mktemp)"; body="$(mktemp)"; chmod 600 "$hdr" "$body"
+    printf 'x-api-key: %s\nanthropic-version: 2023-06-01\n' "$1" >"$hdr"
+    code="$(curl -s -o "$body" -w '%{http_code}' --max-time 20 -H @"$hdr" https://api.anthropic.com/v1/models || true)"
+    rm -f "$hdr"
+    if [ "$code" = 200 ]; then rm -f "$body"; return 0; fi
+    warn "Anthropic answered $code: $(sed -n 's/.*"message": *"\([^"]*\)".*/\1/p' "$body" | head -n 1)"
+    if grep -q 'workspace' "$body"; then
+        warn "Make the key inside a workspace: Anthropic Console > Settings > Workspaces > API keys."
+    fi
+    rm -f "$body"
+    return 1
+}
+
+restart_ai() {
+    # Stopped: the new settings apply when ./assess next starts it.
+    [ -n "$(compose ps -q diary-ai 2>/dev/null)" ] || { ok "saved; it applies when the stack next starts (./assess)"; return 0; }
+    compose up -d --no-deps --force-recreate diary-ai >/dev/null
+    local want code
+    if ai_on; then want=401; else want=404; fi
+    for _ in $(seq 1 60); do
+        code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 "http://127.0.0.1:$(port)/ai/v1/status" || true)"
+        if [ "$code" = "$want" ]; then ok "the AI answers $code ($(ai_on && echo on || echo off))"; return 0; fi
+        sleep 3
+    done
+    warn "The AI did not answer $want yet (it loads a model on first start). ./assess smoke checks again."
+}
+
+read_key() { # prints the pasted key, whitespace stripped; nothing when skipped
+    local key="" use=""
+    if [ -n "${ANTHROPIC_API_KEY:-}" ] && [ -z "${ASSESS_NO_TTY:-}" ]; then
+        read -r -p "    Use the key in ANTHROPIC_API_KEY? [Y/n] " use </dev/tty
+        if [[ "$use" != [nN]* ]]; then printf '%s' "$ANTHROPIC_API_KEY" | tr -d '[:space:]'; return; fi
+    fi
+    if [ -n "${ASSESS_NO_TTY:-}" ]; then read -r key || true
+    else read -rs -p "    Paste an Anthropic API key, or press Enter to skip: " key </dev/tty; echo >&2; fi
+    printf '%s' "$key" | tr -d '[:space:]'
+}
+
+take_key() { # asks, checks and saves; returns 1 if skipped or refused
+    local key
+    key="$(read_key)"
+    if [ -z "$key" ]; then ok "skipped: the AI stays off"; return 1; fi
+    check_key "$key" || { warn "nothing saved"; return 1; }
+    set_ai_var ANTHROPIC_API_KEY "$key"
+    set_ai_var AI_ENABLED true
+    ok "key accepted and saved to .assess/ai.env"
+    printf '    Try it: Jane on a draft (Ask me questions), Tom on an assessed reflection with a gap,\n'
+    printf '    Sam in the review queue (search by meaning, recurring themes).\n'
+}
+
+ai_offer() { # first run only
+    [ -f "$STATE/ai-offered" ] && return 0
+    : | write_private "$STATE/ai-offered"
+    say "AI features (optional)"
+    printf '    The coach, calibration questions, similar reflections, search and themes.\n'
+    printf '    They use your own Anthropic key, capped at US$1 a day.\n'
+    if take_key; then restart_ai; fi
+}
+
+cmd_ai() {
+    ensure_secrets
+    ensure_ai_env
+    ensure_personas
+    case "${1:-}" in
+        --cap)
+            [[ "${2:-}" =~ ^[0-9]+([.][0-9]+)?$ ]] || die "--cap takes a number of US dollars a day, e.g. ./assess ai --cap 5"
+            set_ai_var DAILY_CAP_USD "$2"; ok "cap: US\$$2 a day"; restart_ai; return ;;
+        --off)
+            set_ai_var ANTHROPIC_API_KEY ""; set_ai_var AI_ENABLED false; ok "key removed, AI off"; restart_ai; return ;;
+        "") ;;
+        *) die "./assess ai takes --cap N or --off, or nothing to choose." ;;
+    esac
+    say "AI"
+    if ai_on; then
+        printf '    on · key …%s · cap US$%s a day\n' "$(sed -n 's/^ANTHROPIC_API_KEY=.*\(....\)$/\1/p' "$STATE/ai.env")" \
+            "$(sed -n 's/^DAILY_CAP_USD=//p' "$STATE/ai.env")"
+    else
+        printf '    off\n'
+    fi
+    printf '    1) add or replace the key   2) change the cap   3) turn the AI off   Enter) leave it\n'
+    local choice="" cap=""
+    if [ -n "${ASSESS_NO_TTY:-}" ]; then read -r choice || true; else read -r -p "    > " choice </dev/tty; fi
+    case "$choice" in
+        1) if take_key; then restart_ai; fi ;;
+        2) if [ -n "${ASSESS_NO_TTY:-}" ]; then read -r cap || true; else read -r -p "    US\$ a day: " cap </dev/tty; fi
+           cmd_ai --cap "$cap" ;;
+        3) cmd_ai --off ;;
+        *) ok "unchanged" ;;
+    esac
+}
 
 http_code() { curl -s -o /dev/null -w '%{http_code}' --max-time 5 "$@"; }
 
@@ -262,6 +363,7 @@ case "${1:-up}" in
     up)     cmd_up ;;
     status) cmd_status ;;
     smoke)  cmd_smoke ;;
+    ai)     shift; cmd_ai "$@" ;;
     down)   shift; cmd_down "${1:-}" ;;
     -h|--help|help) sed -n '3,16p' "$0" | sed 's/^# \{0,1\}//' ;;
     *) die "Unknown command '$1'. ./assess help lists them." ;;

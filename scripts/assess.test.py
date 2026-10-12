@@ -199,6 +199,45 @@ d = sandbox("exit 0", SMOKE_CURL.replace("echo 404", "echo 502"))
 r = run_assess(d, "smoke")
 check("smoke: fails, naming the check, when the AI answers wrongly", r.returncode != 0 and "wanted 404" in r.stderr, r.stderr)
 
+REFUSED = ('{"type":"error","error":{"type":"invalid_request_error","message":"This API key is not scoped '
+           'to a workspace, so this request must include the anthropic-workspace-id header"}}')
+d = sandbox("exit 0", f"""
+case "$*" in
+  *api.anthropic.com*) printf '%s' '{REFUSED}' > "$(echo "$*" | sed -n 's/.*-o \\([^ ]*\\).*/\\1/p')"; echo 400 ;;
+  *) echo 401 ;;
+esac""")
+r = run_assess(d, "ai", stdin="1\n  sk-ant-api03-REFUSEDKEY0000000000  \n")
+ai_env = read(d / "repo" / ".assess" / "ai.env")
+check("a refused key: Anthropic's message is shown", "not scoped to a workspace" in r.stderr, r.stderr)
+check("a refused key: the workspace hint is shown", "inside a workspace" in r.stderr, r.stderr)
+check("a refused key is not saved", "REFUSEDKEY" not in ai_env and "AI_ENABLED=false" in ai_env, ai_env)
+check("the key never reaches a command line", "REFUSEDKEY" not in read(d / "calls.log"))
+
+d = sandbox("exit 0", """
+case "$*" in
+  *api.anthropic.com*) echo 200 ;;
+  *) echo 401 ;;
+esac""")
+r = run_assess(d, "ai", stdin="1\nsk-ant-api03-GOODKEY00000000000000\n")
+ai_env = read(d / "repo" / ".assess" / "ai.env")
+check(
+    "an accepted key turns the AI on, whitespace stripped",
+    "ANTHROPIC_API_KEY=sk-ant-api03-GOODKEY00000000000000\n" in ai_env and "AI_ENABLED=true" in ai_env,
+    ai_env + r.stderr,
+)
+check("the cap defaults to US$1", "DAILY_CAP_USD=1\n" in ai_env, ai_env)
+check("ai.env stays mode 600", stat.S_IMODE((d / "repo" / ".assess" / "ai.env").stat().st_mode) == 0o600)
+check("with the stack stopped, the change waits for the next start", "next starts" in r.stdout, r.stdout)
+run_assess(d, "ai", "--cap", "5")
+check("--cap sets the cap", "DAILY_CAP_USD=5\n" in read(d / "repo" / ".assess" / "ai.env"))
+run_assess(d, "ai", "--off")
+ai_env = read(d / "repo" / ".assess" / "ai.env")
+check("--off removes the key and turns the AI off", "GOODKEY" not in ai_env and "AI_ENABLED=false" in ai_env, ai_env)
+r = run_assess(d, "ai", "--cap", "lots")
+check("--cap refuses a non-number", r.returncode != 0 and "a number" in r.stderr, r.stderr)
+r = run_assess(d, "ai", stdin="1\n\n")
+check("an empty paste skips, and saves nothing", "skipped" in r.stdout and "AI_ENABLED=false" in read(d / "repo" / ".assess" / "ai.env"), r.stdout)
+
 # ---------------------------------------------------------------------------
 print()
 if failures:
