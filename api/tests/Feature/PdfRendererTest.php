@@ -29,4 +29,27 @@ class PdfRendererTest extends TestCase
         $this->assertDoesNotMatchRegularExpression('#/(JavaScript|JS)\b#', $pdf);
         $this->assertStringNotContainsString('from the narrative', $pdf);
     }
+
+    /**
+     * A font the template registers (Inter, CAP-65) has its file and metrics
+     * written to dompdf's fontDir. Left at its default that is inside vendor/,
+     * which the deployed image's PHP user cannot write: every PDF export
+     * failed with "fopen(...inter_normal_....ufm): Permission denied".
+     */
+    public function test_a_registered_font_is_written_under_storage_not_vendor(): void
+    {
+        // Nothing is deleted first: other tests share dompdf's cache, and a
+        // font's files gone with its registry entry left behind breaks every
+        // later render. Without fontDir moved, Inter never lands here at all.
+        $dir = storage_path('app/dompdf');
+        $fonts = resource_path('fonts/inter');
+
+        $pdf = (new PdfRenderer)->fromHtml(
+            "<html><head><style>@font-face { font-family: 'Inter'; src: url('$fonts/Inter-Regular.ttf') format('truetype'); }"
+            ."body { font-family: 'Inter'; }</style></head><body><p>Narrative</p></body></html>"
+        );
+
+        $this->assertStringStartsWith('%PDF-', $pdf);
+        $this->assertNotEmpty(glob("$dir/inter_*.ufm"), 'Inter\'s metrics should be cached under storage/app/dompdf');
+    }
 }

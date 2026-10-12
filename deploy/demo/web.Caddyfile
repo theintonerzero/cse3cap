@@ -20,6 +20,13 @@
 
 	# Written by scripts/demo-reset.sh on every reset. A cached copy would
 	# hand out tokens the reset just revoked.
+	# The AI sidecar (ADR #64). On the live demo the VPS's Caddy sends /ai to the
+	# sidecar before a request reaches this container, so this never fires there.
+	# On an assessor's machine (CAP-71) it is the only way in.
+	handle /ai/* {
+		reverse_proxy diary-ai:8000
+	}
+
 	handle /demo/personas.json {
 		root * /srv
 		header Cache-Control "no-store"

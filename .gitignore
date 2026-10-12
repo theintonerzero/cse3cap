@@ -45,3 +45,6 @@
 .idea
 .vscode
 *.swp
+
+# The assessor's generated passwords, key and personas (CAP-71). Never committed.
+/.assess/

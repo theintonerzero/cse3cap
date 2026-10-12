@@ -1,7 +1,7 @@
 # The AI sidecar (CAP-69, ADR #64), built from the repository at the deployed
 # SHA like the API and the web image. With no ai.env it starts with AI off and
 # answers 404 AI_DISABLED, so shipping it changes nothing until it is switched on.
-FROM python:3.12-slim
+FROM python:3.12-slim AS runtime
 
 COPY --from=ghcr.io/astral-sh/uv:0.12.18 /uv /usr/local/bin/uv
 
@@ -13,8 +13,10 @@ ENV UV_PROJECT_ENVIRONMENT=/opt/venv \
     PYTHONUNBUFFERED=1
 
 # The user first, so every later layer is written as it and nothing is
-# copied twice by a chown.
-RUN useradd --system --create-home --uid 10001 sidecar && mkdir -p /opt/fastembed && chown sidecar /opt/fastembed
+# copied twice by a chown. /app/db is made here, as an ordinary 755
+# directory: the roots' COPY --chmod below would otherwise create it with
+# their 644, and a directory without its execute bit can't be entered.
+RUN useradd --system --create-home --uid 10001 sidecar && mkdir -p /opt/fastembed /app/db && chown sidecar /opt/fastembed
 
 WORKDIR /app/ai
 COPY ai/pyproject.toml ai/uv.lock ./
@@ -30,7 +32,25 @@ RUN python -c "from fastembed import TextEmbedding; TextEmbedding(model_name='BA
 COPY --chown=sidecar ai/sidecar ./sidecar
 # The roots the diary_ai connection verifies the database's name against, the
 # API's own (db/letsencrypt-roots.pem), so DATABASE_CA has a file to name.
-COPY db/letsencrypt-roots.pem /app/db/letsencrypt-roots.pem
+# 644 whatever the checkout's mode: git tracks only the executable bit, and a
+# 600 copy on the box once left the sidecar user unable to read it. Into the
+# directory made above, so the mode applies to the file alone.
+COPY --chmod=644 db/letsencrypt-roots.pem /app/db/letsencrypt-roots.pem
 
 EXPOSE 8000
 CMD ["uvicorn", "sidecar.app:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
+
+# The assessor's sidecar suite (CAP-71, ./assess test ai), with the database tests
+# that need AI_TEST_DATABASE_URL. Root, because the venv was made as root.
+FROM runtime AS test
+USER root
+RUN uv sync --frozen --no-install-project --group dev
+COPY ai/tests ./tests
+COPY ai/db ./db
+COPY ai/evals ./evals
+# The contract test reads the sidecar's OpenAPI file from docs/, beside ai/.
+COPY docs/ai-openapi.yaml /app/docs/ai-openapi.yaml
+CMD ["pytest", "-q"]
+
+# The default target: the runtime image, unchanged.
+FROM runtime

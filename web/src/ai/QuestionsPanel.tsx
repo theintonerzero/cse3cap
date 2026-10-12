@@ -113,7 +113,7 @@ export function QuestionsPanel({
         described_by={hint ? hint_id : undefined}
         on_click={run}
       >
-        {ask_label}
+        {ask_label} <Badge kind="ai" inline />
       </Button>
       {hint && (
         <p className={styles.hint} id={hint_id}>

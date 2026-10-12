@@ -16,6 +16,13 @@ SCHEMA = {
     "required": ["questions"],
     "additionalProperties": False,
 }
+# What the API is sent: the counts are checked here, after the reply, instead.
+WIRE_SCHEMA = {
+    "type": "object",
+    "properties": {"questions": {"type": "array", "items": {"type": "string"}}},
+    "required": ["questions"],
+    "additionalProperties": False,
+}
 IN, OUT = Decimal("0.10") / 1_000_000, Decimal("0.50") / 1_000_000
 
 
@@ -67,7 +74,25 @@ async def test_sends_haiku_medium_effort_structured_output_and_no_tools(httpserv
     await gateway(httpserver, Ledger()).ask("coach", "system", "data", SCHEMA)
     body = json.loads(messages_calls(httpserver)[0].data)
     assert body["model"] == "claude-haiku-5-5" and "tools" not in body
-    assert body["output_config"] == {"effort": "medium", "format": {"type": "json_schema", "schema": SCHEMA}}
+    assert body["output_config"] == {"effort": "medium", "format": {"type": "json_schema", "schema": WIRE_SCHEMA}}
+
+
+async def test_the_schema_sent_carries_no_array_counts_the_api_rejects(httpserver: HTTPServer):
+    # Structured outputs answer 400 to minItems/maxItems ("For 'array' type,
+    # property 'maxItems' is not supported"): the counting call too, before a cent is spent.
+    httpserver.expect_request("/v1/messages", method="POST").respond_with_json(message(json.dumps({"questions": ["Why?"]})))
+    await gateway(httpserver, Ledger()).ask("coach", "system", "data", SCHEMA)
+    for request, _ in httpserver.log:
+        sent = json.loads(request.data)["output_config"]["format"]["schema"]
+        assert "minItems" not in json.dumps(sent) and "maxItems" not in json.dumps(sent), request.path
+
+
+async def test_too_many_items_is_still_invalid_reply(httpserver: HTTPServer):
+    four = ["One?", "Two?", "Three?", "Four?"]
+    httpserver.expect_request("/v1/messages", method="POST").respond_with_json(message(json.dumps({"questions": four})))
+    with pytest.raises(AiError) as e:
+        await gateway(httpserver, Ledger()).ask("coach", "s", "d", SCHEMA)
+    assert e.value.details == {"reason": "invalid_reply"}
 
 
 async def test_the_cap_refuses_before_claude_is_called(httpserver: HTTPServer):

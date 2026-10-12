@@ -36,6 +36,11 @@ test.describe('on the student’s assessed reflection', () => {
     expect(api.ai_calls.map((c) => c.route)).toEqual(['GET /status']);
   });
 
+  test('the button says it is AI before it is pressed', async ({ page }) => {
+    await page.goto(`/reflections/${ASSESSED}`);
+    await expect(page.getByRole('button', { name: ASK })).toHaveAccessibleName(`${ASK} AI`);
+  });
+
   test('loading, then the questions under a title naming the reviewer', async ({
     page,
     api,

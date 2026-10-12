@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/theintonerzero/cse3cap/security/advisories/new
+    about: Privately, as SECURITY.md describes. Please don't open a public issue.
+  - name: Run the product yourself
+    url: https://github.com/theintonerzero/cse3cap/blob/dev/docs/Assessor-Guide.md
+    about: One command, in Docker, with the seeded demo.

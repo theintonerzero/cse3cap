@@ -118,10 +118,12 @@ test('phone: the bar keeps back, title and name on one row', async ({ page }) =>
   }
 });
 
-test('phone: the floating Export button is fixed at the bottom right', async ({ page }) => {
+test('phone: the floating button is fixed at the bottom right', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
-  const box = (await page.getByRole('button', { name: 'Export record' }).boundingBox())!;
+  const box = (await page
+    .getByRole('link', { name: 'Your learning record' })
+    .boundingBox())!;
   expect(box.x + box.width).toBeLessThanOrEqual(390);
   expect(box.y + box.height).toBeLessThanOrEqual(844);
   expect(box.y + box.height).toBeGreaterThan(844 - 80);

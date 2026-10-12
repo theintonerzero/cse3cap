@@ -59,13 +59,14 @@ The point to make: the record belongs to the student and survives the subject.
    (ADR #58), so say it out loud here.
 3. Switch the picker to her other gig, **Data migration audit**: SFIA 9, a seven-point scale
    and six different skills, drawn by the same chart.
-4. **Your learning record ›**, under the list. Every gig Jane has written on, as a table of
-   competency against sprint, her score and her assessor's in each cell. Each gig keeps its
-   own scale. This is the record she keeps.
-5. **Export record**, the floating button at the bottom right. Pick **PDF** or **JSON**, press
-   **Request a PDF export** (or JSON), then **Download** when it is ready: the whole record,
-   every gig and every sprint, in one file. That is the guarantee the record is hers, not
-   the platform's.
+4. **Your learning record**, the floating button at the bottom right. Every gig Jane has
+   written on, as a table of competency against sprint, her score and her assessor's in each
+   cell, with each sprint's status over its column. Each gig keeps its own scale. This is the
+   record she keeps.
+5. **Export your record**, at the top of the record: the one place an export starts. Pick
+   **PDF** or **JSON**, press **Export as PDF** (or JSON), then **Download PDF** when it is
+   ready: the whole record, every gig and every sprint, in one file. That is the guarantee
+   the record is hers, not the platform's.
 6. **Gig details ›**, then **History**: every submission and assessment on that gig, dated.
    Show it here on Jane: Noor's reflections are still drafts, and a draft has no history yet.
 

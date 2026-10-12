@@ -8,5 +8,7 @@ api/storage
 web/dist
 web/test-results
 docs
+# The AI sidecar's test stage reads its contract (CAP-71).
+!docs/ai-openapi.yaml
 .claude
 .superpowers

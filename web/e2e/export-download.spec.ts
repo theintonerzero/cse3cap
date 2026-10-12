@@ -11,10 +11,17 @@
 import { test as base, expect } from '@playwright/test';
 
 import type { components, paths } from '../src/api/schema.ts';
-import { FakeApi, type GigDetail, type ReflectionSummary } from './fake-api.ts';
+import {
+  FakeApi,
+  type FrameworkDetail,
+  type GigDetail,
+  type ReflectionSummary,
+} from './fake-api.ts';
 
 type Me = components['schemas']['Me'];
 type Radar = paths['/me/radar']['get']['responses']['200']['content']['application/json'];
+type Progress =
+  paths['/me/progress']['get']['responses']['200']['content']['application/json'];
 type Seen =
   | { kind: 'click'; connected: boolean; download: string; at: number }
   | { kind: 'revoke'; at: number };
@@ -57,6 +64,44 @@ const REFLECTION: ReflectionSummary = {
   updated_at: '2026-08-14T10:00:00.000000Z',
 };
 
+// The learning record reads the gig's rubric and its progress (CAP-70: the
+// record is where an export starts).
+const RUBRIC: FrameworkDetail = {
+  id: FRAMEWORK,
+  fw_key: 'e2e-export',
+  version: 'v1',
+  name: 'E2E rubric',
+  created_by: null,
+  in_use: true,
+  assigned: true,
+  comment_required: true,
+  evidence_required: false,
+  accepted_file_types: ['pdf'],
+  max_file_bytes: 10485760,
+  scale: { min: 1, max: 4 },
+  competencies: [
+    {
+      id: id('0031'),
+      code: 'a',
+      name: 'A',
+      short_label: 'A',
+      category: null,
+      position: 1,
+      levels: [],
+    },
+  ],
+};
+
+const PROGRESS: Progress = {
+  competencies: [
+    {
+      code: 'a',
+      short_label: 'A',
+      series: [{ sprint_ordinal: 1, self: 3, counter: null }],
+    },
+  ],
+};
+
 const RADAR: Radar = {
   scope: { gig_id: null, sprint_id: null },
   framework: { id: FRAMEWORK, fw_key: 'e2e-export', scale_min: 1, scale_max: 4 },
@@ -78,8 +123,15 @@ const test = base.extend<{ api: FakeApi }>({
         display_name: 'Ash',
         participations: [{ gig_id: GIG, gig_title: GIG_DETAIL.title, role: 'student' }],
       };
-      const api = new FakeApi([], me, [GIG_DETAIL], [REFLECTION]);
+      const api = new FakeApi([RUBRIC], me, [GIG_DETAIL], [REFLECTION]);
       await api.install(page);
+      await page.route('**/api/v1/me/progress**', (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(PROGRESS),
+        }),
+      );
       await page.route('**/api/v1/me/radar**', (route) =>
         route.fulfill({
           status: 200,
@@ -119,19 +171,25 @@ test.beforeEach(async ({ page }) => {
 });
 
 async function openReady(page: import('@playwright/test').Page) {
-  await page.goto('/');
-  await page.getByRole('button', { name: /export record/i }).click();
-  await page.getByRole('button', { name: /^pdf$/i }).click();
-  await page.getByRole('button', { name: /request a pdf export/i }).click();
+  await page.goto('/record');
+  await page.getByRole('button', { name: 'Export your record' }).click();
+  await page.getByRole('radio', { name: /PDF/ }).check();
+  await page.getByRole('button', { name: 'Export as PDF' }).click();
 }
 
 const seenIn = (page: import('@playwright/test').Page) =>
   page.evaluate(() => (window as unknown as { __seen: Seen[] }).__seen);
 
+test('the ready state counts in words that agree with their numbers', async ({ page }) => {
+  await openReady(page);
+  await expect(page.getByRole('link', { name: /^download pdf$/i })).toBeVisible();
+  await expect(page.getByText(/^1 reflection · 1 sprint · /)).toBeVisible();
+});
+
 test('Download saves the PDF under its own name', async ({ page }) => {
   await openReady(page);
   const download = page.waitForEvent('download');
-  await page.getByRole('link', { name: /^download$/i }).click();
+  await page.getByRole('link', { name: /^download pdf$/i }).click();
   expect((await download).suggestedFilename()).toMatch(/^reflection-diary-.*\.pdf$/);
 });
 
@@ -140,14 +198,14 @@ test('Download saves the PDF under its own name', async ({ page }) => {
 // as the user's, inside a frame or not (CAP-56: Firefox 157 saved nothing).
 test('Download is a real link to the file, named for the download', async ({ page }) => {
   await openReady(page);
-  const link = page.getByRole('link', { name: /^download$/i });
+  const link = page.getByRole('link', { name: /^download pdf$/i });
   await expect(link).toHaveAttribute('href', /^blob:/);
   await expect(link).toHaveAttribute('download', /^reflection-diary-.*\.pdf$/);
 });
 
 test('no script clicks a link for the user', async ({ page }) => {
   await openReady(page);
-  await page.getByRole('link', { name: /^download$/i }).click();
+  await page.getByRole('link', { name: /^download pdf$/i }).click();
   await page.waitForTimeout(300);
   expect((await seenIn(page)).filter((s) => s.kind === 'click')).toEqual([]);
 });
@@ -156,20 +214,20 @@ test('while the file is fetched, Download waits and says so', async ({ page, api
   const release = api.hold('GET /exports/:id/download');
   await openReady(page);
   await expect(page.getByRole('button', { name: /preparing/i })).toBeDisabled();
-  await expect(page.getByRole('link', { name: /^download$/i })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: /^download pdf$/i })).toHaveCount(0);
   release();
-  await expect(page.getByRole('link', { name: /^download$/i })).toBeVisible();
+  await expect(page.getByRole('link', { name: /^download pdf$/i })).toBeVisible();
 });
 
 test('the file stays downloadable while the sheet is open, and is freed when it closes', async ({
   page,
 }) => {
   await openReady(page);
-  await page.getByRole('link', { name: /^download$/i }).click();
+  await page.getByRole('link', { name: /^download pdf$/i }).click();
   await page.waitForTimeout(1500);
   expect((await seenIn(page)).filter((s) => s.kind === 'revoke')).toEqual([]);
   await page.keyboard.press('Escape');
-  await expect(page.getByRole('link', { name: /^download$/i })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: /^download pdf$/i })).toHaveCount(0);
   await expect
     .poll(async () => (await seenIn(page)).filter((s) => s.kind === 'revoke').length)
     .toBe(1);

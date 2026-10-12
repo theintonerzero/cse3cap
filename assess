@@ -1,0 +1,426 @@
+#!/usr/bin/env bash
+#
+# The Reflection Diary on an assessor's machine (CAP-71, ADR #67): the whole
+# product in Docker with its own MySQL, the seeded demo, an optional AI on your
+# own Anthropic key, and every test suite. docs/Assessor-Guide.md explains it.
+#
+#   ./assess            build, start and seed, then print the address
+#   ./assess ai         add, replace or remove your Anthropic key, or change the cap
+#   ./assess test       the backend, AI and browser suites (or: test api|ai|web)
+#   ./assess reset      reseed the demo and empty the AI's tables
+#   ./assess smoke      check the running stack from outside
+#   ./assess status     what is running
+#   ./assess down       stop it (down --wipe also deletes its data and images)
+#
+# Generated passwords, Laravel's key and your Anthropic key live in .assess/,
+# which git ignores. None is ever put on a command line.
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$ROOT"
+STATE="$ROOT/.assess"
+COMPOSE_FILE="$ROOT/deploy/assess/compose.yml"
+[ -f db/01-schema.sql ] && [ -f "$COMPOSE_FILE" ] || { echo "Run this from the cse3cap repository." >&2; exit 1; }
+
+say()  { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
+ok()   { printf '    \033[32mok\033[0m    %s\n' "$*"; }
+warn() { printf '    \033[33m!!\033[0m    %s\n' "$*" >&2; }
+die()  { printf '\n\033[31mError:\033[0m %s\n' "$*" >&2; exit 1; }
+
+port() { printf '%s' "${ASSESS_PORT:-8080}"; }
+url()  { printf 'http://localhost:%s' "$(port)"; }
+
+# ---------------------------------------------------------------------------
+# Prerequisites
+# ---------------------------------------------------------------------------
+need_docker() {
+    command -v docker >/dev/null 2>&1 \
+        || die "Docker is not installed. Install Docker Desktop (https://docs.docker.com/get-docker/), start it, and run ./assess again."
+    docker info >/dev/null 2>&1 \
+        || die "Docker is installed but not running. Start Docker Desktop (or the docker service), then run ./assess again."
+    docker compose version >/dev/null 2>&1 \
+        || die "Docker Compose v2 is missing ('docker compose' is not a command here). Install Docker Desktop, or the docker-compose plugin, then run ./assess again."
+    # The images use BuildKit features (COPY --chmod), and Compose builds with Buildx.
+    docker buildx version >/dev/null 2>&1 \
+        || die "Docker Buildx is missing. Install Docker Desktop, or the docker-buildx plugin, then run ./assess again."
+}
+
+port_free() {
+    # Free only when the connection is refused (curl's 7). Anything else, an HTTP
+    # answer, a non-HTTP listener or a slow one, means something holds the port.
+    local rc=0
+    curl -s -o /dev/null --max-time 2 "http://127.0.0.1:$(port)/" 2>/dev/null || rc=$?
+    [ "$rc" = 7 ]
+}
+
+# ---------------------------------------------------------------------------
+# State: .assess/
+# ---------------------------------------------------------------------------
+secret() { LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 32; }
+
+write_private() { # write_private FILE: stdin to FILE, mode 600 from the start
+    local tmp
+    umask 077
+    tmp="$(mktemp "$1.XXXXXX")"
+    cat >"$tmp"
+    chmod 600 "$tmp"
+    mv "$tmp" "$1"
+}
+
+ensure_secrets() {
+    mkdir -p "$STATE"
+    chmod 700 "$STATE"
+    [ -f "$STATE/env" ] && return 0
+    {
+        printf 'ASSESS_DB_ROOT_PASSWORD=%s\n' "$(secret)"
+        printf 'ASSESS_DB_APP_PASSWORD=%s\n' "$(secret)"
+        printf 'ASSESS_DB_AI_PASSWORD=%s\n' "$(secret)"
+        printf 'ASSESS_DB_TEST_PASSWORD=%s\n' "$(secret)"
+        printf 'ASSESS_APP_KEY=base64:%s\n' "$(head -c 32 /dev/urandom | base64 | tr -d '\n')"
+    } | write_private "$STATE/env"
+}
+
+load_secrets() { set -a; . "$STATE/env"; set +a; }
+
+write_api_env() {
+    load_secrets
+    write_private "$STATE/api.env" <<EOF
+APP_NAME="Reflection Diary"
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=$(url)
+FRONTEND_URL=$(url)
+APP_KEY=$ASSESS_APP_KEY
+LOG_CHANNEL=stderr
+LOG_LEVEL=warning
+DB_CONNECTION=mysql
+DB_HOST=mysql
+DB_PORT=3306
+DB_DATABASE=reflection_diary_assess
+DB_USERNAME=diary_app
+DB_PASSWORD=$ASSESS_DB_APP_PASSWORD
+DB_COLLATION=utf8mb4_0900_ai_ci
+MYSQL_ATTR_SSL_CA=
+CACHE_STORE=file
+SESSION_DRIVER=file
+QUEUE_CONNECTION=sync
+EOF
+}
+
+ensure_ai_env() { # AI off until a key is given; the database URL is always there
+    load_secrets
+    [ -f "$STATE/ai.env" ] && return 0
+    write_private "$STATE/ai.env" <<EOF
+AI_ENABLED=false
+DIARY_API_BASE=http://diary-web/api/v1
+DATABASE_URL=mysql://diary_ai:$ASSESS_DB_AI_PASSWORD@mysql:3306/diary_ai
+DAILY_CAP_USD=1
+ANTHROPIC_API_KEY=
+EOF
+}
+
+ensure_personas() { # the web container serves this directory (compose.yml)
+    mkdir -p "$STATE/public"
+    [ -f "$STATE/public/personas.json" ] || printf '[]\n' | write_private "$STATE/public/personas.json"
+}
+
+ai_on() { grep -qx 'AI_ENABLED=true' "$STATE/ai.env" 2>/dev/null; }
+
+compose() { load_secrets; docker compose -f "$COMPOSE_FILE" "$@"; }
+
+# ---------------------------------------------------------------------------
+# Seeding: scripts/demo-reset.sh's steps, against this project only
+# ---------------------------------------------------------------------------
+seeded() {
+    # Seeded means users in the database and someone to sign in as: a seed whose
+    # persona step failed is not finished, so up runs it again.
+    grep -q '"token"' "$STATE/public/personas.json" 2>/dev/null || return 1
+    # Only the marker counts: on an empty database the probe prints an error whose
+    # digits (SQLSTATE, error code, port) would otherwise read as a user count.
+    local n
+    n="$(compose run --rm -T diary-api php artisan tinker --execute 'echo "users=".App\Models\User::count();' 2>/dev/null \
+        | sed -n 's/.*users=\([0-9][0-9]*\).*/\1/p' | head -n 1 || true)"
+    [ -n "$n" ] && [ "$n" -gt 0 ]
+}
+
+seed() {
+    local work
+    work="$(mktemp -d)"
+    chmod 700 "$work"
+    # EXIT, with the path expanded now: seed.txt holds tokens, and it must go on
+    # die too. A RETURN trap would fire on every later function's return.
+    trap "rm -rf '$work'" EXIT
+    say "Seeding the demo"
+    compose run --rm -T diary-api php artisan migrate:fresh --drop-views --seed --force --no-interaction --no-ansi \
+        >"$work/seed.txt" || die "Seeding failed. Run ./assess reset to try again, or ./assess down --wipe for a clean start."
+    compose run --rm -T diary-api php artisan tinker --execute '
+        require "/app/scripts/lib/demo-people.php";
+        foreach (DEMO_PEOPLE as [$id, $name]) {
+            $user = App\Models\User::where("display_name", $name)->first();
+            if ($user === null || $user->tokens()->exists()) { continue; }
+            $token = $user->createToken("demo", ["*"], now()->addDays(Database\Seeders\DemoSeeder::TOKEN_LIFETIME_DAYS));
+            echo $name, " ", $token->plainTextToken, PHP_EOL;
+        }' >>"$work/seed.txt" || warn "Tokens for the rest of the demo people were not issued; fewer people will be listed."
+    # The seed's output goes in on stdin, not a bind mount: a host temp dir is not
+    # shared into the Docker VM on every runtime (Colima, some Linux setups).
+    compose run --rm -T diary-api sh -c 'cat >/tmp/seed.txt && exec php /app/scripts/demo-personas.php /tmp/seed.txt' \
+        <"$work/seed.txt" >"$work/personas.json" && grep -q '"token"' "$work/personas.json" \
+        || die "The demo was seeded, but there is nobody to sign in as (above). Run ./assess reset to try again."
+    write_private "$STATE/public/personas.json" <"$work/personas.json"
+    compose run --rm -T diary-ai python -m sidecar.reset >/dev/null 2>&1 \
+        || warn "The AI's tables were not emptied; they fill again as the AI is used."
+    ok "seeded: $(grep -c '"token"' "$STATE/public/personas.json") people to sign in as"
+}
+
+wait_for_web() {
+    for _ in $(seq 1 60); do
+        curl -s -o /dev/null --max-time 2 "http://127.0.0.1:$(port)/up" && return 0
+        sleep 2
+    done
+    die "The app did not answer on $(url). See the logs: docker compose -f deploy/assess/compose.yml logs"
+}
+
+# ---------------------------------------------------------------------------
+# Commands
+# ---------------------------------------------------------------------------
+cmd_up() {
+    need_docker
+    ensure_secrets
+    write_api_env
+    ensure_ai_env
+    ensure_personas
+    if [ -z "$(compose ps -q diary-web 2>/dev/null)" ] && ! port_free; then
+        die "Port $(port) is in use. Free it, or choose another: ASSESS_PORT=8090 ./assess"
+    fi
+    say "Building and starting (the first run takes 5-10 minutes)"
+    compose build || die "A build failed (above). Check Docker has 4 GB of memory and a network, then run ./assess again."
+    compose up -d mysql || die "MySQL did not start (above)."
+    seeded || seed
+    compose up -d || die "The stack did not start (above)."
+    wait_for_web
+    ai_offer
+    print_ready
+}
+
+print_ready() {
+    say "Ready"
+    printf '    Open %s and pick a person to sign in as.\n' "$(url)"
+    printf '    Jane N is a student on both gigs; Sam O assesses; Dr Lee supervises.\n'
+    if ai_on; then
+        printf '    AI: on, your key, capped at US$%s a day.\n' "$(sed -n 's/^DAILY_CAP_USD=//p' "$STATE/ai.env")"
+    else
+        printf '    AI: off. ./assess ai turns it on with your own Anthropic key.\n'
+    fi
+    printf '    Tests: ./assess test    Stop: ./assess down\n'
+}
+
+cmd_status() {
+    ensure_secrets
+    ensure_ai_env
+    ensure_personas
+    say "Status"
+    if [ -n "$(compose ps -q diary-web 2>/dev/null)" ]; then ok "running at $(url)"; else warn "not running: ./assess"; fi
+    if ai_on; then ok "AI on"; else ok "AI off"; fi
+}
+
+cmd_down() {
+    need_docker
+    ensure_secrets
+    ensure_ai_env
+    ensure_personas
+    if [ "${1:-}" = "--wipe" ]; then
+        compose --profile test down --volumes --rmi local
+        # --rmi local skips tagged images, and every image this project builds is tagged.
+        docker image rm -f diary-assess-api:local diary-assess-web:local diary-assess-ai:local \
+            diary-assess-api-test:local diary-assess-ai-test:local >/dev/null 2>&1 || true
+        rm -rf "$STATE"
+        ok "stopped, and its database, images and .assess/ deleted"
+    else
+        compose --profile test down
+        ok "stopped. ./assess starts it again with the same data"
+    fi
+}
+
+set_ai_var() { # set_ai_var NAME VALUE: the value travels in the environment, never argv
+    local tmp
+    tmp="$(mktemp "$STATE/ai.env.XXXXXX")"
+    NAME="$1" VALUE="$2" awk 'BEGIN { n = ENVIRON["NAME"]; v = ENVIRON["VALUE"] }
+        index($0, n "=") == 1 { print n "=" v; done = 1; next } { print }
+        END { if (!done) print n "=" v }' "$STATE/ai.env" >"$tmp"
+    chmod 600 "$tmp"
+    mv "$tmp" "$STATE/ai.env"
+}
+
+check_key() { # check_key KEY: asks Anthropic, never puts the key on a command line
+    local hdr body code
+    hdr="$(mktemp)"; body="$(mktemp)"; chmod 600 "$hdr" "$body"
+    printf 'x-api-key: %s\nanthropic-version: 2023-06-01\n' "$1" >"$hdr"
+    code="$(curl -s -o "$body" -w '%{http_code}' --max-time 20 -H @"$hdr" https://api.anthropic.com/v1/models || true)"
+    rm -f "$hdr"
+    if [ "$code" = 200 ]; then rm -f "$body"; return 0; fi
+    warn "Anthropic answered $code: $(sed -n 's/.*"message": *"\([^"]*\)".*/\1/p' "$body" | head -n 1)"
+    if grep -q 'workspace' "$body"; then
+        warn "Make the key inside a workspace: Anthropic Console > Settings > Workspaces > API keys."
+    fi
+    rm -f "$body"
+    return 1
+}
+
+restart_ai() {
+    # Stopped: the new settings apply when ./assess next starts it.
+    [ -n "$(compose ps -q diary-ai 2>/dev/null)" ] || { ok "saved; it applies when the stack next starts (./assess)"; return 0; }
+    compose up -d --no-deps --force-recreate diary-ai >/dev/null
+    local want code
+    if ai_on; then want=401; else want=404; fi
+    for _ in $(seq 1 60); do
+        code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 "http://127.0.0.1:$(port)/ai/v1/status" || true)"
+        if [ "$code" = "$want" ]; then ok "the AI answers $code ($(ai_on && echo on || echo off))"; return 0; fi
+        sleep 3
+    done
+    warn "The AI did not answer $want yet (it loads a model on first start). ./assess smoke checks again."
+}
+
+read_key() { # prints the pasted key, whitespace stripped; nothing when skipped
+    local key="" use=""
+    if [ -n "${ANTHROPIC_API_KEY:-}" ] && [ -z "${ASSESS_NO_TTY:-}" ]; then
+        read -r -p "    Use the key in ANTHROPIC_API_KEY? [Y/n] " use </dev/tty
+        if [[ "$use" != [nN]* ]]; then printf '%s' "$ANTHROPIC_API_KEY" | tr -d '[:space:]'; return; fi
+    fi
+    if [ -n "${ASSESS_NO_TTY:-}" ]; then read -r key || true
+    else read -rs -p "    Paste an Anthropic API key, or press Enter to skip: " key </dev/tty; echo >&2; fi
+    printf '%s' "$key" | tr -d '[:space:]'
+}
+
+take_key() { # asks, checks and saves; returns 1 if skipped or refused
+    local key
+    key="$(read_key)"
+    if [ -z "$key" ]; then ok "skipped: the AI stays off"; return 1; fi
+    check_key "$key" || { warn "nothing saved"; return 1; }
+    set_ai_var ANTHROPIC_API_KEY "$key"
+    set_ai_var AI_ENABLED true
+    ok "key accepted and saved to .assess/ai.env"
+    printf '    Try it: Noor on her draft, or Jane starting sprint 3 (Ask me questions); Tom on an\n'
+    printf '    assessed reflection (Think about the difference); Sam in the review queue (search, themes).\n'
+}
+
+ai_offer() { # first run only
+    [ -f "$STATE/ai-offered" ] && return 0
+    : | write_private "$STATE/ai-offered"
+    say "AI features (optional)"
+    printf '    The coach, calibration questions, similar reflections, search and themes.\n'
+    printf '    They use your own Anthropic key, capped at US$1 a day.\n'
+    if take_key; then restart_ai; fi
+}
+
+cmd_ai() {
+    ensure_secrets
+    ensure_ai_env
+    ensure_personas
+    case "${1:-}" in
+        --cap)
+            [[ "${2:-}" =~ ^[0-9]+([.][0-9]+)?$ ]] || die "--cap takes a number of US dollars a day, e.g. ./assess ai --cap 5"
+            set_ai_var DAILY_CAP_USD "$2"; ok "cap: US\$$2 a day"; restart_ai; return ;;
+        --off)
+            set_ai_var ANTHROPIC_API_KEY ""; set_ai_var AI_ENABLED false; ok "key removed, AI off"; restart_ai; return ;;
+        "") ;;
+        *) die "./assess ai takes --cap N or --off, or nothing to choose." ;;
+    esac
+    say "AI"
+    if ai_on; then
+        printf '    on · key …%s · cap US$%s a day\n' "$(sed -n 's/^ANTHROPIC_API_KEY=.*\(....\)$/\1/p' "$STATE/ai.env")" \
+            "$(sed -n 's/^DAILY_CAP_USD=//p' "$STATE/ai.env")"
+    else
+        printf '    off\n'
+    fi
+    printf '    1) add or replace the key   2) change the cap   3) turn the AI off   Enter) leave it\n'
+    local choice="" cap=""
+    if [ -n "${ASSESS_NO_TTY:-}" ]; then read -r choice || true; else read -r -p "    > " choice </dev/tty; fi
+    case "$choice" in
+        1) if take_key; then restart_ai; fi ;;
+        2) if [ -n "${ASSESS_NO_TTY:-}" ]; then read -r cap || true; else read -r -p "    US\$ a day: " cap </dev/tty; fi
+           cmd_ai --cap "$cap" ;;
+        3) cmd_ai --off ;;
+        *) ok "unchanged" ;;
+    esac
+}
+
+http_code() { curl -s -o /dev/null -w '%{http_code}' --max-time 5 "$@"; }
+
+cmd_smoke() {
+    ensure_secrets
+    ensure_ai_env
+    ensure_personas
+    local base fails=0 people token hdr code want
+    base="http://127.0.0.1:$(port)"
+    say "Smoke"
+    if [ "$(http_code "$base/")" = 200 ]; then ok "the page loads"; else warn "the page does not load"; fails=1; fi
+    if [ "$(http_code "$base/up")" = 200 ]; then ok "/up answers"; else warn "/up does not answer"; fails=1; fi
+    # || true: no match is an answer here (0 people), not a reason to stop.
+    people="$(curl -s --max-time 5 "$base/demo/personas.json" | grep -o '"token"' | wc -l | tr -d ' ' || true)"
+    if [ "$people" = 6 ]; then ok "personas.json lists $people people"
+    else warn "personas.json lists ${people:-0} people, not 6"; fails=1; fi
+    # The token goes in a header read from a 0600 file, never on the command line.
+    token="$(sed -n 's/.*"token": *"\([^"]*\)".*/\1/p' "$STATE/public/personas.json" | head -n 1 || true)"
+    hdr="$(mktemp)"
+    chmod 600 "$hdr"
+    printf 'Authorization: Bearer %s\n' "$token" >"$hdr"
+    code="$(http_code -H @"$hdr" "$base/api/v1/auth/me")"
+    rm -f "$hdr"
+    if [ "$code" = 200 ]; then ok "a persona's token reads /api/v1/auth/me"
+    else warn "/api/v1/auth/me answered $code to a persona"; fails=1; fi
+    code="$(http_code "$base/ai/v1/status")"
+    if ai_on; then want=401; else want=404; fi
+    if [ "$code" = "$want" ]; then ok "/ai/v1/status answers $code (AI $(ai_on && echo on || echo off))"
+    else warn "/ai/v1/status answered $code, wanted $want"; fails=1; fi
+    [ "$fails" = 0 ] || die "Smoke failed (above)."
+}
+
+cmd_test() {
+    need_docker
+    ensure_secrets
+    write_api_env
+    ensure_ai_env
+    ensure_personas
+    local suites=(api ai web) results=() failed=0 s line="" r
+    if [ -n "${1:-}" ]; then
+        case "$1" in
+            api|ai|web) suites=("$1") ;;
+            *) die "./assess test takes api, ai or web, or nothing for all three." ;;
+        esac
+    fi
+    compose up -d mysql >/dev/null || die "MySQL did not start (above)."
+    for s in "${suites[@]}"; do
+        say "Tests: $s"
+        if compose --profile test run --rm --build "$s-test"; then results+=("$s passed")
+        else results+=("$s FAILED"); failed=1; fi
+    done
+    say "Summary"
+    for r in "${results[@]}"; do line="${line:+$line · }$r"; done
+    printf '    %s\n' "$line"
+    [ "$failed" = 0 ] || exit 1
+}
+
+cmd_reset() {
+    need_docker
+    ensure_secrets
+    write_api_env
+    ensure_ai_env
+    ensure_personas
+    compose up -d mysql >/dev/null || die "MySQL did not start (above)."
+    seed
+    compose up -d >/dev/null || die "The stack did not start (above)."
+    ok "reset: everyone signed in must reload the page"
+}
+
+case "${1:-up}" in
+    up)     cmd_up ;;
+    status) cmd_status ;;
+    smoke)  cmd_smoke ;;
+    ai)     shift; cmd_ai "$@" ;;
+    test)   shift; cmd_test "${1:-}" ;;
+    reset)  cmd_reset ;;
+    down)   shift; cmd_down "${1:-}" ;;
+    -h|--help|help) sed -n '3,16p' "$0" | sed 's/^# \{0,1\}//' ;;
+    *) die "Unknown command '$1'. ./assess help lists them." ;;
+esac
