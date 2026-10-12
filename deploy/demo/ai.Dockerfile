@@ -30,7 +30,9 @@ RUN python -c "from fastembed import TextEmbedding; TextEmbedding(model_name='BA
 COPY --chown=sidecar ai/sidecar ./sidecar
 # The roots the diary_ai connection verifies the database's name against, the
 # API's own (db/letsencrypt-roots.pem), so DATABASE_CA has a file to name.
-COPY db/letsencrypt-roots.pem /app/db/letsencrypt-roots.pem
+# 644 whatever the checkout's mode: git tracks only the executable bit, and a
+# 600 copy on the box once left the sidecar user unable to read it.
+COPY --chmod=644 db/letsencrypt-roots.pem /app/db/letsencrypt-roots.pem
 
 EXPOSE 8000
 CMD ["uvicorn", "sidecar.app:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
