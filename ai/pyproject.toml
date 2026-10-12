@@ -1,6 +1,6 @@
 [project]
 name = "diary-ai"
-version = "1.1.0"
+version = "1.1.1"
 description = "The Reflection Diary's AI sidecar (ADR #64). Off unless AI_ENABLED is set."
 requires-python = ">=3.12,<3.13"
 dependencies = [

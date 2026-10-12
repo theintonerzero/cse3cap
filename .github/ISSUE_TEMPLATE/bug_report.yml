@@ -27,7 +27,7 @@ body:
     id: version
     attributes:
       label: Version or commit
-      placeholder: v1.1.0, or a commit hash
+      placeholder: v1.1.1, or a commit hash
   - type: dropdown
     id: where
     attributes:

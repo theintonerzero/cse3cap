@@ -43,7 +43,7 @@ A live demo also runs at <https://diary.darkovski.dev>, behind a password the te
 | Frontend | **Complete.** Every screen in the build scope, with 453 Playwright browser checks in 64 spec files |
 | AI sidecar | **Built, off unless enabled.** Asks questions and finds related reflections, never writes ([ADR #64](docs/adr/architecture-decision-records.md)). 131 tests. On in the live demo |
 | Assessor setup | One command, in Docker ([ADR #67](docs/adr/architecture-decision-records.md)) |
-| Release | **v1.1.0**, 12 October 2026. Changes are in [`CHANGELOG.md`](CHANGELOG.md) |
+| Release | **v1.1.1**, 12 October 2026. Changes are in [`CHANGELOG.md`](CHANGELOG.md) |
 
 The item-by-item checklist is [`docs/Stack-and-Build-Scope.md`](docs/Stack-and-Build-Scope.md).
 
