@@ -167,7 +167,7 @@ check("no secret reached a command line", not any(p in read(d / "calls.log") for
 # seeded or not is the database's answer, not a marker file (Review Focus 2)
 UP_DOCKER = """
 case "$*" in
-  *"User::count"*) echo "$USERS" ;;
+  *"User::count"*) echo "users=$USERS" ;;
   *"demo-personas.php"*) echo '[{"token":"a"},{"token":"b"}]' ;;
   *) exit 0 ;;
 esac"""
@@ -190,8 +190,8 @@ case "$*" in
   *) echo 200 ;;
 esac"""
 d = sandbox("exit 0", SMOKE_CURL)
-(d / "repo" / ".assess").mkdir()
-(d / "repo" / ".assess" / "personas.json").write_text('[\n    {\n        "name": "Jane N",\n        "token": "1|smokeTOKENsecret"\n    }\n]\n')
+(d / "repo" / ".assess" / "public").mkdir(parents=True)
+(d / "repo" / ".assess" / "public" / "personas.json").write_text('[\n    {\n        "name": "Jane N",\n        "token": "1|smokeTOKENsecret"\n    }\n]\n')
 r = run_assess(d, "smoke")
 check("smoke: passes when the stack answers as expected", r.returncode == 0 and "6 people" in r.stdout, r.stdout + r.stderr)
 check("smoke: a persona's token never reaches a command line", "smokeTOKENsecret" not in read(d / "calls.log"))
@@ -270,6 +270,35 @@ check(
     bash_cmds == ps_cmds and len(bash_cmds) == 7,
     f"bash {sorted(bash_cmds)} ps1 {sorted(ps_cmds)}",
 )
+
+# Found by the first real run (Task 9): an empty database's error text is not a count.
+d = sandbox("""
+case "$*" in
+  *"User::count"*) echo "Illuminate\\Database\\QueryException SQLSTATE[42S02]: 1146 Table 'x.users' doesn't exist (Port: 3306)" ;;
+  *"demo-personas.php"*) echo '[{"token":"a"}]' ;;
+  *) exit 0 ;;
+esac""", UP_CURL)
+r = run_assess(d, "up", stdin="\n")
+check("up seeds when the count probe errors (no users table yet)", r.returncode == 0 and "migrate:fresh" in read(d / "calls.log"),
+      r.stdout[-300:] + r.stderr[-300:])
+d = sandbox("exit 0", SMOKE_CURL.replace(
+    """echo '[{"token":"t1"},{"token":"t2"},{"token":"t3"},{"token":"t4"},{"token":"t5"},{"token":"t6"}]'""", "echo '[]'"))
+r = run_assess(d, "smoke")
+check("smoke with no personas says so, then fails, rather than dying silently",
+      r.returncode != 0 and "lists 0 people" in r.stderr and "Smoke failed" in r.stderr, r.stdout + r.stderr)
+
+# Found by the first real run (Task 9): a host temp dir is not shared into the Docker VM
+# on every runtime (Colima, some Linux setups), so the seed's output goes in on stdin.
+for driver in ("assess", "assess.ps1"):
+    text = read(ROOT / driver)
+    check(f"{driver} bind-mounts no host path into a compose run", re.search(r"run --rm[^\n]*\s-v\s", text) is None,
+          re.findall(r".*run --rm[^\n]*\s-v\s.*", text))
+
+# Found by the real run (Task 9): a file bind mount keeps the file it was started with,
+# and the drivers replace personas.json atomically, so the web container serves a directory.
+check("diary-web mounts .assess/public as a directory, not personas.json as a file",
+      "../../.assess/public:/srv/demo:ro" in compose and "personas.json:/srv" not in compose,
+      re.findall(r".*/srv/demo.*", compose))
 
 # ---------------------------------------------------------------------------
 print()

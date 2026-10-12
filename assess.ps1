@@ -113,7 +113,10 @@ function Ensure-AiEnv {
     ) -join "`n") + "`n")
 }
 
-function Ensure-Personas { if (-not (Test-Path "$State/personas.json")) { Write-Private "$State/personas.json" "[]`n" } }
+function Ensure-Personas { # the web container serves this directory (compose.yml)
+    if (-not (Test-Path "$State/public")) { New-Item -ItemType Directory -Force -Path "$State/public" | Out-Null }
+    if (-not (Test-Path "$State/public/personas.json")) { Write-Private "$State/public/personas.json" "[]`n" }
+}
 function Ensure-State { Ensure-Secrets; Write-ApiEnv; Ensure-AiEnv; Ensure-Personas }
 function Compose { Load-Secrets; docker compose -f $ComposeFile @args }
 
@@ -127,8 +130,9 @@ function Code($Uri, $Headers = @{}) {
 # Seeding: scripts/demo-reset.sh's steps, against this project only
 # ---------------------------------------------------------------------------
 function Seeded {
-    $n = (Compose run --rm -T diary-api php artisan tinker --execute 'echo App\Models\User::count();' 2>$null) -join '' -replace '\D', ''
-    $n -and [int]$n -gt 0
+    # Only the marker counts: an empty database's error text carries digits too.
+    $out = (Compose run --rm -T diary-api php artisan tinker --execute 'echo "users=".App\Models\User::count();' 2>$null) -join ''
+    if ($out -match 'users=(\d+)') { [int]$Matches[1] -gt 0 } else { $false }
 }
 
 function Seed {
@@ -140,11 +144,12 @@ function Seed {
         if ($LASTEXITCODE -ne 0) { Die 'Seeding failed. Run .\assess.ps1 reset to try again, or .\assess.ps1 down --wipe for a clean start.' }
         $php = 'require "/app/scripts/lib/demo-people.php"; foreach (DEMO_PEOPLE as [$id, $name]) { $user = App\Models\User::where("display_name", $name)->first(); if ($user === null || $user->tokens()->exists()) { continue; } $token = $user->createToken("demo", ["*"], now()->addDays(Database\Seeders\DemoSeeder::TOKEN_LIFETIME_DAYS)); echo $name, " ", $token->plainTextToken, PHP_EOL; }'
         Compose run --rm -T diary-api php artisan tinker --execute $php | Add-Content "$work/seed.txt"
-        $json = Compose run --rm -T -v "${work}:/seed:ro" diary-api php /app/scripts/demo-personas.php /seed/seed.txt
-        Write-Private "$State/personas.json" (($json -join "`n") + "`n")
+        # On stdin, not a bind mount: a host temp dir is not shared into every Docker VM.
+        $json = Get-Content "$work/seed.txt" | Compose run --rm -T diary-api sh -c 'cat >/tmp/seed.txt && exec php /app/scripts/demo-personas.php /tmp/seed.txt'
+        Write-Private "$State/public/personas.json" (($json -join "`n") + "`n")
         Compose run --rm -T diary-ai python -m sidecar.reset *> $null
         if ($LASTEXITCODE -ne 0) { Warn "The AI's tables were not emptied; they fill again as the AI is used." }
-        Ok "seeded: $(([regex]::Matches((Get-Content "$State/personas.json" -Raw), '"token"')).Count) people to sign in as"
+        Ok "seeded: $(([regex]::Matches((Get-Content "$State/public/personas.json" -Raw), '"token"')).Count) people to sign in as"
     }
     finally { Remove-Item -Recurse -Force $work }
 }
@@ -295,7 +300,7 @@ switch ($Command) {
         if ((Code "$base/up") -eq 200) { Ok '/up answers' } else { Warn '/up does not answer'; $fails++ }
         $people = try { @(Invoke-RestMethod "$base/demo/personas.json" -TimeoutSec 5).Count } catch { 0 }
         if ($people -eq 6) { Ok "personas.json lists $people people" } else { Warn "personas.json lists $people people, not 6"; $fails++ }
-        $personas = @(Get-Content "$State/personas.json" -Raw | ConvertFrom-Json)
+        $personas = @(Get-Content "$State/public/personas.json" -Raw | ConvertFrom-Json)
         $token = if ($personas.Count -gt 0) { $personas[0].token } else { '' }
         $code = Code "$base/api/v1/auth/me" @{ Authorization = "Bearer $token" }
         if ($code -eq 200) { Ok "a persona's token reads /api/v1/auth/me" } else { Warn "/api/v1/auth/me answered $code to a persona"; $fails++ }

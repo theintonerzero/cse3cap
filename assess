@@ -120,7 +120,10 @@ ANTHROPIC_API_KEY=
 EOF
 }
 
-ensure_personas() { [ -f "$STATE/personas.json" ] || printf '[]\n' | write_private "$STATE/personas.json"; }
+ensure_personas() { # the web container serves this directory (compose.yml)
+    mkdir -p "$STATE/public"
+    [ -f "$STATE/public/personas.json" ] || printf '[]\n' | write_private "$STATE/public/personas.json"
+}
 
 ai_on() { grep -qx 'AI_ENABLED=true' "$STATE/ai.env" 2>/dev/null; }
 
@@ -130,8 +133,11 @@ compose() { load_secrets; docker compose -f "$COMPOSE_FILE" "$@"; }
 # Seeding: scripts/demo-reset.sh's steps, against this project only
 # ---------------------------------------------------------------------------
 seeded() {
+    # Only the marker counts: on an empty database the probe prints an error whose
+    # digits (SQLSTATE, error code, port) would otherwise read as a user count.
     local n
-    n="$(compose run --rm -T diary-api php artisan tinker --execute 'echo App\Models\User::count();' 2>/dev/null | tr -dc '0-9')"
+    n="$(compose run --rm -T diary-api php artisan tinker --execute 'echo "users=".App\Models\User::count();' 2>/dev/null \
+        | sed -n 's/.*users=\([0-9][0-9]*\).*/\1/p' | head -n 1 || true)"
     [ -n "$n" ] && [ "$n" -gt 0 ]
 }
 
@@ -153,11 +159,13 @@ seed() {
             $token = $user->createToken("demo", ["*"], now()->addDays(Database\Seeders\DemoSeeder::TOKEN_LIFETIME_DAYS));
             echo $name, " ", $token->plainTextToken, PHP_EOL;
         }' >>"$work/seed.txt"
-    compose run --rm -T -v "$work:/seed:ro" diary-api php /app/scripts/demo-personas.php /seed/seed.txt \
-        | write_private "$STATE/personas.json"
+    # The seed's output goes in on stdin, not a bind mount: a host temp dir is not
+    # shared into the Docker VM on every runtime (Colima, some Linux setups).
+    compose run --rm -T diary-api sh -c 'cat >/tmp/seed.txt && exec php /app/scripts/demo-personas.php /tmp/seed.txt' \
+        <"$work/seed.txt" | write_private "$STATE/public/personas.json"
     compose run --rm -T diary-ai python -m sidecar.reset >/dev/null 2>&1 \
         || warn "The AI's tables were not emptied; they fill again as the AI is used."
-    ok "seeded: $(grep -c '"token"' "$STATE/personas.json") people to sign in as"
+    ok "seeded: $(grep -c '"token"' "$STATE/public/personas.json") people to sign in as"
 }
 
 wait_for_web() {
@@ -340,11 +348,12 @@ cmd_smoke() {
     say "Smoke"
     if [ "$(http_code "$base/")" = 200 ]; then ok "the page loads"; else warn "the page does not load"; fails=1; fi
     if [ "$(http_code "$base/up")" = 200 ]; then ok "/up answers"; else warn "/up does not answer"; fails=1; fi
-    people="$(curl -s --max-time 5 "$base/demo/personas.json" | grep -o '"token"' | wc -l | tr -d ' ')"
+    # || true: no match is an answer here (0 people), not a reason to stop.
+    people="$(curl -s --max-time 5 "$base/demo/personas.json" | grep -o '"token"' | wc -l | tr -d ' ' || true)"
     if [ "$people" = 6 ]; then ok "personas.json lists $people people"
     else warn "personas.json lists ${people:-0} people, not 6"; fails=1; fi
     # The token goes in a header read from a 0600 file, never on the command line.
-    token="$(sed -n 's/.*"token": *"\([^"]*\)".*/\1/p' "$STATE/personas.json" | head -n 1)"
+    token="$(sed -n 's/.*"token": *"\([^"]*\)".*/\1/p' "$STATE/public/personas.json" | head -n 1 || true)"
     hdr="$(mktemp)"
     chmod 600 "$hdr"
     printf 'Authorization: Bearer %s\n' "$token" >"$hdr"

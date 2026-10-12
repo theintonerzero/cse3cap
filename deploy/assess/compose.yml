@@ -44,7 +44,9 @@ services:
     ports:
       - "127.0.0.1:${ASSESS_PORT:-8080}:80"
     volumes:
-      - ../../.assess/personas.json:/srv/demo/personas.json:ro
+      # A directory, not the file: ./assess replaces personas.json atomically, and a
+      # file bind mount would keep serving the one it started with.
+      - ../../.assess/public:/srv/demo:ro
     depends_on:
       - diary-api
 
